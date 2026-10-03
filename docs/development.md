@@ -31,6 +31,19 @@ The 2026-09-30 live GitHub probes were run separately from `.tools/` in the boot
 
 To repeat live validation, follow [GitHub App setup](github-app-setup.md) and the [release smoke checklist](release-smoke.md) with a separately authorized account and disposable trip data. Each machine authorizes Jourfold independently. Any future automated live-service workflow needs explicit opt-in and dedicated credentials; it must not depend on a contributor's desktop session.
 
+## Interface structure
+
+`src/Jourfold.Desktop` is organised by role:
+
+- `Theme/` holds the design system. `Tokens.axaml` defines colours for light and dark (deep navy) themes, radii and the per-category schedule colours. `Controls.axaml` styles Fluent controls and defines the button, text and surface classes used everywhere. High contrast overrides the same token keys at window level.
+- `Theme/Icons.axaml` and `Theme/Brand.axaml` are generated. Icons come from [Lucide](https://lucide.dev) `lucide-static` 1.51.0 (ISC, see `licenses/lucide`): download the SVGs you need into a folder and run `python3 eng/icons.py <folder> src/Jourfold.Desktop/Theme/Icons.axaml`. Brand drawings are generated from the canonical SVGs with `python3 eng/brand.py assets/branding src/Jourfold.Desktop/Theme/Brand.axaml`.
+- `Controls/` contains the `Icon` control, the `Ui` factory used by code-built views, and inline `Editors` for the inspector.
+- `Views/` builds the shell, library, timetable, list, map, collection pages, history, variants and inspector from the view model. Views never pick colours directly; they reference tokens.
+- `Dialogs/` implements `IInteraction` with in-window sheets. Tests replace it with `TestInteraction`.
+- `MainViewModel*.cs` is split by concern: trips, editing, versions, sync and settings. Domain rules stay in TravelRepo; entity building for Quick Add and the sample trip live in `Jourfold.Application`.
+
+Strings live in `Strings/en.json` and `Strings/de.json`. Both files must have the same keys; a test checks parity.
+
 ## UI screenshots
 
 Run the standalone [screenshot capture tool](screenshots.md) after frontend changes. It uses a synthetic local trip and does not connect to GitHub. Screenshot capture is separate from the default test suite and CI.

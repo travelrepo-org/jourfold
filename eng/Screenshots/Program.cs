@@ -36,7 +36,6 @@ CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.DefaultThreadCurrentCult
 try
 {
     // Synthetic sample data: real place names, invented times, bookings and prices.
-    Console.Error.WriteLine("creating sample");
     var start = new LocalDate(2027, 5, 14);
     var trip = Path.Combine(temporary, "Spring in Japan");
     await SampleTrip.CreateAsync(trip, new GitCliBackend(), start, "Alex", "alex@example.invalid", Path.Combine(temporary, "recovery"));
@@ -44,17 +43,13 @@ try
     var aachen = Entity.CreateTrip("Weekend in Aachen", "en", "Europe/Berlin"); aachen.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = "2027-09-17", ["end"] = "2027-09-19" };
     await second.InitializeAsync(aachen); await new GitRepository(second, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid");
 
-    Console.Error.WriteLine("starting session");
     using var session = HeadlessUnitTestSession.StartNew(typeof(ScreenshotApplication));
     await session.Dispatch(async () =>
     {
-        Console.Error.WriteLine("dispatch");
-        MainWindow window;
-        try { window = new MainWindow { Width = 1440, Height = 900 }; }
-        catch (Exception ex) { Console.Error.WriteLine(ex); throw; }
+        var window = new MainWindow { Width = 1440, Height = 900 };
         try
         {
-            Console.Error.WriteLine("show"); window.Show(); Console.Error.WriteLine("shown");
+            window.Show();
             var m = window.Model;
             m.Store.Set("identity.name", "Alex"); m.Store.Set("identity.email", "alex@example.invalid");
             if (language == "de") m.SetPreference("Language", "de");

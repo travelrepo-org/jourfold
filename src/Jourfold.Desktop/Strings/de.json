@@ -835,5 +835,6 @@
   "ExportBudget": "Budget",
   "ExportRef": "Ref.",
   "ExportFooter": "Aus Jourfold exportiert. Die Reise selbst ist ein offener TravelRepo-Ordner.",
-  "LocateFolder": "Ordner suchen …"
+  "LocateFolder": "Ordner suchen …",
+  "NothingPlannedYet": "Noch nichts geplant"
 }

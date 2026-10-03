@@ -133,11 +133,12 @@ public static class LibraryView
             {
                 var (start, end) = TripQueries.EffectiveDates(data.Trip);
                 dates.Text = Formats.DateRange(start, end) is { Length: > 0 } range ? range : s["NoDatesYet"];
-                places.Text = string.Join(" · ", TripSummaries.PlaceNames(data.Trip, 3)) is { Length: > 0 } names ? names : string.Format(s["ItemsCount"], data.Trip.Entities.Values.Count(e => e.Type == "schedule_item"));
+                var planned = data.Trip.Entities.Values.Count(e => e.Type == "schedule_item");
+                places.Text = string.Join(" · ", TripSummaries.PlaceNames(data.Trip, 3)) is { Length: > 0 } names ? names : planned == 0 ? s["NothingPlannedYet"] : string.Format(s["ItemsCount"], planned);
                 title.Text = data.Trip.Manifest.Title;
                 if (SidebarView.CoverImage(data.Repository, data.Trip) is { } image) { cover.Children.Clear(); cover.Children.Add(new Image { Source = image, Stretch = Stretch.UniformToFill, Height = 136 }); }
                 if (SampleTrip.IsSample(data.Trip)) cover.Children.Add(Ui.Pill(s["SampleTrip"], "sparkles", "Bg.Surface", "Text").Margin(12));
-                var people = data.Trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).ToArray();
+                var people = data.Trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
                 if (people.Length > 0) cover.Children.Add(Ui.AvatarStack(people, 26).Also(a => { a.HorizontalAlignment = HorizontalAlignment.Right; a.VerticalAlignment = VerticalAlignment.Bottom; a.Margin = new Thickness(12); }));
             });
         }, TaskScheduler.Default);

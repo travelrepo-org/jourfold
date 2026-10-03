@@ -18,3 +18,7 @@ The generated `licenses/dependencies.json` enumerates resolved packages and thei
 - Markdig: BSD-2-Clause, https://github.com/xoofx/markdig. Used for local CommonMark parsing; no remote content is executed.
 
 TravelRepo specifications and schemas copied into this repository retain their Apache-2.0 license. The full license is included as `licenses/TravelRepo-Apache-2.0.txt` in source and packages.
+
+- Lucide icons (lucide-static 1.51.0): ISC License, https://lucide.dev. The license is included as `licenses/lucide/LICENSE`. Icon outlines are converted into `src/Jourfold.Desktop/Theme/Icons.axaml`.
+- Map images and address search, when the user enables online maps, come from OpenStreetMap. Map data © OpenStreetMap contributors, available under the Open Database License (https://www.openstreetmap.org/copyright). No OpenStreetMap data is bundled.
+

@@ -13,3 +13,15 @@ Inject `HttpClient` to test network boundaries. Live tests require a configured 
 GitHub documentation consulted: [GitHub App user tokens and device flow](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app).
 
 For development validation, follow the [GitHub App registration walkthrough](github-app-setup.md).
+
+## Online maps and address search
+
+Jourfold's map works without any service: places are drawn from the coordinates stored in the trip. A street map and address search are optional and off until the user enables them, either from the prompt on the map or in Settings under Maps and places.
+
+When enabled:
+
+- Map images are loaded from `tile.openstreetmap.org` for the area being viewed, with an identifying User-Agent, at most two parallel requests, and a local cache kept for 14 days under the Jourfold data folder. Settings can clear the cache. The map shows the required OpenStreetMap attribution.
+- Address search sends the text the user submits to `nominatim.openstreetmap.org`, at most one request per second, and only when the user asks for it. Choosing a result creates or updates a place with its name, address, coordinates and OpenStreetMap ID.
+
+No trip data, names or identifiers are sent. Heavier use, or a deployment for many users, should point these requests at a self-hosted or commercial tile and geocoding service in line with the OpenStreetMap usage policies.
+

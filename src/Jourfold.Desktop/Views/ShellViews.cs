@@ -174,7 +174,7 @@ public static class HeaderView
             save);
         var left = Ui.H(10, titleButton, variant);
 
-        var people = trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).ToArray();
+        var people = trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
         var avatars = new Button { Content = people.Length > 0 ? Ui.AvatarStack(people, 28) : Ui.Icon("user-plus", 16), Padding = new Thickness(4) }.Classed("ghost").Named(people.Length > 0 ? string.Join(", ", people) : s["AddPeople"]);
         avatars.Click += (_, _) => m.Navigate("People");
 

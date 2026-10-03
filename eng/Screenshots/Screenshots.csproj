@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Headless" Version="11.3.13" />
+    <ProjectReference Include="../../src/Jourfold.Desktop/Jourfold.Desktop.csproj" />
+  </ItemGroup>
+</Project>

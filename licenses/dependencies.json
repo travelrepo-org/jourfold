@@ -1,0 +1,234 @@
+{
+  "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
+    "license": "LICENSE",
+    "project": "https://avaloniaui.net/"
+  },
+  "Avalonia.BuildServices/11.3.2": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/"
+  },
+  "Avalonia.Desktop/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.FreeDesktop/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Headless.XUnit/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Headless/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Native/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Remote.Protocol/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Skia/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Themes.Fluent/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Win32/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.X11/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia/11.3.13": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "CommunityToolkit.Mvvm/8.4.0": {
+    "license": "MIT",
+    "project": "https://github.com/CommunityToolkit/dotnet"
+  },
+  "HarfBuzzSharp.NativeAssets.Linux/8.3.1.1": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.1": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "HarfBuzzSharp.NativeAssets.Win32/8.3.1.1": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "HarfBuzzSharp.NativeAssets.macOS/8.3.1.1": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "HarfBuzzSharp/8.3.1.1": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "Humanizer.Core/2.14.1": {
+    "license": "MIT",
+    "project": "https://github.com/Humanizr/Humanizer"
+  },
+  "Json.More.Net/2.1.1": {
+    "license": "MIT",
+    "project": "https://github.com/json-everything/json-everything"
+  },
+  "JsonPointer.Net/5.3.1": {
+    "license": "MIT",
+    "project": "https://github.com/json-everything/json-everything"
+  },
+  "JsonSchema.Net/7.3.4": {
+    "license": "MIT",
+    "project": "https://github.com/json-everything/json-everything"
+  },
+  "Markdig/1.4.0": {
+    "license": "BSD-2-Clause",
+    "project": "https://xoofx.github.io/markdig"
+  },
+  "MicroCom.Runtime/0.11.0": {
+    "license": "MIT",
+    "project": null
+  },
+  "Microsoft.CodeCoverage/17.14.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/vstest"
+  },
+  "Microsoft.Data.Sqlite.Core/10.0.9": {
+    "license": "MIT",
+    "project": "https://docs.microsoft.com/dotnet/standard/data/sqlite/"
+  },
+  "Microsoft.Data.Sqlite/10.0.9": {
+    "license": "MIT",
+    "project": "https://docs.microsoft.com/dotnet/standard/data/sqlite/"
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions/8.0.2": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.Extensions.DependencyInjection/10.0.0": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.Extensions.Logging.Abstractions/8.0.3": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.NET.Test.Sdk/17.14.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/vstest"
+  },
+  "Microsoft.TestPlatform.ObjectModel/17.14.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/vstest"
+  },
+  "Microsoft.TestPlatform.TestHost/17.14.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/vstest"
+  },
+  "Newtonsoft.Json/13.0.3": {
+    "license": "MIT",
+    "project": "https://www.newtonsoft.com/json"
+  },
+  "NodaTime/3.2.2": {
+    "license": "Apache-2.0",
+    "project": "https://nodatime.org/"
+  },
+  "PDFsharp/6.2.4": {
+    "license": "MIT",
+    "project": "https://docs.pdfsharp.net/"
+  },
+  "SQLitePCLRaw.bundle_e_sqlite3/2.1.11": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "SQLitePCLRaw.core/2.1.11": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "SQLitePCLRaw.lib.e_sqlite3/3.53.3": {
+    "license": "LICENSE.txt",
+    "project": "https://sqlite.org/"
+  },
+  "SQLitePCLRaw.provider.e_sqlite3/2.1.11": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "SkiaSharp.NativeAssets.Linux/2.88.9": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "SkiaSharp.NativeAssets.WebAssembly/2.88.9": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "SkiaSharp.NativeAssets.Win32/2.88.9": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "SkiaSharp.NativeAssets.macOS/2.88.9": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "SkiaSharp/2.88.9": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "System.Security.Cryptography.Pkcs/8.0.1": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Tmds.DBus.Protocol/0.21.3": {
+    "license": "MIT",
+    "project": null
+  },
+  "YamlDotNet/16.3.0": {
+    "license": "MIT",
+    "project": "https://github.com/aaubry/YamlDotNet/wiki"
+  },
+  "xunit.abstractions/2.0.3": {
+    "license": "https://raw.githubusercontent.com/xunit/xunit/master/license.txt",
+    "project": "https://github.com/xunit/xunit"
+  },
+  "xunit.analyzers/1.18.0": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.assert/2.9.3": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.core/2.9.3": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.extensibility.core/2.9.3": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.extensibility.execution/2.9.3": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.runner.visualstudio/3.1.5": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit/2.9.3": {
+    "license": "Apache-2.0",
+    "project": null
+  }
+}

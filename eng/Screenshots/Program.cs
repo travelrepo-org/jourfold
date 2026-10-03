@@ -103,8 +103,6 @@ try
                 m.View = "People"; await Capture("people");
                 m.View = "Places"; await Capture("places");
                 m.View = "Collections"; await Capture("collections");
-                m.View = "History"; await Settle(600); await Capture("history");
-                m.View = "Variants"; await Settle(600); await Capture("variants");
                 m.View = "Plan"; m.Lanes = true; m.RaiseContentChanged(); await Capture("lanes"); m.Lanes = false;
                 Theme("Dark"); m.View = "Map"; await Capture("map-dark"); m.View = "Costs"; await Capture("costs-dark"); Theme("Light");
                 m.View = "Plan"; m.ShowDate(start.PlusDays(3));
@@ -115,6 +113,22 @@ try
                 await Dialog(() => m.ShareCommand.ExecuteAsync(null), "share", m.Strings["Close"]);
                 var item = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Explore Shinjuku").Copy(); item.Data["status"] = "confirmed"; await m.Workspace.EditAsync(item);
                 await Dialog(() => m.CreateVersionCommand.ExecuteAsync(null), "create-version", m.Strings["Cancel"]);
+                // Variants: an alternative plan that changes the same activity, to show comparison and conflict resolution.
+                var git = m.Workspace.Git; await git.CreateVersionAsync("Confirm Shinjuku walk");
+                await git.CreateVariantAsync("variants/slower-kyoto", "Slower Kyoto"); await m.Workspace.ReloadAsync();
+                var tea = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Tea ceremony").Copy(); tea.Data["title"] = "Tea ceremony in Uji"; await m.Workspace.EditAsync(tea);
+                var extra = Entity.Create("schedule_item", "Philosopher's Path"); extra.Data["status"] = "planned"; extra.Data["category"] = "nature";
+                extra.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime(start.PlusDays(5).ToString("yyyy-MM-dd", null) + "T10:00:00", "Asia/Tokyo").ToJson(), ["end"] = new ZonedTime(start.PlusDays(5).ToString("yyyy-MM-dd", null) + "T11:30:00", "Asia/Tokyo").ToJson() };
+                await m.Workspace.EditAsync(extra); await git.CreateVersionAsync("Slower days in Kyoto");
+                await git.SwitchAsync("main"); await m.Workspace.ReloadAsync();
+                tea = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Tea ceremony").Copy(); tea.Data["title"] = "Tea ceremony at the ryokan"; await m.Workspace.EditAsync(tea); await git.CreateVersionAsync("Move tea ceremony to the ryokan");
+                m.Refresh(); m.View = "Variants"; await Settle(800); await Capture("variants");
+                var slower = (await git.VariantsAsync()).First(v => v.Branch == "variants/slower-kyoto");
+                await Dialog(() => m.VariantActionAsync(slower, "Compare"), "compare", m.Strings["Close"]);
+                await Dialog(() => m.VariantActionAsync(slower, "Merge"), "merge-conflicts", m.Strings["Cancel"]);
+                m.View = "History"; await Settle(800); await Capture("history");
+                Jourfold.Infrastructure.PdfExport.Write(m.Workspace.State.Trip, Path.Combine(output, "itinerary.pdf"), Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf"), m.ExportLabels(), CultureInfo.CurrentCulture);
+                File.WriteAllText(Path.Combine(output, "itinerary.html"), TripExport.Html(m.Workspace.State.Trip, m.ExportLabels(), CultureInfo.CurrentCulture));
                 m.Selected = null; m.CloseTrip(); await Settle();
                 await Dialog(() => m.NewTripCommand.ExecuteAsync(null), "new-trip", m.Strings["Cancel"]);
                 await m.OpenAsync(trip);

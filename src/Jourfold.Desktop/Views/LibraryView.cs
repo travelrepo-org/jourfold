@@ -107,7 +107,7 @@ public static class LibraryView
         var body = Ui.V(4, title, dates, places, footer.Margin(0, 8, 0, 0)); body.Margin = new Thickness(16, 12, 16, 14);
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") }; layout.Children.Add(cover); layout.Children.Add(body.Row(1));
         var button = new Button { Width = 300, Height = 272, Content = new Border { CornerRadius = new CornerRadius(12), ClipToBounds = true, Child = layout } }.Classed("card").Named(recent.Title);
-        button.Click += (_, _) => m.OpenRecent(recent);
+        if (Directory.Exists(recent.Path)) button.Click += (_, _) => m.OpenRecent(recent);
         var menu = new ContextMenu();
         MenuItem Item(string text, string icon, Action action) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16) }; item.Click += (_, _) => action(); return item; }
         menu.Items.Add(Item(s["Open"], "folder-open", () => m.OpenRecent(recent)));
@@ -118,8 +118,12 @@ public static class LibraryView
         cover.Children.Add(SidebarView.GeneratedCover(recent.Title, 300, 136, 0));
         if (!Directory.Exists(recent.Path))
         {
-            dates.Text = s["FolderMissing"]; dates.Res(TextBlock.ForegroundProperty, "Warning"); button.IsEnabled = true;
-            button.Click += (_, _) => { };
+            // The folder was moved or deleted. Offer to find it again or forget it instead of failing on open.
+            dates.Text = s["FolderMissing"]; dates.Res(TextBlock.ForegroundProperty, "Warning"); places.Text = recent.Path; cover.Opacity = 0.5;
+            var missing = new MenuFlyout();
+            var locate = new MenuItem { Header = s["LocateFolder"], Icon = Ui.Icon("folder-open", 16) }; locate.Click += (_, _) => { m.ForgetRecent(recent); m.OpenTripCommand.Execute(null); };
+            var forget = new MenuItem { Header = s["RemoveFromList"], Icon = Ui.Icon("x", 16) }; forget.Click += (_, _) => m.ForgetRecent(recent);
+            missing.Items.Add(locate); missing.Items.Add(forget); button.Flyout = missing;
             return button;
         }
         _ = LoadAsync(recent.Path).ContinueWith(task =>

@@ -97,10 +97,20 @@ public partial class MainViewModel
         if (Workspace is null) return;
         var format = await Interaction.ChooseAsync(Strings["ExportFormat"], [new("pdf", Strings["PDF"], "file-text", Strings["PDFHint"]), new("ics", Strings["ICS"], "calendar", Strings["ICSHint"]), new("html", Strings["HTML"], "globe", Strings["HTMLHint"])]); if (format is null) return;
         var path = await Interaction.FileAsync(true, format, FolderName(Workspace.State.Trip.Manifest.Title)); if (path is null) return;
-        if (format == "pdf") Infrastructure.PdfExport.Write(Workspace.State.Trip, path, Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf"));
-        else await File.WriteAllTextAsync(path, format == "ics" ? TripExport.Ics(Workspace.State.Trip) : TripExport.Html(Workspace.State.Trip));
+        if (format == "pdf") Infrastructure.PdfExport.Write(Workspace.State.Trip, path, Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf"), ExportLabels(), System.Globalization.CultureInfo.CurrentCulture);
+        else await File.WriteAllTextAsync(path, format == "ics" ? TripExport.Ics(Workspace.State.Trip) : TripExport.Html(Workspace.State.Trip, ExportLabels(), System.Globalization.CultureInfo.CurrentCulture));
         Interaction.Toast(string.Format(Strings["Exported"], Path.GetFileName(path)), Strings["ShowFile"], () => { Interaction.Open(Path.GetDirectoryName(path)!); return Task.CompletedTask; });
     });
+
+    /// <summary>Export wording in the interface language. Trip content itself is never translated.</summary>
+    public ExportLabels ExportLabels() => new()
+    {
+        Day = Strings["DayN"], AllDay = Strings["AllDay"], Unscheduled = Strings["NotScheduledYet"], Bookings = Strings["Bookings"], Costs = Strings["Costs"],
+        Travellers = Strings["ExportTravellers"], Paid = Strings["ExportPaid"], Estimated = Strings["ExportEstimated"], Budget = Strings["ExportBudget"], Between = Strings["BetweenTimes"],
+        Reference = Strings["ExportRef"], GeneratedBy = Strings["ExportFooter"],
+        DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => Strings[k]),
+        Statuses = TravelRepo.Core.ScheduleCategories.Statuses.Concat(["pending", "open", "in_progress"]).Distinct().ToDictionary(k => k, k => Strings[k])
+    };
 
     public Task OpenLinkAsync(string link) => RunAsync(async () =>
     {

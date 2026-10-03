@@ -127,7 +127,7 @@ public static class Ui
     }
     public static Control AvatarStack(IEnumerable<string> names, double size = 24, int max = 4)
     {
-        var list = names.ToArray(); var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = -size * 0.3 };
+        var list = names.ToArray(); var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = -size * 0.22 };
         foreach (var name in list.Take(max)) panel.Children.Add(Avatar(name, size));
         if (list.Length > max)
             panel.Children.Add(new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Child = Text("+" + (list.Length - max), "caption").Also(t => { t.FontSize = size * 0.38; t.FontWeight = FontWeight.Bold; t.HorizontalAlignment = HorizontalAlignment.Center; }) }.Res(Border.BackgroundProperty, "Bg.Muted"));

@@ -866,5 +866,12 @@
   "PaletteNavigate": "to move",
   "PaletteOpen": "to open",
   "TripStart": "Trip start",
-  "OptionalShort": "Optional"
+  "OptionalShort": "Optional",
+  "ExportTravellers": "Travellers",
+  "ExportPaid": "paid",
+  "ExportEstimated": "estimated",
+  "ExportBudget": "budget",
+  "ExportRef": "Ref.",
+  "ExportFooter": "Exported from Jourfold. The trip itself is an open TravelRepo folder.",
+  "LocateFolder": "Find the folder…"
 }

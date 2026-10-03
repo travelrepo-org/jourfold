@@ -49,7 +49,7 @@ S = {
     "WelcomeStep1": ("Plan days", "Tage planen"), "WelcomeStep1Body": ("Drag across the timetable to add activities, or collect ideas in the Inbox first.", "Ziehen Sie im Zeitplan, um Aktivitäten anzulegen, oder sammeln Sie Ideen zuerst im Eingang."),
     "WelcomeStep2": ("Try alternatives", "Alternativen ausprobieren"), "WelcomeStep2Body": ("Variants let you compare a cheaper or slower plan without losing the original.", "Mit Varianten vergleichen Sie einen günstigeren oder ruhigeren Plan, ohne das Original zu verlieren."),
     "WelcomeStep3": ("Share when ready", "Teilen, wenn es passt"), "WelcomeStep3Body": ("Publish privately to GitHub or your own Git server. It works offline too.", "Privat auf GitHub oder Ihrem eigenen Git-Server veröffentlichen. Es funktioniert auch offline."),
-    "OpenedAgo": ("Opened {0}", "Geöffnet {0}"), "ItemsCount": ("{0} items", "{0} Einträge"), "FolderMissing": ("Folder not found", "Ordner nicht gefunden"),
+    "OpenedAgo": ("Opened {0}", "Geöffnet {0}"), "ItemsCount": ("{0} items", "{0} Einträge"), "FolderMissing": ("Folder not found", "Ordner nicht gefunden"), "LocateFolder": ("Find the folder…", "Ordner suchen …"),
     "RemoveFromList": ("Remove from this list", "Aus dieser Liste entfernen"), "NoTripsMatch": ("No trips match “{0}”.", "Keine Reise passt zu „{0}“."),
     "SampleCreated": ("Sample trip created. Feel free to change or delete it.", "Beispielreise erstellt. Sie können sie ändern oder löschen."),
     # New trip wizard
@@ -212,6 +212,8 @@ S = {
     "Private": ("Private", "Privat"), "Public": ("Public", "Öffentlich"),
     "PublicWarning": ("This repository is public. Anyone can see schedules, names, booking references, documents and photos in it.", "Dieses Repository ist öffentlich. Alle können Zeitpläne, Namen, Buchungsnummern, Dokumente und Fotos darin sehen."),
     "Exported": ("Exported {0}", "{0} exportiert"), "ShowFile": ("Show", "Anzeigen"), "PDFHint": ("A printable day-by-day plan", "Ein druckbarer Tagesplan"), "ICSHint": ("Import into your calendar app", "In die Kalender-App importieren"), "HTMLHint": ("A web page to print or share", "Eine Webseite zum Drucken oder Teilen"),
+    "ExportTravellers": ("Travellers", "Reisende"), "ExportPaid": ("paid", "bezahlt"), "ExportEstimated": ("estimated", "geschätzt"), "ExportBudget": ("budget", "Budget"), "ExportRef": ("Ref.", "Ref."),
+    "ExportFooter": ("Exported from Jourfold. The trip itself is an open TravelRepo folder.", "Aus Jourfold exportiert. Die Reise selbst ist ein offener TravelRepo-Ordner."),
     # Settings
     "LocalIdentity": ("You", "Sie"), "MapsAndPlaces": ("Maps and places", "Karten und Orte"), "Providers": ("Sharing", "Teilen"), "General": ("General", "Allgemein"), "Appearance": ("Appearance", "Darstellung"),
     "LanguageHint": ("Language of menus and labels. Trip content is never translated.", "Sprache der Menüs und Beschriftungen. Reiseinhalte werden nie übersetzt."),

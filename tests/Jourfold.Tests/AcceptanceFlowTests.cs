@@ -73,7 +73,7 @@ public sealed class AcceptanceFlowTests : IDisposable
     {
         var path = await Create(); var snapshot = (await new TravelRepository(path).ReadAsync()).Trip; var activity = Entity.Create("schedule_item", "Museum"); activity.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-05-12T10:00:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-05-12T11:00:00", "Europe/Berlin").ToJson() };
         var incoming = snapshot with { Entities = new Dictionary<Guid, Entity> { [activity.Id] = activity }, Resources = new Dictionary<string, byte[]> { ["documents/note.md"] = Encoding.UTF8.GetBytes("Museum **tickets**") } };
-        var view = new ComparisonView(snapshot, incoming, new Localization("de")); var window = new Window { Width = 1000, Height = 700, Content = view }; window.Show(); Dispatcher.UIThread.RunJobs(); Assert.Equal(2, view.ItemCount); view.SelectedIndex = 1; Dispatcher.UIThread.RunJobs(); window.Close();
+        var view = new ComparisonView(snapshot, incoming, new Localization("de")); var window = new Window { Width = 1000, Height = 700, Content = view }; window.Show(); Dispatcher.UIThread.RunJobs(); Assert.Equal(2, view.ItemCount); Probe.Click(view, new Localization("de")["DetailsComparison"]); Dispatcher.UIThread.RunJobs(); Assert.Equal(1, view.SelectedIndex); Assert.Contains(Probe.All<TextBlock>(view), t => t.Text == "Museum"); window.Close();
     }
     [AvaloniaTheory]
     [InlineData(false)]

@@ -866,5 +866,12 @@
   "PaletteNavigate": "zum Bewegen",
   "PaletteOpen": "zum Öffnen",
   "TripStart": "Reisebeginn",
-  "OptionalShort": "Optional"
+  "OptionalShort": "Optional",
+  "ExportTravellers": "Reisende",
+  "ExportPaid": "bezahlt",
+  "ExportEstimated": "geschätzt",
+  "ExportBudget": "Budget",
+  "ExportRef": "Ref.",
+  "ExportFooter": "Aus Jourfold exportiert. Die Reise selbst ist ein offener TravelRepo-Ordner.",
+  "LocateFolder": "Ordner suchen …"
 }

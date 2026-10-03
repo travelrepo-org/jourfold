@@ -15,7 +15,7 @@ namespace Jourfold.Desktop;
 /// Semantic comparison of two plans: a side-by-side day timetable with added, removed and changed items
 /// marked by icon and label (not color alone), and a structured list of field changes.
 /// </summary>
-public sealed class ComparisonView : TabControl
+public sealed class ComparisonView : UserControl
 {
     private readonly TripSnapshot current, incoming;
     private readonly Localization s;
@@ -26,8 +26,19 @@ public sealed class ComparisonView : TabControl
     {
         this.current = current; this.incoming = incoming; s = strings; this.model = model;
         this.currentTitle = currentTitle ?? strings["UseCurrent"]; this.otherTitle = otherTitle ?? strings["UseVariant"];
-        ItemsSource = new[] { new TabItem { Header = strings["ScheduleComparison"], Content = Timetable() }, new TabItem { Header = strings["DetailsComparison"], Content = Details() } };
+        var host = new ContentControl(); var tabs = new ContentControl();
+        void Show(string key)
+        {
+            SelectedIndex = key == "details" ? 1 : 0;
+            tabs.Content = ViewToolbar.Segmented([("timetable", strings["ScheduleComparison"], "calendar-days"), ("details", strings["DetailsComparison"], "list")], key, Show);
+            host.Content = key == "details" ? Details() : Timetable();
+        }
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") }; layout.Children.Add(tabs); layout.Children.Add(host.Row(1));
+        Content = layout; Show("timetable");
     }
+    /// <summary>0 for the timetable, 1 for changed details.</summary>
+    public int SelectedIndex { get; private set; }
+    public int ItemCount => 2;
 
     private string State(Entity e, TripSnapshot other)
     {
@@ -60,6 +71,8 @@ public sealed class ComparisonView : TabControl
                 Put(Ui.Text(Formats.Time(new LocalTime(h, 0)), "caption").Also(t => t.FontSize = 11), 6, y - 8);
             }
             if (dayChoice.SelectedItem is not Choice choice) return; var day = NodaTime.Text.LocalDatePattern.Iso.Parse(choice.Id).Value;
+            var earliest = new[] { current, incoming }.SelectMany(t => t.Entities.Values.Where(e => e.Type == "schedule_item" && Day(t, e) == day).Select(e => ScheduleQueries.Span(t, e).Start!.Value.InZone(zone).Hour)).DefaultIfEmpty(8).Min();
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => scroll.Offset = new Vector(0, Math.Max(0, earliest - 1) * 48), Avalonia.Threading.DispatcherPriority.Loaded);
             foreach (var (trip, other, index) in new[] { (current, incoming, 0), (incoming, current, 1) })
                 foreach (var e in trip.Entities.Values.Where(e => e.Type == "schedule_item" && e.Data["children"] is not JsonArray { Count: > 0 } && Day(trip, e) == day))
                 {

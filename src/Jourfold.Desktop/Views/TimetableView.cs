@@ -64,12 +64,22 @@ public sealed class TimetableView : UserControl
         canvas.PointerPressed += OnCanvasPressed; canvas.PointerMoved += OnPointerMoved; canvas.PointerReleased += OnPointerReleased;
         canvas.DoubleTapped += async (_, e) => { if (e.Source == canvas) { var p = e.GetPosition(canvas); await CreateAsync(p, p + new Point(0, hourHeight)); } };
         SizeChanged += (_, e) => { if (Math.Abs(e.NewSize.Width - lastWidth) > 4) { lastWidth = e.NewSize.Width; Draw(); } };
-        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(ScrollToMorning, DispatcherPriority.Loaded);
+        // Apply the initial scroll once the grid has a real extent; earlier offsets would be clamped to zero.
+        EventHandler? place = null;
+        place = (_, _) =>
+        {
+            if (scroll.Extent.Height <= scroll.Viewport.Height || scroll.Viewport.Height <= 0) return;
+            scroll.LayoutUpdated -= place;
+            if (InitialOffset is { } offset) scroll.Offset = new Vector(0, offset); else ScrollToMorning();
+        };
+        scroll.LayoutUpdated += place;
     }
+
+    /// <summary>Vertical scroll position to restore, for example after an edit re-renders the view.</summary>
+    public double? InitialOffset { get; set; }
 
     private void ScrollToMorning()
     {
-        if (scroll.Offset.Y > 0) return;
         if (trip is null) Draw();
         if (trip is null) return;
         // Start near the first activity that begins in the visible days; ignore overnight continuations.
@@ -280,10 +290,10 @@ public sealed class TimetableView : UserControl
             layered.Children.Add(new Rectangle { StrokeThickness = 1.2, StrokeDashArray = [4, 3], RadiusX = 8, RadiusY = 8, Width = border.Width, Height = height, IsHitTestVisible = false }.Res(Shape.StrokeProperty, selected ? "Accent" : "Kind." + kind + ".Bar"));
         if (status == "cancelled") layered.Opacity = 0.55;
         if (continues && !compact) layered.Children.Add(Ui.Icon("chevron-down", 12, "Text.Subtle").Also(i => { i.HorizontalAlignment = HorizontalAlignment.Center; i.VerticalAlignment = VerticalAlignment.Bottom; }));
-        return Wrap(item, layered, p.Span, resizable: !strip && !compact && p.Span.Precision is TimePrecision.Exact or TimePrecision.Approximate && !p.Group);
+        return Wrap(item, layered, p.Span, resizable: !strip && !compact && p.Span.Precision is TimePrecision.Exact or TimePrecision.Approximate && !p.Group, draggable: !strip);
     }
 
-    private Button Wrap(Entity item, Control visual, ScheduleSpan span, bool resizable = false)
+    private Button Wrap(Entity item, Control visual, ScheduleSpan span, bool resizable = false, bool draggable = true)
     {
         var s = vm.Strings;
         var button = new Button { Content = visual, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0, CornerRadius = new CornerRadius(8), Tag = item.Id, Cursor = new Cursor(StandardCursorType.Hand) }.Classed("block");
@@ -305,7 +315,7 @@ public sealed class TimetableView : UserControl
         menu.Items.Add(new Separator());
         menu.Items.Add(Item(s["Delete"], "trash-2", () => _ = vm.DeleteAsync(item.Id)));
         button.ContextMenu = menu;
-        button.AddHandler(PointerPressedEvent, (_, e) =>
+        if (draggable) button.AddHandler(PointerPressedEvent, (_, e) =>
         {
             var point = e.GetCurrentPoint(button);
             if (!point.Properties.IsLeftButtonPressed || e.ClickCount > 1) return;
@@ -395,7 +405,8 @@ public sealed class TimetableView : UserControl
         }
         if (dragId is not { } id) return;
         dragId = null; e.Pointer.Capture(null); canvas.Children.Remove(dragLabel);
-        if (!moved) { dragControl = null; return; }
+        // The canvas captured the pointer for dragging, so a plain click is handled here.
+        if (!moved) { dragControl = null; e.Handled = true; vm.Selected = vm.Workspace?.State.Trip.Find(id); return; }
         e.Handled = true; dragControl = null;
         await vm.RunEditAsync(async () =>
         {

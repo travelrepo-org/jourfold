@@ -37,6 +37,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public string ShareKey => shareKey;
     public string VariantTitle => Workspace?.State.Trip.Manifest.Data["variant"]?["title"]?.ToString() ?? "";
     public string CurrentBranch { get; private set; } = "";
+    /// <summary>Variants found at the last local refresh, for menus that must open instantly.</summary>
+    public IReadOnlyList<Variant> KnownVariants { get; private set; } = [];
     public bool IsSample => Trip is { } trip && SampleTrip.IsSample(trip);
 
     /// <summary>Primary navigation keys. "List" and "Map" are alternative presentations of the plan.</summary>
@@ -95,16 +97,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
     partial void OnEditingChanged(bool value) => OnPropertyChanged(nameof(CanInteract));
     public Task RunAsync(Func<Task> action) => ExecuteAsync(action, false);
     public Task RunEditAsync(Func<Task> action) => ExecuteAsync(action, true);
-    private async Task ExecuteAsync(Func<Task> action, bool edit)
+    private async Task ExecuteAsync(Func<Task> action, bool edit, bool background = false)
     {
         if (operationScope.Value?.Active == true) { await action(); return; }
         await operations.WaitAsync(); var scope = new OperationScope(); operationScope.Value = scope;
-        Editing = edit; Busy = true; if (edit) Saving = true;
+        Editing = edit; Busy = true; if (edit && !background) Saving = true;
         try { await action(); }
         catch (OperationCanceledException) { }
         catch (Exception ex) when (ex is DomainException or IOException or UnauthorizedAccessException or HttpRequestException or FormatException or InvalidOperationException or System.Text.Json.JsonException)
         { Status = Strings["Error"]; await Interaction.ShowAsync(Strings["SomethingWentWrong"], Strings.Error(ex, Advanced)); }
-        finally { Busy = false; Editing = false; Saving = false; scope.Active = false; operationScope.Value = null; operations.Release(); }
+        finally { Busy = false; Editing = false; if (!background) Saving = false; scope.Active = false; operationScope.Value = null; operations.Release(); }
     }
 
     public async Task OpenAsync(string path)
@@ -189,7 +191,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private async Task UpdateLocalStateAsync()
     {
         if (Workspace is not { } workspace) return;
-        try { HasUncommitted = !string.IsNullOrEmpty(await workspace.Git.StatusAsync()); CurrentBranch = await workspace.Git.CurrentBranchAsync(); }
+        try { HasUncommitted = !string.IsNullOrEmpty(await workspace.Git.StatusAsync()); CurrentBranch = await workspace.Git.CurrentBranchAsync(); KnownVariants = await workspace.Git.VariantsAsync(); }
         catch (DomainException) { }
     }
 

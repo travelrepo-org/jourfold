@@ -33,7 +33,7 @@ public partial class MainWindow : Window
         Model.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MainViewModel.Notice) or nameof(MainViewModel.SyncKey) or nameof(MainViewModel.HasUncommitted) or nameof(MainViewModel.Saving) or nameof(MainViewModel.PrivacyWarning) or nameof(MainViewModel.GitHubConnected))
-                Dispatcher.UIThread.Post(() => { if (Model.HasTrip) { RenderSidebar(); RenderHeader(); RenderBanner(); } });
+                Dispatcher.UIThread.Post(RefreshChrome);
         };
         Model.OpenRequested += path => Dispatcher.UIThread.Post(() => OpenTrip(path));
         poll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
@@ -133,8 +133,22 @@ public partial class MainWindow : Window
         LibraryHost.Content = null;
         RenderSidebar(); RenderHeader(); RenderBanner(); RenderMain(); RenderInspector(force: false);
     }
+    private string chromeState = "";
+    /// <summary>Rebuild sidebar, header and banner only when what they show changed, so open menus stay open.</summary>
+    private void RefreshChrome()
+    {
+        if (!Model.HasTrip) return;
+        var state = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen);
+        if (state == chromeState) return;
+        RenderSidebar(); RenderHeader(); RenderBanner();
+    }
     private void RenderSidebar() { if (Model.HasTrip) Sidebar.Child = SidebarView.Build(this); }
-    private void RenderHeader() { if (Model.HasTrip) Header.Child = HeaderView.Build(this); }
+    private void RenderHeader()
+    {
+        if (!Model.HasTrip) return;
+        chromeState = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen);
+        Header.Child = HeaderView.Build(this);
+    }
     private void RenderBanner() { Banner.Child = Model.HasPrivacyWarning ? HeaderView.PrivacyBanner(this) : Model.Notice.Length > 0 ? HeaderView.MergeNotice(this) : null; }
 
     public void RenderToolbar() { if (Model.HasTrip) ToolbarHost.Child = ViewToolbar.Build(this); }
@@ -155,8 +169,10 @@ public partial class MainWindow : Window
             "Variants" => VariantsView.Build(this),
             _ => CollectionViews.Build(this)
         };
-        content.Tag = key; MainContent.Content = content;
-        if (scrollOffsets.TryGetValue(key, out var offset))
+        content.Tag = key;
+        if (content is TimetableView timetable && scrollOffsets.TryGetValue(key, out var kept)) { timetable.InitialOffset = kept.Y; scrollOffsets.Remove(key); }
+        MainContent.Content = content;
+        if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var offset))
             Dispatcher.UIThread.Post(() => { if (MainContent.Content == content && content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll) scroll.Offset = offset; }, DispatcherPriority.Loaded);
     }
 

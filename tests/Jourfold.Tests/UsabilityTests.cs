@@ -80,6 +80,10 @@ public sealed class UsabilityTests : IDisposable
             Assert.Equal(item.Id, w.Model.Selected!.Id); Assert.False(w.Model.Busy); Assert.Empty(w.FindControl<Grid>("DialogLayer")!.Children);
             await w.Model.Workspace.ScheduleAsync(item.Id, new ZonedTime("2027-05-14T10:00:00", "Europe/Berlin"), Duration.FromHours(1)); Probe.Layout();
             var block = Probe.All<Button>(w.FindControl<ContentControl>("MainContent")!).Single(b => Equals(b.Tag, item.Id));
+            w.Model.Selected = null; Probe.Layout(); block = Probe.All<Button>(w.FindControl<ContentControl>("MainContent")!).Single(b => Equals(b.Tag, item.Id));
+            var center = block.TranslatePoint(new Point(block.Bounds.Width / 2, 12), w)!.Value; w.MouseDown(center, MouseButton.Left); w.MouseUp(center, MouseButton.Left); Probe.Layout();
+            Assert.Equal(item.Id, w.Model.Selected?.Id); Assert.Equal("10:00", ZonedTime.From(w.Model.Workspace.State.Trip.Find(item.Id)!.Data["time"]!["start"]!).Local[11..16]);
+            block = Probe.All<Button>(w.FindControl<ContentControl>("MainContent")!).Single(b => Equals(b.Tag, item.Id));
             var actions = block.ContextMenu!.Items.OfType<MenuItem>().Select(i => i.Header as string).ToArray();
             Assert.Contains("Delete", actions); Assert.Contains("Change time", actions); Assert.Contains("Duplicate", actions);
             Assert.NotNull(ToolTip.GetTip(block)); Assert.Contains("Idea", Avalonia.Automation.AutomationProperties.GetName(block));

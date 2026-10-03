@@ -191,21 +191,15 @@ public static class HeaderView
     private static MenuFlyout VariantMenu(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var menu = new MenuFlyout();
-        var loading = new MenuItem { Header = s["Loading"], IsEnabled = false }; menu.Items.Add(loading);
-        menu.Opening += async (_, _) =>
+        foreach (var v in m.KnownVariants.Where(v => !v.IsRemote && v.Manifest.Data["variant"]?["state"]?.ToString() != "archived"))
         {
-            menu.Items.Clear();
-            var variants = await m.VariantsAsync();
-            foreach (var v in variants.Where(v => !v.IsRemote && v.Manifest.Data["variant"]?["state"]?.ToString() != "archived"))
-            {
-                var current = v.Branch == m.CurrentBranch; var item = new MenuItem { Header = v.Manifest.Data["variant"]?["title"]?.ToString() ?? v.Branch, Icon = Ui.Icon(current ? "check" : "git-branch", 15) };
-                if (!current) item.Click += (_, _) => _ = m.VariantActionAsync(v, "Switch"); else item.FontWeight = FontWeight.SemiBold;
-                menu.Items.Add(item);
-            }
-            menu.Items.Add(new Separator());
-            var create = new MenuItem { Header = s["NewVariant"], Icon = Ui.Icon("plus", 15) }; create.Click += (_, _) => m.NewVariantCommand.Execute(null); menu.Items.Add(create);
-            var manage = new MenuItem { Header = s["ManageVariants"], Icon = Ui.Icon("git-compare", 15) }; manage.Click += (_, _) => m.Navigate("Variants"); menu.Items.Add(manage);
-        };
+            var current = v.Branch == m.CurrentBranch; var item = new MenuItem { Header = v.Manifest.Data["variant"]?["title"]?.ToString() ?? v.Branch, Icon = Ui.Icon(current ? "check" : "git-branch", 15) };
+            if (!current) item.Click += (_, _) => _ = m.VariantActionAsync(v, "Switch"); else item.FontWeight = FontWeight.SemiBold;
+            menu.Items.Add(item);
+        }
+        if (menu.Items.Count > 0) menu.Items.Add(new Separator());
+        var create = new MenuItem { Header = s["NewVariant"], Icon = Ui.Icon("plus", 15) }; create.Click += (_, _) => m.NewVariantCommand.Execute(null); menu.Items.Add(create);
+        var manage = new MenuItem { Header = s["ManageVariants"], Icon = Ui.Icon("git-compare", 15) }; manage.Click += (_, _) => m.Navigate("Variants"); menu.Items.Add(manage);
         return menu;
     }
 

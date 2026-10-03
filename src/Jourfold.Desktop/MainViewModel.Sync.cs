@@ -87,7 +87,7 @@ public partial class MainViewModel
         }
     }
 
-    public Task PollAsync() => Busy || Workspace is null ? Task.CompletedTask : ExecuteAsync(PollCoreAsync, true);
+    public Task PollAsync() => Busy || Workspace is null ? Task.CompletedTask : ExecuteAsync(PollCoreAsync, true, background: true);
     private async Task PollCoreAsync()
     {
         if (Workspace is null) return;

@@ -32,7 +32,7 @@ public static class SidebarView
         search.Res(Button.BackgroundProperty, "Bg.Surface"); search.Command = m.SearchCommand; DockPanel.SetDock(search, Dock.Top); root.Children.Add(search);
 
         var footer = Ui.V(2); footer.Margin = new Thickness(10, 6, 10, 12); DockPanel.SetDock(footer, Dock.Bottom);
-        var inbox = NavButton(s["Inbox"], "inbox", m.InboxOpen, m.InboxItems.Count);
+        var inbox = NavButton(s["Inbox"], "inbox", m.InboxOpen, m.InboxItems.Count > 0 ? m.InboxItems.Count : null);
         inbox.Click += (_, _) => { m.InboxOpen = !m.InboxOpen; if (!m.InboxOpen) m.InboxPinned = false; };
         ToolTip.SetTip(inbox, s["InboxTip"]); footer.Children.Add(inbox);
         footer.Children.Add(SyncRow(w));

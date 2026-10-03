@@ -131,6 +131,10 @@ try
                 File.WriteAllText(Path.Combine(output, "itinerary.html"), TripExport.Html(m.Workspace.State.Trip, m.ExportLabels(), CultureInfo.CurrentCulture));
                 m.Selected = null; m.CloseTrip(); await Settle();
                 await Dialog(() => m.NewTripCommand.ExecuteAsync(null), "new-trip", m.Strings["Cancel"]);
+                var fresh = new TravelRepository(Path.Combine(temporary, "Lisbon in October"), Path.Combine(temporary, "recovery3"));
+                var lisbon = Entity.CreateTrip("Lisbon in October", "en", "Europe/Lisbon"); lisbon.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = "2027-10-08", ["end"] = "2027-10-12" };
+                await fresh.InitializeAsync(lisbon); await new GitRepository(fresh, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid");
+                await m.OpenAsync(fresh.Root); m.View = "Plan"; await Capture("empty-plan"); m.CloseTrip(); await Settle();
                 await m.OpenAsync(trip);
             }
             m.View = "Plan"; m.ShowDate(start.PlusDays(1));

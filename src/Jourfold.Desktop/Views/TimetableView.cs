@@ -21,7 +21,7 @@ namespace Jourfold.Desktop;
 public sealed class TimetableView : UserControl
 {
     public static readonly DataFormat<string> EntityFormat = DataFormat.CreateStringApplicationFormat("org.travelrepo.entity");
-    private const double Gutter = 58, Top = 10, MinColumn = 168, Snap = 15;
+    private const double Gutter = 64, Top = 10, MinColumn = 168, Snap = 15;
     private readonly MainWindow window;
     private readonly MainViewModel vm;
     private readonly Canvas canvas = new() { Background = Brushes.Transparent };
@@ -133,7 +133,9 @@ public sealed class TimetableView : UserControl
             else
             {
                 var day = DayOf(c); var isToday = day == today;
-                var number = Ui.Text(Formats.DayNumber(day), "title");
+                var (tripStart, tripEnd) = TripQueries.EffectiveDates(trip);
+                var outside = tripStart is { } ts && day < ts || tripEnd is { } te && day > te;
+                var number = Ui.Text(Formats.DayNumber(day), outside ? "subtle" : "title");
                 Control date = isToday ? new Border { Child = number.Res(TextBlock.ForegroundProperty, "Text.OnAccent"), Padding = new Thickness(8, 1), CornerRadius = new CornerRadius(10) }.Res(Border.BackgroundProperty, "Accent") : number;
                 cell = Ui.V(1, Ui.Text(Formats.DayHeader(day).ToUpper(CultureInfo.CurrentCulture), "overline").Also(t => { if (isToday) t.Res(TextBlock.ForegroundProperty, "Accent"); }), date);
                 AutomationProperties.SetName(cell, Formats.LongDay(day));
@@ -165,7 +167,7 @@ public sealed class TimetableView : UserControl
     private void DrawStrip(Placement[] items)
     {
         strip.Width = canvas.Width;
-        var label = Ui.Text(vm.Strings["AllDay"], "caption").Also(t => { t.FontSize = 11; t.Width = Gutter - 12; t.TextAlignment = TextAlignment.Right; });
+        var label = Ui.Text(vm.Strings["AllDay"], "caption").Also(t => { t.FontSize = 10.5; t.Width = Gutter - 10; t.TextAlignment = TextAlignment.Right; t.TextWrapping = TextWrapping.NoWrap; });
         if (items.Length == 0) { strip.Height = 0; return; }
         var rows = Enumerable.Range(0, 4).Select(_ => new List<(int From, int To)>()).ToList();
         var placed = 0;

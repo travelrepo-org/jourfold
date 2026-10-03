@@ -1,0 +1,126 @@
+<!--
+  Jourfold design tokens. Views reference these keys through DynamicResource so theme changes apply live.
+  Light uses clean neutral surfaces with teal accents; Dark uses deep navy rather than black (BRAND.md).
+  Contrast: Text on Bg.Surface >= 12:1, Text.Muted >= 5.5:1, Accent on Bg.Surface >= 4.8:1 in both themes.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <!-- Radii and spacing -->
+  <CornerRadius x:Key="Radius.Small">6</CornerRadius>
+  <CornerRadius x:Key="Radius.Medium">8</CornerRadius>
+  <CornerRadius x:Key="Radius.Large">12</CornerRadius>
+  <CornerRadius x:Key="Radius.Pill">999</CornerRadius>
+  <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+  <CornerRadius x:Key="OverlayCornerRadius">10</CornerRadius>
+  <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
+  <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
+  <x:Double x:Key="TabItemMinHeight">36</x:Double>
+  <FontWeight x:Key="TabItemHeaderThemeFontWeight">SemiBold</FontWeight>
+  <FontFamily x:Key="Font.Ui">avares://Jourfold.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
+  <FontFamily x:Key="ContentControlThemeFontFamily">avares://Jourfold.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
+
+  <ResourceDictionary.ThemeDictionaries>
+    <ResourceDictionary x:Key="Light">
+      <SolidColorBrush x:Key="Bg.App">#F3F6F6</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Surface">#FFFFFF</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Raised">#FFFFFF</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Subtle">#EEF2F2</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Muted">#E5EBEB</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Sidebar">#FAFBFB</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Grid">#FBFCFC</SolidColorBrush>
+      <SolidColorBrush x:Key="Line">#E1E7E8</SolidColorBrush>
+      <SolidColorBrush x:Key="Line.Soft">#EDF1F2</SolidColorBrush>
+      <SolidColorBrush x:Key="Line.Strong">#C9D3D5</SolidColorBrush>
+      <SolidColorBrush x:Key="Text">#0F2A3D</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.Muted">#4D6170</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.Subtle">#76889A</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.OnAccent">#FFFFFF</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent">#0F7B7A</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Hover">#0C6A69</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Pressed">#095A59</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Soft">#E0F2F0</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.SoftHover">#CDEBE7</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.SoftText">#0A5A59</SolidColorBrush>
+      <SolidColorBrush x:Key="Brand.Navy">#103B5C</SolidColorBrush>
+      <SolidColorBrush x:Key="Brand.Mint">#45C4AF</SolidColorBrush>
+      <SolidColorBrush x:Key="Danger">#B42318</SolidColorBrush>
+      <SolidColorBrush x:Key="Danger.Soft">#FDECEA</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning">#8A5300</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning.Soft">#FFF4DB</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning.Line">#F0C56A</SolidColorBrush>
+      <SolidColorBrush x:Key="Success">#1B7348</SolidColorBrush>
+      <SolidColorBrush x:Key="Success.Soft">#E2F4EA</SolidColorBrush>
+      <SolidColorBrush x:Key="Info">#245C9E</SolidColorBrush>
+      <SolidColorBrush x:Key="Info.Soft">#E5EEF9</SolidColorBrush>
+      <SolidColorBrush x:Key="Overlay">#700F2A3D</SolidColorBrush>
+      <SolidColorBrush x:Key="NowLine">#D14343</SolidColorBrush>
+      <SolidColorBrush x:Key="Map.Land">#EEF1EC</SolidColorBrush>
+      <SolidColorBrush x:Key="Map.Grid">#DCE3DD</SolidColorBrush>
+      <Color x:Key="Shadow.Color">#1A0F2A3D</Color>
+
+      <SolidColorBrush x:Key="Kind.Activity.Bg">#E2F3F1</SolidColorBrush><SolidColorBrush x:Key="Kind.Activity.Fg">#0A5654</SolidColorBrush><SolidColorBrush x:Key="Kind.Activity.Bar">#14968F</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Transport.Bg">#E5EEFB</SolidColorBrush><SolidColorBrush x:Key="Kind.Transport.Fg">#1B4C8A</SolidColorBrush><SolidColorBrush x:Key="Kind.Transport.Bar">#3B7DD8</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Accommodation.Bg">#EEE9FA</SolidColorBrush><SolidColorBrush x:Key="Kind.Accommodation.Fg">#4C3796</SolidColorBrush><SolidColorBrush x:Key="Kind.Accommodation.Bar">#7C5CD6</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Food.Bg">#FDEEE1</SolidColorBrush><SolidColorBrush x:Key="Kind.Food.Fg">#844210</SolidColorBrush><SolidColorBrush x:Key="Kind.Food.Bar">#E2843A</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Sightseeing.Bg">#E3F3E8</SolidColorBrush><SolidColorBrush x:Key="Kind.Sightseeing.Fg">#1C653C</SolidColorBrush><SolidColorBrush x:Key="Kind.Sightseeing.Bar">#36A464</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Culture.Bg">#F8E7F0</SolidColorBrush><SolidColorBrush x:Key="Kind.Culture.Fg">#842B58</SolidColorBrush><SolidColorBrush x:Key="Kind.Culture.Bar">#C9558E</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Nature.Bg">#EBF3DE</SolidColorBrush><SolidColorBrush x:Key="Kind.Nature.Fg">#455F18</SolidColorBrush><SolidColorBrush x:Key="Kind.Nature.Bar">#7DA83A</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Shopping.Bg">#FBE9E9</SolidColorBrush><SolidColorBrush x:Key="Kind.Shopping.Fg">#872D2D</SolidColorBrush><SolidColorBrush x:Key="Kind.Shopping.Bar">#D9605F</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Nightlife.Bg">#E8E8F8</SolidColorBrush><SolidColorBrush x:Key="Kind.Nightlife.Fg">#383A8A</SolidColorBrush><SolidColorBrush x:Key="Kind.Nightlife.Bar">#6366D1</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Meeting.Bg">#E9EEF2</SolidColorBrush><SolidColorBrush x:Key="Kind.Meeting.Fg">#324657</SolidColorBrush><SolidColorBrush x:Key="Kind.Meeting.Bar">#6B8396</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.FreeTime.Bg">#EEF1F2</SolidColorBrush><SolidColorBrush x:Key="Kind.FreeTime.Fg">#43515C</SolidColorBrush><SolidColorBrush x:Key="Kind.FreeTime.Bar">#9AA7B1</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Other.Bg">#EEF1F2</SolidColorBrush><SolidColorBrush x:Key="Kind.Other.Fg">#43515C</SolidColorBrush><SolidColorBrush x:Key="Kind.Other.Bar">#9AA7B1</SolidColorBrush>
+    </ResourceDictionary>
+
+    <ResourceDictionary x:Key="Dark">
+      <SolidColorBrush x:Key="Bg.App">#09182A</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Surface">#0E2135</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Raised">#132941</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Subtle">#172F49</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Muted">#1C3753</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Sidebar">#0B1C2F</SolidColorBrush>
+      <SolidColorBrush x:Key="Bg.Grid">#0C1E31</SolidColorBrush>
+      <SolidColorBrush x:Key="Line">#1F3A55</SolidColorBrush>
+      <SolidColorBrush x:Key="Line.Soft">#172E46</SolidColorBrush>
+      <SolidColorBrush x:Key="Line.Strong">#2D4C6A</SolidColorBrush>
+      <SolidColorBrush x:Key="Text">#E7F0F5</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.Muted">#A8BACA</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.Subtle">#7D93A7</SolidColorBrush>
+      <SolidColorBrush x:Key="Text.OnAccent">#04211E</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent">#3EC6B0</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Hover">#58D1BD</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Pressed">#31AE9A</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.Soft">#123E45</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.SoftHover">#174B53</SolidColorBrush>
+      <SolidColorBrush x:Key="Accent.SoftText">#86E3D3</SolidColorBrush>
+      <SolidColorBrush x:Key="Brand.Navy">#EDF7FA</SolidColorBrush>
+      <SolidColorBrush x:Key="Brand.Mint">#45C4AF</SolidColorBrush>
+      <SolidColorBrush x:Key="Danger">#F2877C</SolidColorBrush>
+      <SolidColorBrush x:Key="Danger.Soft">#3A1C23</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning">#F5D08A</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning.Soft">#352B15</SolidColorBrush>
+      <SolidColorBrush x:Key="Warning.Line">#7A6020</SolidColorBrush>
+      <SolidColorBrush x:Key="Success">#76D7A4</SolidColorBrush>
+      <SolidColorBrush x:Key="Success.Soft">#11342A</SolidColorBrush>
+      <SolidColorBrush x:Key="Info">#86B9F2</SolidColorBrush>
+      <SolidColorBrush x:Key="Info.Soft">#142C47</SolidColorBrush>
+      <SolidColorBrush x:Key="Overlay">#B3040C16</SolidColorBrush>
+      <SolidColorBrush x:Key="NowLine">#FF7A7A</SolidColorBrush>
+      <SolidColorBrush x:Key="Map.Land">#10263B</SolidColorBrush>
+      <SolidColorBrush x:Key="Map.Grid">#1A3550</SolidColorBrush>
+      <Color x:Key="Shadow.Color">#40000000</Color>
+
+      <SolidColorBrush x:Key="Kind.Activity.Bg">#123A3D</SolidColorBrush><SolidColorBrush x:Key="Kind.Activity.Fg">#9BE7DA</SolidColorBrush><SolidColorBrush x:Key="Kind.Activity.Bar">#3EC6B0</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Transport.Bg">#152F50</SolidColorBrush><SolidColorBrush x:Key="Kind.Transport.Fg">#A7C9F6</SolidColorBrush><SolidColorBrush x:Key="Kind.Transport.Bar">#5B9BEA</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Accommodation.Bg">#2A2450</SolidColorBrush><SolidColorBrush x:Key="Kind.Accommodation.Fg">#CDBFF7</SolidColorBrush><SolidColorBrush x:Key="Kind.Accommodation.Bar">#9C82EA</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Food.Bg">#3B2916</SolidColorBrush><SolidColorBrush x:Key="Kind.Food.Fg">#F7CBA3</SolidColorBrush><SolidColorBrush x:Key="Kind.Food.Bar">#EE9A55</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Sightseeing.Bg">#16392A</SolidColorBrush><SolidColorBrush x:Key="Kind.Sightseeing.Fg">#A6E2BF</SolidColorBrush><SolidColorBrush x:Key="Kind.Sightseeing.Bar">#4FC07E</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Culture.Bg">#3B1F32</SolidColorBrush><SolidColorBrush x:Key="Kind.Culture.Fg">#F2B3D1</SolidColorBrush><SolidColorBrush x:Key="Kind.Culture.Bar">#DD6FA5</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Nature.Bg">#26361B</SolidColorBrush><SolidColorBrush x:Key="Kind.Nature.Fg">#CBE6A4</SolidColorBrush><SolidColorBrush x:Key="Kind.Nature.Bar">#93C24F</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Shopping.Bg">#3C2023</SolidColorBrush><SolidColorBrush x:Key="Kind.Shopping.Fg">#F4B6B5</SolidColorBrush><SolidColorBrush x:Key="Kind.Shopping.Bar">#E87877</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Nightlife.Bg">#24264E</SolidColorBrush><SolidColorBrush x:Key="Kind.Nightlife.Fg">#C0C2F6</SolidColorBrush><SolidColorBrush x:Key="Kind.Nightlife.Bar">#8486E6</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Meeting.Bg">#1D2C3A</SolidColorBrush><SolidColorBrush x:Key="Kind.Meeting.Fg">#BCCBD7</SolidColorBrush><SolidColorBrush x:Key="Kind.Meeting.Bar">#7F98AC</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.FreeTime.Bg">#1E2B37</SolidColorBrush><SolidColorBrush x:Key="Kind.FreeTime.Fg">#B8C4CD</SolidColorBrush><SolidColorBrush x:Key="Kind.FreeTime.Bar">#8C9AA6</SolidColorBrush>
+      <SolidColorBrush x:Key="Kind.Other.Bg">#1E2B37</SolidColorBrush><SolidColorBrush x:Key="Kind.Other.Fg">#B8C4CD</SolidColorBrush><SolidColorBrush x:Key="Kind.Other.Bar">#8C9AA6</SolidColorBrush>
+    </ResourceDictionary>
+  </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

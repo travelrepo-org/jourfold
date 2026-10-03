@@ -40,3 +40,4 @@ coverage.*
 # Packaging output
 dist/
 packages-out/
+__pycache__/

@@ -69,7 +69,11 @@ def element_path(el) -> str:
     a = el.attrib
     f = lambda k, default=0.0: float(a.get(k, default))
     if tag == "path":
-        return normalize_path(a["d"])
+        d = a["d"].lstrip()
+        # A path element's first moveto is absolute even when written as "m"; paths are concatenated here.
+        if d.startswith("m"):
+            d = "M0 0 " + d  # relative to the origin, so later implicit pairs stay relative
+        return normalize_path(d)
     if tag == "circle":
         cx, cy, r = f("cx"), f("cy"), f("r")
         return f"M {fmt(cx - r)} {fmt(cy)} A {fmt(r)} {fmt(r)} 0 1 0 {fmt(cx + r)} {fmt(cy)} A {fmt(r)} {fmt(r)} 0 1 0 {fmt(cx - r)} {fmt(cy)} Z"

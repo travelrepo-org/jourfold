@@ -27,7 +27,7 @@ public sealed class SearchChoice : UserControl
         Input.ValueMemberBinding = new Binding(nameof(Choice.Label));
         Input.SelectedItem = options.FirstOrDefault(c => c.Id == selected); Input.Text = (Input.SelectedItem as Choice)?.Label;
         Input.Watermark = label; Input.HorizontalAlignment = HorizontalAlignment.Stretch;
-        var browse = new Button { Content = "⌄", Padding = new Thickness(9, 4) }; ToolTip.SetTip(browse, label); AutomationProperties.SetName(browse, label);
+        var browse = new Button { Content = new Icon("chevron-down", 14), Padding = new Thickness(9, 4) }; browse.Classes.Add("icon"); ToolTip.SetTip(browse, label); AutomationProperties.SetName(browse, label);
         browse.Click += (_, _) => { Input.Text = ""; Input.Focus(); Input.IsDropDownOpen = true; };
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 4 }; grid.Children.Add(Input); Grid.SetColumn(browse, 1); grid.Children.Add(browse); Content = grid;
         AutomationProperties.SetName(Input, label); ToolTip.SetTip(Input, label);
@@ -57,7 +57,7 @@ public sealed class FormControl : StackPanel
     public FormControl(FormField field)
     {
         Field = field; Spacing = 6;
-        Children.Add(new TextBlock { Text = field.Label, FontWeight = Avalonia.Media.FontWeight.Medium });
+        Children.Add(new TextBlock { Text = field.Label + (field.Required ? "" : ""), Classes = { "label" } });
         Editor = field.Kind switch
         {
             "date" => new CalendarDatePicker { SelectedDate = DateTime.TryParseExact(field.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null },
@@ -72,7 +72,8 @@ public sealed class FormControl : StackPanel
             _ => new TextBox { Text = field.Value }
         };
         Editor.Tag = field.Key; Editor.HorizontalAlignment = HorizontalAlignment.Stretch;
-        AutomationProperties.SetName(Editor, field.Label); ToolTip.SetTip(Editor, field.Label); Children.Add(Editor);
+        AutomationProperties.SetName(Editor, field.Label); Children.Add(Editor);
+        if (field.Hint is { Length: > 0 } hint) { if (Editor is TextBox box && box.Watermark is null) box.Watermark = hint; else Children.Add(new TextBlock { Text = hint, Classes = { "caption" }, TextWrapping = Avalonia.Media.TextWrapping.Wrap }); }
     }
     private static decimal? Minutes(string value)
     {

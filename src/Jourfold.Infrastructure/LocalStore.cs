@@ -10,7 +10,7 @@ public sealed class LocalStore : IDisposable
     public string Root { get; }
     public LocalStore(string? root = null)
     {
-        Root = root ?? Environment.GetEnvironmentVariable("JOURFOLD_DATA_HOME") ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Jourfold"); Directory.CreateDirectory(Root);
+        Root = root ?? Environment.GetEnvironmentVariable("JOURFOLD_DATA_HOME") ?? Path.Combine(TravelRepo.Repository.TravelRepository.DefaultStateRoot(), "Jourfold"); Directory.CreateDirectory(Root);
         db = new SqliteConnection("Data Source=" + Path.Combine(Root, "local.db")); db.Open();
         Execute("CREATE TABLE IF NOT EXISTS recent(path TEXT PRIMARY KEY,title TEXT,opened TEXT,changed TEXT,state TEXT); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT); CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(trip UNINDEXED,id UNINDEXED,title,body);");
     }
@@ -27,6 +27,7 @@ public sealed class LocalStore : IDisposable
         }
         return files.Where(File.Exists).Select(File.GetLastWriteTimeUtc).DefaultIfEmpty(DateTime.MinValue).Max();
     }
+    public void Forget(string path) { Execute("DELETE FROM recent WHERE path=$p", ("$p", path)); Execute("DELETE FROM search WHERE trip=$p", ("$p", path)); }
     public IReadOnlyList<RecentTrip> Recent()
     { using var c = db.CreateCommand(); c.CommandText = "SELECT path,title,opened,changed,state FROM recent ORDER BY opened DESC"; using var r = c.ExecuteReader(); var list = new List<RecentTrip>(); while (r.Read()) list.Add(new(r.GetString(0), r.GetString(1), r.GetString(2), r.GetString(3), r.GetString(4))); return list; }
     public void Index(string path, TripSnapshot trip)

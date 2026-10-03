@@ -1,3 +1,30 @@
-<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Jourfold.Desktop.App" RequestedThemeVariant="Default">
- <Application.Styles><FluentTheme/><StyleInclude Source="avares://Jourfold.Desktop/Design.axaml"/></Application.Styles>
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Jourfold.Desktop.App" RequestedThemeVariant="Default" Name="Jourfold">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Jourfold.Desktop/Theme/Tokens.axaml"/>
+        <ResourceInclude Source="avares://Jourfold.Desktop/Theme/Icons.axaml"/>
+        <ResourceInclude Source="avares://Jourfold.Desktop/Theme/Brand.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Light" Accent="#0F7B7A" RegionColor="#FFFFFF" ErrorText="#B42318"
+          AltHigh="#FFFFFF" AltLow="#FFFFFF" AltMedium="#FFFFFF" AltMediumHigh="#FFFFFF" AltMediumLow="#FFFFFF"
+          BaseHigh="#0F2A3D" BaseMediumHigh="#2F4656" BaseMedium="#4D6170" BaseMediumLow="#76889A" BaseLow="#E1E7E8"
+          ChromeAltLow="#0F2A3D" ChromeBlackHigh="#000000" ChromeBlackLow="#C9D3D5" ChromeBlackMedium="#4D6170" ChromeBlackMediumLow="#76889A"
+          ChromeDisabledHigh="#C9D3D5" ChromeDisabledLow="#76889A" ChromeGray="#76889A" ChromeHigh="#C9D3D5" ChromeLow="#F3F6F6"
+          ChromeMedium="#EEF2F2" ChromeMediumLow="#FFFFFF" ChromeWhite="#FFFFFF" ListLow="#EEF2F2" ListMedium="#E5EBEB"/>
+        <ColorPaletteResources x:Key="Dark" Accent="#3EC6B0" RegionColor="#0E2135" ErrorText="#F2877C"
+          AltHigh="#0E2135" AltLow="#0E2135" AltMedium="#0E2135" AltMediumHigh="#0E2135" AltMediumLow="#0E2135"
+          BaseHigh="#E7F0F5" BaseMediumHigh="#C9D7E2" BaseMedium="#A8BACA" BaseMediumLow="#6F87A0" BaseLow="#1F3A55"
+          ChromeAltLow="#E7F0F5" ChromeBlackHigh="#000000" ChromeBlackLow="#A8BACA" ChromeBlackMedium="#04101C" ChromeBlackMediumLow="#09182A"
+          ChromeDisabledHigh="#1F3A55" ChromeDisabledLow="#7D93A7" ChromeGray="#7D93A7" ChromeHigh="#2D4C6A" ChromeLow="#0E2135"
+          ChromeMedium="#172F49" ChromeMediumLow="#132941" ChromeWhite="#E7F0F5" ListLow="#172F49" ListMedium="#1C3753"/>
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://Jourfold.Desktop/Theme/Controls.axaml"/>
+  </Application.Styles>
 </Application>

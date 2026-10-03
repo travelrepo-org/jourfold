@@ -40,6 +40,40 @@ def multiply(a, b):
     return (a1 * a2 + c1 * b2, b1 * a2 + d1 * b2, a1 * c2 + c1 * d2, b1 * c2 + d1 * d2, a1 * e2 + c1 * f2 + e1, b1 * e2 + d1 * f2 + f1)
 
 
+def apply(data: str, m) -> str:
+    """Apply an affine matrix to an absolute path (M, L, H, V, Q, C, Z) and return the new path data."""
+    a, b, c, d, e, f = m
+    tokens = data.split()
+    out = []
+    i = 0
+    x = y = 0.0
+    def point(px, py):
+        return fmt(a * px + c * py + e) + " " + fmt(b * px + d * py + f)
+    while i < len(tokens):
+        cmd = tokens[i]
+        i += 1
+        if cmd in ("F0", "F1"):
+            out.append(cmd)
+            continue
+        if cmd.islower() and cmd != "z":
+            raise ValueError("relative commands are not supported in brand paths")
+        if cmd in ("Z", "z"):
+            out.append("Z")
+            continue
+        if cmd == "H":
+            x = float(tokens[i]); i += 1; out.append("L " + point(x, y)); continue
+        if cmd == "V":
+            y = float(tokens[i]); i += 1; out.append("L " + point(x, y)); continue
+        count = {"M": 1, "L": 1, "Q": 2, "C": 3}[cmd]
+        pts = []
+        for _ in range(count):
+            px, py = float(tokens[i]), float(tokens[i + 1]); i += 2
+            pts.append(point(px, py))
+            x, y = px, py
+        out.append(cmd + " " + " ".join(pts))
+    return " ".join(out)
+
+
 def drawings(element, matrix, fill, out):
     tag = element.tag.split("}")[-1]
     if "transform" in element.attrib:
@@ -62,13 +96,10 @@ def drawing_image(key: str, svg: Path, recolor=None) -> list:
              f'      <GeometryDrawing Brush="Transparent" Geometry="M 0 0 H {fmt(w)} V {fmt(h)} H 0 Z"/>']
     for fill, data, m in out:
         color = (recolor or {}).get(fill.lower(), fill)
-        identity = m == (1, 0, 0, 1, 0, 0)
+        if m != (1, 0, 0, 1, 0, 0):
+            data = apply(data, m)
         lines.append(f'      <GeometryDrawing Brush="{color}">')
-        if identity:
-            lines.append(f"        <GeometryDrawing.Geometry><StreamGeometry>{data}</StreamGeometry></GeometryDrawing.Geometry>")
-        else:
-            matrix = ",".join(fmt(v) for v in m)
-            lines.append(f'        <GeometryDrawing.Geometry><PathGeometry Figures="{data}" Transform="matrix({matrix})"/></GeometryDrawing.Geometry>')
+        lines.append(f"        <GeometryDrawing.Geometry><StreamGeometry>{data}</StreamGeometry></GeometryDrawing.Geometry>")
         lines.append("      </GeometryDrawing>")
     lines += ["    </DrawingGroup>", "  </DrawingImage>"]
     return lines

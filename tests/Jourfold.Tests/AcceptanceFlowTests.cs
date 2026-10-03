@@ -62,9 +62,11 @@ public sealed class AcceptanceFlowTests : IDisposable
         interaction.Answers.Enqueue("Hotel stay"); await vm.AddAsync("accommodation"); var stay = vm.Selected!;
         interaction.Answers.Enqueue("2027-05-12T15:00:00"); interaction.Answers.Enqueue("Europe/Berlin"); await EditorModel.ComplexAsync(vm, stay.Id, EditorModel.Fields(stay).Single(f => f.Path.EndsWith("check_in", StringComparison.Ordinal)));
         await EditorModel.UpdateAsync(vm, stay.Id, new("components/accommodation/rooms", "Rooms", "list"), "Room 21, Room 22");
-        interaction.Answers.Enqueue("Meet in the lobby"); interaction.Answers.Enqueue(person.Id.ToString()); await vm.AddAsync("comment"); Assert.Equal(stay.Id.ToString(), vm.Selected!.Data["target"]!["id"]!.ToString());
+        interaction.Answers.Enqueue("Meet in the lobby"); await vm.AddAsync("comment");
+        var comment = vm.Workspace.State.Trip.Entities.Values.Single(e => e.Type == "comment"); Assert.Equal(stay.Id.ToString(), comment.Data["target"]!["id"]!.ToString()); Assert.Equal(person.Id.ToString(), comment.Data["author"]!.ToString());
         var snapshot = vm.Workspace.State.Trip; Assert.DoesNotContain(vm.Workspace.State.Diagnostics, d => d.Severity == Severity.Error); Assert.Equal(2, ((JsonArray)snapshot.Find(stay.Id)!.Data["components"]!["accommodation"]!["rooms"]!).Count);
-        vm.Dispose(); var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(stay.Id); Dispatcher.UIThread.RunJobs(); Assert.NotEmpty(window.FindControl<StackPanel>("Inspector")!.Children); window.Close();
+        vm.Dispose(); var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(stay.Id); Dispatcher.UIThread.RunJobs(); Assert.NotEmpty(Probe.Named<StackPanel>(window, "Inspector").Children);
+        Probe.Click(window, window.Model.Strings["Comments"] + " · 1"); Dispatcher.UIThread.RunJobs(); Assert.Contains(Probe.All<SelectableTextBlock>(window), t => t.Text == "Meet in the lobby"); window.Close();
     }
     [AvaloniaFact]
     public async Task ComparisonProvidesTimetableAndStructuredTabsWithMarkdownChanges()
@@ -96,8 +98,10 @@ public sealed class AcceptanceFlowTests : IDisposable
     public async Task ScaledAndHighContrastWorkspacesKeepPrimaryControlsReachable(string theme, string size, bool contrast)
     {
         var path = await Create(); var window = new MainWindow(); window.Model.Store.Set("theme", theme); window.Model.Store.Set("textsize", size); window.Model.Store.Set("highcontrast", contrast ? "true" : "false"); window.Show(); await window.Model.OpenAsync(path); Dispatcher.UIThread.RunJobs();
-        Assert.True(window.FindControl<Button>("InboxToggle")!.IsEffectivelyVisible); Assert.True(window.FindControl<Grid>("WorkspaceLayout")!.Height >= 580); Assert.NotNull(window.FindControl<ContentControl>("MainContent")!.Content);
-        if (contrast) Assert.Equal(Avalonia.Media.Brushes.Black, window.Resources["Surface"]); window.Close();
+        var inbox = Probe.All<Button>(window).First(b => Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(window.Model.Strings["Inbox"], StringComparison.Ordinal) == true);
+        Assert.True(inbox.IsEffectivelyVisible); Assert.True(window.FindControl<Grid>("WorkspaceLayout")!.Height >= 580); Assert.NotNull(window.FindControl<ContentControl>("MainContent")!.Content);
+        Assert.True(Probe.Button(window, window.Model.Strings["Add"]).IsEffectivelyVisible);
+        if (contrast) Assert.Equal(Avalonia.Media.Brushes.Black, window.Resources["Bg.Surface"]); window.Close();
     }
 
     private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore
@@ -150,10 +154,10 @@ public sealed class AcceptanceFlowTests : IDisposable
     {
         var path = await Create(); var repo = new TravelRepository(path); var item = Entity.Create("schedule_item", "Original"); await repo.ApplyAsync(await repo.ReadAsync(), [new(item.Id, item)]);
         var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(item.Id); Dispatcher.UIThread.RunJobs();
-        var fields = window.FindControl<StackPanel>("Inspector")!.GetVisualDescendants().OfType<Control>().ToArray(); var title = fields.OfType<TextBox>().Single(c => c.Tag as string == "title"); var status = fields.OfType<ComboBox>().Single(c => c.Tag as string == "status");
-        title.Focus(); title.Text = "Keyboard edit"; status.Focus();
-        for (var i = 0; i < 100 && window.Model.Workspace.State.Trip.Find(item.Id)!.Title != "Keyboard edit"; i++) await Task.Delay(20);
-        Assert.Equal("Keyboard edit", window.Model.Workspace.State.Trip.Find(item.Id)!.Title); Dispatcher.UIThread.RunJobs(); Assert.Equal("status", (window.FocusManager!.GetFocusedElement() as Control)?.Tag); window.Close();
+        var title = Probe.Tagged<TextBox>(window.FindControl<Border>("InspectorHost")!, "title"); var tags = Probe.Tagged<TextBox>(window.FindControl<Border>("InspectorHost")!, "tags");
+        title.Focus(); title.Text = "Keyboard edit"; tags.Focus();
+        await Probe.Until(() => window.Model.Workspace.State.Trip.Find(item.Id)!.Title == "Keyboard edit");
+        Dispatcher.UIThread.RunJobs(); await Task.Delay(50); Dispatcher.UIThread.RunJobs(); Assert.Equal("tags", (window.FocusManager!.GetFocusedElement() as Control)?.Tag); window.Close();
     }
 
     [AvaloniaFact]
@@ -164,12 +168,12 @@ public sealed class AcceptanceFlowTests : IDisposable
         var item = Entity.Create("schedule_item", "Night train"); item.Data["participants"] = new JsonArray(alex.Id.ToString(), carla.Id.ToString());
         item.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-05-12T23:00:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-05-13T03:00:00", "Europe/Berlin").ToJson() };
         await repo.ApplyAsync(await repo.ReadAsync(), [new(alex.Id, alex), new(carla.Id, carla), new(item.Id, item)]);
-        using var store = new LocalStore(Path.Combine(root, "local")); using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), new TestInteraction()); await vm.OpenAsync(path); vm.StartDate = new LocalDate(2027, 5, 12);
-        var view = new PlanningView(vm, false); var window = new Window { Width = 1000, Height = 700, Content = view }; window.Show(); Dispatcher.UIThread.RunJobs();
-        Assert.Equal(2, view.GetVisualDescendants().OfType<Button>().Count(b => Equals(b.Tag, item.Id)));
-        vm.Lanes = true; vm.StartDate = vm.StartDate.PlusDays(1); view = new PlanningView(vm, false); window.Content = view; Dispatcher.UIThread.RunJobs();
-        var blocks = view.GetVisualDescendants().OfType<Button>().Where(b => Equals(b.Tag, item.Id)).ToArray(); Assert.Equal(2, blocks.Length);
-        Assert.NotEqual(Canvas.GetLeft(blocks[0]), Canvas.GetLeft(blocks[1])); Assert.Single(vm.Workspace!.State.Trip.Entities.Values, e => e.Type == "schedule_item"); window.Close();
+        var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); var vm = window.Model; vm.View = "Plan"; vm.InboxOpen = false; vm.SetLanes(false); vm.ShowDate(new LocalDate(2027, 5, 12)); Dispatcher.UIThread.RunJobs();
+        Button[] Blocks() => Probe.All<Button>(window.FindControl<ContentControl>("MainContent")!).Where(b => Equals(b.Tag, item.Id)).ToArray();
+        Assert.Equal(2, Blocks().Length);
+        vm.SetLanes(true); vm.ShowDate(new LocalDate(2027, 5, 13)); Dispatcher.UIThread.RunJobs();
+        var blocks = Blocks(); Assert.Equal(2, blocks.Length);
+        Assert.NotEqual(Canvas.GetLeft(blocks[0]), Canvas.GetLeft(blocks[1])); Assert.Single(vm.Workspace!.State.Trip.Entities.Values, e => e.Type == "schedule_item"); vm.SetLanes(false); window.Close();
     }
 
     private sealed class AuthorizedTestSecrets : TravelRepo.Providers.ISecretStore
@@ -195,10 +199,10 @@ public sealed class AcceptanceFlowTests : IDisposable
         var path = await Create(); var backend = new GitCliBackend(); var remote = Path.Combine(root, "publish.git");
         if (reachable) { Directory.CreateDirectory(remote); Assert.Equal(0, (await backend.ExecuteAsync(remote, ["init", "--bare"])).ExitCode); }
         using var http = new HttpClient(new PublishRepositoryHandler(remote)); using var store = new LocalStore(Path.Combine(root, "local"));
-        var interaction = new TestInteraction(); interaction.Answers.Enqueue("published-trip");
+        var interaction = new TestInteraction();
         using var vm = new MainViewModel(store, backend, new OsSecretStore(), interaction, () => new TravelRepo.Providers.GitHub.GitHubProvider(http, new AuthorizedTestSecrets(), "test-client"));
         await vm.OpenAsync(path); Assert.Equal("local", store.Recent().Single().State);
-        await vm.ShareCommand.ExecuteAsync(null);
+        await vm.PublishToGitHubAsync("published-trip");
         Assert.Equal("remote", store.Recent().Single().State); Assert.Equal("origin", store.Get("remote:" + path)); Assert.Equal(vm.Strings["Invite"], vm.SharingLabel);
         if (reachable) { Assert.Empty(interaction.Errors); Assert.Equal(await vm.Workspace!.Git.HeadAsync(), (await backend.ExecuteAsync(remote, ["rev-parse", "main"])).Output.Trim()); }
         else Assert.Single(interaction.Errors);

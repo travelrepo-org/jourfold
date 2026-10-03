@@ -1,17 +1,23 @@
 using System.Globalization;
-using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
+using Jourfold.Application;
 using Jourfold.Desktop;
 using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Git;
 using TravelRepo.Repository;
 
-var output = Path.GetFullPath(args.SingleOrDefault() ?? "docs/screenshots");
+// Renders the real application with synthetic local data. Usage:
+//   dotnet run --project eng/Screenshots -- <output-directory> [--all] [--lang de]
+var options = args.Where(a => a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+var output = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal) && !Array.Exists(options, o => o == a) && a is not ("de" or "en")) ?? "docs/screenshots");
+var all = options.Contains("--all");
+var language = args.SkipWhile(a => a != "--lang").Skip(1).FirstOrDefault() ?? "en";
 Directory.CreateDirectory(output);
 var temporary = Path.Combine(Path.GetTempPath(), "jourfold-screenshots-" + Guid.NewGuid());
 Directory.CreateDirectory(temporary);
@@ -24,53 +30,100 @@ if (OperatingSystem.IsLinux())
 Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", Path.Combine(temporary, "gitconfig"));
 Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
 File.WriteAllText(Path.Combine(temporary, "gitconfig"), "");
-CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo("en-US");
-CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+CultureInfo.DefaultThreadCurrentCulture = CultureInfo.GetCultureInfo(language == "de" ? "de-DE" : "en-GB");
+CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.DefaultThreadCurrentCulture;
 
 try
 {
-    var (repository, selection) = await Fixture.CreateAsync(temporary);
+    // Synthetic sample data: real place names, invented times, bookings and prices.
+    Console.Error.WriteLine("creating sample");
+    var start = new LocalDate(2027, 5, 14);
+    var trip = Path.Combine(temporary, "Spring in Japan");
+    await SampleTrip.CreateAsync(trip, new GitCliBackend(), start, "Alex", "alex@example.invalid", Path.Combine(temporary, "recovery"));
+    var second = new TravelRepository(Path.Combine(temporary, "Weekend in Aachen"), Path.Combine(temporary, "recovery2"));
+    var aachen = Entity.CreateTrip("Weekend in Aachen", "en", "Europe/Berlin"); aachen.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = "2027-09-17", ["end"] = "2027-09-19" };
+    await second.InitializeAsync(aachen); await new GitRepository(second, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid");
+
+    Console.Error.WriteLine("starting session");
     using var session = HeadlessUnitTestSession.StartNew(typeof(ScreenshotApplication));
     await session.Dispatch(async () =>
     {
-        var window = new MainWindow { Width = 1360, Height = 960 };
+        Console.Error.WriteLine("dispatch");
+        MainWindow window;
+        try { window = new MainWindow { Width = 1440, Height = 900 }; }
+        catch (Exception ex) { Console.Error.WriteLine(ex); throw; }
         try
         {
-            window.Show();
-            await window.Model.OpenAsync(repository.Root);
-            window.Model.StartDate = new LocalDate(2027, 5, 14);
-            window.Model.InboxOpen = true;
-            window.Model.Selected = window.Model.Workspace!.State.Trip.Find(selection);
-            foreach (var theme in new[] { "Light", "Dark" })
+            Console.Error.WriteLine("show"); window.Show(); Console.Error.WriteLine("shown");
+            var m = window.Model;
+            m.Store.Set("identity.name", "Alex"); m.Store.Set("identity.email", "alex@example.invalid");
+            if (language == "de") m.SetPreference("Language", "de");
+            async Task Settle(int ms = 150) { using (window.CaptureRenderedFrame()) { } for (var i = 0; i < 4; i++) { await Task.Delay(ms / 4); Dispatcher.UIThread.RunJobs(); } }
+            async Task Capture(string name) { await Settle(); using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path); Console.WriteLine(path); }
+            void Click(string label)
             {
-                window.Model.Store.Set("theme", theme);
-                window.Model.Refresh();
-                using (window.CaptureRenderedFrame()) { }
-                await Task.Delay(100);
-                Dispatcher.UIThread.RunJobs();
-                var planner = (PlanningView)window.FindControl<ContentControl>("MainContent")!.Content!;
-                planner.GetVisualDescendants().OfType<ScrollViewer>().First().Offset = new Vector(0, 8 * 55);
-                await Task.Delay(100);
-                Dispatcher.UIThread.RunJobs();
-                using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No rendered frame.");
-                var path = Path.Combine(output, $"planning-{theme.ToLowerInvariant()}.png");
-                frame.Save(path);
-                Console.WriteLine(path);
+                var button = window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Button>().LastOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == label || b.Content as string == label)
+                    ?? throw new InvalidOperationException("Button not found: " + label);
+                button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             }
-            window.Model.SetPreference("Theme", "Light");
-            var settings = window.Model.SettingsCommand.ExecuteAsync(null);
-            await CaptureDialog("settings.png", "Close"); await settings;
-            var schedule = window.Model.Interaction.ScheduleAsync(window.Model.Selected!.Data["time"] as JsonObject, window.Model.StartDate, "Europe/Berlin");
-            await CaptureDialog("date-time.png", "Cancel"); await schedule;
-            async Task CaptureDialog(string name, string close)
+            async Task Dialog(Func<Task> open, string name, string close)
             {
-                using (window.CaptureRenderedFrame()) { }
-                await Task.Delay(120); Dispatcher.UIThread.RunJobs();
-                using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No rendered dialog."); frame.Save(Path.Combine(output, name));
-                var layer = window.FindControl<Grid>("DialogLayer")!;
-                layer.GetVisualDescendants().OfType<Button>().Single(b => b.Content?.ToString() == close).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                var layer = window.FindControl<Grid>("DialogLayer")!; var before = layer.Children.Count;
+                var task = open();
+                for (var i = 0; i < 60 && layer.Children.Count <= before; i++) await Settle(100);
+                await Capture(name); Click(close); await Settle(); await task;
             }
+            void Theme(string theme) { m.SetPreference("Theme", theme); }
+
+            Theme("Light");
+            if (all) await Capture("library-empty");
+            m.Store.Remember(second.Root, (await second.ReadAsync()).Trip, "local");
+            await m.OpenAsync(trip); await Settle();
+            m.CloseTrip(); await Settle(300);
+            await Capture("library");
+
+            await m.OpenAsync(trip);
+            m.View = "Plan"; m.ShowDate(start.PlusDays(1)); m.InboxOpen = true;
+            m.Selected = m.Workspace!.State.Trip.Entities.Values.First(e => e.Type == "schedule_item" && e.Title == "teamLab Planets");
+            await Settle(300);
+            await Capture("planning-light");
+            Theme("Dark"); await Settle(300); await Capture("planning-dark"); Theme("Light");
+            m.InboxOpen = false;
+
+            m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Shinkansen to Kyoto");
+            m.View = "List"; await Capture("list");
+            m.View = "Map"; m.Selected = null; await Capture("map");
+            m.View = "Costs"; await Capture("costs");
+            if (all)
+            {
+                m.View = "Bookings"; m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "booking"); await Capture("bookings");
+                m.Selected = null;
+                m.View = "Tasks"; await Capture("tasks");
+                m.View = "Files"; await Capture("files");
+                m.View = "People"; await Capture("people");
+                m.View = "Places"; await Capture("places");
+                m.View = "Collections"; await Capture("collections");
+                m.View = "History"; await Settle(600); await Capture("history");
+                m.View = "Variants"; await Settle(600); await Capture("variants");
+                m.View = "Plan"; m.Lanes = true; m.RaiseContentChanged(); await Capture("lanes"); m.Lanes = false;
+                Theme("Dark"); m.View = "Map"; await Capture("map-dark"); m.View = "Costs"; await Capture("costs-dark"); Theme("Light");
+                m.View = "Plan"; m.ShowDate(start.PlusDays(3));
+                m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Day trip to Nikko"); await Capture("nested");
+                m.Selected = m.Workspace.State.Trip.Manifest; await Capture("trip-details");
+                await Dialog(() => m.SearchCommand.ExecuteAsync(null), "palette", m.Strings["Close"]);
+                await Dialog(() => m.Interaction.ScheduleAsync(m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Flight to Tokyo").Data["time"] as System.Text.Json.Nodes.JsonObject, start, "Asia/Tokyo"), "date-time", m.Strings["Cancel"]);
+                await Dialog(() => m.ShareCommand.ExecuteAsync(null), "share", m.Strings["Close"]);
+                var item = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Explore Shinjuku").Copy(); item.Data["status"] = "confirmed"; await m.Workspace.EditAsync(item);
+                await Dialog(() => m.CreateVersionCommand.ExecuteAsync(null), "create-version", m.Strings["Cancel"]);
+                m.Selected = null; m.CloseTrip(); await Settle();
+                await Dialog(() => m.NewTripCommand.ExecuteAsync(null), "new-trip", m.Strings["Cancel"]);
+                await m.OpenAsync(trip);
+            }
+            m.View = "Plan"; m.ShowDate(start.PlusDays(1));
+            await Dialog(() => m.QuickAddCommand.ExecuteAsync(null), "quick-add", m.Strings["Cancel"]);
+            await Dialog(() => m.SettingsCommand.ExecuteAsync(null), "settings", m.Strings["Close"]);
         }
+        catch (Exception ex) { Console.Error.WriteLine(ex); throw; }
         finally
         {
             window.Close();
@@ -81,66 +134,11 @@ try
 }
 finally
 {
-    Directory.Delete(temporary, recursive: true);
+    try { Directory.Delete(temporary, recursive: true); } catch (IOException) { }
 }
 
 public static class ScreenshotApplication
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
         .UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
-}
-
-internal static class Fixture
-{
-    // Synthetic documentation data. These are ideas, not bookings or travel recommendations.
-    public static async Task<(TravelRepository Repository, Guid Selection)> CreateAsync(string temporary)
-    {
-        var repository = new TravelRepository(Path.Combine(temporary, "trip"), Path.Combine(temporary, "recovery"));
-        var manifest = Entity.CreateTrip("A weekend in Aachen", "en", "Europe/Berlin");
-        await repository.InitializeAsync(manifest);
-        var people = new[] { Entity.Create("person", "Alex"), Entity.Create("person", "Carla") };
-        manifest.Data["participants"] = new JsonArray(people.Select(p => JsonValue.Create(p.Id.ToString())).ToArray());
-        var edits = new List<EntityEdit> { new(manifest.Id, manifest) };
-        edits.AddRange(people.Select(p => new EntityEdit(p.Id, p)));
-        Guid selected = default;
-        foreach (var (title, day, start, end) in new[]
-        {
-            ("Arrive in Aachen", 14, "09:00", "10:30"),
-            ("Cathedral and old town", 14, "11:00", "13:00"),
-            ("Coffee and Printen", 14, "14:00", "15:30"),
-            ("Explore the neighbourhood", 14, "16:00", "17:30"),
-            ("Breakfast together", 15, "09:00", "10:30"),
-            ("Centre Charlemagne", 15, "11:00", "13:00"),
-            ("Picnic in the park", 15, "14:00", "15:30"),
-            ("Time to wander", 15, "16:00", "17:30"),
-            ("A slow Sunday brunch", 16, "09:30", "11:00"),
-            ("Walk on the Lousberg", 16, "11:30", "13:30"),
-            ("Train home", 16, "15:00", "17:00")
-        })
-        {
-            var item = Entity.Create("schedule_item", title);
-            item.Data["status"] = "planned";
-            item.Data["time"] = new JsonObject
-            {
-                ["precision"] = "exact",
-                ["start"] = new ZonedTime($"2027-05-{day}T{start}:00", "Europe/Berlin").ToJson(),
-                ["end"] = new ZonedTime($"2027-05-{day}T{end}:00", "Europe/Berlin").ToJson()
-            };
-            item.Data["participants"] = new JsonObject
-            {
-                ["inherit"] = false,
-                ["values"] = new JsonArray(people.Select(p => JsonValue.Create(p.Id.ToString())).ToArray())
-            };
-            edits.Add(new(item.Id, item));
-            if (title == "Cathedral and old town") selected = item.Id;
-        }
-        foreach (var title in new[] { "Thermal baths?", "Find a dinner spot" })
-        {
-            var item = Entity.Create("schedule_item", title);
-            edits.Add(new(item.Id, item));
-        }
-        await repository.ApplyAsync(await repository.ReadAsync(), edits);
-        await new GitRepository(repository, new GitCliBackend()).InitializeAsync("Screenshot fixture", "screenshots@example.invalid");
-        return (repository, selected);
-    }
 }

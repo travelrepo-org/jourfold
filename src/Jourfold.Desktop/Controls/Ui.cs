@@ -100,7 +100,9 @@ public static class Ui
     {
         return new Border
         {
-            Width = size, Height = size, CornerRadius = new CornerRadius(size / 4),
+            Width = size,
+            Height = size,
+            CornerRadius = new CornerRadius(size / 4),
             Child = Icon(icon, size * 0.5, "Kind." + kindKey + ".Fg").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center),
             VerticalAlignment = VerticalAlignment.Center
         }.Res(Border.BackgroundProperty, "Kind." + kindKey + ".Bg");

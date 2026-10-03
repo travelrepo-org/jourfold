@@ -105,9 +105,18 @@ public partial class MainViewModel
     /// <summary>Export wording in the interface language. Trip content itself is never translated.</summary>
     public ExportLabels ExportLabels() => new()
     {
-        Day = Strings["DayN"], AllDay = Strings["AllDay"], Unscheduled = Strings["NotScheduledYet"], Bookings = Strings["Bookings"], Costs = Strings["Costs"],
-        Travellers = Strings["ExportTravellers"], Paid = Strings["ExportPaid"], Estimated = Strings["ExportEstimated"], Budget = Strings["ExportBudget"], Between = Strings["BetweenTimes"],
-        Reference = Strings["ExportRef"], GeneratedBy = Strings["ExportFooter"],
+        Day = Strings["DayN"],
+        AllDay = Strings["AllDay"],
+        Unscheduled = Strings["NotScheduledYet"],
+        Bookings = Strings["Bookings"],
+        Costs = Strings["Costs"],
+        Travellers = Strings["ExportTravellers"],
+        Paid = Strings["ExportPaid"],
+        Estimated = Strings["ExportEstimated"],
+        Budget = Strings["ExportBudget"],
+        Between = Strings["BetweenTimes"],
+        Reference = Strings["ExportRef"],
+        GeneratedBy = Strings["ExportFooter"],
         DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => Strings[k]),
         Statuses = TravelRepo.Core.ScheduleCategories.Statuses.Concat(["pending", "open", "in_progress"]).Distinct().ToDictionary(k => k, k => Strings[k])
     };

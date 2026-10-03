@@ -164,9 +164,20 @@ public sealed partial class Dialogs
             LocalTime? at = scheduled && !idea && hasTime.IsChecked == true && time.SelectedTime is { } t ? LocalTime.FromTicksSinceMidnight(t.Ticks) : null;
             var draft = new QuickAddDraft(kind, title.Text!.Trim())
             {
-                Date = scheduled || kind is "accommodation" or "task" ? day : null, Start = at, Length = scheduled && length.Value is { } l ? Duration.FromMinutes((double)l) : null, Timezone = request.Zone,
-                TransportType = mode, Place = place.Choice, From = from.Choice, To = to.Choice, Nights = (int)(nights.Value ?? 1), Amount = amount.Value, Currency = currency.Value ?? request.Currency,
-                Body = body.Text, Reference = reference.Text, People = peopleIds.ToArray()
+                Date = scheduled || kind is "accommodation" or "task" ? day : null,
+                Start = at,
+                Length = scheduled && length.Value is { } l ? Duration.FromMinutes((double)l) : null,
+                Timezone = request.Zone,
+                TransportType = mode,
+                Place = place.Choice,
+                From = from.Choice,
+                To = to.Choice,
+                Nights = (int)(nights.Value ?? 1),
+                Amount = amount.Value,
+                Currency = currency.Value ?? request.Currency,
+                Body = body.Text,
+                Reference = reference.Text,
+                People = peopleIds.ToArray()
             };
             sheet.Close(draft);
         };

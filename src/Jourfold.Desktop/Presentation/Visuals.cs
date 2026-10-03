@@ -67,8 +67,15 @@ public static class Visuals
         }
         var key = entity.Type switch
         {
-            "booking" => "Transport", "place" => "Sightseeing", "person" => "Accommodation", "task" => "Activity",
-            "expense" or "budget" => "Food", "document" => "Meeting", "note" => "Nightlife", "collection" => "Culture", _ => "Other"
+            "booking" => "Transport",
+            "place" => "Sightseeing",
+            "person" => "Accommodation",
+            "task" => "Activity",
+            "expense" or "budget" => "Food",
+            "document" => "Meeting",
+            "note" => "Nightlife",
+            "collection" => "Culture",
+            _ => "Other"
         };
         if (entity.Type == "document" && (entity.Data["media_type"]?.ToString() ?? "").StartsWith("image/", StringComparison.Ordinal)) return ("image", key);
         if (entity.Type == "document" && entity.Data["media_type"]?.ToString() == "application/pdf") return ("file-text", key);

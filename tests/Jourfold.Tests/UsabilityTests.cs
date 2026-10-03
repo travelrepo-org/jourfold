@@ -213,7 +213,7 @@ public sealed class UsabilityTests : IDisposable
         {
             w.Model.Store.Set("trips.folder", root);
             await w.Model.OpenSampleCommand.ExecuteAsync(null); await Probe.Until(() => w.Model.HasTrip);
-            Assert.True(w.Model.IsSample); Assert.Empty(w.Model.Diagnostics.Where(d => d.Severity == Severity.Error));
+            Assert.True(w.Model.IsSample); Assert.DoesNotContain(w.Model.Diagnostics, d => d.Severity == Severity.Error);
             foreach (var view in new[] { "Plan", "List", "Map", "Bookings", "Costs", "Tasks", "Files", "People", "Places", "Collections", "History", "Variants" })
             { w.Model.Navigate(view); Probe.Layout(); Assert.NotNull(w.FindControl<ContentControl>("MainContent")!.Content); }
             Assert.Contains(w.Model.InboxItems, e => e.Title == "Onsen evening?");

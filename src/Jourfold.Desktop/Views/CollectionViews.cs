@@ -17,7 +17,13 @@ public static class CollectionViews
 {
     public static Control Build(MainWindow w) => w.Model.View switch
     {
-        "Bookings" => Bookings(w), "Costs" => Costs(w), "Tasks" => Tasks(w), "Files" => Files(w), "People" => People(w), "Places" => Places(w), "Collections" => Collections(w),
+        "Bookings" => Bookings(w),
+        "Costs" => Costs(w),
+        "Tasks" => Tasks(w),
+        "Files" => Files(w),
+        "People" => People(w),
+        "Places" => Places(w),
+        "Collections" => Collections(w),
         _ => Ui.Text(w.Model.View)
     };
 

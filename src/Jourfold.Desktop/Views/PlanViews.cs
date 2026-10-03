@@ -108,7 +108,9 @@ public static class InboxView
         var subtitle = item.Type switch
         {
             "schedule_item" => ScheduleQueries.PlannedDuration(item) is { } d ? s["Idea"] + " · " + Formats.Duration(d, s) : s["Idea"],
-            "note" => s["note"], "document" => item.Data["media_type"]?.ToString() == "application/pdf" ? "PDF" : s["document"], _ => s[item.Type]
+            "note" => s["note"],
+            "document" => item.Data["media_type"]?.ToString() == "application/pdf" ? "PDF" : s["document"],
+            _ => s[item.Type]
         };
         var content = Ui.Columns("Auto,*", Ui.Tile(icon, kind, 30), Ui.V(1, Ui.Line(item.Title, "title"), Ui.Line(subtitle, "caption")).Margin(10, 0, 0, 0));
         var button = new Button { Content = content, Padding = new Thickness(10, 8), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("card").Named(item.Title + ", " + subtitle);

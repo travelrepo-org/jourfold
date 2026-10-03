@@ -12,8 +12,14 @@ public partial class MainViewModel
     /// <summary>The Quick Add type that fits the current view.</summary>
     public string ContextKind => View switch
     {
-        "Bookings" => "booking", "Costs" => "expense", "Tasks" => "task", "People" => "person", "Places" or "Map" => "place",
-        "Collections" => "collection", "Files" => "note", _ => "activity"
+        "Bookings" => "booking",
+        "Costs" => "expense",
+        "Tasks" => "task",
+        "People" => "person",
+        "Places" or "Map" => "place",
+        "Collections" => "collection",
+        "Files" => "note",
+        _ => "activity"
     };
 
     [RelayCommand] private Task QuickAdd() => RunAsync(() => AddAsync(ContextKind, chooseType: true));
@@ -141,9 +147,19 @@ public partial class MainViewModel
 
     public static string MediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
-        ".png" => "image/png", ".jpg" or ".jpeg" => "image/jpeg", ".gif" => "image/gif", ".webp" => "image/webp", ".pdf" => "application/pdf",
-        ".txt" => "text/plain", ".md" => "text/markdown", ".ics" => "text/calendar", ".html" or ".htm" => "text/html", ".json" => "application/json",
-        ".doc" => "application/msword", ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document", _ => "application/octet-stream"
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".pdf" => "application/pdf",
+        ".txt" => "text/plain",
+        ".md" => "text/markdown",
+        ".ics" => "text/calendar",
+        ".html" or ".htm" => "text/html",
+        ".json" => "application/json",
+        ".doc" => "application/msword",
+        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        _ => "application/octet-stream"
     };
 
     public Task AddCommentAsync(Entity? target, string? body) => RunEditAsync(async () =>

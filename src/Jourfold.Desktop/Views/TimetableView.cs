@@ -279,8 +279,13 @@ public sealed class TimetableView : UserControl
         var dashed = status is "idea" || approximate || p.Span.Precision == TimePrecision.DayPart;
         var border = new Border
         {
-            Width = Math.Max(20, width), Height = height, CornerRadius = new CornerRadius(strip ? 6 : 8), Padding = new Thickness(compact || height < 38 ? 7 : 9, compact || height < 38 ? 2 : 6, 6, 4),
-            BorderThickness = new Thickness(selected ? 2 : 1, selected ? 2 : 1, selected ? 2 : 1, selected ? 2 : 1), Child = body, ClipToBounds = true,
+            Width = Math.Max(20, width),
+            Height = height,
+            CornerRadius = new CornerRadius(strip ? 6 : 8),
+            Padding = new Thickness(compact || height < 38 ? 7 : 9, compact || height < 38 ? 2 : 6, 6, 4),
+            BorderThickness = new Thickness(selected ? 2 : 1, selected ? 2 : 1, selected ? 2 : 1, selected ? 2 : 1),
+            Child = body,
+            ClipToBounds = true,
             BoxShadow = selected ? BoxShadows.Parse("0 4 14 0 #330F2A3D") : default
         }.Res(Border.BackgroundProperty, "Kind." + kind + ".Bg");
         if (dashed) border.BorderBrush = Brushes.Transparent; else border.Res(Border.BorderBrushProperty, selected ? "Accent" : "Kind." + kind + ".Bar");

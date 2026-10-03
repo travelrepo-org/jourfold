@@ -131,8 +131,12 @@ public static class SidebarView
         var m = w.Model; var s = m.Strings;
         var (icon, brush) = m.SyncKey switch
         {
-            "SyncSynced" => ("cloud", "Success"), "Syncing" => ("refresh-cw", "Accent"), "SyncFailed" or "SyncDiverged" => ("triangle-alert", "Warning"),
-            "SyncRemoteChanges" => ("download", "Info"), "SyncLocalChanges" => ("upload", "Text.Muted"), _ => ("monitor", "Text.Muted")
+            "SyncSynced" => ("cloud", "Success"),
+            "Syncing" => ("refresh-cw", "Accent"),
+            "SyncFailed" or "SyncDiverged" => ("triangle-alert", "Warning"),
+            "SyncRemoteChanges" => ("download", "Info"),
+            "SyncLocalChanges" => ("upload", "Text.Muted"),
+            _ => ("monitor", "Text.Muted")
         };
         var detail = m.SyncKey == "SyncLocalOnly" ? s["SyncLocalOnlyHint"] : m.Store.Get("synced:" + m.Workspace?.Repository.Root) is { } when && DateTimeOffset.TryParse(when, out var at) ? string.Format(s["LastSynced"], Formats.Relative(at, s)) : s["SyncNow"];
         var content = Ui.Columns("Auto,*", Ui.Icon(icon, 17, brush), Ui.V(0, Ui.Line(s[m.SyncKey], "strong"), Ui.Line(detail, "caption")).Margin(10, 0, 0, 0));

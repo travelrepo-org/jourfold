@@ -165,7 +165,18 @@ public partial class MainViewModel
 
     public static string NavIcon(string key) => key switch
     {
-        "Plan" => "calendar-days", "Map" => "map", "List" => "list", "Bookings" => "ticket", "Costs" => "wallet", "Tasks" => "list-checks", "Files" => "folder",
-        "People" => "users", "Places" => "map-pin", "Collections" => "layers", "History" => "history", "Variants" => "git-branch", _ => "circle"
+        "Plan" => "calendar-days",
+        "Map" => "map",
+        "List" => "list",
+        "Bookings" => "ticket",
+        "Costs" => "wallet",
+        "Tasks" => "list-checks",
+        "Files" => "folder",
+        "People" => "users",
+        "Places" => "map-pin",
+        "Collections" => "layers",
+        "History" => "history",
+        "Variants" => "git-branch",
+        _ => "circle"
     };
 }

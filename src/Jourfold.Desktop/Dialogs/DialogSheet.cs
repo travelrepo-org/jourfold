@@ -34,8 +34,12 @@ public sealed class DialogSheet(string title, Control body, double width = 560, 
         var content = new DockPanel(); DockPanel.SetDock(heading, Dock.Top); content.Children.Add(heading); content.Children.Add(body);
         var card = new Border
         {
-            Padding = new Thickness(26, 22, 26, 24), Width = Math.Min(width, Math.Max(340, owner.Bounds.Width - 48)), MaxHeight = Math.Max(320, owner.Bounds.Height - (top ? 120 : 64)),
-            HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Center, Margin = new Thickness(0, top ? 90 : 0, 0, 0),
+            Padding = new Thickness(26, 22, 26, 24),
+            Width = Math.Min(width, Math.Max(340, owner.Bounds.Width - 48)),
+            MaxHeight = Math.Max(320, owner.Bounds.Height - (top ? 120 : 64)),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = top ? VerticalAlignment.Top : VerticalAlignment.Center,
+            Margin = new Thickness(0, top ? 90 : 0, 0, 0),
             Child = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled }
         }.Classed("raised");
         Avalonia.Automation.AutomationProperties.SetName(card, title);

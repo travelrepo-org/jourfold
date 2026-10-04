@@ -1,48 +1,76 @@
 name: Release
-# Builds Linux and Windows packages (x64 and ARM64) for a version tag and publishes them with the install scripts.
-# The tag must be v + <Version> from Directory.Build.props. The scripts attached to the release name this
-# repository, so
+# Runs when a maintainer publishes a GitHub release. The release tag must be v + <Version> from
+# Directory.Build.props, and the TravelRepo release v + <TravelRepoVersion> must already exist; Jourfold is
+# built against exactly that TravelRepo tag. The workflow builds Linux and Windows packages (x64 and ARM64)
+# for the tagged commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
-# always install the latest published release.
+# While the packages are built, the previous release stays "latest", so the installers never see a release
+# without files. If anything fails, the release goes back to draft; fix the problem and publish it again.
 #
 # ARM64 packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
 # repository variables LINUX_ARM64_RUNNER (for example ubuntu-24.04-arm) and WINDOWS_ARM64_RUNNER (windows-11-arm).
 on:
-  push:
-    tags: ['v*']
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
-      version:
-        description: An existing version tag to publish again, for example v0.2.0. Push the tag first; only organisation admins may create v* tags.
+      tag:
+        description: Tag of a published release to check and build again, for example v0.2.0
         required: true
 permissions:
   contents: read
+concurrency:
+  group: release-${{ github.event.release.tag_name || inputs.tag }}
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
 jobs:
   version:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
-      tag: ${{ steps.check.outputs.tag }}
+      travelrepo: ${{ steps.travelrepo.outputs.tag }}
+      latest: ${{ steps.latest.outputs.latest }}
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version || github.ref }}
+          ref: ${{ env.TAG }}
           path: jourfold
+      - id: travelrepo
+        working-directory: jourfold
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+        run: |
+          tag="v$(python3 eng/version.py --travelrepo)"
+          if ! git ls-remote --exit-code --tags "https://github.com/$REPO.git" "refs/tags/$tag" > /dev/null; then
+            echo "::error::Jourfold needs TravelRepo $tag (TravelRepoVersion), but $REPO has no such tag. Publish that TravelRepo release first."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ steps.travelrepo.outputs.tag }}
           path: travelrepo
-      - id: check
-        working-directory: jourfold
-        env:
-          REQUESTED: ${{ inputs.version }}
+      - working-directory: jourfold
+        run: python3 eng/version.py --check-tag "$TAG" --github
+      - id: latest
+        name: Keep the previous release as latest until the packages are attached
         run: |
-          tag="${REQUESTED:-$GITHUB_REF_NAME}"
-          python3 eng/version.py --check-tag "$tag" --github
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2> /dev/null || true)
+          if [ "$latest" = "$TAG" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+            gh release edit "$TAG" --latest=false --repo "$GITHUB_REPOSITORY"
+          else
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
   package:
     needs: version
     strategy:
+      fail-fast: false
       matrix:
         include:
           - rid: linux-x64
@@ -65,11 +93,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version || github.ref }}
+          ref: ${{ env.TAG }}
           path: jourfold
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ needs.version.outputs.travelrepo }}
           path: travelrepo
       - uses: actions/setup-dotnet@v4
         with:
@@ -106,10 +135,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.version || github.ref }}
+          ref: ${{ env.TAG }}
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -121,11 +152,21 @@ jobs:
           sed "s|@JOURFOLD_REPOSITORY@|${GITHUB_REPOSITORY}|g" install/install.ps1 > dist/install.ps1
           chmod +x dist/install.sh
           cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
-      - name: Publish release
+      - name: Attach packages to the release
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+      - name: Make the release latest again
+        if: needs.version.outputs.latest == 'true'
+        run: gh release edit "$TAG" --latest --repo "$GITHUB_REPOSITORY"
+  return-to-draft:
+    needs: [version, package, publish]
+    if: failure() && github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Turn the release back into a draft
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ needs.version.outputs.tag }}
         run: |
-          flags=""
-          case "$TAG" in *-*) flags="--prerelease" ;; esac
-          gh release create "$TAG" dist/* --verify-tag --title "Jourfold ${TAG#v}" --generate-notes $flags
+          gh release edit "$TAG" --draft=true --repo "$GITHUB_REPOSITORY"
+          echo "::error::The release $TAG failed its checks and is a draft again. See the failed job above, fix it, then publish the release again."

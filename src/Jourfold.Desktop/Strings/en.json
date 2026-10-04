@@ -878,5 +878,6 @@
   "PublishAfterCreateFailed": "The trip was created on this computer, but publishing it to GitHub did not work:\n\n{0}\n\nUse Share to try again.",
   "UnexpectedError": "Something went wrong. That action was stopped; Jourfold keeps running.",
   "UnexpectedErrorTitle": "Unexpected error",
-  "UnexpectedErrorBody": "Jourfold stopped an action because of an error in the app. Saved trips are not affected. The details are also written to {0}. You can copy them into a bug report."
+  "UnexpectedErrorBody": "Jourfold stopped an action because of an error in the app. Saved trips are not affected. The details are also written to {0}. You can copy them into a bug report.",
+  "QuotedName": "“{0}”"
 }

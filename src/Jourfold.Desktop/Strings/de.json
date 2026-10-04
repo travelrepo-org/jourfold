@@ -878,5 +878,6 @@
   "PublishAfterCreateFailed": "Die Reise wurde auf diesem Computer erstellt, aber die Veröffentlichung auf GitHub hat nicht geklappt:\n\n{0}\n\nVersuchen Sie es über „Teilen“ erneut.",
   "UnexpectedError": "Etwas ist schiefgegangen. Die Aktion wurde abgebrochen, Jourfold läuft weiter.",
   "UnexpectedErrorTitle": "Unerwarteter Fehler",
-  "UnexpectedErrorBody": "Jourfold hat eine Aktion wegen eines Fehlers in der App abgebrochen. Gespeicherte Reisen sind nicht betroffen. Die Details stehen auch in {0}. Sie können sie in einen Fehlerbericht kopieren."
+  "UnexpectedErrorBody": "Jourfold hat eine Aktion wegen eines Fehlers in der App abgebrochen. Gespeicherte Reisen sind nicht betroffen. Die Details stehen auch in {0}. Sie können sie in einen Fehlerbericht kopieren.",
+  "QuotedName": "„{0}“"
 }

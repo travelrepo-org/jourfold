@@ -38,7 +38,7 @@ public partial class MainViewModel
 
     public async Task<string> DiagnosticsTextAsync()
     {
-        var lines = new List<string> { "Jourfold " + AppVersion.Informational, "TravelRepo " + TravelRepoInfo.InformationalVersion + ", format " + TravelRepoInfo.FormatVersion, AppVersion.Platform };
+        var lines = new List<string> { "Jourfold " + AppVersion.Informational + " " + string.Format(Strings["QuotedName"], AppVersion.CodeName), "TravelRepo " + TravelRepoInfo.InformationalVersion + ", format " + TravelRepoInfo.FormatVersion, AppVersion.Platform };
         try { lines.Add("Git: " + new TravelRepo.Git.GitCliBackend().Executable); } catch (DomainException ex) { lines.Add("Git: " + ex.Message); }
         if (Workspace is not null)
         {

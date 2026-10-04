@@ -37,6 +37,13 @@ function Get-Architecture {
     return 'x64'
 }
 
+# "0.2.0-beta.1" compares as 0.2.0; anything unreadable as 0.0.
+function Get-NumericVersion([string]$Text) {
+    $parsed = $null
+    if ([version]::TryParse(($Text -replace '[-+].*$', ''), [ref]$parsed)) { return $parsed }
+    return [version]'0.0'
+}
+
 function Install-Jourfold {
     if ($Uninstall) { Uninstall-Jourfold; return }
 
@@ -74,13 +81,22 @@ function Install-Jourfold {
         $actual = (Get-FileHash -Algorithm SHA256 -Path $installer).Hash.ToLowerInvariant()
         if ($expected -ne $actual) { Fail 'checksum mismatch. The download is incomplete or was altered; nothing was installed.' }
 
-        Write-Host 'Installing...'
+        # The setup records its version in the uninstall entry (DisplayVersion), before and after.
+        $old = (Get-ItemProperty -Path $UninstallKey -ErrorAction SilentlyContinue).DisplayVersion
+        if ($old) { Write-Host "Installing over Jourfold $old..." } else { Write-Host 'Installing...' }
         $process = Start-Process -FilePath $installer -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', '/CLOSEAPPLICATIONS' -Wait -PassThru
         if ($process.ExitCode -ne 0) { Fail "the installer exited with code $($process.ExitCode)." }
 
-        $location = (Get-ItemProperty -Path $UninstallKey -ErrorAction SilentlyContinue).InstallLocation
+        $entry = Get-ItemProperty -Path $UninstallKey -ErrorAction SilentlyContinue
+        $new = $entry.DisplayVersion
+        $location = $entry.InstallLocation
+        $summary = if (-not $new) { 'Jourfold is installed.' }
+        elseif (-not $old) { "Jourfold $new is installed." }
+        elseif ($old -eq $new) { "Jourfold $new was reinstalled." }
+        elseif ((Get-NumericVersion $new) -ge (Get-NumericVersion $old)) { "Jourfold was updated from $old to $new." }
+        else { "Jourfold $old was replaced with $new." }
         Write-Host ''
-        Write-Host 'Jourfold is installed. Start it from the Start menu.' -ForegroundColor Green
+        Write-Host "$summary Start it from the Start menu." -ForegroundColor Green
         if ($location) { Write-Host "Location: $location" }
         Write-Host 'Git for Windows is included, so no separate Git installation is needed.'
     }

@@ -93,10 +93,22 @@ main() {
   grep -E "[[:space:]]\*?$ARCHIVE\$" "$tmp/SHA256SUMS" > "$tmp/expected" || fail "SHA256SUMS does not list $ARCHIVE."
   (cd "$tmp" && sha256sum -c --status expected) || fail "checksum mismatch. The download is incomplete or was altered; nothing was installed."
 
-  say "Installing to $dir..."
   mkdir -p "$tmp/unpacked"
   tar -xzf "$tmp/$ARCHIVE" -C "$tmp/unpacked"
   [ -x "$tmp/unpacked/jourfold/Jourfold.Desktop" ] || fail "the archive does not contain the Jourfold application."
+  local old new summary
+  old="$(app_version "$dir")"; new="$(app_version "$tmp/unpacked/jourfold")"
+  if [ ! -d "$dir" ]; then
+    say "Installing Jourfold ${new:-$version} to $dir..."; summary="Jourfold ${new:-$version} is installed."
+  elif [ -z "$old" ] || [ -z "$new" ]; then
+    say "Updating Jourfold in $dir..."; summary="Jourfold was updated${new:+ to $new}."
+  elif [ "$old" = "$new" ]; then
+    say "Reinstalling Jourfold $new in $dir..."; summary="Jourfold $new was reinstalled."
+  elif [ "$(printf '%s\n' "$old" "$new" | sort -V | tail -n 1)" = "$new" ]; then
+    say "Updating Jourfold from $old to $new..."; summary="Jourfold was updated from $old to $new."
+  else
+    say "Replacing Jourfold $old with the older $new..."; summary="Jourfold $old was replaced with $new."
+  fi
   mkdir -p "$(dirname "$dir")"
   # Replace the previous version only after the new one is complete.
   rm -rf "$dir.new"
@@ -115,9 +127,15 @@ main() {
   fi
 
   say ""
-  if [ "$desktop" -eq 1 ]; then say "Jourfold is installed. Start it from your application menu or run: jourfold"
-  else say "Jourfold is installed. Start it with: jourfold"; fi
+  if [ "$desktop" -eq 1 ]; then say "$summary Start it from your application menu or run: jourfold"
+  else say "$summary Start it with: jourfold"; fi
   check_dependencies "$bin"
+}
+
+# The version of the Jourfold application in a folder, read from the .NET dependency manifest that every release
+# contains (also releases older than this installer). Prints nothing when the folder holds no readable Jourfold.
+app_version() {
+  sed -n 's/.*"Jourfold\.Desktop\/\([^"]*\)".*/\1/p' "$1/Jourfold.Desktop.deps.json" 2>/dev/null | head -n 1 || true
 }
 
 download() {

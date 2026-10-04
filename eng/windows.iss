@@ -1,8 +1,17 @@
-#define AppVersion "0.1.0"
+; Release builds pass the version with ISCC /DAppVersion=x.y.z
+#ifndef AppVersion
+  #define AppVersion "0.1.0"
+#endif
 [Setup]
 AppId={{A4F1077F-857B-4CFA-8BCB-A12F80773B56}
 AppName=Jourfold
 AppVersion={#AppVersion}
+AppPublisher=Jourfold contributors
+UninstallDisplayName=Jourfold
+UninstallDisplayIcon={app}\Jourfold.Desktop.exe
+SetupIconFile=..\assets\branding\jourfold.ico
+CloseApplications=yes
+WizardStyle=modern
 DefaultDirName={localappdata}\Programs\Jourfold
 DefaultGroupName=Jourfold
 PrivilegesRequired=lowest
@@ -15,8 +24,11 @@ SolidCompression=yes
 LicenseFile=..\LICENSE
 [Files]
 Source: "..\artifacts\jourfold-win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+[Tasks]
+Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
 [Icons]
 Name: "{group}\Jourfold"; Filename: "{app}\Jourfold.Desktop.exe"
+Name: "{autodesktop}\Jourfold"; Filename: "{app}\Jourfold.Desktop.exe"; Tasks: desktopicon
 [Run]
 Filename: "{app}\Jourfold.Desktop.exe"; Description: "Launch Jourfold"; Flags: nowait postinstall skipifsilent
 

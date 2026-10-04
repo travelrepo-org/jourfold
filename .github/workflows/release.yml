@@ -1,0 +1,100 @@
+name: Release
+# Builds Linux and Windows packages for a version tag and publishes them with the install scripts.
+# The scripts attached to the release name this repository, so
+#   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
+#   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
+# always install the latest published release.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version tag to create, for example v0.2.0
+        required: true
+permissions:
+  contents: read
+jobs:
+  package:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+          - os: windows-latest
+            rid: win-x64
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: jourfold
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: jourfold
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          path: travelrepo
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: jourfold/global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - id: version
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          tag="${REQUESTED:-$GITHUB_REF_NAME}"
+          case "$tag" in v[0-9]*) ;; *) echo "Version tags look like v1.2.3, got '$tag'." >&2; exit 1 ;; esac
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "number=${tag#v}" >> "$GITHUB_OUTPUT"
+      - run: dotnet restore --locked-mode
+      - run: dotnet build Jourfold.sln -c Release --no-restore
+      - run: dotnet test Jourfold.sln -c Release --no-build
+      - run: python eng/package.py --rid ${{ matrix.rid }} --version ${{ steps.version.outputs.number }}
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup --yes --no-progress
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=${{ steps.version.outputs.number }}" eng/windows.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.rid }}
+          if-no-files-found: error
+          path: |
+            jourfold/artifacts/jourfold-linux-x64.tar.gz
+            jourfold/artifacts/jourfold_*_amd64.deb
+            jourfold/artifacts/jourfold-win-x64.zip
+            jourfold/artifacts/jourfold-setup-win-x64.exe
+  publish:
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: dist
+      - name: Prepare install scripts and checksums
+        run: |
+          sed "s|@JOURFOLD_REPOSITORY@|${GITHUB_REPOSITORY}|g" install/install.sh > dist/install.sh
+          sed "s|@JOURFOLD_REPOSITORY@|${GITHUB_REPOSITORY}|g" install/install.ps1 > dist/install.ps1
+          chmod +x dist/install.sh
+          cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          tag="${REQUESTED:-$GITHUB_REF_NAME}"
+          flags=""
+          case "$tag" in *-*) flags="--prerelease" ;; esac
+          gh release create "$tag" dist/* --target "$GITHUB_SHA" --title "Jourfold ${tag#v}" --generate-notes $flags

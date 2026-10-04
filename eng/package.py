@@ -3,12 +3,13 @@
 from pathlib import Path
 import argparse,subprocess,shutil,urllib.request,hashlib,zipfile,tarfile,os
 root=Path(__file__).resolve().parents[1]
-p=argparse.ArgumentParser();p.add_argument('--rid',default='linux-x64',choices=['linux-x64','win-x64']);p.add_argument('--dotnet',default='dotnet');a=p.parse_args()
+p=argparse.ArgumentParser();p.add_argument('--rid',default='linux-x64',choices=['linux-x64','win-x64']);p.add_argument('--dotnet',default='dotnet');p.add_argument('--version',default='0.1.0');a=p.parse_args()
+version=a.version.lstrip('v')
 out=root/'artifacts'/('jourfold-'+a.rid)
 if out.exists():shutil.rmtree(out)
 out.mkdir(parents=True)
 for project,folder in [('Desktop',out),('PluginHost',out/'PluginHost')]:
- subprocess.run([a.dotnet,'publish',str(root/'src'/('Jourfold.'+project)), '-c','Release','-p:NuGetLockFilePath=obj/packages.publish.lock.json','-r',a.rid,'--self-contained','true','-o',str(folder)],check=True)
+ subprocess.run([a.dotnet,'publish',str(root/'src'/('Jourfold.'+project)), '-c','Release','-p:NuGetLockFilePath=obj/packages.publish.lock.json','-r',a.rid,'--self-contained','true','-p:Version='+version,'-o',str(folder)],check=True)
 subprocess.run([a.dotnet,'publish',str(root/'samples/Jourfold.ExamplePlugin'),'-c','Release','-p:NuGetLockFilePath=obj/packages.publish.lock.json','-o',str(out/'Examples/Walking')],check=True)
 for file in ['LICENSE','THIRD_PARTY_NOTICES.md']:
  shutil.copy2(root/file,out/file)
@@ -27,11 +28,11 @@ else:
   if deb.exists():shutil.rmtree(deb)
   app=deb/'opt/jourfold';app.mkdir(parents=True);shutil.copytree(out,app,dirs_exist_ok=True)
   (deb/'DEBIAN').mkdir(exist_ok=True)
-  (deb/'DEBIAN/control').write_text('Package: jourfold\nVersion: 0.1.0\nArchitecture: amd64\nMaintainer: Jourfold contributors\nDepends: git, libx11-6, libice6, libsm6, libfontconfig1, libglib2.0-0\nRecommends: libsecret-tools\nDescription: Local travel planning with TravelRepo\n')
+  (deb/'DEBIAN/control').write_text('Package: jourfold\nVersion: '+version+'\nArchitecture: amd64\nMaintainer: Jourfold contributors\nDepends: git, libx11-6, libice6, libsm6, libfontconfig1, libglib2.0-0\nRecommends: libsecret-tools\nDescription: Local travel planning with TravelRepo\n')
   (deb/'usr/share/applications').mkdir(parents=True,exist_ok=True)
   (deb/'usr/share/applications/jourfold.desktop').write_text('[Desktop Entry]\nType=Application\nName=Jourfold\nExec=/opt/jourfold/Jourfold.Desktop %u\nIcon=jourfold\nCategories=Office;\nTerminal=false\nStartupWMClass=Jourfold\nMimeType=x-scheme-handler/jourfold;\n')
   icon=deb/'usr/share/icons/hicolor/scalable/apps';icon.mkdir(parents=True,exist_ok=True);shutil.copy2(root/'assets/branding/mark.svg',icon/'jourfold.svg')
-  subprocess.run(['dpkg-deb','--root-owner-group','--build',str(deb),str(root/'artifacts/jourfold_0.1.0_amd64.deb')],check=True)
+  subprocess.run(['dpkg-deb','--root-owner-group','--build',str(deb),str(root/('artifacts/jourfold_'+version+'_amd64.deb'))],check=True)
 assert (out/('Jourfold.Desktop.exe' if a.rid=='win-x64' else 'Jourfold.Desktop')).exists()
 assert (out/'fonts/PlusJakartaSans-Regular.ttf').exists()
 assert (out/'fonts/PlusJakartaSans-OFL.txt').exists()

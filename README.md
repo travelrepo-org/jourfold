@@ -22,6 +22,24 @@ No account is needed and nothing leaves your computer unless you share a trip or
 
 More captures, including the map, costs, Quick Add and settings, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
 
+## Install
+
+Once a release is published, one command installs Jourfold for your user account. Replace `OWNER/REPO` with the repository that publishes Jourfold.
+
+Linux (x86-64):
+
+```sh
+curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
+```
+
+Windows 10 and 11, in PowerShell:
+
+```powershell
+irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
+```
+
+Both scripts verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
+
 ## Try it
 
 The Linux archive includes the .NET runtime. See [testing on another Linux PC](docs/try-linux.md). On first start, choose **Explore a sample trip** to look around, or **Plan a trip** to start your own.

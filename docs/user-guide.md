@@ -6,7 +6,7 @@ Jourfold opens with your trip library. Each card shows the dates, the main place
 
 If you are new, choose **Explore a sample trip**. It creates "Spring in Japan" in your trips folder, clearly marked as a sample. Change it freely or delete the folder when you are done.
 
-**New trip** asks for a title and nothing else. The optional steps add dates, the main timezone, your name and travel companions, and where the folder is saved. **Create now** skips the rest. The default folder is `Documents/Jourfold`; change it in Settings under General.
+**New trip** asks for a title and nothing else. The optional steps add dates, the main timezone, your name and travel companions, where the folder is saved, and whether to share the trip right away: keep it on this computer, publish it to a new private GitHub repository, or connect an existing Git repository. **Create now** skips the rest. The default folder is `Documents/Jourfold`; change it in Settings under General.
 
 **Open** also opens an existing trip folder, a trip someone shared as a Git address, or trips from your GitHub account.
 
@@ -65,7 +65,7 @@ Ctrl+K opens search and commands. It finds items in the trip and runs actions su
 
 ## Settings and privacy
 
-Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
+Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. Under **Sharing**, the GitHub card shows which account is connected, links to its profile and can disconnect it. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
 
 Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to OpenStreetMap. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 

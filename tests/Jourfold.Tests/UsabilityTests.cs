@@ -48,6 +48,27 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task WizardOffersToPublishANewTripToGitHub()
+    {
+        var w = Window(); try
+        {
+            var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex", GitHubConnected: true, GitHubLogin: "alex")); Probe.Layout();
+            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Lisbon in October";
+            Probe.Click(Sheet(w), "Next"); Probe.Layout(); Probe.Click(Sheet(w), "Next"); Probe.Layout();
+            Assert.True(Probe.Tagged<RadioButton>(Sheet(w), "share-local").IsChecked);
+            Assert.False(Probe.Tagged<TextBox>(Sheet(w), "repository").IsEffectivelyVisible);
+            Probe.Tagged<RadioButton>(Sheet(w), "share-github").IsChecked = true; Probe.Layout();
+            var repository = Probe.Tagged<TextBox>(Sheet(w), "repository");
+            Assert.True(repository.IsEffectivelyVisible); Assert.Equal("lisbon-in-october", repository.Text);
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == "Creates a private repository in the account @alex.");
+            Probe.Click(Sheet(w), "Create trip");
+            var draft = await task.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.Equal("lisbon-in-october", draft!.GitHubRepository); Assert.Null(draft.RemoteUrl);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task WizardNeedsOnlyATitleAndCollectsPeopleAndDates()
     {
         var w = Window(); try

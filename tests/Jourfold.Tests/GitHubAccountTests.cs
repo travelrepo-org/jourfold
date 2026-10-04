@@ -77,3 +77,55 @@ public sealed class GitHubAccountTests : IDisposable
         finally { w.Close(); }
     }
 }
+
+public sealed class NewTripPublishingTests : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-newtrip-" + Guid.NewGuid());
+    public void Dispose() => TestFiles.Delete(root);
+
+    private sealed class Secrets : ISecretStore
+    {
+        public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult<string?>("token");
+        public Task WriteAsync(string key, string value, CancellationToken ct = default) => Task.CompletedTask;
+        public Task DeleteAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+    }
+    /// <summary>Answers "create repository" with a local bare repository, so the push is real.</summary>
+    private sealed class CreateRepository(string bare, HttpStatusCode status) : HttpMessageHandler
+    {
+        public string? Requested { get; private set; }
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            if (request.RequestUri!.AbsolutePath == "/user") return new(HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex\"}") };
+            Assert.Equal("/user/repos", request.RequestUri.AbsolutePath);
+            Requested = System.Text.Json.Nodes.JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!["name"]!.ToString();
+            return status != HttpStatusCode.OK ? new(status) : new(HttpStatusCode.OK) { Content = new StringContent($$"""{"full_name":"alex/{{Requested}}","clone_url":{{System.Text.Json.JsonSerializer.Serialize(bare)}},"html_url":"https://github.com/alex/{{Requested}}","private":true}""") };
+        }
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task WizardCanPublishANewTripToGitHub(bool githubWorks)
+    {
+        var bare = Path.Combine(root, "remote.git"); Directory.CreateDirectory(bare); await new GitCliBackend().ExecuteAsync(bare, ["init", "--bare"]);
+        var handler = new CreateRepository(bare, githubWorks ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity);
+        using var http = new HttpClient(handler); using var store = new LocalStore(Path.Combine(root, "state"));
+        NewTripDefaults? offered = null;
+        var interaction = new TestInteraction { NewTrip = d => { offered = d; return new("Lisbon in October", "en", null, null, null, [], null, Path.Combine(root, "Lisbon"), "Alex", "lisbon-in-october"); } };
+        using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, new Secrets(), "client"));
+        await vm.NewTripCommand.ExecuteAsync(null);
+
+        Assert.True(offered!.GitHubConnected); Assert.True(vm.HasTrip); Assert.Equal("lisbon-in-october", handler.Requested);
+        var remotes = await vm.Workspace!.Git.RemotesAsync();
+        if (githubWorks)
+        {
+            Assert.Equal(bare, remotes["origin"]); Assert.Contains(string.Format(vm.Strings["PublishedPrivately"], "alex/lisbon-in-october"), interaction.Toasts);
+            var pushed = await new GitCliBackend().ExecuteAsync(bare, ["rev-parse", "refs/heads/" + await vm.Workspace.Git.CurrentBranchAsync()]); Assert.Equal(await vm.Workspace.Git.HeadAsync(), pushed.Output.Trim());
+        }
+        else
+        {
+            // The trip still exists locally and can be shared later; the person is told what happened.
+            Assert.Empty(remotes); Assert.Single(interaction.Errors); Assert.Contains("Share", interaction.Errors[0]);
+        }
+    }
+}

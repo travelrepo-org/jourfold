@@ -118,12 +118,22 @@ public partial class MainViewModel
     public Task PublishToGitHubAsync(string name) => RunAsync(async () =>
     {
         if (Workspace is null) return;
-        if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
-        var created = await GitHub().CreateAsync(name.Trim()); await Workspace.Git.AddRemoteAsync("origin", created.CloneUrl); await RememberRemoteAsync("origin", true);
+        var created = await CreateGitHubRemoteAsync(Workspace.Git, name); await RememberRemoteAsync("origin", true);
         if (!string.IsNullOrEmpty(await Workspace.Git.StatusAsync())) await Workspace.Git.CreateVersionAsync(SuggestVersionMessage(await PendingChangesAsync()));
         await Workspace.Git.PushAsync("origin"); await UpdateSyncStatusAsync();
         Interaction.Toast(string.Format(Strings["PublishedPrivately"], created.FullName));
     });
+
+    /// <summary>Connects GitHub if needed, creates a private repository and adds it as <c>origin</c>. The caller pushes.</summary>
+    private async Task<TravelRepo.Providers.RemoteRepository> CreateGitHubRemoteAsync(GitRepository git, string name)
+    {
+        if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
+        var created = await GitHub().CreateAsync(name.Trim()); await git.AddRemoteAsync("origin", created.CloneUrl);
+        return created;
+    }
+
+    /// <summary>A GitHub repository name suggested for a trip title, for example <c>lisbon-in-october</c>.</summary>
+    public static string RepositoryName(string title) => FolderName(title).Replace(' ', '-').ToLowerInvariant();
 
     public Task AddRemoteAsync(string name, string url) => RunAsync(async () =>
     {

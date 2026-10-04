@@ -32,7 +32,8 @@ public partial class MainViewModel
     [RelayCommand]
     private Task NewTrip() => RunAsync(async () =>
     {
-        var defaults = new NewTripDefaults(DefaultTripsFolder, Strings.Language, DateTimeZoneProviders.Tzdb.GetSystemDefault().Id, Store.Get("identity.name"));
+        var connected = await HasGitHubTokenAsync();
+        var defaults = new NewTripDefaults(DefaultTripsFolder, Strings.Language, DateTimeZoneProviders.Tzdb.GetSystemDefault().Id, Store.Get("identity.name"), connected, connected ? GitHubLogin : null);
         var draft = await Interaction.NewTripAsync(defaults); if (draft is null) return;
         var path = draft.Destination ?? UniqueFolder(DefaultTripsFolder, draft.Title);
         if (Directory.Exists(path) && Directory.EnumerateFileSystemEntries(path).Any()) throw new DomainException("folder.not_empty", Strings["EmptyFolderRequired"]);
@@ -54,9 +55,20 @@ public partial class MainViewModel
             var state = await repo.ReadAsync(); var updated = manifest.Copy(); updated.Data["participants"] = new JsonArray(people.Select(p => (JsonNode?)JsonValue.Create(p.Id.ToString())).ToArray());
             await repo.ApplyAsync(state, people.Select(p => new EntityEdit(p.Id, p)).Append(new(updated.Id, updated)).ToArray());
         }
-        await new GitRepository(repo, backend).InitializeAsync(Store.Get("identity.name") ?? Environment.UserName, Store.Get("identity.email") ?? "traveler@localhost");
-        if (draft.RemoteUrl is not null) { await new GitRepository(repo, backend).AddRemoteAsync("origin", draft.RemoteUrl); Store.Set("remote:" + path, "origin"); }
+        var git = new GitRepository(repo, backend);
+        await git.InitializeAsync(Store.Get("identity.name") ?? Environment.UserName, Store.Get("identity.email") ?? "traveler@localhost");
+        if (draft.RemoteUrl is not null) { await git.AddRemoteAsync("origin", draft.RemoteUrl); Store.Set("remote:" + path, "origin"); }
+        string? published = null, publishError = null;
+        if (draft.GitHubRepository is { Length: > 0 } repositoryName)
+        {
+            // The trip exists locally first; if publishing fails or is cancelled, it stays a local trip that can be shared later.
+            try { var created = await CreateGitHubRemoteAsync(git, repositoryName); Store.Set("remote:" + path, "origin"); await git.PushAsync("origin"); published = created.FullName; }
+            catch (OperationCanceledException) { publishError = Strings["PublishCancelled"]; }
+            catch (Exception ex) when (ex is DomainException or HttpRequestException) { publishError = ex.Message; }
+        }
         if (OpenRequested is not null) OpenRequested(path); else await OpenAsync(path);
+        if (published is not null) Interaction.Toast(string.Format(Strings["PublishedPrivately"], published));
+        if (publishError is not null) await Interaction.ShowAsync(Strings["PublishToGitHub"], string.Format(Strings["PublishAfterCreateFailed"], publishError));
     });
 
     private static string LocalEmail(string name) => new string(name.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray()) is { Length: > 0 } local ? local + "@localhost" : "traveler@localhost";

@@ -398,11 +398,10 @@
   "SavedAt": "Gespeichert in",
   "SavedAtHint": "Die Reise ist ein normaler Ordner mit lesbaren Dateien und vollständiger Versionshistorie.",
   "ChangeFolder": "Ändern …",
-  "ConnectRemoteOptional": "Vorhandenes Git-Repository verbinden (optional)",
   "RemoteUrlOptional": "https://… oder git@…",
   "WizardTrip": "Reise",
   "WizardPeople": "Personen",
-  "WizardSave": "Speicherort",
+  "WizardSave": "Speicherort und Teilen",
   "Back": "Zurück",
   "CreateTrip": "Reise erstellen",
   "CreateNow": "Jetzt erstellen",
@@ -870,5 +869,11 @@
   "DisconnectGitHub": "GitHub trennen",
   "DisconnectGitHubBody": "Jourfold vergisst die Anmeldung für @{0} auf diesem Computer. Bereits geteilte Reisen bleiben auf GitHub und synchronisieren wieder, sobald Sie sich erneut verbinden. Um Jourfold den Zugriff ganz zu entziehen, widerrufen Sie ihn in Ihren GitHub-Einstellungen unter Applications.",
   "GitHubDisconnected": "GitHub getrennt",
-  "PublishToGitHubAs": "Erstellt ein privates Repository im Konto @{0}."
+  "PublishToGitHubAs": "Erstellt ein privates Repository im Konto @{0}.",
+  "ShareChoice": "Teilen",
+  "KeepLocal": "Nur auf diesem Computer",
+  "KeepLocalHint": "Sie können die Reise später über „Teilen“ veröffentlichen oder Personen einladen.",
+  "ConnectExistingRepository": "Vorhandenes Git-Repository verbinden",
+  "PublishCancelled": "Die Veröffentlichung wurde abgebrochen.",
+  "PublishAfterCreateFailed": "Die Reise wurde auf diesem Computer erstellt, aber die Veröffentlichung auf GitHub hat nicht geklappt:\n\n{0}\n\nVersuchen Sie es über „Teilen“ erneut."
 }

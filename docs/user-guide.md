@@ -1,45 +1,80 @@
-# Planning a trip
+# Using Jourfold
 
-Choose **New trip**, enter a title, and select an empty folder for the plan and its history. Optional dates use calendar pickers; content language and timezone have searchable choices. The participant list starts empty. Use **Add participant**, enter a name and choose Save or Cancel. The trip stays on your computer until you add a remote or publish it. Optional trip settings are available by selecting **Details** beside the planning controls.
+## Your trips
 
-Use **Quick add** to create an activity, transport, accommodation, task, note, booking, place, person, expense or collection. Changes in the inspector are written when you leave a field. Use **Undo** and **Redo** through Ctrl+Z and Ctrl+Shift+Z. Changes made outside Jourfold invalidate undo history and show a notice.
+Jourfold opens with your trip library. Each card shows the dates, the main places and whether the trip is only on this computer or shared. Right-click a card to show its folder or remove it from the list; removing a card never deletes the trip.
 
-Unscheduled activities appear in **Inbox**. Drag one onto the timetable or use **Date and time** in its inspector. A block can be moved by dragging and resized by dragging its lower edge. Exact times use the timezone shown beside them. The date/time form uses calendar and time pickers and lets you review both endpoints together. Repeated daylight-saving times offer a choice of UTC offsets; nonexistent times show an explanation.
+If you are new, choose **Explore a sample trip**. It creates "Spring in Japan" in your trips folder, clearly marked as a sample. Change it freely or delete the folder when you are done.
 
-**Create version** records a named checkpoint. Review the change summary and edit the suggested message. Use **Variants** to try another plan, compare changes and merge it back. Create a version before switching variants. Merged variants remain archived.
+**New trip** asks for a title and nothing else. The optional steps add dates, the main timezone, your name and travel companions, and where the folder is saved. **Create now** skips the rest. The default folder is `Documents/Jourfold`; change it in Settings under General.
 
-**Files** attaches and previews image documents. Other files can be opened in the operating system's viewer. Large attachments require confirmation. **Export** creates PDF, calendar or print-friendly HTML output.
+**Open** also opens an existing trip folder, a trip someone shared as a Git address, or trips from your GitHub account.
 
-**Map** shows locally stored coordinates and transport connections. Add coordinates to a place to include it. It works without a map service or API key.
+## Planning
 
-Ctrl+K searches trip content and commands. **Settings** contains language, theme, density, units, local identity, provider connection and diagnostics. English and German affect the interface; trip content is not translated.
+The sidebar switches between the parts of a trip. **Plan** shows the timetable. The buttons above it switch to the day-by-day **List** or the **Map**.
 
-A copied repository address does not grant another person access. GitHub invitations require permission to manage that repository. New GitHub repositories are private by default.
+- **Add** (Ctrl+N) opens Quick Add. Pick a type, give it a title and, if you like, a place, date and time. Typing a place name that does not exist yet creates it.
+- Drag across empty time in the timetable to add an activity for exactly that span. Double-click empty time for a one-hour activity.
+- Drag a block to move it, or drag its lower edge to change how long it takes. Alt+Up and Alt+Down move the focused block by 15 minutes.
+- Right-click a block to change its time, duplicate it, move it back to the Inbox or delete it.
+- **By person** shows one column per traveller. Shared plans appear in each person's column.
 
-This build is under acceptance validation. Consult `docs/acceptance.md` for remaining limitations before using it as a release.
+Colours and icons show what kind of plan an item is: transport, a stay, food, a sight, culture, nature and so on. Dashed outlines mean the time is not fixed: an idea, an approximate time or a part of the day. A check mark means the plan is confirmed; a warning triangle means something needs a look, such as two overlapping plans for the same person.
 
-## People, material and comparisons
+Hotel stays and all-day plans appear in the strip above the hours. Times are shown in the trip's main timezone. Items in another timezone also show their local time, for example the departure time of a flight.
 
-In People, **Add myself to this trip** creates or reuses a trip-local person from your local name/email template. Repeating the action maps to the same Git email within the trip. This does not create an online account.
+### The Inbox
 
-The Inbox contains unscheduled activities and unlinked notes/documents. Pin keeps it open across sessions. Drag a note or file into the plan to create a scheduled activity linked to that material. The original note/file remains intact. **Schedule in plan** in the inspector provides the keyboard equivalent. Use the time fields or precision action to change timing without dragging.
+The **Inbox** collects things without a time: ideas, notes and files you have not attached anywhere. Type an idea into the box at the top and press Enter. Drag an entry onto the timetable to schedule it. **Pin** keeps the Inbox open. Ctrl+I toggles it.
 
-In Variants, **Compare** opens a timetable comparison and a separate side-by-side detail view. The timetable uses the current trip's timezone for both plans. Changed Markdown and binary choices are included in the details. **Share variant** copies a clone link with the branch context; the recipient still needs server access, and the branch must have been pushed.
+### Details
 
-Markdown sections can be added, edited and removed in the inspector. Document import, document replacement and Markdown edits participate in local Undo/Redo. Image previews are local. PDFs and other supported files can be opened with the operating system's default application.
+Selecting anything opens the details panel on the right. Changes are saved as soon as you leave a field. Everything can be undone with Ctrl+Z and redone with Ctrl+Shift+Z.
 
-History shows the author and application activity. Expand Details for semantic changes. Advanced Mode adds hashes, refs, author/committer identities, trailers and parent information. Restoring a version shows the files that will change and leaves the restored content as local changes, ready for a new version.
+- **When** opens the time editor. Besides exact times you can choose an approximate time, a time window, a part of the day, all day, or no time yet. Daylight-saving gaps are explained; repeated hours ask which one you mean.
+- **Status**, **Category** and **Who** are one click each.
+- Transport has a mode, from and to places, carrier, number, seat, terminal and distance. Stays have check-in and check-out, guests and rooms.
+- **Steps** groups several items, such as the parts of a day trip. Steps can share the group's people.
+- **Notes** holds Markdown notes, links, attached files and links to other items.
+- **Comments** lets travel companions leave remarks under their own name.
 
-## Readability
+Deleting shows a short notice with **Undo** instead of asking first.
 
-Settings includes high contrast and text scaling. Platform scaling and theme preferences are also respected. Text scaling can introduce scrollbars on small windows so controls remain reachable. The app uses no custom animated transitions. Keyboard focus and textual warnings do not depend on color alone.
+## Bookings, costs, tasks and files
 
-## Editing and local copies
+**Bookings** lists reservations with their reference (click the copy icon), price, travellers and status. **Costs** totals expenses per currency and compares them with budgets. Amounts are never converted with current exchange rates. **Tasks** works like a checklist; type a task and press Enter. **Files** shows attached tickets, PDFs and photos. Drop files anywhere on the window to add them.
 
-Each content view has an Add action in its toolbar. Quick add remains available for all entity types. In Plan, right-click an empty time slot to add an activity, or drag over an empty span to prefill its start and end. Right-click a block to remove it after confirmation. Zoom has minus/plus controls and a percentage list.
+## Versions, variants and sharing
 
-The participant editor shows available people on the left and assigned people on the right. Select people and use the arrows, then Save to apply the whole selection or Cancel to leave it unchanged.
+Your changes are saved on your computer immediately. The line under the trip title says whether they are already part of a **version**. **Create version** (Ctrl+S) records the current plan in the trip history with a suggested description that you can edit. **History** lists all versions, shows what changed and can restore an earlier one.
 
-**Save as…** copies the current repository to an empty folder and opens the copy. It includes current local edits, attachments, untracked files, history, variants, local Git settings and remotes. The original remains unchanged. Because remotes are copied too, the copy can still sync to the same remote. Linked Git worktrees, shared object stores and symbolic links are rejected with an explanation rather than copied incompletely.
+A **variant** is an alternative plan, for example "Cheaper hotels". Use the variant button next to the title to switch, or **Variants** to create, compare and merge them. Comparison shows the two plans day by day. When both changed the same detail, Jourfold asks once which result to keep.
 
-Settings has a category sidebar. General and Appearance controls apply when changed. Identity stores your local name/email template. GitHub connection and discovery are under Connections. Application forms stay inside the main window; file and folder selection uses the operating system's picker.
+**Share** depends on where the trip lives:
+
+- On this computer only: publish to a new private GitHub repository, or connect any Git server.
+- On GitHub: invite people by username and copy an invitation link.
+- On another Git server: copy an invitation link. The other person needs access on that server; a link does not grant it.
+
+Shared trips sync in the background. Changes that fit together are merged after a short notice that offers **Review** and **Cancel**.
+
+## Search and keyboard
+
+Ctrl+K opens search and commands. It finds items in the trip and runs actions such as creating a version or switching views. Alt+1 to Alt+9 jump between the main sections. Escape closes the details panel or a dialog. All buttons and fields are reachable with Tab.
+
+## Settings and privacy
+
+Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
+
+Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to OpenStreetMap. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
+
+## About Jourfold
+
+**About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
+
+## Exporting
+
+The menu next to **Add** has **Export**: a day-by-day PDF, a calendar file for other calendar apps, or a web page for printing.
+
+This build is under acceptance validation; see [acceptance status](acceptance.md) for remaining limitations.

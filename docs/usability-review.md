@@ -1,5 +1,27 @@
 # Native usability review and revision
 
+## Interface rebuild, 2026-10-04
+
+A review from the point of view of a first-time, non-technical user found the previous build usable but plain and prompt-driven: most actions opened a chain of small text prompts, the inspector was a long list of raw fields, the timetable drew uniform blocks on top of each other, and the library was empty for new users. The interface was rebuilt on branch `modernize`.
+
+| Area | Change |
+| --- | --- |
+| Visual language | Design tokens for light and deep-navy dark themes, category colours, Plus Jakarta Sans typography, Lucide icons and vector brand art, following `brand/BRAND.md` and the UI reference board. |
+| First start | Welcome screen with **Plan a trip**, **Explore a sample trip** and **Open a trip folder**. The sample is clearly labelled and has relative dates. |
+| Library | Cover cards with dates, places, people and local/shared state, search and filters. Moved folders can be found again or forgotten. |
+| Shell | Icon sidebar with counts, trip switcher, search, Inbox and sync status. The header shows title, variant switcher, dates, timezone and whether changes are in a version. |
+| Timetable | Category colours and icons, side-by-side overlaps, a strip for stays and all-day plans, group frames for nested items, a now line, drag to move, resize and create, and keyboard moves. |
+| Inspector | Sections for when, status, category, where, who, booking, steps, tags and rules; tabs for notes and comments; inline pickers that can create places, including address search when online maps are on. |
+| Workflows | One-sheet Quick Add, a three-step skippable new-trip wizard, a real command palette, Create Version with the semantic change list, a share dialog that adapts to where the trip lives, one-sheet conflict resolution, and undoable deletes with a notice instead of a confirmation. |
+| Other views | Day-by-day list, map with opt-in OpenStreetMap, and redesigned bookings, costs, tasks, files, people, places, collections, history and variants. |
+| Output | PDF, HTML and calendar exports read as a day-by-day itinerary. |
+
+Verification: both test suites, `dotnet format`, headless captures in light, dark and German, and runs of the real build on an X11 virtual display (Xvfb without a window manager) driven with `xdotool`. The native runs found and fixed three defects that headless tests had missed: clicking a timetable block did not select it, header menus closed because a background poll rebuilt the header, and the timetable jumped to midnight after an edit.
+
+Not yet verified: the new interface on GNOME, KDE and Windows 11 with their window managers, screen readers and HiDPI scaling. The platform and accessibility gates in [acceptance](acceptance.md) remain open.
+
+## 2026-09-30 revision
+
 Date: 2026-09-30. The first CachyOS/GNOME user trial exposed release-blocking usability defects that domain and headless tests had missed. The earlier acceptance percentage overstated desktop readiness. This revision addresses the reported interactions; it is not an accepted v1 release.
 
 ## Changes and evidence
@@ -20,7 +42,7 @@ Date: 2026-09-30. The first CachyOS/GNOME user trial exposed release-blocking us
 | Contextual creation | PASS for local/headless checks | Content views have Add actions. Plan has empty-slot Add and item Delete context actions, plus drag-to-create with the selected time span prefilled. Save creates one undoable activity. |
 | Zoom | PASS for implementation/render checks | Explicit minus/plus controls and percentage choices replace cycling. Calendar navigation has a date picker. Stale events from replaced controls cannot reset the current view. |
 | Lists, labels, tooltips | PASS for implementation/render checks | List surfaces follow the application theme. Navigation is less heavy, activity blocks show time ranges, common buttons have tooltips, and “Add myself to this trip” replaces the ambiguous identity action. |
-| Reference-level visual polish | NOT COMPLETE | Navigation, lists and forms are more coherent, but the full visual richness and refinement of the concept board have not been matched. Further design iteration remains. |
+| Reference-level visual polish | Revised 2026-10-04 | Rebuilt on a design system; see the section below. A native GNOME, KDE and Windows look at the new interface is still pending. |
 
 ## Verification
 

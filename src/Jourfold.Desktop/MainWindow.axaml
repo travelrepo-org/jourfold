@@ -1,28 +1,43 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Jourfold.Desktop.MainWindow" Title="Jourfold" Width="1360" Height="860" MinWidth="850" MinHeight="580" Icon="/Assets/Branding/icon-256.png">
- <Window.KeyBindings><KeyBinding Gesture="Ctrl+K" Command="{Binding SearchCommand}"/><KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}"/><KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}"/><KeyBinding Gesture="Ctrl+N" Command="{Binding QuickAddCommand}"/></Window.KeyBindings>
- <Grid>
- <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto"><LayoutTransformControl x:Name="RootLayout"><Grid x:Name="WorkspaceLayout" MinWidth="850" MinHeight="580" RowDefinitions="Auto,Auto,*,Auto">
-  <Border Padding="18,12" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
-   <Grid ColumnDefinitions="180,*,Auto"><Image x:Name="BrandLockup" Source="/Assets/Branding/lockup.png" Width="148" HorizontalAlignment="Left" AutomationProperties.Name="Jourfold"/>
-    <StackPanel Grid.Column="1"><TextBlock Text="{Binding TripTitle}" FontSize="20" FontWeight="Bold"/><TextBlock Text="{Binding VariantTitle}" Classes="meta"/></StackPanel>
-    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6"><Button Content="{Binding Strings[SearchTitle]}" Command="{Binding SearchCommand}"/><Button Content="{Binding Strings[QuickAdd]}" Command="{Binding QuickAddCommand}" IsVisible="{Binding HasTrip}" Classes="primary"/><Button Content="{Binding Strings[Version]}" Command="{Binding CreateVersionCommand}" IsVisible="{Binding HasTrip}"/></StackPanel>
-   </Grid>
-  </Border>
-  <Border Grid.Row="1" Padding="16,10" Background="#FFF0CC" IsVisible="{Binding HasPrivacyWarning}"><TextBlock Text="{Binding PrivacyWarning}" Foreground="#573B00" FontWeight="SemiBold" TextWrapping="Wrap"/></Border>
-  <Grid Grid.Row="2" IsEnabled="{Binding CanInteract}" ColumnDefinitions="180,*,330">
-   <Border Padding="12" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0"><DockPanel>
-    <StackPanel DockPanel.Dock="Bottom" Spacing="6"><Button Content="{Binding Strings[Inbox]}" x:Name="InboxToggle" IsVisible="{Binding HasTrip}"/><Button Content="{Binding Strings[Sync]}" Command="{Binding SyncCommand}" IsVisible="{Binding HasTrip}"/><Button Content="{Binding SharingLabel}" Command="{Binding ShareCommand}" IsVisible="{Binding HasTrip}"/><Button Content="{Binding Strings[SaveAs]}" Command="{Binding SaveAsCommand}" IsVisible="{Binding HasTrip}"/><Button Content="{Binding Strings[Export]}" Command="{Binding ExportCommand}" IsVisible="{Binding HasTrip}"/><Button Content="{Binding Strings[Settings]}" Command="{Binding SettingsCommand}"/></StackPanel>
-    <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Spacing="6"><Button Content="{Binding Strings[NewTrip]}" Command="{Binding NewTripCommand}"/><Button Content="{Binding Strings[OpenTrip]}" Command="{Binding OpenTripCommand}"/><Button Content="{Binding Strings[Clone]}" Command="{Binding CloneCommand}"/><Separator/><StackPanel x:Name="NavigationPanel" IsVisible="{Binding HasTrip}"/></StackPanel></ScrollViewer>
-   </DockPanel></Border>
-   <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="16">
-    <WrapPanel x:Name="ViewToolbar" Orientation="Horizontal" ItemSpacing="6" LineSpacing="6" Margin="0,0,0,12"/>
-    <ContentControl x:Name="MainContent" Grid.Row="1"/>
-    <Border Grid.Row="2" Classes="panel" x:Name="InboxPanel" Padding="12" Margin="0,10,0,0" IsVisible="{Binding InboxOpen}"><StackPanel Spacing="6"><CheckBox Content="{Binding Strings[Pin]}" IsChecked="{Binding InboxPinned}"/><ListBox x:Name="InboxList" ItemsSource="{Binding InboxItems}" MaxHeight="160"><ListBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Title}"/></DataTemplate></ListBox.ItemTemplate></ListBox></StackPanel></Border>
-   </Grid>
-   <Border Grid.Column="2" Classes="panel" CornerRadius="0" Padding="18"><ScrollViewer><StackPanel x:Name="Inspector" Spacing="10"/></ScrollViewer></Border>
-  </Grid>
-  <Border Grid.Row="3" Padding="12,7" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0"><StackPanel Spacing="4"><TextBlock Text="{Binding Status}" TextWrapping="Wrap"/><StackPanel Orientation="Horizontal" Spacing="8"><TextBlock Text="{Binding Notice}" TextWrapping="Wrap"/><Button x:Name="ReviewNotice" Content="{Binding Strings[Review]}" Command="{Binding ReviewMergeCommand}"/><Button x:Name="CancelNotice" Content="{Binding Strings[Cancel]}" Command="{Binding CancelMergeCommand}"/></StackPanel></StackPanel></Border>
- </Grid></LayoutTransformControl></ScrollViewer>
- <Grid x:Name="DialogLayer"/>
- </Grid>
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Jourfold.Desktop.MainWindow"
+        Title="Jourfold" Width="1440" Height="900" MinWidth="960" MinHeight="620" Icon="/Assets/Branding/icon-256.png" WindowStartupLocation="CenterScreen">
+  <Window.KeyBindings>
+    <KeyBinding Gesture="Ctrl+K" Command="{Binding SearchCommand}"/>
+    <KeyBinding Gesture="Ctrl+Z" Command="{Binding UndoCommand}"/>
+    <KeyBinding Gesture="Ctrl+Shift+Z" Command="{Binding RedoCommand}"/>
+    <KeyBinding Gesture="Ctrl+Y" Command="{Binding RedoCommand}"/>
+    <KeyBinding Gesture="Ctrl+N" Command="{Binding QuickAddCommand}"/>
+    <KeyBinding Gesture="Ctrl+S" Command="{Binding CreateVersionCommand}"/>
+    <KeyBinding Gesture="Ctrl+OemComma" Command="{Binding SettingsCommand}"/>
+    <KeyBinding Gesture="F5" Command="{Binding SyncCommand}"/>
+  </Window.KeyBindings>
+  <Panel>
+    <LayoutTransformControl x:Name="RootLayout">
+      <Grid x:Name="WorkspaceLayout" RowDefinitions="Auto,*">
+        <Border x:Name="TitleBar" IsVisible="False" Height="34" Background="{DynamicResource Bg.Sidebar}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1">
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="12,0" VerticalAlignment="Center" IsHitTestVisible="False">
+            <Image Source="{StaticResource Brand.Mark}" Width="16" Height="16"/>
+            <TextBlock x:Name="TitleText" Text="Jourfold" FontSize="12" Foreground="{DynamicResource Text.Muted}" VerticalAlignment="Center"/>
+          </StackPanel>
+        </Border>
+        <Panel Grid.Row="1">
+          <ContentControl x:Name="LibraryHost"/>
+          <Grid x:Name="TripShell" ColumnDefinitions="Auto,*,Auto" IsVisible="False">
+            <Border x:Name="Sidebar" Width="236" Background="{DynamicResource Bg.Sidebar}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0"/>
+            <Grid Grid.Column="1" RowDefinitions="Auto,Auto,Auto,*">
+              <Border x:Name="Header" Background="{DynamicResource Bg.Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1"/>
+              <Border x:Name="Banner" Grid.Row="1"/>
+              <Border x:Name="ToolbarHost" Grid.Row="2"/>
+              <Grid Grid.Row="3" ColumnDefinitions="Auto,*">
+                <Border x:Name="InboxHost"/>
+                <ContentControl x:Name="MainContent" Grid.Column="1"/>
+              </Grid>
+            </Grid>
+            <Border x:Name="InspectorHost" Grid.Column="2" Width="384" Background="{DynamicResource Bg.Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="1,0,0,0"/>
+          </Grid>
+        </Panel>
+      </Grid>
+    </LayoutTransformControl>
+    <Grid x:Name="DialogLayer"/>
+    <StackPanel x:Name="ToastLayer" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="24" Spacing="8"/>
+  </Panel>
 </Window>

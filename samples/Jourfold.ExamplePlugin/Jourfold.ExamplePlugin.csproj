@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk"><ItemGroup>
 <ProjectReference Include="../../../travelrepo/src/TravelRepo.Plugins.Abstractions/TravelRepo.Plugins.Abstractions.csproj" Condition="Exists('../../../travelrepo/src/TravelRepo.Plugins.Abstractions/TravelRepo.Plugins.Abstractions.csproj')"/>
-<PackageReference Include="TravelRepo.Plugins.Abstractions" Version="0.1.0" Condition="!Exists('../../../travelrepo/src/TravelRepo.Plugins.Abstractions/TravelRepo.Plugins.Abstractions.csproj')"/>
-<Content Include="jourfold.plugin.json" CopyToOutputDirectory="PreserveNewest"/></ItemGroup></Project>
+<PackageReference Include="TravelRepo.Plugins.Abstractions" Version="$(TravelRepoVersion)" Condition="!Exists('../../../travelrepo/src/TravelRepo.Plugins.Abstractions/TravelRepo.Plugins.Abstractions.csproj')"/>
+<Content Include="jourfold.plugin.json" CopyToOutputDirectory="PreserveNewest"/>
+<Content Include="../../LICENSE" Link="LICENSES/GPL-3.0-or-later.txt" CopyToOutputDirectory="PreserveNewest"/></ItemGroup></Project>

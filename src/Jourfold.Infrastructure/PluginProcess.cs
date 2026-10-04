@@ -15,7 +15,7 @@ public sealed class PluginProcess : IDisposable
     public PluginManifest Manifest { get; }
     public PluginProcess(string hostExecutable, string directory, string? dotnetExecutable = null)
     {
-        Manifest = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(Path.Combine(directory, "jourfold.plugin.json")), options)!;
+        Manifest = PluginCatalog.ReadManifest(directory);
         if (Manifest.MinimumApiVersion > 1) throw new DomainException("plugin.version", "This plugin needs a newer API.");
         var info = new ProcessStartInfo(hostExecutable.EndsWith(".dll", StringComparison.Ordinal) ? dotnetExecutable ?? "dotnet" : hostExecutable) { UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true };
         if (hostExecutable.EndsWith(".dll", StringComparison.Ordinal)) info.ArgumentList.Add(hostExecutable); info.ArgumentList.Add(Path.GetFullPath(directory));

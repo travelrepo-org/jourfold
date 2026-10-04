@@ -7,7 +7,7 @@ using TravelRepo.Plugins;
 if (args.Length != 1) { Console.Error.WriteLine("Usage: Jourfold.PluginHost <plugin-directory>"); return 2; }
 var root = Path.GetFullPath(args[0]);
 var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true };
-var manifest = JsonSerializer.Deserialize<PluginManifest>(await File.ReadAllTextAsync(Path.Combine(root, "jourfold.plugin.json")), options)!;
+var manifest = PluginManifest.Parse(await File.ReadAllTextAsync(Path.Combine(root, PluginManifest.FileName)));
 if (manifest.MinimumApiVersion > 1) { Console.Error.WriteLine("Unsupported plugin API version."); return 2; }
 var entry = Path.GetFullPath(Path.Combine(root, manifest.EntryAssembly));
 if (!entry.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal)) throw new InvalidDataException("Entry assembly must be in the plugin package.");

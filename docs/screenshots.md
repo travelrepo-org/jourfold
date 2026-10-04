@@ -1,8 +1,8 @@
-# README screenshots
+# Screenshots
 
-The README images show the real `App`, `MainWindow` and planning controls, rendered by Avalonia Headless with Skia. They are application captures without operating-system window decorations. They do not demonstrate native file dialogs, desktop integration or screen-reader behavior.
+These images are captures of the real `App` and `MainWindow`, rendered by Avalonia Headless with Skia. They have no operating-system window frame and do not show native file dialogs, popups, desktop integration or screen-reader behaviour.
 
-The capture tool creates a disposable TravelRepo containing a synthetic Aachen weekend for Alex and Carla. These are sample ideas, not bookings or travel recommendations. It opens that repository in Jourfold, selects an activity, opens the Inbox, scrolls to daytime hours and saves both themes. The fixture is confined to this documentation tool; it is not seeded into normal application sessions.
+The capture tool creates the same sample trip that **Explore a sample trip** offers in the application ("Spring in Japan", fixed to May 2027 for repeatable images) and an empty "Weekend in Aachen" trip. Place names are real; times, bookings, references and prices are invented. Everything is written to a temporary directory with its own settings and Git configuration and removed afterwards. No network service is contacted; the map shows the offline view with its opt-in prompt.
 
 ## Regenerate
 
@@ -13,14 +13,45 @@ dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
 dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 ```
 
-The tool writes `planning-light.png`, `planning-dark.png`, `settings.png` and `date-time.png` at 1360 × 960 pixels. It uses temporary trip/settings directories and process-local Git configuration. On Linux it isolates the session bus so it cannot use the desktop keyring. No GitHub App, login, remote repository or display server is needed. The temporary fixture is removed after capture.
+This writes the nine images below at 1440 × 900 pixels. Two options help when checking changes:
 
-Open both PNG files and check the timetable, selected activity, Inbox, text and theme before including them in a change. Commit the PNGs with the frontend change and update README captions if their meaning changes. Do not paint over, replace or fabricate interface elements in the captures.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--lang de` captures the German interface.
 
-The standalone tool is not part of the solution's default test suite or CI. Its project and dependency lock are checked in so contributors can refresh the images locally. The current capture was verified on Ubuntu; native platform acceptance is recorded separately in [the acceptance matrix](acceptance.md).
+Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
 
-## Forms
+## Captures
 
-![Calendar, time and timezone controls in the date/time form](screenshots/date-time.png)
+The timetable with the Inbox and the inspector, in light and dark themes:
 
-![Settings categories and directly editable preferences](screenshots/settings.png)
+![Timetable for a sample trip to Japan with the Inbox open and an activity selected](screenshots/planning-light.png)
+
+![The same view in the dark theme](screenshots/planning-dark.png)
+
+The trip library:
+
+![Library with a sample trip, an empty trip and a card for creating a new one](screenshots/library.png)
+
+The day-by-day list:
+
+![List view grouped by day with times, places, people and status](screenshots/list.png)
+
+The map before online maps are enabled. Places and routes come from the trip's own coordinates:
+
+![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
+
+Costs per currency with budgets:
+
+![Costs page with totals for euros and yen, budget progress and the list of expenses](screenshots/costs.png)
+
+Quick Add:
+
+![Quick Add sheet with item types, title, place, date, time, duration and people](screenshots/quick-add.png)
+
+Settings:
+
+![Settings dialog with categories on the left and general preferences on the right](screenshots/settings.png)
+
+About Jourfold, with the example plugin loaded:
+
+![About window with the Jourfold logo, version and build, license and source sections for Jourfold and TravelRepo, the loaded example plugin and the open-source notices](screenshots/about.png)

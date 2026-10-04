@@ -13,41 +13,15 @@ using Jourfold.Infrastructure;
 using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Git;
+using TravelRepo.Merge;
 using TravelRepo.Repository;
 using Xunit;
-[assembly: AvaloniaTestApplication(typeof(Jourfold.Tests.TestBuilder))]
-[assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Jourfold.Tests;
 
-public static class TestBuilder
-{
-    public static AppBuilder BuildAvaloniaApp()
-    { Environment.SetEnvironmentVariable("JOURFOLD_DATA_HOME", Path.Combine(Path.GetTempPath(), "jourfold-headless-" + Guid.NewGuid())); return AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }); }
-}
-public sealed class TestInteraction : IInteraction
-{
-    public Queue<string?> Answers { get; } = new();
-    public List<string> Errors { get; } = [];
-    public Task<TripDraft?> NewTripAsync() => Task.FromResult<TripDraft?>(new(Answers.Dequeue()!, "en", null, null, null, [], null));
-    public Task<string?> PromptAsync(string title, string initial = "", bool multiline = false) => Task.FromResult(Answers.Count > 0 ? Answers.Dequeue() : initial);
-    public Task<string?> ChooseAsync(string title, IReadOnlyList<Choice> choices) => Task.FromResult(Answers.Count > 0 ? Answers.Dequeue() : choices.FirstOrDefault()?.Id);
-    public Task<bool> ConfirmAsync(string message) => Task.FromResult(true);
-    public Task<string?> FolderAsync() => Task.FromResult(Answers.Dequeue());
-    public Task<string?> FileAsync(bool save = false, string? extension = null) => Task.FromResult(Answers.Dequeue());
-    public Task ShowAsync(string title, string message) { Errors.Add(message); return Task.CompletedTask; }
-    public Task CompareAsync(TripSnapshot current, TripSnapshot incoming) => Task.CompletedTask;
-    public Task CopyAsync(string value) => Task.CompletedTask;
-    public Task<IReadOnlyDictionary<string, string>?> FormAsync(string title, IReadOnlyList<FormField> fields) => Task.FromResult<IReadOnlyDictionary<string, string>?>(fields.ToDictionary(f => f.Key, f => Answers.Count > 0 ? Answers.Dequeue() ?? "" : f.Value));
-    public Task<IReadOnlyList<string>?> SelectManyAsync(string title, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected) => Task.FromResult<IReadOnlyList<string>?>(Answers.Count > 0 ? new[] { Answers.Dequeue()! } : selected);
-    public Task<JsonObject?> ScheduleAsync(JsonObject? initial, LocalDate date, string zone) => Task.FromResult(initial);
-    public Task<ZonedTime?> ResolveTimeAsync(string local, string zone, string? offset = null) => Task.FromResult<ZonedTime?>(new(local, zone, offset));
-    public Task SettingsAsync(MainViewModel model) => Task.CompletedTask;
-    public void Open(string path) { }
-}
 public sealed class WorkflowTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-flow-" + Guid.NewGuid());
-    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    public void Dispose() => TestFiles.Delete(root);
     private async Task<Workspace> Create()
     {
         var path = Path.Combine(root, "trip"); var r = new TravelRepository(path); await r.InitializeAsync(Entity.CreateTrip("Tokyo journey", "en", "Asia/Tokyo")); await new GitRepository(r, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); var w = new Workspace(path, new GitCliBackend()); await w.OpenAsync(); return w;
@@ -81,34 +55,30 @@ public sealed class WorkflowTests : IDisposable
     public async Task ShellLoadsAndTimetableDropWritesCanonicalTime()
     {
         using var w = await Create(); var path = w.Repository.Root; var activity = Entity.Create("schedule_item", "Aachen walk"); await w.EditAsync(activity); w.Dispose();
-        var settings = (LocalStore)App.Services.GetService(typeof(LocalStore))!; settings.Set("textsize", "Normal"); settings.Set("highcontrast", "false");
-        var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.StartDate = new LocalDate(2027, 5, 12); window.Model.Refresh(); Dispatcher.UIThread.RunJobs();
+        var settings = (LocalStore)App.Services.GetService(typeof(LocalStore))!; settings.Set("textsize", "Normal"); settings.Set("highcontrast", "false"); settings.Set("openingview", "Plan");
+        var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.View = "Plan"; window.Model.InboxOpen = false; window.Model.ShowDate(new LocalDate(2027, 5, 12)); Probe.Layout();
         Assert.True(window.Model.HasTrip); Assert.Single(window.Model.InboxItems);
-        var planner = window.FindControl<ContentControl>("MainContent")!.Content as PlanningView; Assert.NotNull(planner);
-        var point = planner!.TranslatePoint(new Point(120, 180), window)!.Value; var data = new DataTransfer(); data.Add(DataTransferItem.Create(PlanningView.EntityFormat, activity.Id.ToString()));
+        var planner = Assert.IsType<TimetableView>(window.FindControl<ContentControl>("MainContent")!.Content);
+        var canvas = Probe.All<Canvas>(planner).First(c => c.Height > 1000);
+        var point = canvas.TranslatePoint(new Point(120, 10 + 10 * 54), window)!.Value; var data = new DataTransfer(); data.Add(DataTransferItem.Create(TimetableView.EntityFormat, activity.Id.ToString()));
         window.DragDrop(point, RawDragEventType.DragEnter, data, DragDropEffects.Move, RawInputModifiers.None); window.DragDrop(point, RawDragEventType.Drop, data, DragDropEffects.Move, RawInputModifiers.None);
-        for (var i = 0; i < 100 && window.Model.Workspace!.State.Trip.Find(activity.Id)!.Data["time"] is null; i++) await Task.Delay(20);
-        Assert.NotNull(window.Model.Workspace!.State.Trip.Find(activity.Id)!.Data["time"]);
-        for (var i = 0; i < 100 && window.Model.Busy; i++) await Task.Delay(20);
-        window.Model.Selected = window.Model.Workspace.State.Trip.Find(activity.Id); Assert.NotEmpty(window.FindControl<StackPanel>("Inspector")!.Children);
-        Dispatcher.UIThread.RunJobs();
-        planner = (PlanningView)window.FindControl<ContentControl>("MainContent")!.Content!;
-        var block = planner.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Tag, activity.Id)); var resizePoint = block.TranslatePoint(new Point(block.Bounds.Width / 2, block.Bounds.Height - 3), window)!.Value;
+        await Probe.Until(() => window.Model.Workspace!.State.Trip.Find(activity.Id)!.Data["time"] is not null);
+        Assert.Equal("2027-05-12T10:00:00", window.Model.Workspace!.State.Trip.Find(activity.Id)!.Data["time"]!["start"]!["local"]!.ToString());
+        Assert.Equal("planned", window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["status"]!.ToString());
+        await Probe.Until(() => !window.Model.Busy);
+        window.Model.Selected = window.Model.Workspace.State.Trip.Find(activity.Id); Probe.Layout(); Assert.NotEmpty(Probe.Named<StackPanel>(window, "Inspector").Children);
+        Button Block() => Probe.All<Button>(window.FindControl<ContentControl>("MainContent")!.Content as Visual ?? window).Single(b => Equals(b.Tag, activity.Id));
+        var block = Block(); var resizePoint = block.TranslatePoint(new Point(block.Bounds.Width / 2, block.Bounds.Height - 3), window)!.Value;
         var beforeEnd = ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["end"]!).ToInstant();
-        window.MouseDown(resizePoint, MouseButton.Left); window.MouseMove(resizePoint + new Point(0, 55)); window.MouseUp(resizePoint + new Point(0, 55), MouseButton.Left);
-        for (var i = 0; i < 100 && ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["end"]!).ToInstant() == beforeEnd; i++) await Task.Delay(20);
+        window.MouseDown(resizePoint, MouseButton.Left); window.MouseMove(resizePoint + new Point(0, 27)); window.MouseMove(resizePoint + new Point(0, 54)); window.MouseUp(resizePoint + new Point(0, 54), MouseButton.Left);
+        await Probe.Until(() => ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["end"]!).ToInstant() != beforeEnd);
         Assert.Equal(beforeEnd + Duration.FromHours(1), ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["end"]!).ToInstant());
-        for (var i = 0; i < 100 && window.Model.Busy; i++) await Task.Delay(20);
-        Dispatcher.UIThread.RunJobs(); planner = (PlanningView)window.FindControl<ContentControl>("MainContent")!.Content!; block = planner.GetVisualDescendants().OfType<Button>().Single(b => Equals(b.Tag, activity.Id)); var movePoint = block.TranslatePoint(new Point(20, 15), window)!.Value;
+        await Probe.Until(() => !window.Model.Busy); await Task.Delay(50); Probe.Layout();
+        block = Block(); var movePoint = block.TranslatePoint(new Point(20, 20), window)!.Value;
         var beforeStart = ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["start"]!).ToInstant();
-        window.MouseDown(movePoint, MouseButton.Left); window.MouseMove(movePoint + new Point(0, 55)); window.MouseUp(movePoint + new Point(0, 55), MouseButton.Left);
-        for (var i = 0; i < 100 && ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["start"]!).ToInstant() == beforeStart; i++) await Task.Delay(20);
+        window.MouseDown(movePoint, MouseButton.Left); window.MouseMove(movePoint + new Point(0, 27)); window.MouseMove(movePoint + new Point(0, 54)); window.MouseUp(movePoint + new Point(0, 54), MouseButton.Left);
+        await Probe.Until(() => ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["start"]!).ToInstant() != beforeStart);
         Assert.Equal(beforeStart + Duration.FromHours(1), ZonedTime.From(window.Model.Workspace.State.Trip.Find(activity.Id)!.Data["time"]!["start"]!).ToInstant());
-        if (Environment.GetEnvironmentVariable("JOURFOLD_CAPTURE_DIRECTORY") is { } capture)
-        {
-            Directory.CreateDirectory(capture); Dispatcher.UIThread.RunJobs();
-            using var frame = window.CaptureRenderedFrame(); frame?.Save(Path.Combine(capture, "planning.png"));
-        }
         window.Close();
     }
     [AvaloniaTheory]
@@ -116,7 +86,7 @@ public sealed class WorkflowTests : IDisposable
     [InlineData("de", "Dark")]
     public void LocalizedShellSupportsThemes(string language, string theme)
     {
-        var settings = (LocalStore)App.Services.GetService(typeof(LocalStore))!; settings.Set("language", language); settings.Set("theme", theme); var w = new MainWindow(); w.Show(); Assert.Equal(language, w.Model.Strings.Language); Assert.True(w.Model.IsLibrary); Assert.NotNull(w.FindControl<ContentControl>("MainContent")!.Content); w.Close();
+        var settings = (LocalStore)App.Services.GetService(typeof(LocalStore))!; settings.Set("language", language); settings.Set("theme", theme); var w = new MainWindow(); w.Show(); Assert.Equal(language, w.Model.Strings.Language); Assert.True(w.Model.IsLibrary); Assert.NotNull(w.FindControl<ContentControl>("LibraryHost")!.Content); w.Close();
         var en = new Localization("en"); var de = new Localization("de"); Assert.Equal(en.All.Keys.Order(), de.All.Keys.Order()); Assert.All(de.All.Values, value => Assert.False(string.IsNullOrWhiteSpace(value)));
     }
     [Fact]
@@ -137,26 +107,33 @@ public sealed class WorkflowTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task NewTripCommandAndEditorCreateRealOfflineContent()
+    public async Task NewTripCommandAndQuickAddCreateRealOfflineContent()
     {
-        using var store = new LocalStore(Path.Combine(root, "settings")); store.Set("tripRoot", Path.Combine(root, "trips"));
+        using var store = new LocalStore(Path.Combine(root, "settings"));
         var interaction = new TestInteraction(); interaction.Answers.Enqueue("Aachen weekend"); interaction.Answers.Enqueue(Path.Combine(root, "chosen-folder"));
         using var model = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction);
         await model.NewTripCommand.ExecuteAsync(null); Assert.True(model.HasTrip); Assert.Empty(interaction.Errors);
+        Assert.Equal(Path.Combine(root, "chosen-folder"), model.Workspace!.Repository.Root);
         foreach (var type in new[] { "person", "place", "activity", "task", "booking", "expense", "collection", "note" }) { interaction.Answers.Enqueue("New " + type); await model.AddAsync(type); }
         Assert.Equal(8, model.Workspace!.State.Trip.Entities.Count);
+        Assert.Contains(model.Workspace.State.Trip.Entities.Values.Single(e => e.Type == "person").Id.ToString(), model.Workspace.State.Trip.Manifest.Data["participants"]!.AsArray().Select(n => n!.ToString()));
         var activity = model.Workspace.State.Trip.Entities.Values.Single(e => e.Type == "schedule_item");
+        Assert.Contains(activity, model.InboxItems);
         await EditorModel.UpdateAsync(model, activity.Id, new EditorField("title", "Title"), "Explore Aachen");
         Assert.Equal("Explore Aachen", model.Workspace.State.Trip.Find(activity.Id)!.Title);
         await model.UndoCommand.ExecuteAsync(null); Assert.Equal("New activity", model.Workspace.State.Trip.Find(activity.Id)!.Title);
         Assert.Single(await model.Workspace.Git.HistoryAsync());
+        interaction.Answers.Enqueue("Add the first ideas"); await model.CreateVersionCommand.ExecuteAsync(null);
+        Assert.Equal(8, interaction.LastVersionSummary!.Entities.Count(c => c.Kind == ChangeKind.Added));
+        Assert.Equal("Add the first ideas", (await model.Workspace.Git.HistoryAsync())[0].Message.Split('\n')[0]);
     }
     [AvaloniaFact]
     public async Task MapAcceptsRoundTrippedDecimalCoordinatesAndSharedSelection()
     {
         using var w = await Create(); var place = Entity.Create("place", "Aachen"); place.Data["location"] = new JsonObject { ["latitude"] = 50.7753, ["longitude"] = 6.0839 }; await w.EditAsync(place); var path = w.Repository.Root; w.Dispose();
         var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Navigate("Map"); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(place.Id); Dispatcher.UIThread.RunJobs();
-        Assert.IsType<PlanningView>(window.FindControl<ContentControl>("MainContent")!.Content); Assert.Equal(place.Id, window.Model.Selected!.Id); window.Close();
+        Assert.IsType<MapView>(window.FindControl<ContentControl>("MainContent")!.Content); Assert.Equal(place.Id, window.Model.Selected!.Id);
+        Assert.Contains(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Aachen"); window.Close();
     }
     [Fact]
     public async Task MergeTransfersNewBinaryResourcesAndPreservesPrimaryMetadata()

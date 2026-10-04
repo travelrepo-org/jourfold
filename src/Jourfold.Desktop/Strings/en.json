@@ -890,5 +890,11 @@
   "TravelTime": "Travel time {0}",
   "ArrivalBeforeDeparture": "The arrival is before the departure. Check the dates, times and timezones.",
   "TimezoneIs": "Timezone: {0}",
-  "Change": "Change"
+  "Change": "Change",
+  "NoSecondZone": "Only the trip timezone",
+  "SecondZoneOption": "Also show {0}",
+  "SecondZoneThisComputer": "Also show this computer: {0}",
+  "OtherTimezone": "Other timezone…",
+  "SecondTimezone": "Second timezone",
+  "SecondZoneLegend": "and in {0}"
 }

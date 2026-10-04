@@ -227,6 +227,31 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task SecondTimezoneShowsInTimetableAndList()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var visit = Entity.Create("schedule_item", "Cathedral"); await m.Workspace!.EditAsync(visit);
+            await m.Workspace.ScheduleAsync(visit.Id, new ZonedTime("2027-05-14T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            var flight = Entity.Create("schedule_item", "Flight"); flight.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-05-15T13:20:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-05-16T08:35:00", "Asia/Tokyo").ToJson() };
+            await m.Workspace.EditAsync(flight); m.Refresh();
+            Assert.Null(m.SecondZone); Assert.Equal("Asia/Tokyo", m.SecondZoneSuggestions()[0]);
+
+            m.SetSecondZone("Asia/Tokyo"); m.ShowDate(new LocalDate(2027, 5, 14)); Probe.Layout();
+            var texts = Probe.All<TextBlock>(w.FindControl<ContentControl>("MainContent")!).Select(t => t.Text).ToList();
+            Assert.Contains("Tokyo", texts); Assert.Contains("17:00", texts); // 10:00 in Berlin (CEST) is 17:00 in Tokyo.
+            m.View = "List"; Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(w.FindControl<ContentControl>("MainContent")!), t => t.Text == "Tokyo 17:00");
+
+            // The choice belongs to this trip on this computer and can be switched off again.
+            var root = m.Workspace.Repository.Root; m.CloseTrip(); Assert.Null(m.SecondZone); await m.OpenAsync(root); Assert.Equal("Asia/Tokyo", m.SecondZone);
+            m.SetSecondZone(null); Assert.Null(m.SecondZone);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddActivityUsesThePlaceTimezone()
     {
         var w = Window(); try

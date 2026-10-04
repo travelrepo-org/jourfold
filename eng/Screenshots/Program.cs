@@ -98,6 +98,9 @@ try
                 m.View = "People"; await Capture("people");
                 m.View = "Places"; await Capture("places");
                 m.View = "Collections"; await Capture("collections");
+                // A second timezone (home) beside the trip timezone.
+                m.SetSecondZone("Europe/Berlin"); m.View = "Plan"; await Settle(300); await Capture("planning-second-zone");
+                m.View = "List"; await Capture("list-second-zone"); m.SetSecondZone(null);
                 m.View = "Plan"; m.Lanes = true; m.RaiseContentChanged(); await Capture("lanes"); m.Lanes = false;
                 Theme("Dark"); m.View = "Map"; await Capture("map-dark"); m.View = "Costs"; await Capture("costs-dark"); Theme("Light");
                 m.View = "Plan"; m.ShowDate(start.PlusDays(3));

@@ -19,6 +19,8 @@ public static class FieldOptions
     /// with their plain ID, so stored values always resolve.
     /// </summary>
     public static IReadOnlyList<Choice> Timezones => timezones.Value;
+    /// <summary>The searchable label of a timezone, or its ID when it is unknown.</summary>
+    public static string ZoneLabel(string id) => Timezones.FirstOrDefault(c => c.Id == id)?.Label ?? id;
     private static readonly Lazy<Choice[]> timezones = new(() =>
     {
         var source = NodaTime.TimeZones.TzdbDateTimeZoneSource.Default;

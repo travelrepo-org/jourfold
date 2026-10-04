@@ -22,7 +22,9 @@ The sidebar switches between the parts of a trip. **Plan** shows the timetable. 
 
 Colours and icons show what kind of plan an item is: transport, a stay, food, a sight, culture, nature and so on. Dashed outlines mean the time is not fixed: an idea, an approximate time or a part of the day. A check mark means the plan is confirmed; a warning triangle means something needs a look, such as two overlapping plans for the same person.
 
-Hotel stays and all-day plans appear in the strip above the hours. Times are shown in the trip's main timezone. Items in another timezone also show their local time, for example the departure time of a flight.
+Hotel stays and all-day plans appear in the strip above the hours. Times are shown in the trip's main timezone. Items in another timezone also show their local time, for example the departure time of a flight. The timezone button above the timetable adds a second time column, for example the time at home, in the timetable and the list. It offers the timezones the trip already uses and this computer's timezone, and remembers the choice per trip.
+
+In **Add**, transport takes departure and arrival in local time at each end, as printed on a ticket, and shows the travel time. Activities and stays use the timezone of their place; **Change** picks another one. Timezone fields find zones by city, country or offset, for example "China", "Shanghai" or "UTC+8".
 
 ### The Inbox
 

@@ -14,7 +14,7 @@ public sealed partial class Dialogs
         var s = model.Strings; var info = model.AboutInfo();
 
         var mark = new Image { Source = owner.FindResource("Brand.Mark") as IImage, Width = 64, Height = 64, VerticalAlignment = VerticalAlignment.Center };
-        var version = string.Format(s["AboutVersion"], info.Version) + (info.Commit is null ? "" : ", " + string.Format(s["AboutBuild"], info.Commit));
+        var version = string.Format(s["AboutVersion"], info.Version) + " " + string.Format(s["QuotedName"], info.CodeName) + (info.Commit is null ? "" : ", " + string.Format(s["AboutBuild"], info.Commit));
         var header = Ui.Columns("Auto,*", mark, Ui.V(2, Ui.Text("Jourfold", "h1"), new SelectableTextBlock { Text = version }.Classed("muted"), Ui.Text(s["WelcomeTitle"], "caption")).Also(v => { v.Margin = new Thickness(18, 0, 0, 0); v.VerticalAlignment = VerticalAlignment.Center; }));
 
         Button LicenseButton(string title, Func<string> text) { var b = Ui.Button(s["ViewLicense"], "file-text", "ghost", "compact"); b.Click += async (_, _) => await ReadTextAsync(string.Format(s["LicenseTitle"], title), text()); return b; }

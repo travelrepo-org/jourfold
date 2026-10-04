@@ -860,5 +860,6 @@
   "LicenseTitle": "Lizenz: {0}",
   "UsePlugin": "Verwenden",
   "KnownPlugins": "Geladene Plugins",
-  "LoadAnotherPlugin": "Weiteres Plugin laden"
+  "LoadAnotherPlugin": "Weiteres Plugin laden",
+  "QuotedName": "„{0}“"
 }

@@ -34,6 +34,29 @@ public sealed class AboutTests : IDisposable
         Assert.Contains("Avalonia", MainViewModel.BundledText("Jourfold.NOTICES"));
     }
 
+    [Theory]
+    [InlineData("0.1.0", "Nomadic Nightingale")]
+    [InlineData("0.2.0", "Uplifted Umbrellabird")]
+    [InlineData("0.2.5", "Uplifted Umbrellabird")]
+    [InlineData("0.3.0-beta.1+abc", "Zesty Zebra")]
+    [InlineData("1.0.0", "Untamed Urial")]
+    public void CodeNamesAreStablePerFeatureRelease(string version, string expected) => Assert.Equal(expected, CodeNames.For(version));
+
+    [Fact]
+    public void ReleaseScriptComputesTheSameCodeNames()
+    {
+        var repository = new DirectoryInfo(AppContext.BaseDirectory);
+        while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "eng", "version.py"))) repository = repository.Parent;
+        Assert.NotNull(repository);
+        foreach (var version in new[] { "0.1.0", "0.4.2", "1.7.0-rc.1", "12.3.0", AppVersion.Version })
+        {
+            var info = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsWindows() ? "python" : "python3") { RedirectStandardOutput = true, WorkingDirectory = repository.FullName };
+            info.ArgumentList.Add("eng/version.py"); info.ArgumentList.Add("--codename"); info.ArgumentList.Add(version);
+            using var process = System.Diagnostics.Process.Start(info)!; var output = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit();
+            Assert.Equal(CodeNames.For(version), output);
+        }
+    }
+
     [Fact]
     public void CatalogRemembersPluginsAndSkipsMissingOnes()
     {

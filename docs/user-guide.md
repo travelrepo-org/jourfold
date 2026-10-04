@@ -71,7 +71,7 @@ Online maps are off until you enable them. When on, Jourfold loads map images fo
 
 ## About Jourfold
 
-**About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
+**About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version with its code name and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
 
 ## Exporting
 

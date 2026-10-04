@@ -38,7 +38,7 @@ public partial class MainViewModel
 
     public async Task<string> DiagnosticsTextAsync()
     {
-        var lines = new List<string> { "Jourfold " + typeof(MainViewModel).Assembly.GetName().Version?.ToString(3), System.Runtime.InteropServices.RuntimeInformation.OSDescription, ".NET " + Environment.Version };
+        var lines = new List<string> { "Jourfold " + AppVersion.Informational, "TravelRepo " + TravelRepoInfo.InformationalVersion + ", format " + TravelRepoInfo.FormatVersion, AppVersion.Platform };
         try { lines.Add("Git: " + new TravelRepo.Git.GitCliBackend().Executable); } catch (DomainException ex) { lines.Add("Git: " + ex.Message); }
         if (Workspace is not null)
         {
@@ -51,7 +51,8 @@ public partial class MainViewModel
             lines.Add(Strings["Extensions"] + ": " + string.Join(", ", extensions));
         }
         lines.Add("GitHub: " + (Store.Get("github.client") is null ? Strings["NotConfigured"] : Strings["Configured"]));
-        lines.Add(Strings["Plugins"] + ": " + (Store.Get("plugin.last") ?? Strings["NotConfigured"]));
+        var plugins = PluginCatalog.Known(Store);
+        lines.Add(Strings["Plugins"] + ": " + (plugins.Count == 0 ? Strings["NotConfigured"] : string.Join(", ", plugins.Select(p => p.Manifest.Id + " " + p.Manifest.Version))));
         return string.Join('\n', lines.Where(l => l.Length > 0));
     }
 
@@ -70,15 +71,10 @@ public partial class MainViewModel
         if (key == "Plugins")
         {
             if (!await Interaction.ConfirmAsync(Strings["Plugins"], Strings["PluginTrust"], Strings["ChoosePluginFolder"])) return; var folder = await Interaction.FolderAsync(Strings["Plugins"]); if (folder is null) return;
-            var host = Path.Combine(AppContext.BaseDirectory, "PluginHost", OperatingSystem.IsWindows() ? "Jourfold.PluginHost.exe" : "Jourfold.PluginHost");
-            using var plugin = new PluginProcess(host, folder); var description = await plugin.DescribeAsync(); Store.Set("plugin.last", description.Id + " API " + description.ApiVersion);
-            if (Workspace is null || Selected is null) { Interaction.Toast(string.Format(Strings["PluginLoaded"], description.Id)); return; }
-            var component = await Interaction.ChooseAsync(Strings["Plugins"], description.Components.Select(c => new Choice(c.Type, c.Title, "plug")).ToArray()); if (component is null) return;
-            var definition = description.Components.Single(c => c.Type == component);
-            var values = await Interaction.FormAsync(definition.Title, definition.Fields.Select(f => new FormField(f.Key, f.Label, f.Choices is not null ? "choice" : f.Kind == "number" ? "number" : "text", Choices: f.Choices?.Select(v => new Choice(v, v)).ToArray(), Required: true)).ToArray()); if (values is null) return;
-            var data = new JsonObject(); foreach (var field in definition.Fields) data[field.Key] = field.Kind == "number" ? JsonValue.Create(double.Parse(values[field.Key], CultureInfo.InvariantCulture)) : JsonValue.Create(values[field.Key]);
-            var entity = Selected.Copy(); if (entity.Data["components"] is not JsonObject) entity.Data["components"] = new JsonObject(); entity.Data["components"]![component] = data; await Workspace.EditAsync(entity);
+            await UsePluginAsync(folder);
         }
+        if (key.StartsWith("UsePlugin:", StringComparison.Ordinal)) await UsePluginAsync(key["UsePlugin:".Length..]);
+        if (key.StartsWith("ForgetPlugin:", StringComparison.Ordinal)) PluginCatalog.Forget(Store, key["ForgetPlugin:".Length..]);
         if (key == "Report")
         {
             var report = await Interaction.PromptAsync(Strings["ReportInfo"], Strings["ReportTemplate"] + "\n\n" + await DiagnosticsTextAsync(), true);
@@ -87,6 +83,19 @@ public partial class MainViewModel
         if (key == "ClearMapCache") { MapTiles.ClearCache(Store.Root); Interaction.Toast(Strings["MapCacheCleared"]); }
         if (key is "ConnectGitHub" or "DiscoverGitHub" or "AddRemote") { Busy = false; await (key == "ConnectGitHub" ? ConnectGitHubCommand : key == "DiscoverGitHub" ? DiscoverGitHubCommand : AddRemoteCommand).ExecuteAsync(null); }
     });
+
+    /// <summary>Starts the plugin in <paramref name="folder"/>, remembers it and, with an item selected, adds one of its components.</summary>
+    private async Task UsePluginAsync(string folder)
+    {
+        var host = Path.Combine(AppContext.BaseDirectory, "PluginHost", OperatingSystem.IsWindows() ? "Jourfold.PluginHost.exe" : "Jourfold.PluginHost");
+        using var plugin = new PluginProcess(host, folder); var description = await plugin.DescribeAsync(); PluginCatalog.Remember(Store, folder);
+        if (Workspace is null || Selected is null) { Interaction.Toast(string.Format(Strings["PluginLoaded"], plugin.Manifest.DisplayName)); return; }
+        var component = await Interaction.ChooseAsync(Strings["Plugins"], description.Components.Select(c => new Choice(c.Type, c.Title, "plug")).ToArray()); if (component is null) return;
+        var definition = description.Components.Single(c => c.Type == component);
+        var values = await Interaction.FormAsync(definition.Title, definition.Fields.Select(f => new FormField(f.Key, f.Label, f.Choices is not null ? "choice" : f.Kind == "number" ? "number" : "text", Choices: f.Choices?.Select(v => new Choice(v, v)).ToArray(), Required: true)).ToArray()); if (values is null) return;
+        var data = new JsonObject(); foreach (var field in definition.Fields) data[field.Key] = field.Kind == "number" ? JsonValue.Create(double.Parse(values[field.Key], CultureInfo.InvariantCulture)) : JsonValue.Create(values[field.Key]);
+        var entity = Selected.Copy(); if (entity.Data["components"] is not JsonObject) entity.Data["components"] = new JsonObject(); entity.Data["components"]![component] = data; await Workspace.EditAsync(entity);
+    }
 
     // Command palette -------------------------------------------------------------------------------------
 
@@ -116,6 +125,7 @@ public partial class MainViewModel
         }
         Command("Settings", s["Settings"], "settings", "Ctrl+,");
         Command("Theme", s["ToggleTheme"], "moon");
+        Command("About", s["About"], "info");
         if (Workspace is not null && query.Length > 0)
         {
             Store.Index(Workspace.Repository.Root, Workspace.State.Trip);
@@ -149,6 +159,7 @@ public partial class MainViewModel
                 case "OpenTrip": await OpenTripCommand.ExecuteAsync(null); break;
                 case "Sample": await OpenSampleCommand.ExecuteAsync(null); break;
                 case "Settings": await SettingsCommand.ExecuteAsync(null); break;
+                case "About": await AboutCommand.ExecuteAsync(null); break;
                 case "Theme": SetPreference("Theme", Preference("Theme", "System") == "Dark" ? "Light" : "Dark"); break;
             }
             return;

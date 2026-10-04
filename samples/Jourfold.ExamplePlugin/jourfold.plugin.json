@@ -1,1 +1,13 @@
-{"id":"org.travelrepo.walking","version":"1.0.0","minimumApiVersion":1,"entryAssembly":"Jourfold.ExamplePlugin.dll","capabilities":["components","commands"],"permissions":[]}
+{
+  "id": "org.travelrepo.walking",
+  "version": "1.0.0",
+  "minimumApiVersion": 1,
+  "entryAssembly": "Jourfold.ExamplePlugin.dll",
+  "capabilities": ["components", "commands"],
+  "permissions": [],
+  "name": "Walking notes",
+  "description": "Example plugin that adds a walking component and estimates walking time from a distance.",
+  "authors": "Jourfold contributors",
+  "license": "GPL-3.0-or-later",
+  "licenseFile": "LICENSES/GPL-3.0-or-later.txt"
+}

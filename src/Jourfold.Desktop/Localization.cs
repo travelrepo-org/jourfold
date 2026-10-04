@@ -58,6 +58,7 @@ public interface IInteraction
     Task<JsonObject?> ScheduleAsync(JsonObject? initial, LocalDate date, string zone);
     Task<ZonedTime?> ResolveTimeAsync(string local, string zone, string? offset = null);
     Task SettingsAsync(MainViewModel model);
+    Task AboutAsync(MainViewModel model);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>
     void Toast(string message, string? action = null, Func<Task>? onAction = null);
     void Open(string path);

@@ -13,9 +13,9 @@ dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
 dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 ```
 
-This writes the eight images below at 1440 × 900 pixels. Two options help when checking changes:
+This writes the nine images below at 1440 × 900 pixels. Two options help when checking changes:
 
-- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
@@ -51,3 +51,7 @@ Quick Add:
 Settings:
 
 ![Settings dialog with categories on the left and general preferences on the right](screenshots/settings.png)
+
+About Jourfold, with the example plugin loaded:
+
+![About window with the Jourfold logo, version and build, license and source sections for Jourfold and TravelRepo, the loaded example plugin and the open-source notices](screenshots/about.png)

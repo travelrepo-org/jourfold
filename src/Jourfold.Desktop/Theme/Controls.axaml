@@ -124,6 +124,18 @@
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}"/>
     <Setter Property="MinHeight" Value="34"/>
   </Style>
+  <!-- The Fluent calendar glyph renders incomplete with the Jourfold palette; show the Lucide calendar like the rest of the app. -->
+  <Style Selector="CalendarDatePicker /template/ Button#PART_Button">
+    <Setter Property="Cursor" Value="Hand"/>
+    <Setter Property="Template">
+      <ControlTemplate>
+        <Border Background="Transparent" Padding="10,0">
+          <local:Icon Kind="calendar" Foreground="{DynamicResource Text.Muted}" VerticalAlignment="Center"/>
+        </Border>
+      </ControlTemplate>
+    </Setter>
+  </Style>
+  <Style Selector="CalendarDatePicker /template/ Button#PART_Button:pointerover local|Icon"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
   <Style Selector="ComboBox:pointerover /template/ Border#Background"><Setter Property="Background" Value="{DynamicResource Bg.Surface}"/><Setter Property="BorderBrush" Value="{DynamicResource Text.Subtle}"/></Style>
   <Style Selector="ComboBox:focus-visible /template/ Border#Background"><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
   <Style Selector="CheckBox"><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>

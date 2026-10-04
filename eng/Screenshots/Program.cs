@@ -134,7 +134,24 @@ try
             }
             m.View = "Plan"; m.ShowDate(start.PlusDays(1));
             await Dialog(() => m.QuickAddCommand.ExecuteAsync(null), "quick-add", m.Strings["Cancel"]);
+            // Show a neutral folder instead of the account name of the machine that renders the screenshots.
+            m.Store.Set("trips.folder", "/home/alex/Documents/Jourfold");
             await Dialog(() => m.SettingsCommand.ExecuteAsync(null), "settings", m.Strings["Close"]);
+            // The About window lists the example plugin as a loaded plugin, read from its build output when available.
+            var samples = new DirectoryInfo(AppContext.BaseDirectory); while (samples is not null && !Directory.Exists(Path.Combine(samples.FullName, "samples", "Jourfold.ExamplePlugin"))) samples = samples.Parent;
+            if (samples is not null)
+            {
+                var source = Path.Combine(samples.FullName, "samples", "Jourfold.ExamplePlugin");
+                var built = Directory.Exists(Path.Combine(source, "bin")) ? Directory.GetFiles(Path.Combine(source, "bin"), "jourfold.plugin.json", SearchOption.AllDirectories).OrderByDescending(File.GetLastWriteTimeUtc).Select(Path.GetDirectoryName).FirstOrDefault() : null;
+                Jourfold.Infrastructure.PluginCatalog.Remember(m.Store, built ?? source);
+            }
+            await Dialog(() => m.AboutCommand.ExecuteAsync(null), "about", m.Strings["Close"]);
+            if (all)
+            {
+                var about = m.AboutCommand.ExecuteAsync(null); await Settle(400);
+                Click(m.Strings["ViewNotices"]); await Settle(400); await Capture("about-notices"); Click(m.Strings["Close"]); await Settle();
+                Click(m.Strings["Close"]); await about;
+            }
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); throw; }
         finally

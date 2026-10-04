@@ -69,6 +69,10 @@ Settings covers language (English and German), theme, density, text size, high c
 
 Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to OpenStreetMap. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 
+## About Jourfold
+
+**About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
+
 ## Exporting
 
 The menu next to **Add** has **Export**: a day-by-day PDF, a calendar file for other calendar apps, or a web page for printing.

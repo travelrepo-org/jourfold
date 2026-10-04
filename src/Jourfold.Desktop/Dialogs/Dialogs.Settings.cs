@@ -35,7 +35,7 @@ public sealed partial class Dialogs
             }
             Control Segments(string key, string fallback, params (string Value, string Icon)[] values) => ViewToolbar.Segmented(values.Select(v => (v.Value, s[v.Value], (string?)v.Icon)), model.Preference(key, fallback), v => { model.SetPreference(key, v); Render(); });
             ToggleSwitch Toggle(bool value, Action<bool> changed, string label) { var t = new ToggleSwitch { IsChecked = value, OnContent = null, OffContent = null }; AutomationProperties.SetName(t, label); t.IsCheckedChanged += (_, _) => changed(t.IsChecked == true); return t; }
-            Button Run(string key, string icon, bool primary = false) { var b = Ui.Button(s[key], icon, primary ? "primary" : ""); b.Click += async (_, _) => { b.IsEnabled = false; try { await model.SettingsActionAsync(key); } finally { b.IsEnabled = true; Render(); } }; return b; }
+            Button Run(string key, string icon, bool primary = false, string? label = null) { var b = Ui.Button(label ?? s[key], icon, primary ? "primary" : ""); b.Click += async (_, _) => { b.IsEnabled = false; try { await model.SettingsActionAsync(key); } finally { b.IsEnabled = true; Render(); } }; return b; }
             switch (settingsPage)
             {
                 case "General":
@@ -72,7 +72,15 @@ public sealed partial class Dialogs
                     break;
                 case "Plugins":
                     page.Children.Add(Ui.Text(s["PluginsHint"], "muted").Margin(0, 0, 0, 8));
-                    Row(s["LoadPlugin"], model.Store.Get("plugin.last") ?? s["NoPluginLoaded"], Run("Plugins", "plug"));
+                    var known = Jourfold.Infrastructure.PluginCatalog.Known(model.Store);
+                    Row(known.Count == 0 ? s["LoadPlugin"] : s["LoadAnotherPlugin"], known.Count == 0 ? s["NoPluginLoaded"] : null, Run("Plugins", "plug"));
+                    if (known.Count > 0) page.Children.Add(Ui.Text(s["KnownPlugins"], "h3").Margin(0, 16, 0, 0));
+                    foreach (var plugin in known)
+                    {
+                        var forget = Ui.IconButton("x", s["RemoveFromList"], "small");
+                        forget.Click += async (_, _) => { await model.SettingsActionAsync("ForgetPlugin:" + plugin.Directory); Render(); };
+                        Row(plugin.Manifest.DisplayName + " " + plugin.Manifest.Version, plugin.Manifest.Description ?? plugin.Manifest.Id, Ui.H(4, Run("UsePlugin:" + plugin.Directory, "plug", label: s["UsePlugin"]), forget));
+                    }
                     break;
                 case "Advanced":
                     Row(s["Advanced"], s["AdvancedHint"], Toggle(model.Advanced, v => { model.SetPreference("Advanced", v ? "true" : "false"); }, s["Advanced"]));
@@ -84,8 +92,10 @@ public sealed partial class Dialogs
         }
         Render();
         var close = Action("Close", true);
-        var sheet = new DialogSheet(model.Strings["Settings"], Ui.V(16, grid, Footer(close)), 920);
-        close.Click += (_, _) => sheet.Close();
+        var about = Ui.Button(model.Strings["About"], "info", "ghost");
+        var footer = Ui.Columns("Auto,*", about, Footer(close).Col(1)); footer.Margin = new Thickness(0, 8, 0, 0);
+        var sheet = new DialogSheet(model.Strings["Settings"], Ui.V(16, grid, footer), 920);
+        close.Click += (_, _) => sheet.Close(); about.Click += async (_, _) => await AboutAsync(model);
         await sheet.ShowDialog(owner);
     }
 }

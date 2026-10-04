@@ -20,10 +20,23 @@ public sealed class MarkdownView : StackPanel
                 if (block is CodeBlock) text.FontFamily = FontFamily.Parse("monospace");
                 panel.Children.Add(text);
             }
+            else if (block is ListBlock list)
+            {
+                // Each item is a row: the bullet or number beside the item's own blocks.
+                var items = new StackPanel { Spacing = 4, Margin = new Thickness(4, 0, 0, 0) };
+                var number = int.TryParse(list.OrderedStart, out var start) ? start : 1;
+                foreach (var item in list.OfType<ListItemBlock>())
+                {
+                    var content = new StackPanel { Spacing = 4 }; RenderBlocks(item, content);
+                    var marker = new TextBlock { Text = list.IsOrdered ? number++ + "." : "•", MinWidth = 18, Margin = new Thickness(0, 0, 4, 0) };
+                    var row = new DockPanel(); DockPanel.SetDock(marker, Dock.Left); row.Children.Add(marker); row.Children.Add(content);
+                    items.Children.Add(row);
+                }
+                panel.Children.Add(items);
+            }
             else if (block is ContainerBlock container)
             {
                 var child = new StackPanel { Spacing = 6, Margin = new Thickness(12, 0, 0, 0) };
-                if (block is ListItemBlock) child.Children.Add(new TextBlock { Text = "•" });
                 RenderBlocks(container, child); panel.Children.Add(child);
             }
         }

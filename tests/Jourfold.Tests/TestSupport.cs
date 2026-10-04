@@ -63,6 +63,8 @@ public sealed class TestInteraction : IInteraction
     public Task<JsonObject?> ScheduleAsync(JsonObject? initial, LocalDate date, string zone) => Task.FromResult(initial);
     public Task<ZonedTime?> ResolveTimeAsync(string local, string zone, string? offset = null) => Task.FromResult<ZonedTime?>(new(local, zone, offset));
     public Task SettingsAsync(MainViewModel model) => Task.CompletedTask;
+    public int AboutShown { get; private set; }
+    public Task AboutAsync(MainViewModel model) { AboutShown++; return Task.CompletedTask; }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
     public void Open(string path) { }
 }

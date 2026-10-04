@@ -13,7 +13,7 @@
     <TravelRepoVersion>0.1.0</TravelRepoVersion>
     <Authors>Jourfold contributors</Authors>
     <!-- Public source repository, shown in the About window. -->
-    <RepositoryUrl></RepositoryUrl>
+    <RepositoryUrl>https://github.com/travelrepo-org/jourfold</RepositoryUrl>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="RepositoryUrl" Value="$(RepositoryUrl)" />

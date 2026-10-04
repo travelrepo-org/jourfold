@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install or update Jourfold for the current user on Linux.
 #
-#   curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
+#   curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash
 #
 # Options (append after `bash -s --` when piping):
 #   --version vX.Y.Z   install a specific release instead of the latest

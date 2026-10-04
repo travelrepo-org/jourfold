@@ -26,7 +26,7 @@ To release, change `Version`, commit, then push the tag `v<Version>`. See [insta
 
 `JOURFOLD_DATA_HOME` may redirect local settings, previews and search for development. Canonical data is always in the selected trip directory. Recovery journals live separately under the user's local application data. Deleting local search/settings does not delete trip content.
 
-GitHub Actions requires the repository variable `TRAVELREPO_REPOSITORY` to point to the TravelRepo repository (for example `your-org/travelrepo`). Both repositories can run their own CI; neither requires a parent Git repository.
+GitHub Actions requires the repository variable `TRAVELREPO_REPOSITORY` to point to the TravelRepo repository (`travelrepo-org/travelrepo` for the official repositories). Both repositories can run their own CI; neither requires a parent Git repository.
 
 If the sibling TravelRepo source repository is private, its checkout also needs separately configured CI read access. The current workflow does not configure that cross-repository credential; the default Actions token is scoped to the current repository. This is a hosted CI setup gate, separate from authentication to trip repositories.
 

@@ -1,10 +1,10 @@
 # Install or update Jourfold for the current user on Windows.
 #
-#   irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
+#   irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1 | iex
 #
 # With options:
-#   & ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Version v0.2.0
-#   & ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Uninstall
+#   & ([scriptblock]::Create((irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1))) -Version v0.2.0
+#   & ([scriptblock]::Create((irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1))) -Uninstall
 #
 # Environment variables JOURFOLD_REPO, JOURFOLD_VERSION, JOURFOLD_DOWNLOAD_BASE and JOURFOLD_ARCH work as well,
 # which is convenient with `irm ... | iex`. No administrator rights are needed.

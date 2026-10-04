@@ -2,12 +2,12 @@
 
 Each Jourfold release on GitHub carries two small install scripts. They download the release for your system, check it against the published SHA-256 checksums and install it for your user account only. No administrator rights are needed.
 
-In the commands below, replace `OWNER/REPO` with the GitHub repository that publishes Jourfold. The scripts attached to a release already contain the right repository.
+The commands below install from the official repository, `travelrepo-org/jourfold`. Forks publish their own scripts: the copies attached to a release always name the repository that built them.
 
 ## Linux
 
 ```sh
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
+curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash
 ```
 
 This installs the latest release to `~/.local/share/jourfold-app`, adds a `jourfold` command to `~/.local/bin` and registers Jourfold in your application menu. Running the same command again updates Jourfold. The previous version is replaced only after the new one has been downloaded, verified and unpacked.
@@ -16,11 +16,11 @@ Options go after `bash -s --`:
 
 ```sh
 # a specific release
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash -s -- --version v0.2.0
+curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash -s -- --version v0.2.0
 # install without an application menu entry
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash -s -- --no-desktop
+curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash -s -- --no-desktop
 # remove Jourfold
-curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash -s -- --uninstall
+curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash -s -- --uninstall
 ```
 
 `JOURFOLD_INSTALL_DIR` and `JOURFOLD_BIN_DIR` change where the application and the command go. `JOURFOLD_DOWNLOAD_BASE` downloads from a mirror instead of GitHub; the mirror must serve `jourfold-linux-x64.tar.gz` or `jourfold-linux-arm64.tar.gz` and `SHA256SUMS`.
@@ -34,7 +34,7 @@ If you prefer a package, the release also has `.deb` files for Debian and Ubuntu
 Open PowerShell and run:
 
 ```powershell
-irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
+irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1 | iex
 ```
 
 The script downloads the Jourfold setup for your processor (x64, or ARM64 on Windows on Arm), checks its checksum and runs it silently. Jourfold appears in the Start menu and under **Settings > Apps**, where it can also be uninstalled. Git for Windows is included. Running the command again updates Jourfold and closes a running copy first.
@@ -43,9 +43,9 @@ Options:
 
 ```powershell
 # a specific release
-$env:JOURFOLD_VERSION = 'v0.2.0'; irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
+$env:JOURFOLD_VERSION = 'v0.2.0'; irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1 | iex
 # remove Jourfold
-& ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Uninstall
+& ([scriptblock]::Create((irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1))) -Uninstall
 ```
 
 Set `JOURFOLD_ARCH` to `x64` or `arm64` to choose a build yourself. Jourfold needs 64-bit Windows 10 or Windows 11. You can also download `jourfold-setup-win-x64.exe` or `jourfold-setup-win-arm64.exe` from the release page and run it yourself, or use the portable `.zip` archives.
@@ -59,7 +59,7 @@ Uninstalling removes the application only. Your trip folders (by default `Docume
 Piping a script into a shell runs it straight away. To look at it before running it:
 
 ```sh
-curl -fsSLO https://github.com/OWNER/REPO/releases/latest/download/install.sh
+curl -fsSLO https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh
 less install.sh
 bash install.sh
 ```

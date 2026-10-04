@@ -60,6 +60,18 @@ jobs:
           path: travelrepo
       - working-directory: jourfold
         run: python3 eng/version.py --check-tag "$TAG" --github
+      - name: Title the release with its code name when it has no title
+        if: github.event_name == 'release'
+        working-directory: jourfold
+        env:
+          TITLE: ${{ github.event.release.name }}
+        run: |
+          name="$(python3 eng/version.py --codename)"
+          echo "Code name: $name" >> "$GITHUB_STEP_SUMMARY"
+          if [ -z "$TITLE" ] || [ "$TITLE" = "$TAG" ]; then
+            # shellcheck disable=SC1111 # typographic quotes are part of the title
+            gh release edit "$TAG" --title "Jourfold ${TAG#v} “$name”" --repo "$GITHUB_REPOSITORY"
+          fi
       - id: latest
         name: Keep the previous release as latest until the packages are attached
         if: github.event.release.prerelease != true

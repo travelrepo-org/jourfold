@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.Input;
 using TravelRepo.Core;
 using TravelRepo.Git;
 using TravelRepo.Merge;
+using TravelRepo.Providers;
 using TravelRepo.Providers.GitHub;
 
 namespace Jourfold.Desktop;
@@ -117,12 +118,22 @@ public partial class MainViewModel
     public Task PublishToGitHubAsync(string name) => RunAsync(async () =>
     {
         if (Workspace is null) return;
-        if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
-        var created = await GitHub().CreateAsync(name.Trim()); await Workspace.Git.AddRemoteAsync("origin", created.CloneUrl); await RememberRemoteAsync("origin", true);
+        var created = await CreateGitHubRemoteAsync(Workspace.Git, name); await RememberRemoteAsync("origin", true);
         if (!string.IsNullOrEmpty(await Workspace.Git.StatusAsync())) await Workspace.Git.CreateVersionAsync(SuggestVersionMessage(await PendingChangesAsync()));
         await Workspace.Git.PushAsync("origin"); await UpdateSyncStatusAsync();
         Interaction.Toast(string.Format(Strings["PublishedPrivately"], created.FullName));
     });
+
+    /// <summary>Connects GitHub if needed, creates a private repository and adds it as <c>origin</c>. The caller pushes.</summary>
+    private async Task<TravelRepo.Providers.RemoteRepository> CreateGitHubRemoteAsync(GitRepository git, string name)
+    {
+        if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
+        var created = await GitHub().CreateAsync(name.Trim()); await git.AddRemoteAsync("origin", created.CloneUrl);
+        return created;
+    }
+
+    /// <summary>A GitHub repository name suggested for a trip title, for example <c>lisbon-in-october</c>.</summary>
+    public static string RepositoryName(string title) => FolderName(title).Replace(' ', '-').ToLowerInvariant();
 
     public Task AddRemoteAsync(string name, string url) => RunAsync(async () =>
     {
@@ -189,7 +200,44 @@ public partial class MainViewModel
     }
 
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private bool gitHubConnected;
-    public async Task<bool> HasGitHubTokenAsync() { GitHubConnected = await GitHub().IsConnectedAsync(); return GitHubConnected; }
+    /// <summary>The connected GitHub account, once GitHub has confirmed it. <see cref="GitHubLogin"/> also works offline.</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty] private ProviderAccount? gitHubAccount;
+    public string? GitHubLogin => GitHubAccount?.Login ?? (Store.Get("github.login") is { Length: > 0 } login ? login : null);
+    public bool GitHubSessionOnly => secrets.SessionOnly;
+    public async Task<bool> HasGitHubTokenAsync() { GitHubConnected = await GitHub().IsConnectedAsync(); if (!GitHubConnected) GitHubAccount = null; return GitHubConnected; }
+
+    /// <summary>
+    /// Checks the stored sign-in and asks GitHub which account it belongs to. A sign-in GitHub rejects counts as not
+    /// connected. Without network the last known login is kept.
+    /// </summary>
+    public async Task RefreshGitHubAccountAsync()
+    {
+        if (!await HasGitHubTokenAsync()) return;
+        try
+        {
+            GitHubAccount = await GitHub().AccountAsync();
+            if (GitHubAccount is null) GitHubConnected = false;
+            Store.Set("github.login", GitHubAccount?.Login ?? "");
+        }
+        catch (Exception ex) when (ex is DomainException or HttpRequestException or OperationCanceledException) { }
+        OnPropertyChanged(nameof(GitHubLogin));
+    }
+
+    /// <summary>Downloads the account picture, or returns <c>null</c> when there is none or the network fails.</summary>
+    public async Task<byte[]?> GitHubAvatarAsync()
+    {
+        if (GitHubAccount?.AvatarUrl is not { } url) return null;
+        try { return await githubHttp.GetByteArrayAsync(url + (url.Query.Length > 0 ? "&" : "?") + "s=96"); }
+        catch (Exception ex) when (ex is HttpRequestException or OperationCanceledException) { return null; }
+    }
+
+    [RelayCommand]
+    private Task DisconnectGitHub() => RunAsync(async () =>
+    {
+        if (!await Interaction.ConfirmAsync(Strings["DisconnectGitHub"], string.Format(Strings["DisconnectGitHubBody"], GitHubLogin ?? "GitHub"), Strings["Disconnect"], danger: true)) return;
+        await GitHub().SignOutAsync(); Store.Set("github.login", ""); GitHubAccount = null; GitHubConnected = false; OnPropertyChanged(nameof(GitHubLogin));
+        Interaction.Toast(Strings["GitHubDisconnected"]);
+    });
     [RelayCommand] private Task ConnectGitHub() => RunAsync(ConnectGitHubCoreAsync);
     private async Task ConnectGitHubCoreAsync()
     {
@@ -201,7 +249,8 @@ public partial class MainViewModel
         var provider = GitHub(); var code = await provider.BeginAsync(); await Interaction.CopyAsync(code.UserCode); Interaction.Open(code.VerificationUri);
         await Interaction.ShowAsync(Strings["GitHubCode"], string.Format(Strings["GitHubCodeBody"], code.UserCode)); await provider.CompleteAsync(code);
         if (secrets.SessionOnly) await Interaction.ShowAsync(Strings["ConnectGitHub"], Strings["SessionOnly"]);
-        await HasGitHubTokenAsync(); Interaction.Toast(Strings["GitHubConnected"]);
+        await RefreshGitHubAccountAsync();
+        Interaction.Toast(GitHubLogin is { } login ? string.Format(Strings["GitHubConnectedAs"], login) : Strings["GitHubConnected"]);
     }
     [RelayCommand]
     private Task DiscoverGitHub() => RunAsync(async () =>

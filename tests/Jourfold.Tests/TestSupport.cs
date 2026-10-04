@@ -33,7 +33,9 @@ public sealed class TestInteraction : IInteraction
     public ChangeSummary? LastVersionSummary { get; private set; }
     private string? Next(string? fallback = null) => Answers.Count > 0 ? Answers.Dequeue() : fallback;
 
-    public Task<TripDraft?> NewTripAsync(NewTripDefaults defaults) => Task.FromResult<TripDraft?>(new(Next()!, "en", null, null, null, [], null, Next()));
+    /// <summary>Answers the new-trip wizard; without it the next two answers become the title and the folder.</summary>
+    public Func<NewTripDefaults, TripDraft?>? NewTrip { get; set; }
+    public Task<TripDraft?> NewTripAsync(NewTripDefaults defaults) => Task.FromResult(NewTrip is { } answer ? answer(defaults) : new TripDraft(Next()!, "en", null, null, null, [], null, Next()));
     public Task<QuickAddDraft?> QuickAddAsync(QuickAddRequest request)
     {
         QuickAddRequests.Add(request);

@@ -45,7 +45,36 @@ public sealed partial class Dialogs
         title.TextChanged += (_, _) => UpdateFolder(); UpdateFolder();
         var change = Ui.Button(s["ChangeFolder"], "folder-open", "ghost", "compact");
         change.Click += async (_, _) => { if (await FolderAsync(s["ChooseLocation"]) is { } picked) { chosenFolder = Directory.Exists(picked) && Directory.EnumerateFileSystemEntries(picked).Any() ? Path.Combine(picked, MainViewModel.FolderName(title.Text ?? s["NewTrip"])) : picked; UpdateFolder(); } };
-        var remote = new TextBox { Watermark = s["RemoteUrlOptional"] }; AutomationProperties.SetName(remote, s["RemoteUrl"]);
+        var remote = new TextBox { Watermark = s["RemoteUrlOptional"], Tag = "remote" }; AutomationProperties.SetName(remote, s["RemoteUrl"]);
+        // Sharing: keep the trip local (default), publish it to a new private GitHub repository, or connect an existing one.
+        var share = "local"; var suggested = MainViewModel.RepositoryName(s["NewTrip"]);
+        var repository = new TextBox { Text = suggested, Tag = "repository" }; AutomationProperties.SetName(repository, s["RepositoryName"]);
+        // The repository name follows the title until the person changes it.
+        title.TextChanged += (_, _) =>
+        {
+            var next = MainViewModel.RepositoryName(string.IsNullOrWhiteSpace(title.Text) ? s["NewTrip"] : title.Text);
+            if (repository.Text == suggested) repository.Text = next;
+            suggested = next;
+        };
+        RadioButton ShareOption(string mode, string heading, string hint, Control? details)
+        {
+            if (details is not null) details.IsVisible = mode == share;
+            var option = new RadioButton
+            {
+                GroupName = "new-trip-share",
+                IsChecked = mode == share,
+                Tag = "share-" + mode,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                Content = Ui.V(3, Ui.Text(heading, "strong"), Ui.Text(hint, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), details?.Margin(0, 6, 0, 0))
+            };
+            AutomationProperties.SetName(option, heading);
+            option.IsCheckedChanged += (_, _) => { if (option.IsChecked == true) share = mode; if (details is not null) details.IsVisible = option.IsChecked == true; };
+            return option;
+        }
+        var shareOptions = Ui.V(10,
+            ShareOption("local", s["KeepLocal"], s["KeepLocalHint"], null),
+            ShareOption("github", s["PublishToGitHub"], defaults.GitHubConnected && defaults.GitHubLogin is { } login ? string.Format(s["PublishToGitHubAs"], login) : s["PublishToGitHubHint"], Ui.V(4, Ui.Text(s["RepositoryName"], "label"), repository)),
+            ShareOption("git", s["ConnectExistingRepository"], s["UseOwnGitHint"], Ui.V(4, remote, Ui.Text(s["RemoteUrlHint"], "caption"))));
 
         var pages = new Control[]
         {
@@ -53,7 +82,7 @@ public sealed partial class Dialogs
                 Ui.Columns("*,*", Ui.V(6, Ui.Text(s["MainTimezone"], "label"), timezone), Ui.V(6, Ui.Text(s["ContentLanguage"], "label"), language).Margin(10, 0, 0, 0))),
             Ui.V(14, Ui.V(6, Ui.Text(s["YourName"], "label"), me, Ui.Text(s["YourNameHint"], "caption")), Ui.V(6, Ui.Text(s["TravellingWith"], "label"), Ui.Columns("*,Auto", person, addPerson.Margin(8, 0, 0, 0)), peopleList)),
             Ui.V(14, Ui.V(6, Ui.Text(s["SavedAt"], "label"), Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Icon("folder", 18, "Accent"), folder.Margin(10, 0), change), 12), Ui.Text(s["SavedAtHint"], "caption")),
-                new Expander { Header = Ui.Text(s["ConnectRemoteOptional"]), Content = Ui.V(6, remote, Ui.Text(s["RemoteUrlHint"], "caption")), HorizontalAlignment = HorizontalAlignment.Stretch })
+                Ui.V(8, Ui.Text(s["ShareChoice"], "label"), shareOptions))
         };
         var stepTitles = new[] { s["WizardTrip"], s["WizardPeople"], s["WizardSave"] };
         var host = new ContentControl(); var stepper = Ui.H(8);
@@ -74,7 +103,8 @@ public sealed partial class Dialogs
         }
         bool Valid() { if (string.IsNullOrWhiteSpace(title.Text)) { error.Text = s["TitleRequired"]; error.IsVisible = true; step = 0; Show(); title.Focus(); return false; } error.IsVisible = false; return true; }
         var sheet = new DialogSheet(s["NewTrip"], Ui.V(18, stepper, host, error, Ui.Columns("Auto,*,Auto", skip, null, Ui.H(8, cancelWizard, back, next, create))), 640, s["NewTripSubtitle"]);
-        TripDraft Draft() => new(title.Text!.Trim(), language.Value ?? defaults.Language, start.SelectedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), end.SelectedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), timezone.Value, people.ToArray(), string.IsNullOrWhiteSpace(remote.Text) ? null : remote.Text.Trim(), chosenFolder ?? folder.Text, string.IsNullOrWhiteSpace(me.Text) ? null : me.Text.Trim());
+        TripDraft Draft() => new(title.Text!.Trim(), language.Value ?? defaults.Language, start.SelectedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), end.SelectedDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), timezone.Value, people.ToArray(), share != "git" || string.IsNullOrWhiteSpace(remote.Text) ? null : remote.Text.Trim(), chosenFolder ?? folder.Text, string.IsNullOrWhiteSpace(me.Text) ? null : me.Text.Trim(),
+            share == "github" ? (string.IsNullOrWhiteSpace(repository.Text) ? MainViewModel.RepositoryName(title.Text!) : repository.Text.Trim()) : null);
         next.Click += (_, _) => { if (step == 0 && !Valid()) return; step++; Show(); };
         cancelWizard.Click += (_, _) => sheet.Close();
         back.Click += (_, _) => { step--; Show(); };
@@ -120,20 +150,23 @@ public sealed partial class Dialogs
             people.Children.Add(chip);
         }
 
+        // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
+        // survives; each one is detached from its old row before it is placed again.
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
-        var whenRow = Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)));
+        Control WhenRow() => Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)));
         var fields = Ui.V(14);
         var typeGrid = new WrapPanel { ItemSpacing = 8, LineSpacing = 8 };
         var dateLabel = Ui.Text(s["Date"], "label");
         void Layout()
         {
-            fields.Children.Clear();
+            fields.Children.Clear(); foreach (var editor in editors) Ui.Detach(editor);
             title.Watermark = s["placeholder." + kind];
             fields.Children.Add(Row(kind is "person" ? s["Name"] : s["Title"], title));
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             if (kind == "transport") { fields.Children.Add(Row(s["TransportMode"], modes)); fields.Children.Add(Ui.Columns("*,Auto,*", Row(s["From"], from), Ui.Icon("arrow-right", 16, "Text.Subtle").Margin(8, 22, 8, 0), Row(s["To"], to))); }
             if (kind is "activity" or "food" or "sightseeing") fields.Children.Add(Row(s["Where"], place));
-            if (scheduled) { fields.Children.Add(whenRow); time.IsEnabled = length.IsEnabled = hasTime.IsChecked == true && unscheduled.IsChecked != true; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true; }
+            if (scheduled) { fields.Children.Add(WhenRow()); time.IsEnabled = length.IsEnabled = hasTime.IsChecked == true && unscheduled.IsChecked != true; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true; }
             if (kind == "accommodation") { fields.Children.Add(Row(s["Place"], place)); fields.Children.Add(Ui.Columns("*,*", Row(s["CheckInDate"], date), Row(s["Nights"], nights).Margin(10, 0, 0, 0))); }
             if (kind is "booking") { fields.Children.Add(Row(s["Reference"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
             if (kind is "expense" or "budget") fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0))));

@@ -15,6 +15,8 @@ public partial class App : Avalonia.Application
         var services = new ServiceCollection(); services.AddSingleton<LocalStore>(); services.AddSingleton<OsSecretStore>(); services.AddSingleton<IGitBackend>(sp => new GitCliBackend(credentialBroker: new GitHubCredentialBroker(sp.GetRequiredService<OsSecretStore>()))); Services = services.BuildServiceProvider();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            // Only the real desktop app catches stray exceptions; tests and the screenshot tool must still see them.
+            ErrorReporting.Install(Services.GetRequiredService<LocalStore>().Root);
             var window = new MainWindow(); desktop.MainWindow = window;
             if (desktop.Args?.FirstOrDefault() is { } link && link.StartsWith("jourfold:", StringComparison.OrdinalIgnoreCase)) window.Opened += async (_, _) => await window.Model.OpenLinkAsync(link); desktop.Exit += (_, _) => (Services as IDisposable)?.Dispose();
         }

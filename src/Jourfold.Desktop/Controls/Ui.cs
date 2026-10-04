@@ -158,5 +158,20 @@ public static class Ui
     public static T? FindDescendant<T>(this Visual root, Func<T, bool> predicate) where T : Visual => Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(root).OfType<T>().FirstOrDefault(predicate);
     public static T Also<T>(this T value, Action<T> configure) { configure(value); return value; }
 
+    /// <summary>
+    /// Removes <paramref name="control"/> from its current parent, so a dialog that rebuilds its layout can place the same
+    /// editor (and the text in it) somewhere new. Avalonia controls can have only one parent.
+    /// </summary>
+    public static T Detach<T>(T control) where T : Control
+    {
+        switch (control.Parent)
+        {
+            case Panel panel: panel.Children.Remove(control); break;
+            case Decorator decorator: decorator.Child = null; break;
+            case ContentControl content: content.Content = null; break;
+        }
+        return control;
+    }
+
     public static IBrush? Brush(StyledElement element, string key) => element.TryFindResource(key, element.ActualThemeVariant, out var value) ? value as IBrush : null;
 }

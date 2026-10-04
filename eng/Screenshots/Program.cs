@@ -126,6 +126,13 @@ try
                 File.WriteAllText(Path.Combine(output, "itinerary.html"), TripExport.Html(m.Workspace.State.Trip, m.ExportLabels(), CultureInfo.CurrentCulture));
                 m.Selected = null; m.CloseTrip(); await Settle();
                 await Dialog(() => m.NewTripCommand.ExecuteAsync(null), "new-trip", m.Strings["Cancel"]);
+                // The last wizard step with publishing to GitHub chosen (synthetic account name).
+                var wizard = m.Interaction.NewTripAsync(new NewTripDefaults(temporary, language, "Europe/Lisbon", "Alex", GitHubConnected: true, GitHubLogin: "alex-travels")); await Settle(300);
+                var sheet = window.FindControl<Grid>("DialogLayer")!.Children.Last();
+                sheet.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "title").Text = "Lisbon in October";
+                Click(m.Strings["Next"]); await Settle(); Click(m.Strings["Next"]); await Settle();
+                sheet.GetVisualDescendants().OfType<RadioButton>().First(r => r.Tag as string == "share-github").IsChecked = true; await Settle(300);
+                await Capture("new-trip-sharing"); Click(m.Strings["Cancel"]); await wizard;
                 var fresh = new TravelRepository(Path.Combine(temporary, "Lisbon in October"), Path.Combine(temporary, "recovery3"));
                 var lisbon = Entity.CreateTrip("Lisbon in October", "en", "Europe/Lisbon"); lisbon.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = "2027-10-08", ["end"] = "2027-10-12" };
                 await fresh.InitializeAsync(lisbon); await new GitRepository(fresh, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid");
@@ -151,6 +158,13 @@ try
                 var about = m.AboutCommand.ExecuteAsync(null); await Settle(400);
                 Click(m.Strings["ViewNotices"]); await Settle(400); await Capture("about-notices"); Click(m.Strings["Close"]); await Settle();
                 Click(m.Strings["Close"]); await about;
+                // Settings with a connected GitHub account. The account and its answers are synthetic; nothing is sent.
+                using var gitHubHttp = new HttpClient(new SyntheticGitHub());
+                using var connectedStore = new Jourfold.Infrastructure.LocalStore(Path.Combine(temporary, "settings-github"));
+                using var connected = new MainViewModel(connectedStore, new GitCliBackend(), new Jourfold.Infrastructure.OsSecretStore(), m.Interaction, () => new TravelRepo.Providers.GitHub.GitHubProvider(gitHubHttp, new SyntheticSecrets(), "screenshots"));
+                connected.SetPreference("Language", language);
+                var settings = ((Dialogs)m.Interaction).SettingsAsync(connected); await Settle(300);
+                Click(connected.Strings["Providers"]); await Settle(800); await Capture("settings-github"); Click(connected.Strings["Close"]); await settings;
             }
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); throw; }
@@ -171,4 +185,18 @@ public static class ScreenshotApplication
 {
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>()
         .UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+}
+
+/// <summary>A signed-in GitHub account for screenshots, answered locally.</summary>
+sealed class SyntheticGitHub : HttpMessageHandler
+{
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+        Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex-travels\",\"name\":\"Alex Example\",\"html_url\":\"https://github.com/alex-travels\"}") });
+}
+
+sealed class SyntheticSecrets : TravelRepo.Providers.ISecretStore
+{
+    public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult<string?>("synthetic-token");
+    public Task WriteAsync(string key, string value, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
 }

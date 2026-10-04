@@ -27,8 +27,9 @@ public sealed class Localization
 }
 
 public sealed record Choice(string Id, string Label, string? Icon = null, string? Hint = null) { public override string ToString() => Label; }
-public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null);
-public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName);
+/// <param name="GitHubRepository">When set, the trip is published to a new private GitHub repository with this name.</param>
+public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
+public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName, bool GitHubConnected = false, string? GitHubLogin = null);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);
 public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency);
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);

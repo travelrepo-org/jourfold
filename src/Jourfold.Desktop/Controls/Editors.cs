@@ -4,6 +4,8 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Jourfold.Infrastructure;
@@ -96,6 +98,53 @@ public static class Editors
             _ = w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, next is null ? null : convert?.Invoke(next.Value) ?? JsonValue.Create(next.Value)));
         };
         return suffix is null ? box : Ui.Columns("*,Auto", box, Ui.Text(suffix, "caption").Margin(8, 0, 0, 0));
+    }
+
+    /// <summary>
+    /// Latitude and longitude as one value. It is saved only when both are valid, so a place never holds half a location;
+    /// clearing both removes it. Point and comma both work as decimal separator. Pasting a pair such as
+    /// "-37.0093, 174.7841" into either field while both are empty fills both.
+    /// </summary>
+    public static Control Coordinates(MainWindow w, Guid id, (double Lat, double Lon)? value)
+    {
+        var s = w.Model.Strings; var saved = value;
+        static string Format(double? v) => v?.ToString("0.######", CultureInfo.InvariantCulture) ?? "";
+        var latitude = new TextBox { Text = Format(value?.Lat), Watermark = "-37.0093", Tag = "latitude" }; AutomationProperties.SetName(latitude, s["Latitude"]);
+        var longitude = new TextBox { Text = Format(value?.Lon), Watermark = "174.7841", Tag = "longitude" }; AutomationProperties.SetName(longitude, s["Longitude"]);
+        var problem = Ui.Text("", "caption").Res(TextBlock.ForegroundProperty, "Danger").Also(t => { t.IsVisible = false; t.TextWrapping = TextWrapping.Wrap; });
+        void Show(string? message) { problem.Text = message ?? ""; problem.IsVisible = message is not null; }
+        void Commit()
+        {
+            var latText = latitude.Text?.Trim() ?? ""; var lonText = longitude.Text?.Trim() ?? "";
+            if (latText.Length == 0 && lonText.Length == 0)
+            {
+                Show(null);
+                if (saved is not null) { saved = null; _ = w.Model.UpdateAsync(id, e => e.Data.Remove("location")); }
+                return;
+            }
+            if (latText.Length == 0 || lonText.Length == 0) { Show(s["CoordinatesNeedBoth"]); return; }
+            if (!Jourfold.Application.Coordinates.TryParse(latText, out var lat) || !Jourfold.Application.Coordinates.IsLatitude(lat)) { Show(s["LatitudeRange"]); return; }
+            if (!Jourfold.Application.Coordinates.TryParse(lonText, out var lon) || !Jourfold.Application.Coordinates.IsLongitude(lon)) { Show(s["LongitudeRange"]); return; }
+            Show(null); lat = Math.Round(lat, 6); lon = Math.Round(lon, 6);
+            if (saved == (lat, lon)) return;
+            saved = (lat, lon);
+            _ = w.Model.UpdateAsync(id, e => { var location = e.Data["location"] as JsonObject ?? new JsonObject(); location["latitude"] = lat; location["longitude"] = lon; e.Data["location"] = location.DeepClone(); });
+        }
+        async void Paste(object? sender, RoutedEventArgs e)
+        {
+            if (!string.IsNullOrWhiteSpace(latitude.Text) || !string.IsNullOrWhiteSpace(longitude.Text) || sender is not TextBox target || TopLevel.GetTopLevel(target)?.Clipboard is not { } clipboard) return;
+            e.Handled = true;
+            var text = await clipboard.TryGetTextAsync();
+            if (Jourfold.Application.Coordinates.TryParsePair(text, out var lat, out var lon)) { latitude.Text = Format(lat); longitude.Text = Format(lon); Commit(); }
+            else target.Text = text?.Trim();
+        }
+        latitude.PastingFromClipboard += Paste; longitude.PastingFromClipboard += Paste;
+        latitude.LostFocus += (_, _) => Commit(); longitude.LostFocus += (_, _) => Commit();
+        latitude.KeyDown += (_, e) => { if (e.Key == Key.Enter) Commit(); }; longitude.KeyDown += (_, e) => { if (e.Key == Key.Enter) Commit(); };
+        var tip = Ui.Text(s["CoordinatesPasteHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap);
+        void UpdateTip() => tip.IsVisible = string.IsNullOrWhiteSpace(latitude.Text) && string.IsNullOrWhiteSpace(longitude.Text);
+        latitude.TextChanged += (_, _) => UpdateTip(); longitude.TextChanged += (_, _) => UpdateTip(); UpdateTip();
+        return Ui.V(6, Ui.Columns("*,*", Ui.Field(s["Latitude"], latitude), Ui.Field(s["Longitude"], longitude).Margin(10, 0, 0, 0)), problem, tip);
     }
 
     public static Control Money(MainWindow w, Guid id, string path, string label, JsonNode? value)

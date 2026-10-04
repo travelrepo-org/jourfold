@@ -26,6 +26,8 @@ Hotel stays and all-day plans appear in the strip above the hours. Times are sho
 
 In **Add**, transport takes departure and arrival in local time at each end, as printed on a ticket, and shows the travel time. Activities and stays use the timezone of their place; **Change** picks another one. Timezone fields find zones by city, country or offset, for example "China", "Shanghai" or "UTC+8".
 
+A place's latitude and longitude are saved together once both are filled in; a point or a comma both work as decimal separator. Pasting coordinates copied from a map, such as `-37.0093, 174.7841`, into either empty field fills both.
+
 ### The Inbox
 
 The **Inbox** collects things without a time: ideas, notes and files you have not attached anywhere. Type an idea into the box at the top and press Enter. Drag an entry onto the timetable to schedule it. **Pin** keeps the Inbox open. Ctrl+I toggles it.

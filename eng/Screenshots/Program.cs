@@ -97,6 +97,7 @@ try
                 m.View = "Files"; await Capture("files");
                 m.View = "People"; await Capture("people");
                 m.View = "Places"; await Capture("places");
+                m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "place" && e.Data["location"] is not null); await Capture("place-details"); m.Selected = null;
                 m.View = "Collections"; await Capture("collections");
                 // A second timezone (home) beside the trip timezone.
                 m.SetSecondZone("Europe/Berlin"); m.View = "Plan"; await Settle(300); await Capture("planning-second-zone");

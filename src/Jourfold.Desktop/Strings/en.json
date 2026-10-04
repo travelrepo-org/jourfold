@@ -896,5 +896,10 @@
   "SecondZoneThisComputer": "Also show this computer: {0}",
   "OtherTimezone": "Other timezone…",
   "SecondTimezone": "Second timezone",
-  "SecondZoneLegend": "and in {0}"
+  "SecondZoneLegend": "and in {0}",
+  "CoordinatesNeedBoth": "Enter both latitude and longitude. The place is saved once both are filled in.",
+  "LatitudeRange": "Latitude is a number between -90 and 90, for example -37.0093.",
+  "LongitudeRange": "Longitude is a number between -180 and 180, for example 174.7841.",
+  "CoordinatesPasteHint": "Tip: paste coordinates such as -37.0093, 174.7841 from a map into either empty field.",
+  "diagnostic.schema.invalid": "This change does not fit the trip format, so it was not saved. The trip is unchanged."
 }

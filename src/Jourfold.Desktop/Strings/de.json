@@ -896,5 +896,10 @@
   "SecondZoneThisComputer": "Zusätzlich diesen Computer zeigen: {0}",
   "OtherTimezone": "Andere Zeitzone …",
   "SecondTimezone": "Zweite Zeitzone",
-  "SecondZoneLegend": "und in {0}"
+  "SecondZoneLegend": "und in {0}",
+  "CoordinatesNeedBoth": "Geben Sie Breiten- und Längengrad ein. Gespeichert wird, sobald beide ausgefüllt sind.",
+  "LatitudeRange": "Der Breitengrad ist eine Zahl zwischen -90 und 90, zum Beispiel -37,0093.",
+  "LongitudeRange": "Der Längengrad ist eine Zahl zwischen -180 und 180, zum Beispiel 174,7841.",
+  "CoordinatesPasteHint": "Tipp: Koordinaten wie -37.0093, 174.7841 aus einer Karte in eines der leeren Felder einfügen.",
+  "diagnostic.schema.invalid": "Diese Änderung passt nicht zum Reiseformat und wurde nicht gespeichert. Die Reise ist unverändert."
 }

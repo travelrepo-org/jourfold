@@ -22,7 +22,22 @@ public sealed class Localization
     /// <summary>Translate a canonical value such as a status when a label exists; otherwise show it unchanged.</summary>
     public string Optional(string value) => strings.GetValueOrDefault(value) ?? value;
     public string Diagnostic(string code) => strings.GetValueOrDefault("diagnostic." + code) ?? this["ValidationIssue"] + " (" + code + ")";
-    public string Error(Exception exception, bool advanced = false) => advanced ? exception.Message : exception is DomainException domain ? Diagnostic(domain.Code) : exception is HttpRequestException ? this["NetworkError"] : this["OperationFailed"];
+    public string Error(Exception exception, bool advanced = false) =>
+        exception is DomainException { Code: "schema.invalid" } schema ? Diagnostic(schema.Code) + SchemaDetails(schema.Message)
+        : advanced ? exception.Message : exception is DomainException domain ? Diagnostic(domain.Code) : exception is HttpRequestException ? this["NetworkError"] : this["OperationFailed"];
+
+    /// <summary>The failed rules of a schema validation result as short lines, for example "location: Required properties [longitude] are not present".</summary>
+    private static string SchemaDetails(string json)
+    {
+        try
+        {
+            var lines = (JsonNode.Parse(json)?["details"] as JsonArray ?? []).OfType<JsonObject>()
+                .Where(d => d["errors"] is JsonObject).SelectMany(d => ((JsonObject)d["errors"]!).Select(e => (d["instanceLocation"]?.ToString().Trim('/').Replace('/', '.') is { Length: > 0 } at ? at + ": " : "") + e.Value?.ToString().Replace("\"", "")))
+                .Distinct().Take(5).ToArray();
+            return lines.Length == 0 ? "" : "\n\n" + string.Join("\n", lines);
+        }
+        catch (System.Text.Json.JsonException) { return ""; }
+    }
     public IReadOnlyDictionary<string, string> All => strings;
 }
 

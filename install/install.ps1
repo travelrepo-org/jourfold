@@ -6,7 +6,7 @@
 #   & ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Version v0.2.0
 #   & ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Uninstall
 #
-# Environment variables JOURFOLD_REPO, JOURFOLD_VERSION and JOURFOLD_DOWNLOAD_BASE work as well,
+# Environment variables JOURFOLD_REPO, JOURFOLD_VERSION, JOURFOLD_DOWNLOAD_BASE and JOURFOLD_ARCH work as well,
 # which is convenient with `irm ... | iex`. No administrator rights are needed.
 param(
     [string]$Version = $(if ($env:JOURFOLD_VERSION) { $env:JOURFOLD_VERSION } else { 'latest' }),
@@ -20,7 +20,6 @@ $ProgressPreference = 'SilentlyContinue'
 
 # Release builds replace this marker with the repository that published them.
 $DefaultRepo = '@JOURFOLD_REPOSITORY@'
-$Setup = 'jourfold-setup-win-x64.exe'
 $UninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{A4F1077F-857B-4CFA-8BCB-A12F80773B56}_is1'
 
 function Fail([string]$Message) {
@@ -28,11 +27,22 @@ function Fail([string]$Message) {
     throw $Message
 }
 
+# x64 or arm64. The system environment in the registry names the native processor even when this PowerShell
+# runs under x64 emulation on an ARM64 PC. JOURFOLD_ARCH=x64 or arm64 overrides the detection.
+function Get-Architecture {
+    if ($env:JOURFOLD_ARCH -in 'x64', 'arm64') { return $env:JOURFOLD_ARCH }
+    $names = @($env:PROCESSOR_ARCHITECTURE, $env:PROCESSOR_ARCHITEW6432)
+    $names += (Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Environment' -Name PROCESSOR_ARCHITECTURE -ErrorAction SilentlyContinue).PROCESSOR_ARCHITECTURE
+    if ($names -contains 'ARM64') { return 'arm64' }
+    return 'x64'
+}
+
 function Install-Jourfold {
     if ($Uninstall) { Uninstall-Jourfold; return }
 
     if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT) { Fail 'this installer is for Windows. On Linux use install.sh.' }
     if (-not [Environment]::Is64BitOperatingSystem) { Fail 'Jourfold builds are available for 64-bit Windows only.' }
+    $Setup = "jourfold-setup-win-$(Get-Architecture).exe"
     if ([Environment]::OSVersion.Version.Major -lt 10) { Fail 'Jourfold needs Windows 10 or Windows 11.' }
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 

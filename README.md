@@ -20,13 +20,13 @@ No account is needed and nothing leaves your computer unless you share a trip or
 | --- | --- |
 | ![Trip library with cover cards and a sample trip](docs/screenshots/library.png) | ![The same timetable in the dark theme](docs/screenshots/planning-dark.png) |
 
-More captures, including the map, costs, Quick Add and settings, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
+More captures, including the map, costs, Quick Add, settings and the About window, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
 
 ## Install
 
 Once a release is published, one command installs Jourfold for your user account. Replace `OWNER/REPO` with the repository that publishes Jourfold.
 
-Linux (x86-64):
+Linux (x86-64 and ARM64):
 
 ```sh
 curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash
@@ -38,7 +38,7 @@ Windows 10 and 11, in PowerShell:
 irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
 ```
 
-Both scripts verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
+Both scripts pick the x64 or ARM64 build and verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
 
 ## Try it
 

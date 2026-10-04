@@ -1,6 +1,6 @@
 # Building Jourfold
 
-Install .NET SDK 10.0.401, Git and Python 3. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves version 0.1.0 packages from configured NuGet sources.
+Install .NET SDK 10.0.401, Git and Python 3. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves the TravelRepo packages named by `TravelRepoVersion` in `Directory.Build.props` from configured NuGet sources.
 
 ```sh
 dotnet restore --locked-mode
@@ -9,13 +9,20 @@ dotnet test Jourfold.sln -c Release --no-build
 dotnet run --project src/Jourfold.Desktop
 dotnet format Jourfold.sln --verify-no-changes --no-restore
 python3 eng/notices.py
-python3 eng/package.py --rid linux-x64
-python3 eng/package.py --rid win-x64
+python3 eng/package.py --rid linux-x64     # also linux-arm64, win-x64, win-arm64
 ```
 
-On Windows, compile `eng/windows.iss` with Inno Setup after publishing. Packaging includes the self-contained runtime, fonts and notices, branding, plugin host, and pinned SHA-256-verified MinGit on Windows. Linux packages depend on Git; the tar archive expects compatible Git on PATH. Build/package outputs go to `artifacts/` and are ignored by Git.
+On Windows, compile the installer after publishing: `ISCC /DAppVersion=<version> [/DArch=arm64] eng/windows.iss`. ARM64 packages can be built on x64 machines. Packaging includes the self-contained runtime, fonts and notices, branding, plugin host, and pinned SHA-256-verified MinGit on Windows. Linux packages depend on Git; the tar archive expects compatible Git on PATH. Build/package outputs go to `artifacts/` and are ignored by Git.
 
 Tests include application undo/redo, exclusive write ownership, external edits, a real repository smoke workflow, PDF/ICS export, SQLite search, plugin process RPC, and Avalonia headless input. Tests write only temporary repositories. They do not replace native GNOME, KDE and Windows validation; follow `release-smoke.md`.
+
+## Versions
+
+`Directory.Build.props` holds the only copy of the Jourfold version (`Version`), the TravelRepo package version it builds against (`TravelRepoVersion`) and the public `RepositoryUrl`. Assemblies, Linux packages, the Windows installer and the About window all read them from there. `python3 eng/version.py` prints the version, and `python3 eng/version.py --check-tag v1.2.3` fails unless the tag matches it and a TravelRepo checkout beside Jourfold has the expected version. The release workflow runs that check before building anything. Builds from a Git checkout add the source commit to the informational version, which the About window shows as the build.
+
+To release, change `Version`, commit, then push the tag `v<Version>`. See [installing Jourfold](install.md) for what the release workflow publishes.
+
+## Local state
 
 `JOURFOLD_DATA_HOME` may redirect local settings, previews and search for development. Canonical data is always in the selected trip directory. Recovery journals live separately under the user's local application data. Deleting local search/settings does not delete trip content.
 

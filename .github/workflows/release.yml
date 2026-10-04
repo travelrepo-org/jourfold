@@ -1,28 +1,61 @@
 name: Release
-# Builds Linux and Windows packages for a version tag and publishes them with the install scripts.
-# The scripts attached to the release name this repository, so
+# Builds Linux and Windows packages (x64 and ARM64) for a version tag and publishes them with the install scripts.
+# The tag must be v + <Version> from Directory.Build.props. The scripts attached to the release name this
+# repository, so
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
 # always install the latest published release.
+#
+# ARM64 packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
+# repository variables LINUX_ARM64_RUNNER (for example ubuntu-24.04-arm) and WINDOWS_ARM64_RUNNER (windows-11-arm).
 on:
   push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
       version:
-        description: Version tag to create, for example v0.2.0
+        description: Version tag to create, for example v0.2.0. It must match Directory.Build.props.
         required: true
 permissions:
   contents: read
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: jourfold
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          path: travelrepo
+      - id: check
+        working-directory: jourfold
+        env:
+          REQUESTED: ${{ inputs.version }}
+        run: |
+          tag="${REQUESTED:-$GITHUB_REF_NAME}"
+          python3 eng/version.py --check-tag "$tag" --github
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
   package:
+    needs: version
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            rid: linux-x64
-          - os: windows-latest
-            rid: win-x64
+          - rid: linux-x64
+            arch: X64
+            os: ubuntu-latest
+          - rid: linux-arm64
+            arch: ARM64
+            os: ${{ vars.LINUX_ARM64_RUNNER || 'ubuntu-latest' }}
+          - rid: win-x64
+            arch: X64
+            os: windows-latest
+          - rid: win-arm64
+            arch: ARM64
+            os: ${{ vars.WINDOWS_ARM64_RUNNER || 'windows-latest' }}
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -44,35 +77,30 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - id: version
-        env:
-          REQUESTED: ${{ inputs.version }}
-        run: |
-          tag="${REQUESTED:-$GITHUB_REF_NAME}"
-          case "$tag" in v[0-9]*) ;; *) echo "Version tags look like v1.2.3, got '$tag'." >&2; exit 1 ;; esac
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "number=${tag#v}" >> "$GITHUB_OUTPUT"
       - run: dotnet restore --locked-mode
       - run: dotnet build Jourfold.sln -c Release --no-restore
-      - run: dotnet test Jourfold.sln -c Release --no-build
-      - run: python eng/package.py --rid ${{ matrix.rid }} --version ${{ steps.version.outputs.number }}
+      # Tests run where the runner matches the package architecture.
+      - if: runner.arch == matrix.arch
+        run: dotnet test Jourfold.sln -c Release --no-build
+      - run: python eng/package.py --rid ${{ matrix.rid }}
       - if: runner.os == 'Windows'
         shell: pwsh
         run: |
           choco install innosetup --yes --no-progress
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=${{ steps.version.outputs.number }}" eng/windows.iss
+          $arch = '${{ matrix.rid }}'.Substring(4)
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=$(python eng/version.py)" "/DArch=$arch" eng/windows.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: release-${{ matrix.rid }}
           if-no-files-found: error
           path: |
-            jourfold/artifacts/jourfold-linux-x64.tar.gz
-            jourfold/artifacts/jourfold_*_amd64.deb
-            jourfold/artifacts/jourfold-win-x64.zip
-            jourfold/artifacts/jourfold-setup-win-x64.exe
+            jourfold/artifacts/jourfold-${{ matrix.rid }}.tar.gz
+            jourfold/artifacts/jourfold_*.deb
+            jourfold/artifacts/jourfold-${{ matrix.rid }}.zip
+            jourfold/artifacts/jourfold-setup-${{ matrix.rid }}.exe
   publish:
-    needs: package
+    needs: [version, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -92,9 +120,8 @@ jobs:
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          REQUESTED: ${{ inputs.version }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
-          tag="${REQUESTED:-$GITHUB_REF_NAME}"
           flags=""
-          case "$tag" in *-*) flags="--prerelease" ;; esac
-          gh release create "$tag" dist/* --target "$GITHUB_SHA" --title "Jourfold ${tag#v}" --generate-notes $flags
+          case "$TAG" in *-*) flags="--prerelease" ;; esac
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Jourfold ${TAG#v}" --generate-notes $flags

@@ -19,7 +19,7 @@ set -euo pipefail
 
 # Release builds replace this marker with the repository that published them.
 DEFAULT_REPO="@JOURFOLD_REPOSITORY@"
-ARCHIVE="jourfold-linux-x64.tar.gz"
+ARCHIVE=""
 tmp=""
 
 say() { printf '%s\n' "$*"; }
@@ -60,8 +60,9 @@ main() {
 
   [ "$(uname -s)" = "Linux" ] || fail "this installer is for Linux. On Windows use install.ps1."
   case "$(uname -m)" in
-    x86_64|amd64) ;;
-    *) fail "Jourfold builds are available for x86-64 only; this machine is $(uname -m)." ;;
+    x86_64|amd64) ARCHIVE="jourfold-linux-x64.tar.gz" ;;
+    aarch64|arm64) ARCHIVE="jourfold-linux-arm64.tar.gz" ;;
+    *) fail "Jourfold builds are available for x86-64 and ARM64; this machine is $(uname -m)." ;;
   esac
   have tar || fail "tar is required."
   have sha256sum || fail "sha256sum is required to verify the download."
@@ -114,7 +115,8 @@ main() {
   fi
 
   say ""
-  say "Jourfold is installed. Start it from your application menu or run: jourfold"
+  if [ "$desktop" -eq 1 ]; then say "Jourfold is installed. Start it from your application menu or run: jourfold"
+  else say "Jourfold is installed. Start it with: jourfold"; fi
   check_dependencies "$bin"
 }
 

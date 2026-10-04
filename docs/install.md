@@ -23,11 +23,11 @@ curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | b
 curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | bash -s -- --uninstall
 ```
 
-`JOURFOLD_INSTALL_DIR` and `JOURFOLD_BIN_DIR` change where the application and the command go. `JOURFOLD_DOWNLOAD_BASE` downloads from a mirror instead of GitHub; the mirror must serve `jourfold-linux-x64.tar.gz` and `SHA256SUMS`.
+`JOURFOLD_INSTALL_DIR` and `JOURFOLD_BIN_DIR` change where the application and the command go. `JOURFOLD_DOWNLOAD_BASE` downloads from a mirror instead of GitHub; the mirror must serve `jourfold-linux-x64.tar.gz` or `jourfold-linux-arm64.tar.gz` and `SHA256SUMS`.
 
-Jourfold needs Git 2.34 or newer. The script tells you if Git is missing and how to install it. `secret-tool` (package `libsecret-tools` on Debian and Ubuntu, `libsecret` elsewhere) is optional and lets Jourfold remember a GitHub connection. Builds are available for x86-64.
+Jourfold needs Git 2.34 or newer. The script tells you if Git is missing and how to install it. `secret-tool` (package `libsecret-tools` on Debian and Ubuntu, `libsecret` elsewhere) is optional and lets Jourfold remember a GitHub connection. Builds are available for x86-64 and ARM64 (aarch64); the script picks the one for your machine.
 
-If you prefer a package, the release also has a `.deb` for Debian and Ubuntu.
+If you prefer a package, the release also has `.deb` files for Debian and Ubuntu on amd64 and arm64.
 
 ## Windows
 
@@ -37,7 +37,7 @@ Open PowerShell and run:
 irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1 | iex
 ```
 
-The script downloads the Jourfold setup, checks its checksum and runs it silently. Jourfold appears in the Start menu and under **Settings > Apps**, where it can also be uninstalled. Git for Windows is included. Running the command again updates Jourfold and closes a running copy first.
+The script downloads the Jourfold setup for your processor (x64, or ARM64 on Windows on Arm), checks its checksum and runs it silently. Jourfold appears in the Start menu and under **Settings > Apps**, where it can also be uninstalled. Git for Windows is included. Running the command again updates Jourfold and closes a running copy first.
 
 Options:
 
@@ -48,7 +48,7 @@ $env:JOURFOLD_VERSION = 'v0.2.0'; irm https://github.com/OWNER/REPO/releases/lat
 & ([scriptblock]::Create((irm https://github.com/OWNER/REPO/releases/latest/download/install.ps1))) -Uninstall
 ```
 
-Jourfold needs 64-bit Windows 10 or Windows 11. You can also download `jourfold-setup-win-x64.exe` from the release page and run it yourself, or use the portable `jourfold-win-x64.zip`.
+Set `JOURFOLD_ARCH` to `x64` or `arm64` to choose a build yourself. Jourfold needs 64-bit Windows 10 or Windows 11. You can also download `jourfold-setup-win-x64.exe` or `jourfold-setup-win-arm64.exe` from the release page and run it yourself, or use the portable `.zip` archives.
 
 ## What is kept
 
@@ -68,9 +68,11 @@ On Windows, open the `install.ps1` link in a browser, or save it with `irm ... -
 
 ## For maintainers
 
-`.github/workflows/release.yml` runs when a tag such as `v0.2.0` is pushed. It builds and tests on Linux and Windows, packages both platforms with that version, compiles the Windows setup, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and publishes everything as a GitHub release. Tags with a suffix, such as `v0.2.0-beta.1`, become pre-releases, which `releases/latest` skips.
+`.github/workflows/release.yml` runs when a tag such as `v0.2.0` is pushed. It first checks that the tag is `v` followed by `Version` in `Directory.Build.props` and that the TravelRepo checkout matches `TravelRepoVersion`; a mismatch stops the release before anything is built. Then it builds and tests on Linux and Windows, packages x64 and ARM64 for both platforms, compiles the Windows setups, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and publishes everything as a GitHub release. Tags with a suffix, such as `v0.2.0-beta.1`, become pre-releases, which `releases/latest` skips.
 
 The workflow checks out TravelRepo from the repository named in the `TRAVELREPO_REPOSITORY` variable, like the CI workflow does.
+
+ARM64 packages are cross-compiled on x64 runners, so the tests do not run on ARM64 by default. To build and test them on ARM64 machines, set the repository variables `LINUX_ARM64_RUNNER` (for example `ubuntu-24.04-arm`) and `WINDOWS_ARM64_RUNNER` (for example `windows-11-arm`). GitHub provides these runners for public repositories; private repositories may need paid larger runners.
 
 To test the Linux script without a release, serve a folder containing `jourfold-linux-x64.tar.gz` and a matching `SHA256SUMS` and point `JOURFOLD_DOWNLOAD_BASE` at it:
 

@@ -38,9 +38,11 @@ jobs:
       - run: python eng/verify.py
       - run: python eng/package.py --rid ${{ matrix.rid }}
       - if: runner.os == 'Windows'
+        shell: pwsh
         run: |
           choco install innosetup --yes --no-progress
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' eng/windows.iss
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=$(python eng/version.py)" eng/windows.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:
           name: jourfold-${{ matrix.rid }}

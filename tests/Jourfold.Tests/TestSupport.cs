@@ -67,6 +67,8 @@ public sealed class TestInteraction : IInteraction
     public Task SettingsAsync(MainViewModel model) => Task.CompletedTask;
     public int AboutShown { get; private set; }
     public Task AboutAsync(MainViewModel model) { AboutShown++; return Task.CompletedTask; }
+    public int AssistantShown { get; private set; }
+    public Task ConnectAssistantAsync(MainViewModel model) { AssistantShown++; return Task.CompletedTask; }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
     public void Open(string path) { }
 }

@@ -73,6 +73,14 @@ Settings covers language (English and German), theme, density, text size, high c
 
 Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to the map servers, OpenStreetMap unless you enter others under **Map servers**. It also checks Jourfold's published list of map servers once a day. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 
+## Planning with an AI assistant
+
+AI assistants that support the Model Context Protocol (MCP), such as LM Studio, Claude Desktop or Cursor, can read a trip and change it with you. Open **Connect an AI assistant** from the trip menu, the menu next to **Add**, or Ctrl+K. It shows an entry for the assistant's MCP settings; **Copy configuration** copies it. The assistant then starts Jourfold in the background as a server for this one trip. Tick **Read only** if the assistant should only look.
+
+The assistant's changes are checked like your own, so it cannot leave the trip in a broken state, and they appear in Jourfold within a few seconds. They are not part of a version until you create one, and the assistant only creates versions when you ask it to. Jourfold itself sends nothing; a local assistant keeps the trip on your computer, while an online assistant sends what it reads to its provider.
+
+Assistants without MCP can edit the trip folder directly. **Save agent guide** saves a description of the file format and the editing rules that you can give to such an assistant. [Connecting a local AI assistant](ai-assistants.md) walks through the setup with LM Studio.
+
 ## About Jourfold
 
 **About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version with its code name and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.

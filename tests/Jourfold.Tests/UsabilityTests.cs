@@ -252,6 +252,79 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TimetableArrowsMoveByOneDayOrByTheVisibleDays()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; var s = m.Strings; var step = Math.Max(1, m.VisibleDays);
+            Probe.Click(w, s["NextDay"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 15), m.StartDate);
+            Probe.Click(w, s["PreviousDay"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate);
+            Probe.Click(w, s["NextDays"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14).PlusDays(step), m.StartDate);
+            Probe.Click(w, s["PreviousDays"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task NewTimeKeepsTheTimetableInPlaceWhileTheItemStaysVisible()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var visit = Entity.Create("schedule_item", "Cathedral"); await m.Workspace!.EditAsync(visit);
+            async Task MoveTo(string local)
+            {
+                await m.Workspace!.ScheduleAsync(visit.Id, new ZonedTime(local, "Europe/Berlin"), Duration.FromHours(1));
+                m.KeepInView(visit.Id); m.Refresh(); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            }
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(w.FindControl<ContentControl>("MainContent")!).First();
+            await MoveTo("2027-05-15T10:00:00");
+            var offset = Scroll().Offset.Y; Assert.True(offset > 0);
+
+            // Still visible: neither the days nor the scroll position change.
+            await MoveTo("2027-05-15T11:00:00");
+            Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate); Assert.Equal(offset, Scroll().Offset.Y);
+
+            // Later in the evening: scrolled down just to the item, same days.
+            await MoveTo("2027-05-15T22:00:00");
+            Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate); Assert.True(Scroll().Offset.Y > offset);
+            var block = Probe.All<Button>(Scroll()).First(b => Equals(b.Tag, visit.Id));
+            var top = Canvas.GetTop(block) - Scroll().Offset.Y; Assert.InRange(top, 0, Scroll().Viewport.Height - block.Bounds.Height);
+
+            // Another week: the timetable moves to that day.
+            await MoveTo("2027-06-10T10:00:00");
+            Assert.Equal(new LocalDate(2027, 6, 10), m.StartDate);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AssistantDialogShowsAConfigurationForTheOpenTrip()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var shown = m.ConnectAssistantCommand.ExecuteAsync(null); Probe.Layout();
+            var sheet = Sheet(w); var box = Probe.Tagged<TextBox>(sheet, "assistant-configuration");
+            var server = JsonNode.Parse(box.Text!)!["mcpServers"]!["jourfold-ui-test"]!;
+            Assert.Equal(MainViewModel.AssistantCommand, server["command"]!.ToString());
+            Assert.Equal(["--mcp", m.Workspace!.Repository.Root], server["args"]!.AsArray().Select(a => a!.ToString()));
+            Probe.All<CheckBox>(sheet).Single().IsChecked = true; Probe.Layout();
+            Assert.Equal("--read-only", JsonNode.Parse(box.Text!)!["mcpServers"]!["jourfold-ui-test"]!["args"]![2]!.ToString());
+            Probe.Click(sheet, m.Strings["Close"]); await shown.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally { w.Close(); }
+    }
+
+    [Fact]
+    public void AssistantServerNamesAreShortAndPlain()
+    {
+        Assert.Equal("jourfold-spring-in-japan", MainViewModel.AssistantServerName("Spring in Japan"));
+        Assert.Equal("jourfold-zurich-geneve-2027", MainViewModel.AssistantServerName("Zürich & Genève 2027"));
+        Assert.Equal("jourfold-trip", MainViewModel.AssistantServerName("東京"));
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddActivityUsesThePlaceTimezone()
     {
         var w = Window(); try

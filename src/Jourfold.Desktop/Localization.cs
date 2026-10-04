@@ -27,17 +27,7 @@ public sealed class Localization
         : advanced ? exception.Message : exception is DomainException domain ? Diagnostic(domain.Code) : exception is HttpRequestException ? this["NetworkError"] : this["OperationFailed"];
 
     /// <summary>The failed rules of a schema validation result as short lines, for example "location: Required properties [longitude] are not present".</summary>
-    private static string SchemaDetails(string json)
-    {
-        try
-        {
-            var lines = (JsonNode.Parse(json)?["details"] as JsonArray ?? []).OfType<JsonObject>()
-                .Where(d => d["errors"] is JsonObject).SelectMany(d => ((JsonObject)d["errors"]!).Select(e => (d["instanceLocation"]?.ToString().Trim('/').Replace('/', '.') is { Length: > 0 } at ? at + ": " : "") + e.Value?.ToString().Replace("\"", "")))
-                .Distinct().Take(5).ToArray();
-            return lines.Length == 0 ? "" : "\n\n" + string.Join("\n", lines);
-        }
-        catch (System.Text.Json.JsonException) { return ""; }
-    }
+    private static string SchemaDetails(string json) => TravelRepo.Serialization.SchemaValidation.Explain(json, 5) is { Count: > 0 } lines ? "\n\n" + string.Join("\n", lines) : "";
     public IReadOnlyDictionary<string, string> All => strings;
 }
 
@@ -75,6 +65,8 @@ public interface IInteraction
     Task<ZonedTime?> ResolveTimeAsync(string local, string zone, string? offset = null);
     Task SettingsAsync(MainViewModel model);
     Task AboutAsync(MainViewModel model);
+    /// <summary>Shows how to connect an AI assistant to the open trip over MCP.</summary>
+    Task ConnectAssistantAsync(MainViewModel model);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>
     void Toast(string message, string? action = null, Func<Task>? onAction = null);
     void Open(string path);

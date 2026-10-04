@@ -22,6 +22,7 @@ Jourfold includes the following open-source software. License files from each pa
 - Humanizer: MIT, https://github.com/Humanizr/Humanizer
 - Microsoft.Data.Sqlite and SQLitePCLRaw: MIT and Apache-2.0. The SQLite engine is in the public domain.
 - PDFsharp: MIT, https://github.com/empira/PDFsharp
+- MCP C# SDK (ModelContextProtocol.Core) with Microsoft.Extensions.AI.Abstractions: Apache-2.0 and MIT, https://github.com/modelcontextprotocol/csharp-sdk. Used for the local assistant server; it communicates only through standard input and output.
 - Markdig: BSD-2-Clause, https://github.com/xoofx/markdig. Used for local CommonMark parsing; no remote content is executed.
 
 ## Fonts, icons and maps

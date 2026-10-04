@@ -41,7 +41,7 @@ public partial class MainViewModel
         var target = main.Type switch { "person" => "People", "place" => "Places", "booking" => "Bookings", "task" => "Tasks", "expense" or "budget" => "Costs", "collection" => "Collections", "note" => View, _ => View is "Plan" or "List" or "Map" ? View : "Plan" };
         if (main.Type == "schedule_item" && main.Data["time"] is null) InboxOpen = true;
         if (target != View) View = target;
-        if (main.Type == "schedule_item" && ScheduleQueries.Span(Workspace.State.Trip, main).Start is { } begin) { var day = begin.InZone(ScheduleQueries.TripZone(Workspace.State.Trip)).Date; if (day < StartDate || day > StartDate.PlusDays(6)) StartDate = day; }
+        if (main.Type == "schedule_item") KeepInView(main.Id);
         Refresh();
     });
 
@@ -179,6 +179,22 @@ public partial class MainViewModel
         await Workspace.EditAsync(comment);
     });
 
+    /// <summary>
+    /// After an item got a new time, moves the timetable only as far as needed to show it: to its day when that day
+    /// is not among the visible days, and vertically (see <see cref="RevealInTimetable"/>) when it lies outside
+    /// the scrolled area. An item that is still in view leaves the timetable where it is.
+    /// </summary>
+    public void KeepInView(Guid id)
+    {
+        if (Workspace is null || Workspace.State.Trip.Find(id) is not { } item || ScheduleQueries.Span(Workspace.State.Trip, item).Start is not { } begin) return;
+        var day = begin.InZone(ScheduleQueries.TripZone(Workspace.State.Trip)).Date;
+        if (day < StartDate || day > StartDate.PlusDays(Math.Max(1, VisibleDays) - 1)) StartDate = day;
+        RevealInTimetable = id;
+    }
+
+    /// <summary>Item the next timetable rendering scrolls into view if it is outside the visible hours.</summary>
+    public Guid? RevealInTimetable { get; set; }
+
     /// <summary>Schedule an Inbox entry or reschedule an item from the time dialog.</summary>
     public Task ScheduleSelectedAsync() => RunEditAsync(async () =>
     {
@@ -187,7 +203,7 @@ public partial class MainViewModel
         var time = await Interaction.ScheduleAsync(source.Data["time"] as JsonObject, StartDate, ScheduleQueries.TripZone(Workspace.State.Trip).Id); if (time is null) return;
         if (source.Type == "schedule_item") { var e = source.Copy(); e.Data["time"] = time["precision"]?.ToString() == "unscheduled" ? null : time; if (e.Data["time"] is not null && e.Data["status"]?.ToString() == "idea") e.Data["status"] = "planned"; await Workspace.EditAsync(e); }
         else { var scheduled = await Workspace.PlanMaterialAsync(id, time); Selected = Workspace.State.Trip.Find(scheduled); }
-        if (Selected is { } now && ScheduleQueries.Span(Workspace.State.Trip, now).Start is { } begin) StartDate = begin.InZone(ScheduleQueries.TripZone(Workspace.State.Trip)).Date;
+        if (Selected is { } now) KeepInView(now.Id);
         if (View is not ("Plan" or "List")) View = "Plan"; else Refresh();
     });
 }

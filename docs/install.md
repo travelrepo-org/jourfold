@@ -10,7 +10,7 @@ The commands below install from the official repository, `travelrepo-org/jourfol
 curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash
 ```
 
-This installs the latest release to `~/.local/share/jourfold-app`, adds a `jourfold` command to `~/.local/bin` and registers Jourfold in your application menu. Running the same command again updates Jourfold. The previous version is replaced only after the new one has been downloaded, verified and unpacked.
+This installs the latest release to `~/.local/share/jourfold-app`, adds a `jourfold` command to `~/.local/bin` and registers Jourfold in your application menu. Running the same command again updates Jourfold and reports the change, for example `Jourfold was updated from 0.1.1 to 0.2.0.` The previous version is replaced only after the new one has been downloaded, verified and unpacked.
 
 Options go after `bash -s --`:
 
@@ -37,7 +37,7 @@ Open PowerShell and run:
 irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1 | iex
 ```
 
-The script downloads the Jourfold setup for your processor (x64, or ARM64 on Windows on Arm), checks its checksum and runs it silently. Jourfold appears in the Start menu and under **Settings > Apps**, where it can also be uninstalled. Git for Windows is included. Running the command again updates Jourfold and closes a running copy first.
+The script downloads the Jourfold setup for your processor (x64, or ARM64 on Windows on Arm), checks its checksum and runs it silently. Jourfold appears in the Start menu and under **Settings > Apps**, where it can also be uninstalled. Git for Windows is included. Running the command again updates Jourfold, closes a running copy first and reports which version was replaced by which.
 
 Options:
 

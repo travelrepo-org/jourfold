@@ -95,7 +95,10 @@
   "ReportInfo": "Prüfe und bearbeite diesen technischen Bericht vor dem Kopieren. Nichts wird automatisch gesendet.",
   "Copy": "Kopieren",
   "Copied": "In die Zwischenablage kopiert",
-  "Previous": "Vorherige Tage",
+  "PreviousDays": "Vorherige Tage",
+  "PreviousDay": "Vorheriger Tag",
+  "NextDay": "Nächster Tag",
+  "NextDays": "Nächste Tage",
   "Next": "Weiter",
   "Unassigned": "Noch niemand",
   "Date": "Datum",
@@ -912,5 +915,15 @@
   "MapSearchServer": "Adresssuche (Nominatim)",
   "MapServersInvalid": "Prüfen Sie die Adressen: Sie müssen mit https:// beginnen, und die Kartenbild-Adresse braucht {z}, {x} und {y}.",
   "MapServersSaved": "Kartenserver gespeichert",
-  "UseDefaultServers": "Standardserver verwenden"
+  "UseDefaultServers": "Standardserver verwenden",
+  "ConnectAssistant": "KI-Assistenten verbinden",
+  "AssistantIntro": "KI-Assistenten, die das Model Context Protocol (MCP) unterstützen, zum Beispiel LM Studio, Claude Desktop oder Cursor, können diese Reise lesen und mit Ihnen planen. Fügen Sie diesen Eintrag in den MCP-Einstellungen des Assistenten hinzu. Der Assistent startet Jourfold dann im Hintergrund als Server nur für diese Reise.",
+  "AssistantReadOnly": "Nur lesen: Der Assistent kann die Reise ansehen, aber nicht ändern",
+  "AssistantConfiguration": "Konfiguration",
+  "AssistantChanges": "Änderungen des Assistenten werden wie Ihre eigenen geprüft und erscheinen hier nach wenigen Sekunden. Teil einer Version werden sie erst, wenn Sie eine erstellen.",
+  "AssistantPrivacy": "Jourfold selbst sendet nichts. Ein lokaler Assistent lässt die Reise auf diesem Computer, ein Online-Assistent schickt, was er liest, an seinen Anbieter.",
+  "CopyConfiguration": "Konfiguration kopieren",
+  "SaveAgentGuide": "Agenten-Anleitung speichern",
+  "AgentGuideHint": "Assistenten ohne MCP können direkt im Reiseordner arbeiten. Die Agenten-Anleitung erklärt ihnen das Dateiformat und die Regeln.",
+  "AgentGuideSaved": "Agenten-Anleitung gespeichert"
 }

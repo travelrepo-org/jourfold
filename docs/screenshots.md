@@ -15,7 +15,7 @@ dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 
 This writes the nine images below at 1440 × 900 pixels. Two options help when checking changes:
 
-- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.

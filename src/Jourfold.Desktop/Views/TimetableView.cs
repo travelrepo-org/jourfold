@@ -21,7 +21,10 @@ namespace Jourfold.Desktop;
 public sealed class TimetableView : UserControl
 {
     public static readonly DataFormat<string> EntityFormat = DataFormat.CreateStringApplicationFormat("org.travelrepo.entity");
-    private const double Gutter = 64, Top = 10, MinColumn = 168, Snap = 15;
+    private const double Top = 10, MinColumn = 168, Snap = 15;
+    /// <summary>The optional second timezone; when set, the hour column shows its times on the left.</summary>
+    private DateTimeZone? secondZone;
+    private double Gutter => secondZone is null ? 64 : 116;
     private readonly MainWindow window;
     private readonly MainViewModel vm;
     private readonly Canvas canvas = new() { Background = Brushes.Transparent };
@@ -107,6 +110,7 @@ public sealed class TimetableView : UserControl
     {
         if (vm.Workspace is null) return;
         trip = vm.Workspace.State.Trip; zone = ScheduleQueries.TripZone(trip);
+        secondZone = vm.SecondZone is { } second ? DateTimeZoneProviders.Tzdb[second] : null;
         people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(p => p.Title, StringComparer.CurrentCulture).ToArray();
         var width = Math.Max(400, Bounds.Width - 14);
         columns = vm.Lanes ? people.Length + 1 : Math.Clamp((int)((width - Gutter) / MinColumn), 1, 7);
@@ -154,6 +158,12 @@ public sealed class TimetableView : UserControl
             header.Children.Add(new Border { Child = cell, BorderThickness = new Thickness(1, 0, 0, 0) }.Res(Border.BorderBrushProperty, "Line.Soft").Col(c + 1));
         }
         if (vm.Lanes) header.Children.Add(Ui.Text(Formats.ShortDate(vm.StartDate), "caption").Margin(8, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center));
+        else if (secondZone is not null)
+        {
+            // Name both hour columns: the second timezone on the left, the trip timezone on the right.
+            Control Name(string id, string brush, HorizontalAlignment side) => Ui.Text(Formats.ZoneName(id), "caption").Also(t => { t.FontSize = 10.5; t.TextTrimming = TextTrimming.CharacterEllipsis; t.HorizontalAlignment = side; t.VerticalAlignment = VerticalAlignment.Bottom; ToolTip.SetTip(t, FieldOptions.ZoneLabel(id)); }).Res(TextBlock.ForegroundProperty, brush);
+            header.Children.Add(Ui.Columns("*,*", Name(secondZone.Id, "Accent", HorizontalAlignment.Left), Name(zone.Id, "Text.Muted", HorizontalAlignment.Right)).Also(g => g.Margin = new Thickness(4, 0, 10, 6)));
+        }
     }
 
     private void DrawGrid()
@@ -164,6 +174,13 @@ public sealed class TimetableView : UserControl
             canvas.Children.Add(new Line { StartPoint = new Point(Gutter - 6, y), EndPoint = new Point(canvas.Width, y), StrokeThickness = 1, IsHitTestVisible = false }.Res(Shape.StrokeProperty, "Line"));
             if (hour < 24 && hourHeight >= 40) canvas.Children.Add(new Line { StartPoint = new Point(Gutter, y + hourHeight / 2), EndPoint = new Point(canvas.Width, y + hourHeight / 2), StrokeThickness = 1, StrokeDashArray = [2, 4], IsHitTestVisible = false }.Res(Shape.StrokeProperty, "Line.Soft"));
             if (hour is > 0 and < 24) Place(Ui.Text(Formats.Time(new LocalTime(hour, 0)), "caption").Also(t => { t.FontSize = 11; t.Width = Gutter - 12; t.TextAlignment = TextAlignment.Right; t.IsHitTestVisible = false; }), 0, y - 8);
+            if (hour is > 0 and < 24 && secondZone is not null)
+            {
+                // The same moment in the second timezone, on the first visible day (offsets can differ by a few days around DST changes).
+                var there = zone.AtLeniently(DayOf(0).At(new LocalTime(hour, 0))).WithZone(secondZone);
+                var text = Formats.Time(there.TimeOfDay) + (there.Date != DayOf(0) ? (there.Date > DayOf(0) ? " +1" : " −1") : "");
+                Place(Ui.Text(text, "caption").Also(t => { t.FontSize = 11; t.Width = Gutter / 2; t.TextAlignment = TextAlignment.Left; t.IsHitTestVisible = false; }).Res(TextBlock.ForegroundProperty, "Accent"), 6, y - 8);
+            }
         }
         for (var c = 0; c <= columns; c++)
         {

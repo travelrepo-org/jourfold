@@ -124,6 +124,8 @@
     <Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}"/>
     <Setter Property="MinHeight" Value="34"/>
   </Style>
+  <!-- Numbers never accept thousands separators: in German "1.5" would otherwise silently become 15. -->
+  <Style Selector="NumericUpDown"><Setter Property="ParsingNumberStyle" Value="Float"/></Style>
   <!-- The Fluent calendar glyph renders incomplete with the Jourfold palette; show the Lucide calendar like the rest of the app. -->
   <Style Selector="CalendarDatePicker /template/ Button#PART_Button">
     <Setter Property="Cursor" Value="Hand"/>

@@ -22,7 +22,11 @@ The sidebar switches between the parts of a trip. **Plan** shows the timetable. 
 
 Colours and icons show what kind of plan an item is: transport, a stay, food, a sight, culture, nature and so on. Dashed outlines mean the time is not fixed: an idea, an approximate time or a part of the day. A check mark means the plan is confirmed; a warning triangle means something needs a look, such as two overlapping plans for the same person.
 
-Hotel stays and all-day plans appear in the strip above the hours. Times are shown in the trip's main timezone. Items in another timezone also show their local time, for example the departure time of a flight.
+Hotel stays and all-day plans appear in the strip above the hours. Times are shown in the trip's main timezone. Items in another timezone also show their local time, for example the departure time of a flight. The timezone button above the timetable adds a second time column, for example the time at home, in the timetable and the list. It offers the timezones the trip already uses and this computer's timezone, and remembers the choice per trip.
+
+In **Add**, transport takes departure and arrival in local time at each end, as printed on a ticket, and shows the travel time. Activities and stays use the timezone of their place; **Change** picks another one. Timezone fields find zones by city, country or offset, for example "China", "Shanghai" or "UTC+8".
+
+A place's latitude and longitude are saved together once both are filled in; a point or a comma both work as decimal separator. Pasting coordinates copied from a map, such as `-37.0093, 174.7841`, into either empty field fills both.
 
 ### The Inbox
 
@@ -67,7 +71,7 @@ Ctrl+K opens search and commands. It finds items in the trip and runs actions su
 
 Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. Under **Sharing**, the GitHub card shows which account is connected, links to its profile and can disconnect it. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
 
-Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to OpenStreetMap. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
+Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to the map servers, OpenStreetMap unless you enter others under **Map servers**. It also checks Jourfold's published list of map servers once a day. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 
 ## About Jourfold
 

@@ -26,6 +26,9 @@ public static class AgendaView
             return Ui.EmptyState("list", s["EmptyPlanTitle"], s["EmptyPlanBody"], add);
         }
         var today = SystemClock.Instance.GetCurrentInstant().InZone(zone).Date;
+        if (m.SecondZone is { } second)
+            panel.Children.Add(Ui.H(6, Ui.Icon("globe", 14, "Text.Subtle"), Ui.Text(string.Format(s["TimesIn"], FieldOptions.ZoneLabel(zone.Id)), "caption"),
+                Ui.Text(string.Format(s["SecondZoneLegend"], FieldOptions.ZoneLabel(second)), "caption").Res(TextBlock.ForegroundProperty, "Accent")));
         foreach (var day in placed.GroupBy(x => x.Span.Start!.Value.InZone(zone).Date))
         {
             var dayIndex = trip.Manifest.Data["dates"]?["start"] is { } st && NodaTime.Text.LocalDatePattern.Iso.Parse(st.ToString()).TryGetValue(default, out var first) ? Period.Between(first, day.Key, PeriodUnits.Days).Days + 1 : (int?)null;
@@ -54,12 +57,20 @@ public static class AgendaView
             _ => (span.Precision == TimePrecision.Approximate ? "~" : "") + Formats.Time(span.Start!.Value.InZone(zone).TimeOfDay)
         };
         var end = span.Precision is TimePrecision.Exact or TimePrecision.Approximate or TimePrecision.Window && span.End is { } e ? Formats.Time(e.InZone(zone).TimeOfDay) : "";
+        // The start in the optional second timezone, with the day shift when it falls on another date.
+        string? elsewhere = null;
+        if (m.SecondZone is { } secondId && span.Precision is TimePrecision.Exact or TimePrecision.Approximate or TimePrecision.Window && span.Start is { } begin)
+        {
+            var here = begin.InZone(zone).Date; var there = begin.InZone(DateTimeZoneProviders.Tzdb[secondId]);
+            elsewhere = Formats.ZoneName(secondId) + " " + Formats.Time(there.TimeOfDay) + (there.Date == here ? "" : there.Date > here ? " +1" : " −1");
+        }
         var route = ScheduleQueries.Route(trip, item); var place = ScheduleQueries.PrimaryPlace(trip, item);
         var where = route.From is not null && route.To is not null ? route.From.Title + " → " + route.To.Title : place?.Title;
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).ToArray();
         var status = item.Data["status"]?.ToString() ?? "idea"; var (statusIcon, bg, fg) = Visuals.Status(status);
-        var grid = Ui.Columns("74,Auto,*,Auto,Auto",
-            Ui.V(0, Ui.Text(time, "strong"), end.Length > 0 ? Ui.Text(end, "caption") : null),
+        var grid = Ui.Columns(m.SecondZone is null ? "74,Auto,*,Auto,Auto" : "104,Auto,*,Auto,Auto",
+            Ui.V(0, Ui.Text(time, "strong"), end.Length > 0 ? Ui.Text(end, "caption") : null,
+                elsewhere is null ? null : Ui.Text(elsewhere, "caption").Res(TextBlock.ForegroundProperty, "Accent").Also(t => ToolTip.SetTip(t, FieldOptions.ZoneLabel(m.SecondZone!)))),
             Ui.Tile(icon, kind, 34).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(item.Title, "title"), where is null ? null : Ui.Line(where, "caption")),
             people.Length > 0 ? Ui.AvatarStack(people, 24).Margin(10, 0) : null,

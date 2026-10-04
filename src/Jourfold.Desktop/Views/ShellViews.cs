@@ -264,12 +264,38 @@ public static class ViewToolbar
                 var zoomOut = Ui.IconButton("zoom-out", s["ZoomOut"], "small"); zoomOut.IsEnabled = m.Zoom > .5; zoomOut.Click += (_, _) => m.SetZoom(m.Zoom - .25);
                 var zoomIn = Ui.IconButton("zoom-in", s["ZoomIn"], "small"); zoomIn.IsEnabled = m.Zoom < 2; zoomIn.Click += (_, _) => m.SetZoom(m.Zoom + .25);
                 var lanes = Ui.Button(s["ByPerson"], "users", "chip"); if (m.Lanes) lanes.Classes.Add("selected"); lanes.Click += (_, _) => m.SetLanes(!m.Lanes); ToolTip.SetTip(lanes, s["ByPersonTip"]);
-                var zone = Ui.Icon("globe", 15, "Text.Subtle"); ToolTip.SetTip(zone, string.Format(s["TimesIn"], ScheduleQueries.TripZone(m.Trip!).Id)); Avalonia.Automation.AutomationProperties.SetName(zone, string.Format(s["TimesIn"], ScheduleQueries.TripZone(m.Trip!).Id));
+                var zone = ZoneSwitch(w);
                 return Bar(Ui.Columns("*,Auto", left.Also(l => l.ClipToBounds = true), Ui.H(8, zone, lanes, Ui.H(0, zoomOut, zoomIn))));
             }
             return Bar(left);
         }
         return new Border { Height = 0 };
+    }
+
+    /// <summary>
+    /// Shows the trip timezone and lets people add a second timezone to the timetable and list with one click:
+    /// zones the trip already uses, this computer's zone, or any other.
+    /// </summary>
+    private static Control ZoneSwitch(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var primary = ScheduleQueries.TripZone(m.Trip!).Id; var second = m.SecondZone;
+        var label = Formats.ZoneName(primary) + (second is null ? "" : " · " + Formats.ZoneName(second));
+        var button = new Button { Content = Ui.H(6, Ui.Icon("globe", 15), Ui.Text(label), Ui.Icon("chevron-down", 12)) }.Classed("ghost", "compact").Named(string.Format(s["TimesIn"], primary));
+        var menu = new MenuFlyout();
+        MenuItem Item(string text, bool selected, Action choose) { var item = new MenuItem { Header = text, Icon = selected ? Ui.Icon("check", 14) : null }; item.Click += (_, _) => choose(); return item; }
+        menu.Items.Add(new MenuItem { Header = string.Format(s["TimesIn"], FieldOptions.ZoneLabel(primary)), IsEnabled = false });
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(s["NoSecondZone"], second is null, () => m.SetSecondZone(null)));
+        var local = NodaTime.DateTimeZoneProviders.Tzdb.GetSystemDefault().Id;
+        foreach (var zone in m.SecondZoneSuggestions().Append(second).OfType<string>().Distinct())
+            menu.Items.Add(Item(string.Format(zone == local ? s["SecondZoneThisComputer"] : s["SecondZoneOption"], FieldOptions.ZoneLabel(zone)), zone == second, () => m.SetSecondZone(zone)));
+        menu.Items.Add(Item(s["OtherTimezone"], false, async () =>
+        {
+            var picked = await m.Interaction.ChooseAsync(s["SecondTimezone"], FieldOptions.Timezones.Select(c => new Choice(c.Id, c.Label, "globe")).ToArray());
+            if (picked is not null) m.SetSecondZone(picked);
+        }));
+        button.Flyout = menu;
+        return button;
     }
 
     private static Border Bar(Control content) => new Border { Child = content, Padding = new Thickness(16, 10) }.Res(Border.BorderBrushProperty, "Line").Also(b => b.BorderThickness = new Thickness(0, 0, 0, 1));

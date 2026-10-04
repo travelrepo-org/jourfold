@@ -195,6 +195,86 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task QuickAddTakesDepartureAndArrivalInLocalTimeOfEachPlace()
+    {
+        var w = Window(); try
+        {
+            await Open(w);
+            var frankfurt = Entity.Create("place", "Frankfurt Airport"); frankfurt.Data["timezone"] = "Europe/Berlin";
+            var haneda = Entity.Create("place", "Haneda Airport"); haneda.Data["timezone"] = "Asia/Tokyo";
+            await w.Model.Workspace!.ApplyAsync([new(frankfurt.Id, frankfurt), new(haneda.Id, haneda)]);
+            var task = w.Model.AddAsync("transport"); Probe.Layout(); var sheet = Sheet(w); var s = w.Model.Strings;
+            Probe.Tagged<TextBox>(sheet, "title").Text = "Flight to Tokyo";
+            var places = Probe.All<AutoCompleteBox>(sheet).ToArray(); places[0].Text = "Frankfurt Airport"; places[1].Text = "Haneda Airport"; Probe.Layout();
+            SearchChoice Zone(string tag) => Probe.All<SearchChoice>(Sheet(w)).Single(z => z.Tag as string == tag);
+            // The timezones follow the chosen places.
+            await Probe.Until(() => Zone("departureZone").Value == "Europe/Berlin" && Zone("arrivalZone").Value == "Asia/Tokyo");
+            Probe.All<CalendarDatePicker>(Sheet(w)).First().SelectedDate = new DateTime(2027, 5, 12);
+            Probe.Tagged<TimePicker>(Sheet(w), "startTime").SelectedTime = new TimeSpan(13, 20, 0);
+            Probe.Tagged<CalendarDatePicker>(Sheet(w), "arrivalDate").SelectedDate = new DateTime(2027, 5, 12);
+            Probe.Tagged<TimePicker>(Sheet(w), "arrivalTime").SelectedTime = new TimeSpan(8, 35, 0); Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == s["ArrivalBeforeDeparture"]);
+            Probe.Click(Sheet(w), s["Add"]); Probe.Layout(); Assert.False(task.IsCompleted);
+
+            Probe.Tagged<CalendarDatePicker>(Sheet(w), "arrivalDate").SelectedDate = new DateTime(2027, 5, 13); Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == string.Format(s["TravelTime"], "12 h 15 min"));
+            Probe.Click(Sheet(w), s["Add"]); await task.WaitAsync(TimeSpan.FromSeconds(5));
+            var flight = w.Model.Workspace.State.Trip.Entities.Values.Single(e => e.Title == "Flight to Tokyo");
+            Assert.Equal("2027-05-12T13:20:00", flight.Data["time"]!["start"]!["local"]!.ToString()); Assert.Equal("Europe/Berlin", flight.Data["time"]!["start"]!["timezone"]!.ToString());
+            Assert.Equal("2027-05-13T08:35:00", flight.Data["time"]!["end"]!["local"]!.ToString()); Assert.Equal("Asia/Tokyo", flight.Data["time"]!["end"]!["timezone"]!.ToString());
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task SecondTimezoneShowsInTimetableAndList()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var visit = Entity.Create("schedule_item", "Cathedral"); await m.Workspace!.EditAsync(visit);
+            await m.Workspace.ScheduleAsync(visit.Id, new ZonedTime("2027-05-14T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            var flight = Entity.Create("schedule_item", "Flight"); flight.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-05-15T13:20:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-05-16T08:35:00", "Asia/Tokyo").ToJson() };
+            await m.Workspace.EditAsync(flight); m.Refresh();
+            Assert.Null(m.SecondZone); Assert.Equal("Asia/Tokyo", m.SecondZoneSuggestions()[0]);
+
+            m.SetSecondZone("Asia/Tokyo"); m.ShowDate(new LocalDate(2027, 5, 14)); Probe.Layout();
+            var texts = Probe.All<TextBlock>(w.FindControl<ContentControl>("MainContent")!).Select(t => t.Text).ToList();
+            Assert.Contains("Tokyo", texts); Assert.Contains("17:00", texts); // 10:00 in Berlin (CEST) is 17:00 in Tokyo.
+            m.View = "List"; Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(w.FindControl<ContentControl>("MainContent")!), t => t.Text == "Tokyo 17:00");
+
+            // The choice belongs to this trip on this computer and can be switched off again.
+            var root = m.Workspace.Repository.Root; m.CloseTrip(); Assert.Null(m.SecondZone); await m.OpenAsync(root); Assert.Equal("Asia/Tokyo", m.SecondZone);
+            m.SetSecondZone(null); Assert.Null(m.SecondZone);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task QuickAddActivityUsesThePlaceTimezone()
+    {
+        var w = Window(); try
+        {
+            await Open(w);
+            var museum = Entity.Create("place", "Tokyo National Museum"); museum.Data["timezone"] = "Asia/Tokyo";
+            await w.Model.Workspace!.ApplyAsync([new(museum.Id, museum)]);
+            var task = w.Model.AddAsync("sightseeing"); Probe.Layout(); var s = w.Model.Strings;
+            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Museum";
+            Probe.All<AutoCompleteBox>(Sheet(w)).First().Text = "Tokyo National Museum"; Probe.Layout();
+            await Probe.Until(() => Probe.All<TextBlock>(Sheet(w)).Any(t => t.Text?.StartsWith(string.Format(s["TimezoneIs"], "Tokyo · Japan"), StringComparison.Ordinal) == true));
+            Assert.False(Probe.All<SearchChoice>(Sheet(w)).Single(z => z.Tag as string == "zone").IsVisible);
+            Probe.Click(Sheet(w), s["Change"]); Probe.Layout();
+            Assert.True(Probe.All<SearchChoice>(Sheet(w)).Single(z => z.Tag as string == "zone").IsVisible);
+            Probe.Tagged<TimePicker>(Sheet(w), "startTime").SelectedTime = new TimeSpan(10, 0, 0);
+            Probe.Click(Sheet(w), s["Add"]); await task.WaitAsync(TimeSpan.FromSeconds(5));
+            var visit = w.Model.Workspace.State.Trip.Entities.Values.Single(e => e.Title == "Museum");
+            Assert.Equal("Asia/Tokyo", visit.Data["time"]!["start"]!["timezone"]!.ToString()); Assert.EndsWith("T10:00:00", visit.Data["time"]!["start"]!["local"]!.ToString());
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddCreatesTransportWithNewPlacesInOneUndoableStep()
     {
         var w = Window(); try
@@ -271,7 +351,11 @@ public sealed class UsabilityTests : IDisposable
     [AvaloniaFact]
     public void SearchChoicesRejectUnknownValuesAndKeepCodesOutOfUserInput()
     {
-        var control = new SearchChoice(FieldOptions.Timezones, "Europe/Berlin", "Timezone"); Assert.Equal("Europe/Berlin", control.Value); Assert.Contains(" / ", control.Text);
+        var control = new SearchChoice(FieldOptions.Timezones, "Europe/Berlin", "Timezone"); Assert.Equal("Europe/Berlin", control.Value); Assert.StartsWith("Berlin · Germany", control.Text);
+        // People search by country, city, region note or offset, not by IANA ID.
+        foreach (var query in new[] { "China", "Shanghai", "Beijing", "UTC+8" }) Assert.Contains(FieldOptions.Timezones, c => c.Id == "Asia/Shanghai" && c.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        Assert.Contains(FieldOptions.Timezones, c => c.Id == "PRC" && c.Label.Contains("Asia/Shanghai"));
+        Assert.Contains(FieldOptions.Timezones, c => c.Id == "Pacific/Auckland" && c.Label.Contains("New Zealand") && c.Label.Contains("UTC+12/+13"));
         var host = new Window { Content = control }; host.Show(); Probe.Layout(); Assert.True(control.Input.Bounds.Height > 20); host.Close();
         control.Text = "not-a-timezone"; Assert.Null(control.Value);
         Assert.Contains(FieldOptions.Languages, c => c.Id == "de" && c.Label.Contains("Deutsch"));

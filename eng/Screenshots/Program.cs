@@ -97,7 +97,11 @@ try
                 m.View = "Files"; await Capture("files");
                 m.View = "People"; await Capture("people");
                 m.View = "Places"; await Capture("places");
+                m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "place" && e.Data["location"] is not null); await Capture("place-details"); m.Selected = null;
                 m.View = "Collections"; await Capture("collections");
+                // A second timezone (home) beside the trip timezone.
+                m.SetSecondZone("Europe/Berlin"); m.View = "Plan"; await Settle(300); await Capture("planning-second-zone");
+                m.View = "List"; await Capture("list-second-zone"); m.SetSecondZone(null);
                 m.View = "Plan"; m.Lanes = true; m.RaiseContentChanged(); await Capture("lanes"); m.Lanes = false;
                 Theme("Dark"); m.View = "Map"; await Capture("map-dark"); m.View = "Costs"; await Capture("costs-dark"); Theme("Light");
                 m.View = "Plan"; m.ShowDate(start.PlusDays(3));
@@ -141,6 +145,7 @@ try
             }
             m.View = "Plan"; m.ShowDate(start.PlusDays(1));
             await Dialog(() => m.QuickAddCommand.ExecuteAsync(null), "quick-add", m.Strings["Cancel"]);
+            if (all) await Dialog(() => m.AddAsync("transport"), "quick-add-transport", m.Strings["Cancel"]);
             // Show a neutral folder instead of the account name of the machine that renders the screenshots.
             m.Store.Set("trips.folder", "/home/alex/Documents/Jourfold");
             await Dialog(() => m.SettingsCommand.ExecuteAsync(null), "settings", m.Strings["Close"]);
@@ -165,6 +170,9 @@ try
                 connected.SetPreference("Language", language);
                 var settings = ((Dialogs)m.Interaction).SettingsAsync(connected); await Settle(300);
                 Click(connected.Strings["Providers"]); await Settle(800); await Capture("settings-github"); Click(connected.Strings["Close"]); await settings;
+                var maps = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["MapsAndPlaces"]); await Settle(300);
+                window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Expander>().First().IsExpanded = true; await Settle(300);
+                await Capture("settings-maps"); Click(m.Strings["Close"]); await maps;
             }
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); throw; }

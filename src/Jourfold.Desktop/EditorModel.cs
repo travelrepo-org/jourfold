@@ -92,8 +92,11 @@ public static class EditorModel
         }
         if (field.Kind == "coordinates")
         {
-            var result = await vm.Interaction.FormAsync(strings[field.Label], [new("latitude", strings["Latitude"], "number", Get(e, field.Path)?["latitude"]?.ToString() ?? "", Required: true), new("longitude", strings["Longitude"], "number", Get(e, field.Path)?["longitude"]?.ToString() ?? "", Required: true)]);
-            if (result is null) return; Set(e, field.Path, new JsonObject { ["latitude"] = double.Parse(result["latitude"], CultureInfo.InvariantCulture), ["longitude"] = double.Parse(result["longitude"], CultureInfo.InvariantCulture) });
+            var result = await vm.Interaction.FormAsync(strings[field.Label], [new("latitude", strings["Latitude"], "text", Get(e, field.Path)?["latitude"]?.ToString() ?? "", Required: true), new("longitude", strings["Longitude"], "text", Get(e, field.Path)?["longitude"]?.ToString() ?? "", Required: true)]);
+            if (result is null) return;
+            if (!Jourfold.Application.Coordinates.TryParse(result["latitude"], out var lat) || !Jourfold.Application.Coordinates.IsLatitude(lat)) { await vm.Interaction.ShowAsync(strings[field.Label], strings["LatitudeRange"]); return; }
+            if (!Jourfold.Application.Coordinates.TryParse(result["longitude"], out var lon) || !Jourfold.Application.Coordinates.IsLongitude(lon)) { await vm.Interaction.ShowAsync(strings[field.Label], strings["LongitudeRange"]); return; }
+            Set(e, field.Path, new JsonObject { ["latitude"] = Math.Round(lat, 6), ["longitude"] = Math.Round(lon, 6) });
         }
         if (field.Kind == "identities")
         { var name = await vm.Interaction.PromptAsync(strings["Name"]); var email = await vm.Interaction.PromptAsync(strings["Email"]); if (name is null || email is null) return; var a = Get(e, field.Path)?.DeepClone() as JsonArray ?? []; a.Add(new JsonObject { ["name"] = name, ["email"] = email }); Set(e, field.Path, a); }

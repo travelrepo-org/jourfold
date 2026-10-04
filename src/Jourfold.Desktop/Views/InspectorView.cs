@@ -347,7 +347,7 @@ public static class InspectorView
         var m = w.Model; var s = m.Strings;
         body.Children.Add(Field(s["Address"], Editors.Text(w, e.Id, "address/formatted", s["Address"], e.Data["address"]?["formatted"]?.ToString(), multiline: false)));
         var coords = MapView.Coordinates(e);
-        var location = Ui.Columns("*,*", Field(s["Latitude"], Editors.Number(w, e.Id, "location/latitude", s["Latitude"], coords?.Lat, null, v => JsonValue.Create(Math.Round(v, 6))!, 0.001)), Field(s["Longitude"], Editors.Number(w, e.Id, "location/longitude", s["Longitude"], coords?.Lon, null, v => JsonValue.Create(Math.Round(v, 6))!, 0.001)).Margin(10, 0, 0, 0));
+        var location = Editors.Coordinates(w, e.Id, coords);
         var find = Ui.Button(s["FindOnMap"], "search", "soft"); find.Flyout = Editors.Picker(w, "place", [], false, async picked =>
         {
             if (picked is null || picked.Id == e.Id) return;

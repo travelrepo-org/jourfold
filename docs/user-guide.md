@@ -71,7 +71,7 @@ Ctrl+K opens search and commands. It finds items in the trip and runs actions su
 
 Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. Under **Sharing**, the GitHub card shows which account is connected, links to its profile and can disconnect it. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
 
-Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to OpenStreetMap. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
+Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to the map servers, OpenStreetMap unless you enter others under **Map servers**. It also checks Jourfold's published list of map servers once a day. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 
 ## About Jourfold
 

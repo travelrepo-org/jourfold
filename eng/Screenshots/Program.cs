@@ -170,6 +170,9 @@ try
                 connected.SetPreference("Language", language);
                 var settings = ((Dialogs)m.Interaction).SettingsAsync(connected); await Settle(300);
                 Click(connected.Strings["Providers"]); await Settle(800); await Capture("settings-github"); Click(connected.Strings["Close"]); await settings;
+                var maps = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["MapsAndPlaces"]); await Settle(300);
+                window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Expander>().First().IsExpanded = true; await Settle(300);
+                await Capture("settings-maps"); Click(m.Strings["Close"]); await maps;
             }
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); throw; }

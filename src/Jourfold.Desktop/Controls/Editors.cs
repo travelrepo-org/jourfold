@@ -244,7 +244,7 @@ public static class Editors
             online.Children.Clear(); online.Children.Add(Ui.Text(s["Searching"], "caption").Margin(10, 4));
             try
             {
-                var found = await new PlaceSearch(Http).SearchAsync(query, s.Language);
+                var found = await new PlaceSearch(Http, MapProviders.Current(m.Store).SearchUrl).SearchAsync(query, s.Language);
                 online.Children.Clear(); if (found.Count == 0) online.Children.Add(Ui.Text(s["NothingFound"], "caption").Margin(10, 4));
                 foreach (var place in found)
                 {

@@ -796,7 +796,7 @@
   "SavedIdentity": "Saved",
   "OnlineMaps": "Online maps and address search",
   "OnlineMapsHint": "Street maps and address search from OpenStreetMap",
-  "OnlineMapsPrivacy": "Off by default. When on, Jourfold loads map images for the area you view and sends address searches you start to OpenStreetMap. Trip data is never sent. Map images are cached on this computer.",
+  "OnlineMapsPrivacy": "Off by default. When on, Jourfold loads map images for the area you view and sends address searches you start to the map servers (OpenStreetMap unless you choose others). Once a day it also checks Jourfold's published list of map servers on GitHub. Trip data is never sent. Map images are cached on this computer.",
   "ClearMapCache": "Clear map cache",
   "ClearMapCacheHint": "Remove stored map images",
   "MapCacheCleared": "Map cache cleared",
@@ -901,5 +901,16 @@
   "LatitudeRange": "Latitude is a number between -90 and 90, for example -37.0093.",
   "LongitudeRange": "Longitude is a number between -180 and 180, for example 174.7841.",
   "CoordinatesPasteHint": "Tip: paste coordinates such as -37.0093, 174.7841 from a map into either empty field.",
-  "diagnostic.schema.invalid": "This change does not fit the trip format, so it was not saved. The trip is unchanged."
+  "diagnostic.schema.invalid": "This change does not fit the trip format, so it was not saved. The trip is unchanged.",
+  "MapCacheSize": "Map images on this computer: {0} of at most {1}. The oldest are removed first.",
+  "MapServers": "Map servers",
+  "MapServersDefault": "Default servers ({0}). Jourfold can switch them through its published provider list, checked at most once a day while online maps are on.",
+  "MapServersOwn": "Your own servers ({0}).",
+  "MapServersHint": "Leave empty to use the default servers. Enter your own to use another OpenStreetMap-based provider, for example one with an API key in the address. The tile address needs {z}, {x} and {y}; addresses must start with https://.",
+  "MapTilesServer": "Map image address",
+  "MapAttribution": "Credit shown on the map",
+  "MapSearchServer": "Address search (Nominatim)",
+  "MapServersInvalid": "Check the addresses: they must start with https://, and the map image address needs {z}, {x} and {y}.",
+  "MapServersSaved": "Map servers saved",
+  "UseDefaultServers": "Use default servers"
 }

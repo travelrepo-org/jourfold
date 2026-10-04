@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "tiles": {
+    "url": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "attribution": "© OpenStreetMap contributors",
+    "attributionUrl": "https://www.openstreetmap.org/copyright",
+    "maxZoom": 19
+  },
+  "search": {
+    "url": "https://nominatim.openstreetmap.org/search"
+  }
+}

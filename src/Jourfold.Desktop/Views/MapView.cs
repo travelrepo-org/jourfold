@@ -19,6 +19,7 @@ namespace Jourfold.Desktop;
 public sealed class MapView : UserControl
 {
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(20) };
+    private readonly MapProvider provider;
     private static (double X, double Y, int Zoom)? remembered;
     private readonly MainWindow window;
     private readonly MainViewModel vm;
@@ -33,7 +34,13 @@ public sealed class MapView : UserControl
         window = owner; vm = owner.Model; var trip = vm.Trip!; var s = vm.Strings;
         places = trip.Entities.Values.Where(e => e.Type == "place" && Coordinates(e) is not null).ToArray();
         routes = trip.Entities.Values.Where(e => e.Type == "schedule_item").Select(e => (e, ScheduleQueries.Route(trip, e))).Where(x => x.Item2.From is not null && x.Item2.To is not null && Coordinates(x.Item2.From) is not null && Coordinates(x.Item2.To) is not null).Select(x => (x.e, x.Item2.From!, x.Item2.To!)).ToArray();
-        surface = new MapSurface(vm.OnlineMaps ? new MapTiles(vm.Store.Root, Http) : null);
+        provider = MapProviders.Current(vm.Store);
+        surface = new MapSurface(vm.OnlineMaps ? new MapTiles(vm.Store.Root, Http, provider) : null);
+        if (vm.OnlineMaps)
+        {
+            // Check the provider list (at most daily) and keep the cache within its limit, off the UI thread.
+            _ = Task.Run(async () => { await MapProviders.RefreshAsync(vm.Store, Http); MapTiles.Prune(vm.Store.Root); });
+        }
         surface.Routes = routes.Select(r => (Coordinates(r.From)!.Value, Coordinates(r.To)!.Value, r.Item.Data["status"]?.ToString() is "confirmed" or "completed", Highlighted(r.Item, r.From, r.To))).ToArray();
         surface.Changed += Layout;
         AutomationProperties.SetName(this, s["Map"]);
@@ -87,7 +94,7 @@ public sealed class MapView : UserControl
         overlay.Children.Add(controls);
         if (vm.OnlineMaps)
         {
-            var attribution = Ui.Button(MapTiles.Attribution, null, "link"); attribution.FontSize = 11; attribution.Click += (_, _) => vm.Interaction.Open(MapTiles.AttributionUrl);
+            var attribution = Ui.Button(provider.Attribution, null, "link"); attribution.FontSize = 11; attribution.Click += (_, _) => vm.Interaction.Open(provider.AttributionUrl);
             overlay.Children.Add(new Border { Child = attribution, Padding = new Thickness(8, 3), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Bottom, CornerRadius = new CornerRadius(6, 0, 0, 0) }.Res(Border.BackgroundProperty, "Bg.Surface"));
         }
         else if (!vm.MapPromptDismissed)
@@ -149,6 +156,8 @@ public sealed class MapView : UserControl
         private readonly MapTiles? tiles;
         private readonly Dictionary<(int, int, int), Bitmap?> cache = new();
         private readonly HashSet<(int, int, int)> pending = new();
+        /// <summary>Tiles in the last drawn view; replaced, never changed, so loaders on other threads can read it.</summary>
+        private volatile HashSet<(int, int, int)> onScreen = new();
         private double centerX = 0.5, centerY = 0.5; // world coordinates in [0, 1]
         public int Zoom { get; private set; } = 3;
         private Point? dragFrom;
@@ -238,21 +247,25 @@ public sealed class MapView : UserControl
         private void DrawTiles(DrawingContext context)
         {
             var count = 1 << Zoom; var originX = centerX * Scale - Bounds.Width / 2; var originY = centerY * Scale - Bounds.Height / 2;
+            var visible = new HashSet<(int, int, int)>();
             var x0 = (int)Math.Floor(originX / 256); var y0 = (int)Math.Floor(originY / 256); var x1 = (int)Math.Floor((originX + Bounds.Width) / 256); var y1 = (int)Math.Floor((originY + Bounds.Height) / 256);
             for (var ty = Math.Max(0, y0); ty <= Math.Min(count - 1, y1); ty++)
                 for (var tx = x0; tx <= x1; tx++)
                 {
-                    var key = (Zoom, ((tx % count) + count) % count, ty);
+                    var key = (Zoom, ((tx % count) + count) % count, ty); visible.Add(key);
                     var rect = new Rect(tx * 256 - originX, ty * 256 - originY, 256, 256);
                     if (cache.TryGetValue(key, out var bitmap)) { if (bitmap is not null) context.DrawImage(bitmap, rect); continue; }
                     if (pending.Add(key)) _ = LoadAsync(key);
                 }
+            onScreen = visible;
         }
         private async Task LoadAsync((int Z, int X, int Y) key)
         {
             try
             {
-                var bytes = await tiles!.GetAsync(key.Z, key.X, key.Y);
+                // Tiles that scrolled out of view before their turn are not downloaded; they load again when visible.
+                var (bytes, skipped) = await tiles!.GetAsync(key.Z, key.X, key.Y, () => onScreen.Contains(key));
+                if (skipped) { Dispatcher.UIThread.Post(() => pending.Remove(key)); return; }
                 Bitmap? bitmap = null; if (bytes is not null) { using var stream = new MemoryStream(bytes); bitmap = new Bitmap(stream); }
                 Dispatcher.UIThread.Post(() => { cache[key] = bitmap; pending.Remove(key); InvalidateVisual(); });
             }

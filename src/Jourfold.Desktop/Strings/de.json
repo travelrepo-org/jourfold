@@ -796,7 +796,7 @@
   "SavedIdentity": "Gespeichert",
   "OnlineMaps": "Online-Karten und Adresssuche",
   "OnlineMapsHint": "Straßenkarten und Adresssuche von OpenStreetMap",
-  "OnlineMapsPrivacy": "Standardmäßig aus. Wenn aktiv, lädt Jourfold Kartenbilder für den angezeigten Bereich und sendet von Ihnen gestartete Adresssuchen an OpenStreetMap. Reisedaten werden nie gesendet. Kartenbilder werden auf diesem Computer zwischengespeichert.",
+  "OnlineMapsPrivacy": "Standardmäßig aus. Wenn aktiv, lädt Jourfold Kartenbilder für den angezeigten Bereich und sendet von Ihnen gestartete Adresssuchen an die Kartenserver (OpenStreetMap, sofern Sie keine anderen wählen). Einmal täglich prüft es außerdem die veröffentlichte Liste der Kartenserver von Jourfold auf GitHub. Reisedaten werden nie gesendet. Kartenbilder werden auf diesem Computer zwischengespeichert.",
   "ClearMapCache": "Kartenspeicher leeren",
   "ClearMapCacheHint": "Gespeicherte Kartenbilder entfernen",
   "MapCacheCleared": "Kartenspeicher geleert",
@@ -901,5 +901,16 @@
   "LatitudeRange": "Der Breitengrad ist eine Zahl zwischen -90 und 90, zum Beispiel -37,0093.",
   "LongitudeRange": "Der Längengrad ist eine Zahl zwischen -180 und 180, zum Beispiel 174,7841.",
   "CoordinatesPasteHint": "Tipp: Koordinaten wie -37.0093, 174.7841 aus einer Karte in eines der leeren Felder einfügen.",
-  "diagnostic.schema.invalid": "Diese Änderung passt nicht zum Reiseformat und wurde nicht gespeichert. Die Reise ist unverändert."
+  "diagnostic.schema.invalid": "Diese Änderung passt nicht zum Reiseformat und wurde nicht gespeichert. Die Reise ist unverändert.",
+  "MapCacheSize": "Kartenbilder auf diesem Computer: {0} von höchstens {1}. Die ältesten werden zuerst entfernt.",
+  "MapServers": "Kartenserver",
+  "MapServersDefault": "Standardserver ({0}). Jourfold kann sie über seine veröffentlichte Serverliste wechseln, die bei aktivierten Online-Karten höchstens einmal täglich geprüft wird.",
+  "MapServersOwn": "Eigene Server ({0}).",
+  "MapServersHint": "Leer lassen, um die Standardserver zu nutzen. Eigene Server eintragen, um einen anderen OpenStreetMap-basierten Anbieter zu nutzen, zum Beispiel mit API-Schlüssel in der Adresse. Die Kartenbild-Adresse braucht {z}, {x} und {y}; Adressen müssen mit https:// beginnen.",
+  "MapTilesServer": "Adresse der Kartenbilder",
+  "MapAttribution": "Quellenangabe auf der Karte",
+  "MapSearchServer": "Adresssuche (Nominatim)",
+  "MapServersInvalid": "Prüfen Sie die Adressen: Sie müssen mit https:// beginnen, und die Kartenbild-Adresse braucht {z}, {x} und {y}.",
+  "MapServersSaved": "Kartenserver gespeichert",
+  "UseDefaultServers": "Standardserver verwenden"
 }

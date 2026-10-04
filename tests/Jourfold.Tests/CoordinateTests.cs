@@ -65,6 +65,8 @@ public sealed class CoordinateTests : IDisposable
             await new GitRepository(repository, new GitCliBackend()).InitializeAsync("Test", "test@example.invalid"); await w.Model.OpenAsync(repository.Root);
             var place = Entity.Create("place", "Auckland Airport"); await w.Model.Workspace!.ApplyAsync([new(place.Id, place)]);
             w.Model.Selected = w.Model.Workspace.State.Trip.Find(place.Id); Probe.Layout();
+            // The inspector remembers the last tab; this test needs Details.
+            Probe.Click(w, w.Model.Strings["Details"]); Probe.Layout();
             var inspector = Probe.Named<StackPanel>(w, "Inspector");
             TextBox Box(string tag) => Probe.Tagged<TextBox>(Probe.Named<StackPanel>(w, "Inspector"), tag);
 

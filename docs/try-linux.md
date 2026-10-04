@@ -77,13 +77,16 @@ This registers the launcher and icon for your user account, without sudo. Launch
 
 No GitHub login or collaborator is needed for these steps:
 
-1. Choose **New trip** and create a trip called “Main PC test”. Use synthetic details.
-2. Use **Quick add** to add an activity. Find it in **Inbox**, select it and choose **Schedule in plan** in the inspector, or drag it onto the timetable. Scroll to its time if needed.
-3. Change its title and leave the field to save. Check **Ctrl+Z**, then **Ctrl+Shift+Z**.
-4. Choose **Create version**, review the changes and confirm. Open **History** and inspect the entry.
-5. Close Jourfold, launch it again and reopen the trip from Recent. Confirm the activity and version remain.
-6. In **Settings**, try Light/Dark themes, German/English and larger text. Check your normal monitor scaling and keyboard navigation with Tab, Shift+Tab, Enter and Escape.
-7. Export PDF and calendar files and open them with your normal viewers. Try the file picker and an attachment from a disposable local file.
+1. On the empty library, choose **Explore a sample trip**. Look around the timetable, list, map, bookings and costs, then return with the trip menu at the top of the sidebar (**All trips**).
+2. Choose **New trip**, call it “Main PC test” and choose **Create now**. Use synthetic details only.
+3. Drag across an empty hour in the timetable, enter a title and choose **Add**. Drag the new block to another time and its lower edge to make it longer.
+4. Type an idea into the Inbox (**Inbox** in the sidebar) and drag it onto the timetable.
+5. Select the activity, change its title in the details panel and click elsewhere. Check **Ctrl+Z**, then **Ctrl+Shift+Z**. Delete it with the Delete key and use **Undo** in the notice.
+6. Choose **Create version**, check the listed changes and confirm. Open **History** and expand **Show changes**.
+7. Close Jourfold, launch it again and reopen the trip from the library. Confirm the activity and version remain.
+8. In **Settings**, try Light/Dark themes, German/English and larger text. Check your monitor scaling and keyboard navigation with Tab, Shift+Tab, Enter, Escape and Ctrl+K.
+9. From the **⋯** menu, export PDF and calendar files and open them with your normal viewers. Drop a disposable local file onto the window to attach it.
+10. Optional: on the map, choose **Show street map** to check online tiles. This contacts OpenStreetMap; skip it if you want to stay offline.
 
 The [user guide](user-guide.md) explains variants, people, files and the remaining planning tools.
 
@@ -91,9 +94,9 @@ The [user guide](user-guide.md) explains variants, people, files and the remaini
 
 The VM's authorization is not transferred with the archive. Jourfold performs its own browser device authorization on each machine; a `gh auth login` session is not required.
 
-1. Choose **Settings → Connections → Connect GitHub** and enter the public Client ID for your development GitHub App. This is the Client ID, not a secret or private key.
+1. Choose **Settings → Sharing → Connect GitHub** and enter the public Client ID for your development GitHub App. This is the Client ID, not a secret or private key.
 2. Enter Jourfold's displayed code on GitHub's device page, approve access, then dismiss the code dialog in Jourfold so it completes authorization.
-3. Choose **Settings → Connections → Discover GitHub**, select the private smoke trip that the App can access, and choose an empty local destination folder.
+3. In the library choose **Open → Find trips on GitHub** and select the private smoke trip that the App can access. Jourfold copies it into your trips folder.
 4. Change a synthetic activity, create a version, then use **Sync**. Verify the new version from the VM or GitHub. Jourfold can also sync committed versions in the background; use only the disposable fixture for this test.
 5. Restart Jourfold and repeat discovery or sync to check credential persistence. A session-only credential notice means the secure store was unavailable. Expired App authorization requires reconnecting.
 

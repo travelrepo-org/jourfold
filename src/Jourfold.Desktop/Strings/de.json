@@ -879,5 +879,16 @@
   "UnexpectedError": "Etwas ist schiefgegangen. Die Aktion wurde abgebrochen, Jourfold läuft weiter.",
   "UnexpectedErrorTitle": "Unerwarteter Fehler",
   "UnexpectedErrorBody": "Jourfold hat eine Aktion wegen eines Fehlers in der App abgebrochen. Gespeicherte Reisen sind nicht betroffen. Die Details stehen auch in {0}. Sie können sie in einen Fehlerbericht kopieren.",
-  "QuotedName": "„{0}“"
+  "QuotedName": "„{0}“",
+  "DepartureFlight": "Abflug (Ortszeit)",
+  "DepartureLocal": "Abfahrt (Ortszeit)",
+  "ArrivalLocal": "Ankunft (Ortszeit)",
+  "DepartureTimezone": "Zeitzone der Abfahrt",
+  "ArrivalTimezone": "Zeitzone der Ankunft",
+  "ArrivalDate": "Ankunftsdatum",
+  "ArrivalTime": "Ankunftszeit",
+  "TravelTime": "Reisezeit {0}",
+  "ArrivalBeforeDeparture": "Die Ankunft liegt vor der Abfahrt. Prüfen Sie Datum, Uhrzeit und Zeitzonen.",
+  "TimezoneIs": "Zeitzone: {0}",
+  "Change": "Ändern"
 }

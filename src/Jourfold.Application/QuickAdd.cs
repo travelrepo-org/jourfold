@@ -19,7 +19,12 @@ public sealed record QuickAddDraft(string Kind, string Title)
     public LocalDate? Date { get; init; }
     public LocalTime? Start { get; init; }
     public Duration? Length { get; init; }
+    /// <summary>Timezone of <see cref="Date"/> and <see cref="Start"/>; for transport, the departure timezone.</summary>
     public string? Timezone { get; init; }
+    /// <summary>Transport arrival in local time at the destination. When set, it replaces <see cref="Length"/>.</summary>
+    public LocalDate? ArrivalDate { get; init; }
+    public LocalTime? ArrivalTime { get; init; }
+    public string? ArrivalTimezone { get; init; }
     public string? TransportType { get; init; }
     public PlaceChoice? Place { get; init; }
     public PlaceChoice? From { get; init; }
@@ -91,8 +96,19 @@ public static class QuickAdd
                 {
                     var begin = new ZonedTime(day.At(start).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), zone);
                     var instant = begin.ToInstant();
-                    var endZone = draft.Kind == "transport" && draft.To?.Id is { } arrivalId && trip.Find(arrivalId)?.Data["timezone"]?.ToString() is { Length: > 0 } arrivalZone ? arrivalZone : zone;
-                    main.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = begin.ToJson(), ["end"] = ZonedTime.At(instant + (draft.Length ?? Duration.FromHours(1)), endZone).ToJson() };
+                    ZonedTime end;
+                    if (draft.Kind == "transport" && draft.ArrivalDate is { } arrivalDay && draft.ArrivalTime is { } arrivalTime)
+                    {
+                        // Tickets give departure and arrival in local time at each end.
+                        end = new ZonedTime(arrivalDay.At(arrivalTime).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), draft.ArrivalTimezone ?? zone);
+                        if (end.ToInstant() <= instant) throw new DomainException("quickadd.arrival", "The arrival must be after the departure.");
+                    }
+                    else
+                    {
+                        var endZone = draft.ArrivalTimezone ?? (draft.Kind == "transport" && draft.To?.Id is { } arrivalId && trip.Find(arrivalId)?.Data["timezone"]?.ToString() is { Length: > 0 } arrivalZone ? arrivalZone : zone);
+                        end = ZonedTime.At(instant + (draft.Length ?? Duration.FromHours(1)), endZone);
+                    }
+                    main.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = begin.ToJson(), ["end"] = end.ToJson() };
                     main.Data["status"] = "planned";
                 }
                 else if (draft.Kind != "accommodation" && draft.Date is { } onlyDay)

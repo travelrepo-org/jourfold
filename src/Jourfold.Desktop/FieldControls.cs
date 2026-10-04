@@ -13,7 +13,35 @@ public static class FieldOptions
 {
     public static IReadOnlyList<Choice> Languages => CultureInfo.GetCultures(CultureTypes.NeutralCultures | CultureTypes.SpecificCultures)
         .Where(c => c.Name.Length > 0).OrderBy(c => c.DisplayName).Select(c => new Choice(c.Name, c.DisplayName + " · " + c.NativeName + " (" + c.Name + ")")).ToArray();
-    public static IReadOnlyList<Choice> Timezones => DateTimeZoneProviders.Tzdb.Ids.Select(id => new Choice(id, id.Replace('_', ' ').Replace("/", " / "))).ToArray();
+    /// <summary>
+    /// Every IANA timezone, labelled so people can search by city, country, region note or UTC offset:
+    /// "Shanghai · China (Beijing Time) · UTC+8". Zones without a country (Etc/GMT+8) and old aliases (PRC) follow
+    /// with their plain ID, so stored values always resolve.
+    /// </summary>
+    public static IReadOnlyList<Choice> Timezones => timezones.Value;
+    private static readonly Lazy<Choice[]> timezones = new(() =>
+    {
+        var source = NodaTime.TimeZones.TzdbDateTimeZoneSource.Default;
+        var year = SystemClock.Instance.GetCurrentInstant().InUtc().Year;
+        string Offsets(string id)
+        {
+            var zone = DateTimeZoneProviders.Tzdb[id];
+            string Format(Offset o) => (o < Offset.Zero ? "−" : "+") + OffsetPattern.CreateWithInvariantCulture("H:mm").Format(o < Offset.Zero ? -o : o).Replace(":00", "");
+            var winter = zone.GetUtcOffset(Instant.FromUtc(year, 1, 15, 12, 0)); var summer = zone.GetUtcOffset(Instant.FromUtc(year, 7, 15, 12, 0));
+            return "UTC" + Format(winter < summer ? winter : summer) + (winter == summer ? "" : "/" + Format(winter < summer ? summer : winter));
+        }
+        var located = source.ZoneLocations!.GroupBy(l => l.ZoneId).ToDictionary(g => g.Key, g => g.First());
+        var perCountry = source.ZoneLocations!.GroupBy(l => l.CountryCode).ToDictionary(g => g.Key, g => g.Count());
+        var named = located.Values.Select(l =>
+        {
+            var city = l.ZoneId[(l.ZoneId.LastIndexOf('/') + 1)..].Replace('_', ' ');
+            var note = perCountry[l.CountryCode] > 1 && !string.IsNullOrWhiteSpace(l.Comment) ? " (" + l.Comment + ")" : "";
+            return (Sort: l.CountryName + " " + city, Choice: new Choice(l.ZoneId, city + " · " + l.CountryName + note + " · " + Offsets(l.ZoneId)));
+        }).OrderBy(x => x.Sort, StringComparer.CurrentCulture).Select(x => x.Choice);
+        var others = source.GetIds().Where(id => !located.ContainsKey(id)).Order(StringComparer.Ordinal)
+            .Select(id => new Choice(id, (source.CanonicalIdMap[id] is var canonical && canonical != id ? id + " (" + canonical + ")" : id) + " · " + Offsets(id)));
+        return named.Concat(others).ToArray();
+    });
 }
 
 public sealed class SearchChoice : UserControl
@@ -32,6 +60,8 @@ public sealed class SearchChoice : UserControl
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 4 }; grid.Children.Add(Input); Grid.SetColumn(browse, 1); grid.Children.Add(browse); Content = grid;
         AutomationProperties.SetName(Input, label); ToolTip.SetTip(Input, label);
     }
+    /// <summary>Selects the option with <paramref name="id"/>, or clears the field when there is none.</summary>
+    public void Select(string? id) { var choice = choices.FirstOrDefault(c => c.Id == id); Input.SelectedItem = choice; Input.Text = choice?.Label; }
     public string? Value => Input.SelectedItem is Choice selected && Text == selected.Label ? selected.Id : choices.FirstOrDefault(c => string.Equals(c.Label, Text, StringComparison.CurrentCultureIgnoreCase) || string.Equals(c.Id, Text, StringComparison.OrdinalIgnoreCase))?.Id;
 }
 

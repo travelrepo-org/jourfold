@@ -141,6 +141,7 @@ try
             }
             m.View = "Plan"; m.ShowDate(start.PlusDays(1));
             await Dialog(() => m.QuickAddCommand.ExecuteAsync(null), "quick-add", m.Strings["Cancel"]);
+            if (all) await Dialog(() => m.AddAsync("transport"), "quick-add-transport", m.Strings["Cancel"]);
             // Show a neutral folder instead of the account name of the machine that renders the screenshots.
             m.Store.Set("trips.folder", "/home/alex/Documents/Jourfold");
             await Dialog(() => m.SettingsCommand.ExecuteAsync(null), "settings", m.Strings["Close"]);

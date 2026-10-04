@@ -879,5 +879,16 @@
   "UnexpectedError": "Something went wrong. That action was stopped; Jourfold keeps running.",
   "UnexpectedErrorTitle": "Unexpected error",
   "UnexpectedErrorBody": "Jourfold stopped an action because of an error in the app. Saved trips are not affected. The details are also written to {0}. You can copy them into a bug report.",
-  "QuotedName": "“{0}”"
+  "QuotedName": "“{0}”",
+  "DepartureFlight": "Departure (local time)",
+  "DepartureLocal": "Departure (local time)",
+  "ArrivalLocal": "Arrival (local time)",
+  "DepartureTimezone": "Departure timezone",
+  "ArrivalTimezone": "Arrival timezone",
+  "ArrivalDate": "Arrival date",
+  "ArrivalTime": "Arrival time",
+  "TravelTime": "Travel time {0}",
+  "ArrivalBeforeDeparture": "The arrival is before the departure. Check the dates, times and timezones.",
+  "TimezoneIs": "Timezone: {0}",
+  "Change": "Change"
 }

@@ -129,13 +129,65 @@ public sealed partial class Dialogs
         var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title" }; AutomationProperties.SetName(title, s["Title"]);
         var date = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
         var hasTime = new CheckBox { Content = s["AtATime"], IsChecked = true };
-        var time = new TimePicker { Tag = "startTime", ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
+        var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
         var length = new NumericUpDown { Tag = "length", Value = (decimal)(request.Length?.TotalMinutes ?? 60), Minimum = 5, Increment = 15, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(length, s["DurationMinutes"]);
         var unscheduled = new CheckBox { Content = s["JustAnIdea"], IsChecked = false };
         var mode = "flight"; var modes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
-        void FillModes() { modes.Children.Clear(); foreach (var t in ScheduleCategories.TransportTypes) { var chip = Ui.Button(s[t], Visuals.TransportIcon(t), "chip"); if (t == mode) chip.Classes.Add("selected"); chip.Click += (_, _) => { mode = t; FillModes(); }; modes.Children.Add(chip); } }
-        FillModes();
+        void FillModes() { modes.Children.Clear(); foreach (var t in ScheduleCategories.TransportTypes) { var chip = Ui.Button(s[t], Visuals.TransportIcon(t), "chip"); if (t == mode) chip.Classes.Add("selected"); chip.Click += (_, _) => { mode = t; FillModes(); Layout(); }; modes.Children.Add(chip); } }
         var place = PlaceBox(trip, s["Place"]); var from = PlaceBox(trip, s["From"]); var to = PlaceBox(trip, s["To"]);
+        // Transport: departure and arrival in local time at each end, as on a ticket. The timezones follow the chosen
+        // places (when they have one) until the person picks a timezone, and the arrival date follows the departure date.
+        var arrivalDate = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch, Tag = "arrivalDate" }; AutomationProperties.SetName(arrivalDate, s["ArrivalDate"]);
+        var arrivalTime = new TimePicker { Tag = "arrivalTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).PlusHours(2).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(arrivalTime, s["ArrivalTime"]);
+        var departureZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["DepartureTimezone"]) { Tag = "departureZone" };
+        var arrivalZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["ArrivalTimezone"]) { Tag = "arrivalZone" };
+        var travelTime = Ui.Text("", "caption").Also(t => t.TextWrapping = TextWrapping.Wrap);
+        string LocalText(DateTime day, TimeSpan clock) => LocalDate.FromDateTime(day).At(LocalTime.FromTicksSinceMidnight(clock.Ticks)).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture);
+        (Instant Start, Instant End)? TransportSpan()
+        {
+            if (date.SelectedDate is not { } d || time.SelectedTime is not { } t || arrivalDate.SelectedDate is not { } ad || arrivalTime.SelectedTime is not { } at) return null;
+            try { return (new ZonedTime(LocalText(d, t), departureZone.Value ?? request.Zone).ToInstant(), new ZonedTime(LocalText(ad, at), arrivalZone.Value ?? request.Zone).ToInstant()); }
+            catch (Exception ex) when (ex is DomainException or ArgumentException) { return null; }
+        }
+        void UpdateTravelTime()
+        {
+            var span = TransportSpan(); var backwards = span is { } v && v.End <= v.Start;
+            travelTime.Text = span is not { } x ? "" : backwards ? s["ArrivalBeforeDeparture"] : string.Format(s["TravelTime"], Formats.Duration(x.End - x.Start, s));
+            travelTime.Res(TextBlock.ForegroundProperty, backwards ? "Danger" : "Text.Muted");
+        }
+        string suggestedDeparture = request.Zone, suggestedArrival = request.Zone; var suggestedArrivalDate = date.SelectedDate;
+        void FollowPlaces()
+        {
+            var departure = from.Timezone ?? request.Zone;
+            if (departureZone.Value == suggestedDeparture && departure != suggestedDeparture) departureZone.Select(departure);
+            suggestedDeparture = departure;
+            var arrival = to.Timezone ?? departureZone.Value ?? request.Zone;
+            if (arrivalZone.Value == suggestedArrival && arrival != suggestedArrival) arrivalZone.Select(arrival);
+            suggestedArrival = arrival;
+            UpdateTravelTime();
+        }
+        // Activities and stays use one timezone: the place's when it has one, otherwise the timezone of the day.
+        // A compact line shows it; Change reveals the picker.
+        var zone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["Timezone"]) { Tag = "zone" };
+        var zoneLabel = Ui.Text("", "caption").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.TextWrapping = TextWrapping.Wrap; });
+        var zoneChange = Ui.Button(s["Change"], null, "link").Also(b => b.VerticalAlignment = VerticalAlignment.Center);
+        var zoneLine = Ui.Columns("*,Auto", zoneLabel, zoneChange); var zoneOpen = false;
+        string suggestedZone = request.Zone;
+        void UpdateZoneLine() { zoneLabel.Text = string.Format(s["TimezoneIs"], FieldOptions.Timezones.FirstOrDefault(c => c.Id == (zone.Value ?? request.Zone))?.Label ?? zone.Value ?? request.Zone); zone.IsVisible = zoneOpen; zoneLine.IsVisible = !zoneOpen; }
+        void FollowPlace()
+        {
+            var next = place.Timezone ?? request.Zone;
+            if (zone.Value == suggestedZone && next != suggestedZone) zone.Select(next);
+            suggestedZone = next; UpdateZoneLine();
+        }
+        place.Changed += (_, _) => FollowPlace(); zone.Input.SelectionChanged += (_, _) => UpdateZoneLine();
+        zoneChange.Click += (_, _) => { zoneOpen = true; UpdateZoneLine(); zone.Input.Focus(); };
+        UpdateZoneLine();
+        from.Changed += (_, _) => FollowPlaces(); to.Changed += (_, _) => FollowPlaces();
+        departureZone.Input.SelectionChanged += (_, _) => FollowPlaces(); arrivalZone.Input.SelectionChanged += (_, _) => UpdateTravelTime();
+        date.SelectedDateChanged += (_, _) => { if (arrivalDate.SelectedDate == suggestedArrivalDate) arrivalDate.SelectedDate = date.SelectedDate; suggestedArrivalDate = date.SelectedDate; UpdateTravelTime(); };
+        time.SelectedTimeChanged += (_, _) => UpdateTravelTime(); arrivalDate.SelectedDateChanged += (_, _) => UpdateTravelTime(); arrivalTime.SelectedTimeChanged += (_, _) => UpdateTravelTime();
+        UpdateTravelTime();
         var nights = new NumericUpDown { Value = 1, Minimum = 1, Maximum = 60, Increment = 1, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(nights, s["Nights"]);
         var amount = new NumericUpDown { Value = null, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, Watermark = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
         var currency = new SearchChoice(Editors.Currencies, request.Currency, s["Currency"]) { Width = 130 };
@@ -152,9 +204,13 @@ public sealed partial class Dialogs
 
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
         // survives; each one is detached from its old row before it is placed again.
-        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people];
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
-        Control WhenRow() => Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)));
+        Control Side(string heading, Control day, Control clock, Control zone) => Ui.V(6, Ui.Text(heading, "label"), day, clock, zone);
+        Control TransportWhenRow() => Ui.V(10, Ui.Columns("*,Auto", hasTime, unscheduled.Margin(12, 0, 0, 0)),
+            Ui.Columns("*,*", Side(s[mode == "flight" ? "DepartureFlight" : "DepartureLocal"], date, time, departureZone), Side(s["ArrivalLocal"], arrivalDate, arrivalTime, arrivalZone).Margin(12, 0, 0, 0)),
+            travelTime);
+        Control WhenRow() => Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)), zoneLine, zone);
         var fields = Ui.V(14);
         var typeGrid = new WrapPanel { ItemSpacing = 8, LineSpacing = 8 };
         var dateLabel = Ui.Text(s["Date"], "label");
@@ -166,8 +222,14 @@ public sealed partial class Dialogs
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             if (kind == "transport") { fields.Children.Add(Row(s["TransportMode"], modes)); fields.Children.Add(Ui.Columns("*,Auto,*", Row(s["From"], from), Ui.Icon("arrow-right", 16, "Text.Subtle").Margin(8, 22, 8, 0), Row(s["To"], to))); }
             if (kind is "activity" or "food" or "sightseeing") fields.Children.Add(Row(s["Where"], place));
-            if (scheduled) { fields.Children.Add(WhenRow()); time.IsEnabled = length.IsEnabled = hasTime.IsChecked == true && unscheduled.IsChecked != true; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true; }
-            if (kind == "accommodation") { fields.Children.Add(Row(s["Place"], place)); fields.Children.Add(Ui.Columns("*,*", Row(s["CheckInDate"], date), Row(s["Nights"], nights).Margin(10, 0, 0, 0))); }
+            if (scheduled)
+            {
+                fields.Children.Add(kind == "transport" ? TransportWhenRow() : WhenRow());
+                var timed = hasTime.IsChecked == true && unscheduled.IsChecked != true;
+                time.IsEnabled = length.IsEnabled = arrivalDate.IsEnabled = arrivalTime.IsEnabled = departureZone.IsEnabled = arrivalZone.IsEnabled = zone.IsEnabled = zoneChange.IsEnabled = timed;
+                travelTime.IsVisible = timed; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true;
+            }
+            if (kind == "accommodation") { fields.Children.Add(Row(s["Place"], place)); fields.Children.Add(Ui.Columns("*,*", Row(s["CheckInDate"], date), Row(s["Nights"], nights).Margin(10, 0, 0, 0))); fields.Children.Add(Ui.V(6, zoneLine, zone)); }
             if (kind is "booking") { fields.Children.Add(Row(s["Reference"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
             if (kind is "expense" or "budget") fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0))));
             if (kind == "task") fields.Children.Add(Row(s["Due"], date));
@@ -183,7 +245,7 @@ public sealed partial class Dialogs
             }
         }
         hasTime.IsCheckedChanged += (_, _) => Layout(); unscheduled.IsCheckedChanged += (_, _) => Layout();
-        Layout();
+        FillModes(); Layout();
         var error = Ui.Text("").Res(TextBlock.ForegroundProperty, "Danger"); error.IsVisible = false;
         var save = Ui.Button(s["Add"], "plus", "primary"); save.IsDefault = true; var cancel = Action("Cancel");
         var content = Ui.V(18, request.ChooseType ? typeGrid : null, fields, error, Footer(cancel, save));
@@ -195,12 +257,17 @@ public sealed partial class Dialogs
             var idea = scheduled && unscheduled.IsChecked == true;
             LocalDate? day = date.SelectedDate is { } d && !idea ? LocalDate.FromDateTime(d) : null;
             LocalTime? at = scheduled && !idea && hasTime.IsChecked == true && time.SelectedTime is { } t ? LocalTime.FromTicksSinceMidnight(t.Ticks) : null;
+            var timedTransport = kind == "transport" && at is not null;
+            if (timedTransport && TransportSpan() is { } span && span.End <= span.Start) { error.Text = s["ArrivalBeforeDeparture"]; error.IsVisible = true; return; }
             var draft = new QuickAddDraft(kind, title.Text!.Trim())
             {
                 Date = scheduled || kind is "accommodation" or "task" ? day : null,
                 Start = at,
-                Length = scheduled && length.Value is { } l ? Duration.FromMinutes((double)l) : null,
-                Timezone = request.Zone,
+                Length = scheduled && !timedTransport && length.Value is { } l ? Duration.FromMinutes((double)l) : null,
+                Timezone = kind == "transport" ? departureZone.Value ?? request.Zone : kind is "activity" or "food" or "sightseeing" or "accommodation" ? zone.Value ?? request.Zone : request.Zone,
+                ArrivalDate = timedTransport && arrivalDate.SelectedDate is { } arriving ? LocalDate.FromDateTime(arriving) : null,
+                ArrivalTime = timedTransport && arrivalTime.SelectedTime is { } landing ? LocalTime.FromTicksSinceMidnight(landing.Ticks) : null,
+                ArrivalTimezone = timedTransport ? arrivalZone.Value ?? request.Zone : null,
                 TransportType = mode,
                 Place = place.Choice,
                 From = from.Choice,
@@ -226,10 +293,17 @@ public sealed partial class Dialogs
     {
         private readonly Dictionary<string, Guid> places;
         private readonly AutoCompleteBox box;
+        private readonly TripSnapshot trip;
+        /// <summary>Raised when the typed or chosen place changes.</summary>
+        public event EventHandler? Changed;
+        /// <summary>The timezone stored on the chosen existing place, if any.</summary>
+        public string? Timezone => Choice?.Id is { } id && trip.Find(id)?.Data["timezone"]?.ToString() is { Length: > 0 } zone ? zone : null;
         public PlacePicker(TripSnapshot trip, string label, Localization s)
         {
+            this.trip = trip;
             places = trip.Entities.Values.Where(e => e.Type == "place").GroupBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase).ToDictionary(g => g.Key, g => g.First().Id, StringComparer.CurrentCultureIgnoreCase);
             box = new AutoCompleteBox { ItemsSource = places.Keys.Order().ToArray(), FilterMode = AutoCompleteFilterMode.Contains, MinimumPrefixLength = 0, Watermark = s["PlaceWatermark"], HorizontalAlignment = HorizontalAlignment.Stretch };
+            box.TextChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
             AutomationProperties.SetName(box, label); Content = box;
         }
         public PlaceChoice? Choice => string.IsNullOrWhiteSpace(box.Text) ? null : places.TryGetValue(box.Text.Trim(), out var id) ? PlaceChoice.Existing(id) : PlaceChoice.Create(box.Text);

@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Version tag to create, for example v0.2.0. It must match Directory.Build.props.
+        description: An existing version tag to publish again, for example v0.2.0. Push the tag first; only organisation admins may create v* tags.
         required: true
 permissions:
   contents: read
@@ -26,6 +26,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.version || github.ref }}
           path: jourfold
       - uses: actions/checkout@v4
         with:
@@ -64,6 +65,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.version || github.ref }}
           path: jourfold
       - uses: actions/checkout@v4
         with:
@@ -106,6 +108,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.version || github.ref }}
       - uses: actions/download-artifact@v4
         with:
           pattern: release-*
@@ -124,4 +128,4 @@ jobs:
         run: |
           flags=""
           case "$TAG" in *-*) flags="--prerelease" ;; esac
-          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Jourfold ${TAG#v}" --generate-notes $flags
+          gh release create "$TAG" dist/* --verify-tag --title "Jourfold ${TAG#v}" --generate-notes $flags

@@ -68,7 +68,7 @@ On Windows, open the `install.ps1` link in a browser, or save it with `irm ... -
 
 ## For maintainers
 
-`.github/workflows/release.yml` runs when a tag such as `v0.2.0` is pushed. It first checks that the tag is `v` followed by `Version` in `Directory.Build.props` and that the TravelRepo checkout matches `TravelRepoVersion`; a mismatch stops the release before anything is built. Then it builds and tests on Linux and Windows, packages x64 and ARM64 for both platforms, compiles the Windows setups, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and publishes everything as a GitHub release. Tags with a suffix, such as `v0.2.0-beta.1`, become pre-releases, which `releases/latest` skips.
+`.github/workflows/release.yml` runs when a tag such as `v0.2.0` is pushed. It first checks that the tag is `v` followed by `Version` in `Directory.Build.props` and that the TravelRepo checkout matches `TravelRepoVersion`; a mismatch stops the release before anything is built. Then it builds and tests on Linux and Windows, packages x64 and ARM64 for both platforms, compiles the Windows setups, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and publishes everything as a GitHub release. Tags with a suffix, such as `v0.2.0-beta.1`, become pre-releases, which `releases/latest` skips. A ruleset lets only organisation admins create, move or delete `v*` tags. Running the workflow by hand publishes an existing tag again; it never creates one.
 
 The workflow checks out TravelRepo from the repository named in the `TRAVELREPO_REPOSITORY` variable, like the CI workflow does.
 

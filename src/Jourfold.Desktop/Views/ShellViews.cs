@@ -253,14 +253,17 @@ public static class ViewToolbar
             {
                 var today = Ui.Button(s["Today"], null, "compact"); ToolTip.SetTip(today, s["TodayTip"]); today.Click += (_, _) => m.ShowDate(SystemClock.Instance.GetCurrentInstant().InZone(ScheduleQueries.TripZone(m.Trip!)).Date);
                 var step = Math.Max(1, m.VisibleDays);
-                var previous = Ui.IconButton("chevron-left", s["Previous"], "small"); previous.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(-step));
-                var next = Ui.IconButton("chevron-right", s["Next"], "small"); next.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(step));
+                // The double arrows page by the visible days (a week at the usual width), the single arrows by one day.
+                var previousPage = Ui.IconButton("chevrons-left", s["PreviousDays"], "small"); previousPage.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(-step));
+                var previous = Ui.IconButton("chevron-left", s["PreviousDay"], "small"); previous.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(-1));
+                var next = Ui.IconButton("chevron-right", s["NextDay"], "small"); next.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(1));
+                var nextPage = Ui.IconButton("chevrons-right", s["NextDays"], "small"); nextPage.Click += (_, _) => m.ShowDate(m.StartDate.PlusDays(step));
                 var range = Formats.DateRange(m.StartDate, m.StartDate.PlusDays(step - 1));
                 var picker = new Button { Content = Ui.H(6, Ui.Text(range).Also(t => t.FontWeight = FontWeight.SemiBold), Ui.Icon("chevron-down", 13)) }.Classed("ghost", "compact").Named(s["ChooseDate"]);
                 var calendar = new Calendar { SelectedDate = m.StartDate.ToDateTimeUnspecified(), DisplayDate = m.StartDate.ToDateTimeUnspecified() };
                 var flyout = new Flyout { Content = calendar }; picker.Flyout = flyout;
                 calendar.SelectedDatesChanged += (_, _) => { if (calendar.SelectedDate is { } d) { flyout.Hide(); m.ShowDate(LocalDate.FromDateTime(d)); } };
-                left.Children.Add(Ui.H(2, previous, picker, next)); left.Children.Add(today);
+                left.Children.Add(Ui.H(2, previousPage, previous, picker, next, nextPage)); left.Children.Add(today);
                 var zoomOut = Ui.IconButton("zoom-out", s["ZoomOut"], "small"); zoomOut.IsEnabled = m.Zoom > .5; zoomOut.Click += (_, _) => m.SetZoom(m.Zoom - .25);
                 var zoomIn = Ui.IconButton("zoom-in", s["ZoomIn"], "small"); zoomIn.IsEnabled = m.Zoom < 2; zoomIn.Click += (_, _) => m.SetZoom(m.Zoom + .25);
                 var lanes = Ui.Button(s["ByPerson"], "users", "chip"); if (m.Lanes) lanes.Classes.Add("selected"); lanes.Click += (_, _) => m.SetLanes(!m.Lanes); ToolTip.SetTip(lanes, s["ByPersonTip"]);

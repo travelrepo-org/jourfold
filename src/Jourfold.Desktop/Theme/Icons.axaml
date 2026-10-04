@@ -22,6 +22,8 @@
   <StreamGeometry x:Key="Icon.chevron-left">M 0 0 m 15 18 l -6 -6 l 6 -6</StreamGeometry>
   <StreamGeometry x:Key="Icon.chevron-right">M 0 0 m 9 18 l 6 -6 l -6 -6</StreamGeometry>
   <StreamGeometry x:Key="Icon.chevron-up">M 0 0 m 18 15 l -6 -6 l -6 6</StreamGeometry>
+  <StreamGeometry x:Key="Icon.chevrons-left">M 0 0 m 11 17 l -5 -5 l 5 -5 M 18 17 l -5 -5 l 5 -5</StreamGeometry>
+  <StreamGeometry x:Key="Icon.chevrons-right">M 0 0 m 6 17 l 5 -5 l -5 -5 M 13 17 l 5 -5 l -5 -5</StreamGeometry>
   <StreamGeometry x:Key="Icon.circle-check">M 2 12 A 10 10 0 1 0 22 12 A 10 10 0 1 0 2 12 Z M 0 0 m 16 9 l -5.5 5.5 L 8 12</StreamGeometry>
   <StreamGeometry x:Key="Icon.circle-dollar-sign">M 2 12 A 10 10 0 1 0 22 12 A 10 10 0 1 0 2 12 Z M 16 8 h -6 a 2 2 0 1 0 0 4 h 4 a 2 2 0 1 1 0 4 H 8 M 12 18 V 6</StreamGeometry>
   <StreamGeometry x:Key="Icon.circle-dot">M 11 12 A 1 1 0 1 0 13 12 A 1 1 0 1 0 11 12 Z M 2 12 A 10 10 0 1 0 22 12 A 10 10 0 1 0 2 12 Z</StreamGeometry>

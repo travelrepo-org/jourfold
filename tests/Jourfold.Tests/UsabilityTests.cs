@@ -252,6 +252,20 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TimetableArrowsMoveByOneDayOrByTheVisibleDays()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; var s = m.Strings; var step = Math.Max(1, m.VisibleDays);
+            Probe.Click(w, s["NextDay"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 15), m.StartDate);
+            Probe.Click(w, s["PreviousDay"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate);
+            Probe.Click(w, s["NextDays"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14).PlusDays(step), m.StartDate);
+            Probe.Click(w, s["PreviousDays"]); Probe.Layout(); Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddActivityUsesThePlaceTimezone()
     {
         var w = Window(); try

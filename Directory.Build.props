@@ -10,7 +10,7 @@
          and the release workflow only accepts the tag v$(Version). Print it with: python eng/version.py -->
     <Version>0.2.0</Version>
     <!-- TravelRepo package version used when ../travelrepo is not checked out beside this repository. -->
-    <TravelRepoVersion>0.2.0</TravelRepoVersion>
+    <TravelRepoVersion>0.3.0</TravelRepoVersion>
     <Authors>Jourfold contributors</Authors>
     <!-- Public source repository, shown in the About window. -->
     <RepositoryUrl>https://github.com/travelrepo-org/jourfold</RepositoryUrl>

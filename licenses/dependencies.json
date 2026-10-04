@@ -111,7 +111,11 @@
     "license": "MIT",
     "project": "https://docs.microsoft.com/dotnet/standard/data/sqlite/"
   },
-  "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.0": {
+  "Microsoft.Extensions.AI.Abstractions/10.8.3": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.10": {
     "license": "MIT",
     "project": "https://dot.net/"
   },
@@ -120,6 +124,10 @@
     "project": "https://dot.net/"
   },
   "Microsoft.Extensions.DependencyInjection/10.0.0": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
+  "Microsoft.Extensions.Logging.Abstractions/10.0.10": {
     "license": "MIT",
     "project": "https://dot.net/"
   },
@@ -138,6 +146,10 @@
   "Microsoft.TestPlatform.TestHost/17.14.1": {
     "license": "MIT",
     "project": "https://github.com/microsoft/vstest"
+  },
+  "ModelContextProtocol.Core/2.2.0": {
+    "license": "Apache-2.0",
+    "project": "https://csharp.sdk.modelcontextprotocol.io/"
   },
   "Newtonsoft.Json/13.0.3": {
     "license": "MIT",

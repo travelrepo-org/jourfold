@@ -299,6 +299,32 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AssistantDialogShowsAConfigurationForTheOpenTrip()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var shown = m.ConnectAssistantCommand.ExecuteAsync(null); Probe.Layout();
+            var sheet = Sheet(w); var box = Probe.Tagged<TextBox>(sheet, "assistant-configuration");
+            var server = JsonNode.Parse(box.Text!)!["mcpServers"]!["jourfold-ui-test"]!;
+            Assert.Equal(MainViewModel.AssistantCommand, server["command"]!.ToString());
+            Assert.Equal(["--mcp", m.Workspace!.Repository.Root], server["args"]!.AsArray().Select(a => a!.ToString()));
+            Probe.All<CheckBox>(sheet).Single().IsChecked = true; Probe.Layout();
+            Assert.Equal("--read-only", JsonNode.Parse(box.Text!)!["mcpServers"]!["jourfold-ui-test"]!["args"]![2]!.ToString());
+            Probe.Click(sheet, m.Strings["Close"]); await shown.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally { w.Close(); }
+    }
+
+    [Fact]
+    public void AssistantServerNamesAreShortAndPlain()
+    {
+        Assert.Equal("jourfold-spring-in-japan", MainViewModel.AssistantServerName("Spring in Japan"));
+        Assert.Equal("jourfold-zurich-geneve-2027", MainViewModel.AssistantServerName("Zürich & Genève 2027"));
+        Assert.Equal("jourfold-trip", MainViewModel.AssistantServerName("東京"));
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddActivityUsesThePlaceTimezone()
     {
         var w = Window(); try

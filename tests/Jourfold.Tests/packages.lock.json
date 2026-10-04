@@ -236,6 +236,11 @@
           "SQLitePCLRaw.core": "2.1.11"
         }
       },
+      "Microsoft.Extensions.AI.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.8.3",
+        "contentHash": "K0B05oApxmviWalNHPMBBcRC7erKiDATz3ENNR/jqTR9JwIwLRefgDhj2jCRwL1aca99pXUe0qyQC73/xIuZig=="
+      },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
         "resolved": "10.0.0",
@@ -246,15 +251,15 @@
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
-        "resolved": "10.0.0",
-        "contentHash": "L3AdmZ1WOK4XXT5YFPEwyt0ep6l8lGIPs7F5OOBZc77Zqeo01Of7XXICy47628sdVl0v/owxYJTe86DTgFwKCA=="
+        "resolved": "10.0.10",
+        "contentHash": "z/2xXlFw2aLGjHyEm6E0tQ+In6VfzQzTrtArbQ2c0TQE16ZbyDCMGPvaUT9I0s8rgy9sRWlU2P9waW37qV04qA=="
       },
       "Microsoft.Extensions.Logging.Abstractions": {
         "type": "Transitive",
-        "resolved": "8.0.3",
-        "contentHash": "dL0QGToTxggRLMYY4ZYX5AMwBb+byQBd/5dMiZE07Nv73o6I5Are3C7eQTh7K2+A4ct0PVISSr7TZANbiNb2yQ==",
+        "resolved": "10.0.10",
+        "contentHash": "zkFxGYUvdxAvIKTyXHrmW+Sux53D4SezD9dMyZ6hrwwzPQJNuwCRy1f5W7AvYTqacEGhWF2XderRQG1OvbV8og==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.10"
         }
       },
       "Microsoft.TestPlatform.ObjectModel": {
@@ -269,6 +274,15 @@
         "dependencies": {
           "Microsoft.TestPlatform.ObjectModel": "17.14.1",
           "Newtonsoft.Json": "13.0.3"
+        }
+      },
+      "ModelContextProtocol.Core": {
+        "type": "Transitive",
+        "resolved": "2.2.0",
+        "contentHash": "FeBfXU6T8k+jw4afg4sfxdEX2rL/e5oKOk9ROOGztu9k47+7Bz08sdaToYt2XvMY1opNbwxYQOFMj6wH9TInhA==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.8.3",
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.10"
         }
       },
       "Newtonsoft.Json": {
@@ -407,10 +421,10 @@
       "jourfold.application": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Git": "[0.1.0, )",
-          "TravelRepo.Merge": "[0.1.0, )",
-          "TravelRepo.Plugins.Abstractions": "[0.1.0, )",
-          "TravelRepo.Providers.GitHub": "[0.1.0, )"
+          "TravelRepo.Git": "[0.3.0, )",
+          "TravelRepo.Merge": "[0.3.0, )",
+          "TravelRepo.Plugins.Abstractions": "[0.3.0, )",
+          "TravelRepo.Providers.GitHub": "[0.3.0, )"
         }
       },
       "jourfold.desktop": {
@@ -420,23 +434,24 @@
           "Avalonia.Desktop": "[11.3.13, )",
           "Avalonia.Themes.Fluent": "[11.3.13, )",
           "CommunityToolkit.Mvvm": "[8.4.0, )",
-          "Jourfold.Application": "[0.1.0, )",
-          "Jourfold.Infrastructure": "[0.1.0, )",
+          "Jourfold.Application": "[0.2.0, )",
+          "Jourfold.Infrastructure": "[0.2.0, )",
           "Markdig": "[1.4.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
-          "Tmds.DBus.Protocol": "[0.21.3, )"
+          "Tmds.DBus.Protocol": "[0.21.3, )",
+          "TravelRepo.Mcp": "[0.3.0, )"
         }
       },
       "jourfold.exampleplugin": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Plugins.Abstractions": "[0.1.0, )"
+          "TravelRepo.Plugins.Abstractions": "[0.3.0, )"
         }
       },
       "jourfold.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Jourfold.Application": "[0.1.0, )",
+          "Jourfold.Application": "[0.2.0, )",
           "Microsoft.Data.Sqlite": "[10.0.9, )",
           "PDFsharp": "[6.2.4, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )"
@@ -451,46 +466,54 @@
       "travelrepo.git": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Repository": "[0.1.0, )"
+          "TravelRepo.Repository": "[0.3.0, )"
+        }
+      },
+      "travelrepo.mcp": {
+        "type": "Project",
+        "dependencies": {
+          "ModelContextProtocol.Core": "[2.2.0, )",
+          "TravelRepo.Git": "[0.3.0, )",
+          "TravelRepo.Merge": "[0.3.0, )"
         }
       },
       "travelrepo.merge": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Repository": "[0.1.0, )"
+          "TravelRepo.Repository": "[0.3.0, )"
         }
       },
       "travelrepo.plugins.abstractions": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.1.0, )"
+          "TravelRepo.Core": "[0.3.0, )"
         }
       },
       "travelrepo.providers.abstractions": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.1.0, )"
+          "TravelRepo.Core": "[0.3.0, )"
         }
       },
       "travelrepo.providers.github": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Providers.Abstractions": "[0.1.0, )",
-          "TravelRepo.Serialization": "[0.1.0, )"
+          "TravelRepo.Providers.Abstractions": "[0.3.0, )",
+          "TravelRepo.Serialization": "[0.3.0, )"
         }
       },
       "travelrepo.repository": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.1.0, )",
-          "TravelRepo.Serialization": "[0.1.0, )"
+          "TravelRepo.Core": "[0.3.0, )",
+          "TravelRepo.Serialization": "[0.3.0, )"
         }
       },
       "travelrepo.serialization": {
         "type": "Project",
         "dependencies": {
           "JsonSchema.Net": "[7.3.4, )",
-          "TravelRepo.Core": "[0.1.0, )",
+          "TravelRepo.Core": "[0.3.0, )",
           "YamlDotNet": "[16.3.0, )"
         }
       }

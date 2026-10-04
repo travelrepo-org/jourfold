@@ -113,6 +113,7 @@ public partial class MainViewModel
             Command("Share", SharingLabel, "share-2");
             Command("Export", s["Export"], "download");
             Command("AddFile", s["AddFile"], "paperclip");
+            Command("Assistant", s["ConnectAssistant"], "bot");
             Command("Undo", s["Undo"], "undo-2", "Ctrl+Z");
             Command("Redo", s["Redo"], "redo-2", "Ctrl+Shift+Z");
             Command("Library", s["AllTrips"], "layout-grid");
@@ -160,6 +161,7 @@ public partial class MainViewModel
                 case "Sample": await OpenSampleCommand.ExecuteAsync(null); break;
                 case "Settings": await SettingsCommand.ExecuteAsync(null); break;
                 case "About": await AboutCommand.ExecuteAsync(null); break;
+                case "Assistant": await ConnectAssistantCommand.ExecuteAsync(null); break;
                 case "Theme": SetPreference("Theme", Preference("Theme", "System") == "Dark" ? "Light" : "Dark"); break;
             }
             return;

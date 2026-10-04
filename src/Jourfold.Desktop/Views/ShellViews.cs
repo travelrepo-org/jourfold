@@ -123,6 +123,7 @@ public static class SidebarView
         menu.Items.Add(Item(s["SaveACopy"], "copy", () => m.SaveAsCommand.Execute(null)));
         menu.Items.Add(Item(s["Export"], "download", () => m.ExportCommand.Execute(null)));
         menu.Items.Add(Item(s["ShowInFolder"], "folder-open", () => m.Interaction.Open(m.Workspace!.Repository.Root)));
+        menu.Items.Add(Item(s["ConnectAssistant"], "bot", () => m.ConnectAssistantCommand.Execute(null)));
         return menu;
     }
 
@@ -219,6 +220,7 @@ public static class HeaderView
         Item(s["Export"], "download", () => m.ExportCommand.Execute(null));
         Item(s["SaveACopy"], "copy", () => m.SaveAsCommand.Execute(null));
         Item(s["TripDetails"], "info", () => m.Selected = m.Trip!.Manifest);
+        Item(s["ConnectAssistant"], "bot", () => m.ConnectAssistantCommand.Execute(null));
         menu.Items.Add(new Separator());
         Item(s["CloseTrip"], "log-out", w.CloseTrip);
         return menu;

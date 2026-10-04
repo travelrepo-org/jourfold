@@ -915,5 +915,15 @@
   "MapSearchServer": "Address search (Nominatim)",
   "MapServersInvalid": "Check the addresses: they must start with https://, and the map image address needs {z}, {x} and {y}.",
   "MapServersSaved": "Map servers saved",
-  "UseDefaultServers": "Use default servers"
+  "UseDefaultServers": "Use default servers",
+  "ConnectAssistant": "Connect an AI assistant",
+  "AssistantIntro": "AI assistants that support the Model Context Protocol (MCP), such as LM Studio, Claude Desktop or Cursor, can read this trip and plan it with you. Add this entry to the assistant's MCP settings. The assistant then starts Jourfold in the background as a server for this trip only.",
+  "AssistantReadOnly": "Read only: the assistant can look at the trip but not change it",
+  "AssistantConfiguration": "Configuration",
+  "AssistantChanges": "The assistant's changes are checked like your own and appear here within a few seconds. They become part of a version only when you create one.",
+  "AssistantPrivacy": "Jourfold itself sends nothing. A local assistant keeps the trip on this computer; an online assistant sends what it reads to its provider.",
+  "CopyConfiguration": "Copy configuration",
+  "SaveAgentGuide": "Save agent guide",
+  "AgentGuideHint": "Assistants without MCP can work on the trip folder directly. The agent guide explains the file format and the rules to them.",
+  "AgentGuideSaved": "Agent guide saved"
 }

@@ -13,6 +13,7 @@ A desktop travel planner for Windows and Linux, built with Avalonia on the open 
 - **Try alternatives.** Variants let you plan a cheaper or slower version, compare it day by day and merge the parts you like. Conflicts are resolved in plain language.
 - **Record versions and share.** Create a version with a suggested description of what changed. Publish privately to GitHub or any Git server; Jourfold syncs in the background and merges compatible changes automatically.
 - **Export** a day-by-day PDF, a calendar file or a printable web page.
+- **Plan with an AI assistant.** Assistants that support MCP, including local ones, can read and change a trip through Jourfold. Their changes are checked like your own and appear in the open trip within seconds.
 
 No account is needed and nothing leaves your computer unless you share a trip or turn on online maps. There are no analytics.
 

@@ -173,6 +173,11 @@ try
                 var maps = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["MapsAndPlaces"]); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Expander>().First().IsExpanded = true; await Settle(300);
                 await Capture("settings-maps"); Click(m.Strings["Close"]); await maps;
+                // The assistant configuration with neutral paths instead of this machine's program and trip folders.
+                var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
+                window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =
+                    MainViewModel.AssistantConfiguration("/home/alex/.local/share/jourfold-app/Jourfold.Desktop", "/home/alex/Documents/Jourfold/" + m.TripTitle, m.TripTitle, false);
+                await Settle(200); await Capture("ai-assistant"); Click(m.Strings["Close"]); await assistant;
             }
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); throw; }

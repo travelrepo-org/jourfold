@@ -73,7 +73,7 @@ public static class PdfExport
                 Text(e.Item.Title, F(11, true), Ink, left + 120, width - 120);
                 if (sub.Length > 0) Text(sub, F(9), Muted, left + 120, width - 120);
                 y = Math.Max(Math.Max(y, timeBottom), top + 18) + 5;
-                g.DrawLine(new XPen(Rule, 0.6), left, y, left + width, y); y += 6;
+                g!.DrawLine(new XPen(Rule, 0.6), left, y, left + width, y); y += 6;
             }
         }
         foreach (var day in it.Days) { Heading(day.Number > 0 ? string.Format(culture, labels.Day, day.Number) : "", day.Date.ToString("dddd, d MMMM", culture)); Entries(day.Entries); }

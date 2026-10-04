@@ -21,7 +21,7 @@ namespace Jourfold.Tests;
 public sealed class WorkflowTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-flow-" + Guid.NewGuid());
-    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    public void Dispose() => TestFiles.Delete(root);
     private async Task<Workspace> Create()
     {
         var path = Path.Combine(root, "trip"); var r = new TravelRepository(path); await r.InitializeAsync(Entity.CreateTrip("Tokyo journey", "en", "Asia/Tokyo")); await new GitRepository(r, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); var w = new Workspace(path, new GitCliBackend()); await w.OpenAsync(); return w;

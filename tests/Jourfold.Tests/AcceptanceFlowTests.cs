@@ -17,7 +17,7 @@ namespace Jourfold.Tests;
 public sealed class AcceptanceFlowTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-acceptance-" + Guid.NewGuid());
-    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    public void Dispose() => TestFiles.Delete(root);
     private async Task<string> Create()
     {
         var repo = new TravelRepository(Path.Combine(root, "trip")); await repo.InitializeAsync(Entity.CreateTrip("Aachen", "de", "Europe/Berlin")); await new GitRepository(repo, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); return repo.Root;
@@ -34,6 +34,8 @@ public sealed class AcceptanceFlowTests : IDisposable
         await workspace.UndoAsync(); Assert.False(workspace.State.Trip.Resources.ContainsKey("documents/gate.md")); await workspace.RedoAsync(); Assert.Contains("Gate A12", Encoding.UTF8.GetString(workspace.State.Trip.Resources["documents/gate.md"]));
         var scheduled = await workspace.PlanMaterialAsync(note.Id, new ZonedTime("2027-05-12T10:00:00", "Europe/Berlin"), Duration.FromMinutes(45));
         Assert.Equal(note.Id.ToString(), workspace.State.Trip.Find(scheduled)!.Data["content"]![0]!["entity"]!.ToString()); Assert.NotNull(workspace.State.Trip.Find(note.Id));
+        Assert.Equal("planned", workspace.State.Trip.Find(scheduled)!.Data["status"]!.ToString());
+        await workspace.UndoAsync(); Assert.Null(workspace.State.Trip.Find(scheduled));
     }
     [AvaloniaFact]
     public async Task MalformedEntityOpenOffersReviewedRestoreWithoutDroppingUnknownData()

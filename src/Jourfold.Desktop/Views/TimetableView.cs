@@ -460,8 +460,6 @@ public sealed class TimetableView : UserControl
         var source = entity.Data["time"]?["start"]?["timezone"]?.ToString() ?? zone.Id;
         var start = ZonedTime.At(startInstant, source);
         var scheduled = await vm.Workspace.PlanMaterialAsync(id, new JsonObject { ["precision"] = "exact", ["start"] = start.ToJson(), ["end"] = ZonedTime.At(startInstant + duration, source).ToJson() });
-        var result = vm.Workspace.State.Trip.Find(scheduled)!;
-        if (result.Data["status"]?.ToString() == "idea") { var planned = result.Copy(); planned.Data["status"] = "planned"; await vm.Workspace.EditAsync(planned); }
         vm.Selected = vm.Workspace.State.Trip.Find(scheduled);
     }
 

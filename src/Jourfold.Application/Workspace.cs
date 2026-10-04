@@ -72,6 +72,8 @@ public sealed class Workspace : IDisposable
         var activity = source.Type == "schedule_item" ? source.Copy() : Entity.Create("schedule_item", source.Title);
         if (source.Type != "schedule_item") activity.Data["content"] = new JsonArray(source.Type == "note" ? new JsonObject { ["type"] = "reference", ["entity"] = id.ToString() } : new JsonObject { ["type"] = source.Data["media_type"]?.ToString().StartsWith("image/", StringComparison.Ordinal) == true ? "image" : "pdf", ["document"] = id.ToString() });
         activity.Data["time"] = time?["precision"]?.ToString() == "unscheduled" ? null : time?.DeepClone();
+        // Giving an idea a time makes it part of the plan. Both changes are one edit, so one Undo reverts them.
+        if (activity.Data["time"] is not null && activity.Data["status"]?.ToString() == "idea") activity.Data["status"] = "planned";
         await EditAsync(activity, ct); return activity.Id;
     }
     public async Task<MergePlan> CompareMergeAsync(string branch, CancellationToken ct = default)

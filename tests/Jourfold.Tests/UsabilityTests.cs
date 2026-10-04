@@ -18,7 +18,7 @@ namespace Jourfold.Tests;
 public sealed class UsabilityTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-usability-" + Guid.NewGuid());
-    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    public void Dispose() => TestFiles.Delete(root);
     private static MainWindow Window()
     {
         var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Model.SetPreference("TextSize", "Normal"); w.Model.SetPreference("HighContrast", "false");

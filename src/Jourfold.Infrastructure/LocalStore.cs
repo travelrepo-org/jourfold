@@ -11,7 +11,8 @@ public sealed class LocalStore : IDisposable
     public LocalStore(string? root = null)
     {
         Root = root ?? Environment.GetEnvironmentVariable("JOURFOLD_DATA_HOME") ?? Path.Combine(TravelRepo.Repository.TravelRepository.DefaultStateRoot(), "Jourfold"); Directory.CreateDirectory(Root);
-        db = new SqliteConnection("Data Source=" + Path.Combine(Root, "local.db")); db.Open();
+        // One connection lives as long as the store. Without pooling, Dispose releases the file, so the folder can be removed.
+        db = new SqliteConnection(new SqliteConnectionStringBuilder { DataSource = Path.Combine(Root, "local.db"), Pooling = false }.ToString()); db.Open();
         Execute("CREATE TABLE IF NOT EXISTS recent(path TEXT PRIMARY KEY,title TEXT,opened TEXT,changed TEXT,state TEXT); CREATE TABLE IF NOT EXISTS settings(key TEXT PRIMARY KEY,value TEXT); CREATE VIRTUAL TABLE IF NOT EXISTS search USING fts5(trip UNINDEXED,id UNINDEXED,title,body);");
     }
     private void Execute(string sql, params (string, object?)[] values) { using var cmd = db.CreateCommand(); cmd.CommandText = sql; foreach (var (k, v) in values) cmd.Parameters.AddWithValue(k, v ?? DBNull.Value); cmd.ExecuteNonQuery(); }

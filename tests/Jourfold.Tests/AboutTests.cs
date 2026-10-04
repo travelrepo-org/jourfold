@@ -10,7 +10,7 @@ namespace Jourfold.Tests;
 public sealed class AboutTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-about-" + Guid.NewGuid());
-    public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    public void Dispose() => TestFiles.Delete(root);
 
     private string Plugin(string id, params (string Key, string Value)[] fields)
     {
@@ -45,7 +45,7 @@ public sealed class AboutTests : IDisposable
         var known = PluginCatalog.Known(store)[0];
         Assert.Equal("First", known.Manifest.DisplayName);
         Assert.Equal(Path.Combine(first, "LICENSES", "MIT.txt"), known.LicenseFile);
-        Directory.Delete(second, true);
+        TestFiles.Delete(second);
         Assert.Single(PluginCatalog.Known(store));
         PluginCatalog.Forget(store, first);
         Assert.Empty(PluginCatalog.Known(store));

@@ -20,7 +20,7 @@ Tests include application undo/redo, exclusive write ownership, external edits, 
 
 `Directory.Build.props` holds the only copy of the Jourfold version (`Version`), the TravelRepo package version it builds against (`TravelRepoVersion`) and the public `RepositoryUrl`. Assemblies, Linux packages, the Windows installer and the About window all read them from there. `python3 eng/version.py` prints the version, and `python3 eng/version.py --check-tag v1.2.3` fails unless the tag matches it and a TravelRepo checkout beside Jourfold has the expected version. The release workflow runs that check before building anything. Builds from a Git checkout add the source commit to the informational version, which the About window shows as the build.
 
-To release, change `Version`, commit, then push the tag `v<Version>`. See [installing Jourfold](install.md) for what the release workflow publishes.
+To release, set `Version` on `main`, then publish a GitHub release with the tag `v<Version>`, marked as a pre-release. The release workflow checks the tag, builds against the TravelRepo tag `v<TravelRepoVersion>` and attaches the packages; see [installing Jourfold](install.md#for-maintainers).
 
 ## Local state
 

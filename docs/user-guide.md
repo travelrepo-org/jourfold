@@ -79,7 +79,7 @@ AI assistants that support the Model Context Protocol (MCP), such as LM Studio, 
 
 The assistant's changes are checked like your own, so it cannot leave the trip in a broken state, and they appear in Jourfold within a few seconds. They are not part of a version until you create one, and the assistant only creates versions when you ask it to. Jourfold itself sends nothing; a local assistant keeps the trip on your computer, while an online assistant sends what it reads to its provider.
 
-Assistants without MCP can edit the trip folder directly. **Save agent guide** saves a description of the file format and the editing rules that you can give to such an assistant. The TravelRepo documentation describes the server and its tools in detail.
+Assistants without MCP can edit the trip folder directly. **Save agent guide** saves a description of the file format and the editing rules that you can give to such an assistant. [Connecting a local AI assistant](ai-assistants.md) walks through the setup with LM Studio.
 
 ## About Jourfold
 

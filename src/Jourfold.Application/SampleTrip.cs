@@ -185,6 +185,7 @@ public static class SampleTrip
         updated.Data["participants"] = new JsonArray(alex.Id.ToString(), sam.Id.ToString());
         updated.Data["dates"] = new JsonObject { ["start"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["end"] = start.PlusDays(7).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) };
         updated.Data["extensions"]![Extension] = new JsonObject { ["version"] = 1 };
+        updated.Data["variant"]!["title"] = "Main plan";
         edits.Insert(0, new(updated.Id, updated));
         return (edits.ToArray(), resources.ToArray());
     }

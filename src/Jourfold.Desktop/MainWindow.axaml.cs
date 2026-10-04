@@ -114,9 +114,8 @@ public partial class MainWindow : Window
         }
         Title = Model.HasTrip ? Model.TripTitle + " – Jourfold" : "Jourfold"; TitleText.Text = Title;
     }
-    private static readonly string[] HighContrastKeys = ["Bg.App", "Bg.Surface", "Bg.Raised", "Bg.Subtle", "Bg.Muted", "Bg.Sidebar", "Bg.Grid", "Line", "Line.Soft", "Line.Strong", "Text", "Text.Muted", "Text.Subtle", "Text.OnAccent", "Accent", "Accent.Hover", "Accent.Pressed", "Accent.Soft", "Accent.SoftHover", "Accent.SoftText",
-        "Kind.Activity.Bg", "Kind.Activity.Fg", "Kind.Activity.Bar", "Kind.Transport.Bg", "Kind.Transport.Fg", "Kind.Transport.Bar", "Kind.Accommodation.Bg", "Kind.Accommodation.Fg", "Kind.Accommodation.Bar", "Kind.Food.Bg", "Kind.Food.Fg", "Kind.Food.Bar",
-        "Kind.Sightseeing.Bg", "Kind.Sightseeing.Fg", "Kind.Sightseeing.Bar", "Kind.Culture.Bg", "Kind.Culture.Fg", "Kind.Culture.Bar", "Kind.Nature.Bg", "Kind.Nature.Fg", "Kind.Nature.Bar", "Kind.Other.Bg", "Kind.Other.Fg", "Kind.Other.Bar"];
+    private static readonly string[] HighContrastKeys = new[] { "Bg.App", "Bg.Surface", "Bg.Raised", "Bg.Subtle", "Bg.Muted", "Bg.Sidebar", "Bg.Grid", "Line", "Line.Soft", "Line.Strong", "Text", "Text.Muted", "Text.Subtle", "Text.OnAccent", "Accent", "Accent.Hover", "Accent.Pressed", "Accent.Soft", "Accent.SoftHover", "Accent.SoftText" }
+        .Concat(Enum.GetNames<TravelRepo.Core.ScheduleKind>().SelectMany(kind => new[] { "Kind." + kind + ".Bg", "Kind." + kind + ".Fg", "Kind." + kind + ".Bar" })).ToArray();
 
     private void UpdateScale()
     {

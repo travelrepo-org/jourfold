@@ -19,9 +19,24 @@ jobs:
       - uses: actions/checkout@v4
         with:
           path: jourfold
+      # Changes that span both repositories use the same branch name in each. Build against that TravelRepo
+      # branch when it exists, otherwise against its default branch.
+      - id: travelrepo
+        shell: bash
+        working-directory: .
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPO.git" "$BRANCH" > /dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ steps.travelrepo.outputs.ref }}
           path: travelrepo
       - uses: actions/setup-dotnet@v4
         with:

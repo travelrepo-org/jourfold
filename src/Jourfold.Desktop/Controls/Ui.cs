@@ -59,6 +59,13 @@ public static class Ui
         foreach (var c in children) if (c is not null) panel.Children.Add(c);
         return panel;
     }
+    /// <summary>A row of buttons or chips that continues on the next line when it does not fit, for example in German.</summary>
+    public static WrapPanel Flow(double spacing, params Control?[] children)
+    {
+        var panel = new WrapPanel { ItemSpacing = spacing, LineSpacing = spacing };
+        foreach (var c in children) if (c is not null) panel.Children.Add(c);
+        return panel;
+    }
     public static StackPanel H(double spacing, params Control?[] children)
     {
         var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = spacing };

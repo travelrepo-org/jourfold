@@ -319,7 +319,7 @@ public static class InspectorView
         }
         var open = Ui.Button(s["OpenFile"], "external-link", "primary"); open.Click += (_, _) => OpenDocument(m, e);
         var replace = Ui.Button(s["Replace"], "upload"); replace.Click += async (_, _) => await m.RunAsync(async () => { var file = await m.Interaction.FileAsync(); if (file is null) return; var large = new FileInfo(file).Length > 25 * 1024 * 1024; if (large && !await m.Interaction.ConfirmAsync(s["LargeFile"])) return; await m.Workspace!.ReplaceDocumentAsync(e.Id, file, media, large); });
-        var actions = Ui.H(8, open, replace);
+        var actions = Ui.Flow(8, open, replace);
         if (media.StartsWith("image/", StringComparison.Ordinal)) { var cover = Ui.Button(s["UseAsCover"], "image"); cover.Click += (_, _) => _ = m.UpdateAsync(trip.Manifest.Id, x => x.Data["cover"] = new JsonObject { ["document"] = e.Id.ToString() }); actions.Children.Add(cover); }
         body.Children.Add(actions);
         var size = path is not null && File.Exists(path) ? Formats.Bytes(new FileInfo(path).Length) : "";
@@ -360,7 +360,7 @@ public static class InspectorView
             }
         }, allowCreate: false, allowClear: false);
         var show = Ui.Button(s["ShowOnMap"], "map"); show.IsEnabled = coords is not null; show.Click += (_, _) => m.Navigate("Map");
-        Add(body, s["Location"], Ui.V(10, location, Ui.H(8, find, show), m.OnlineMaps ? null : Ui.Text(s["EnableOnlineSearchHint"], "caption")));
+        Add(body, s["Location"], Ui.V(10, location, Ui.Flow(8, find, show), m.OnlineMaps ? null : Ui.Text(s["EnableOnlineSearchHint"], "caption")));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "timezone", s["Timezone"], e.Data["timezone"]?.ToString(), FieldOptions.Timezones)));
     }
 
@@ -477,7 +477,7 @@ public static class InspectorView
         var attach = Ui.Button(s["AttachFile"], "paperclip", "compact"); attach.Click += async (_, _) => { var file = await m.Interaction.FileAsync(); if (file is not null) await m.AddFilesAsync([file], e.Id); };
         var reference = Ui.Button(s["Reference"], "arrow-up-right", "compact");
         reference.Flyout = Editors.Picker(w, null, [], false, picked => picked is null ? Task.CompletedTask : m.UpdateAsync(e.Id, x => { var content = x.Data["content"] as JsonArray ?? new JsonArray(); x.Data["content"] = content; content.Add(picked.Type == "document" ? new JsonObject { ["type"] = (picked.Data["media_type"]?.ToString() ?? "").StartsWith("image/", StringComparison.Ordinal) ? "image" : "pdf", ["document"] = picked.Id.ToString() } : new JsonObject { ["type"] = "reference", ["entity"] = picked.Id.ToString() }); }), false, false);
-        body.Children.Add(Ui.V(8, noteBox, Ui.H(6, addNote, addLink, attach, reference)));
+        body.Children.Add(Ui.V(8, noteBox, Ui.Flow(6, addNote, addLink, attach, reference)));
         body.Children.Add(Ui.Text(s["MarkdownHint"], "caption"));
     }
 

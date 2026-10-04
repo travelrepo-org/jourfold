@@ -382,6 +382,34 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task InspectorButtonsWrapInGerman()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; m.SetPreference("Language", "de"); Probe.Layout();
+            var image = Path.Combine(root, "hobbit-house-photo.png"); await File.WriteAllBytesAsync(image, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5V8AAAAASUVORK5CYII="));
+            var document = await m.Workspace!.Repository.ImportDocumentAsync(image, "image/png"); await m.Workspace.ReloadAsync();
+            var visit = Entity.Create("schedule_item", "Hobbiton"); await m.Workspace.EditAsync(visit);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            void AllButtonsFit()
+            {
+                Probe.Layout();
+                foreach (var button in Probe.All<Button>(inspector).Where(b => b.IsEffectivelyVisible && b.Bounds.Width > 0))
+                {
+                    var right = button.TranslatePoint(new Point(button.Bounds.Width, 0), inspector)!.Value.X;
+                    Assert.True(right <= inspector.Bounds.Width + 0.5, $"\"{Avalonia.Automation.AutomationProperties.GetName(button)}{button.Content as string}\" ends at {right}, the inspector is {inspector.Bounds.Width} wide");
+                }
+            }
+            var place = Entity.Create("place", "Hobbiton Movie Set"); await m.Workspace.EditAsync(place);
+            m.Selected = m.Workspace.State.Trip.Find(document.Id); AllButtonsFit();
+            m.Selected = m.Workspace.State.Trip.Find(place.Id); AllButtonsFit();
+            m.Selected = m.Workspace.State.Trip.Find(visit.Id); Probe.Layout(); Probe.Click(inspector, m.Strings["Notes"]); AllButtonsFit();
+            Probe.Click(inspector, m.Strings["Details"]);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task LongToastMessagesWrapInsideTheToast()
     {
         var w = Window(); try

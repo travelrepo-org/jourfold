@@ -156,7 +156,8 @@ public partial class MainWindow : Window
     public void RenderMain()
     {
         if (!Model.HasTrip) return;
-        if (MainContent.Content is Control old && old.Tag is string oldKey && old.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } oldScroll) scrollOffsets[oldKey] = oldScroll.Offset;
+        // The view itself may be the scroll viewer (the list) or contain it (collections, history).
+        if (MainContent.Content is Control old && old.Tag is string oldKey && (old as ScrollViewer ?? old.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { } oldScroll) scrollOffsets[oldKey] = oldScroll.Offset;
         ToolbarHost.Child = ViewToolbar.Build(this);
         InboxHost.Child = Model.InboxOpen ? InboxView.Build(this) : null;
         var key = Model.View + (Model.View == "Plan" ? ":" + Model.StartDate + ":" + Model.Zoom + ":" + Model.Lanes : "");
@@ -174,7 +175,7 @@ public partial class MainWindow : Window
         MainContent.Content = content;
         if (content is not TimetableView) Model.RevealInTimetable = null;
         if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var offset))
-            Dispatcher.UIThread.Post(() => { if (MainContent.Content == content && content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll) scroll.Offset = offset; }, DispatcherPriority.Loaded);
+            Dispatcher.UIThread.Post(() => { if (MainContent.Content == content && (content as ScrollViewer ?? content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { } scroll) scroll.Offset = offset; }, DispatcherPriority.Loaded);
     }
 
     /// <summary>Rebuild the inspector unless the user is typing in it for the same item.</summary>

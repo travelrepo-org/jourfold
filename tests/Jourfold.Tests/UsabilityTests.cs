@@ -317,6 +317,29 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task SelectingInTheListKeepsItsScrollPosition()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; Entity? last = null;
+            for (var day = 0; day < 12; day++)
+            {
+                last = Entity.Create("schedule_item", "Visit " + day); await m.Workspace!.EditAsync(last);
+                await m.Workspace.ScheduleAsync(last.Id, new ZonedTime($"2027-05-{14 + day}T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            }
+            m.View = "List"; m.Refresh(); Probe.Layout();
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(w.FindControl<ContentControl>("MainContent")!).First();
+            Scroll().Offset = new Vector(0, Scroll().Extent.Height); Probe.Layout();
+            var offset = Scroll().Offset.Y; Assert.True(offset > 200);
+            Probe.All<Button>(w.FindControl<ContentControl>("MainContent")!).First(b => Probe.All<TextBlock>(b).Any(t => t.Text == "Visit 11")).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            Assert.Equal(last!.Id, m.Selected?.Id);
+            Assert.Equal(offset, Scroll().Offset.Y, 0.5);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task LongToastMessagesWrapInsideTheToast()
     {
         var w = Window(); try

@@ -23,6 +23,16 @@ public sealed class AboutTests : IDisposable
     }
 
     [Fact]
+    public void UnexpectedErrorsAreLoggedWithVersionAndStack()
+    {
+        ErrorReporting.UseLog(root);
+        try { throw new InvalidOperationException("Quick Add broke"); }
+        catch (InvalidOperationException ex) { ErrorReporting.Handle(ex); }
+        var log = File.ReadAllText(Path.Combine(root, "logs", "errors.log"));
+        Assert.Contains("Quick Add broke", log); Assert.Contains("Jourfold " + AppVersion.Version, log); Assert.Contains(nameof(UnexpectedErrorsAreLoggedWithVersionAndStack), log);
+    }
+
+    [Fact]
     public void VersionsComeFromTheBuild()
     {
         Assert.Matches(@"^\d+\.\d+\.\d+", AppVersion.Version);

@@ -48,6 +48,32 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task QuickAddSwitchesTypesAndTogglesWithoutLosingTheTitle()
+    {
+        var w = Window(); try
+        {
+            await Open(w);
+            var task = w.Model.QuickAddCommand.ExecuteAsync(null); Probe.Layout();
+            var s = w.Model.Strings;
+            // Type first, then fields: every type and every toggle rebuilds the form and must keep what was typed.
+            foreach (var kind in new[] { "food", "transport", "accommodation", "booking", "task", "note", "place", "person", "expense", "collection", "sightseeing", "activity" })
+            {
+                Probe.Click(Sheet(w), s["quick." + kind]); Probe.Layout();
+                if (kind == "food") Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Dinner with friends";
+                Assert.Equal("Dinner with friends", Probe.Tagged<TextBox>(Sheet(w), "title").Text);
+            }
+            CheckBox Toggle(string label) => Probe.All<CheckBox>(Sheet(w)).Single(c => c.Content as string == label);
+            Toggle(s["AtATime"]).IsChecked = false; Probe.Layout(); Toggle(s["AtATime"]).IsChecked = true; Probe.Layout();
+            Toggle(s["JustAnIdea"]).IsChecked = true; Probe.Layout();
+            Assert.False(Probe.Tagged<TimePicker>(Sheet(w), "startTime").IsEnabled);
+            Probe.Click(Sheet(w), s["Add"]); await task.WaitAsync(TimeSpan.FromSeconds(5));
+            var added = w.Model.Workspace!.State.Trip.Entities.Values.Single(e => e.Title == "Dinner with friends");
+            Assert.Equal("schedule_item", added.Type); Assert.Null(added.Data["time"]);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task WizardOffersToPublishANewTripToGitHub()
     {
         var w = Window(); try

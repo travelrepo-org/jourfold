@@ -150,20 +150,23 @@ public sealed partial class Dialogs
             people.Children.Add(chip);
         }
 
+        // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
+        // survives; each one is detached from its old row before it is placed again.
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
-        var whenRow = Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)));
+        Control WhenRow() => Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)));
         var fields = Ui.V(14);
         var typeGrid = new WrapPanel { ItemSpacing = 8, LineSpacing = 8 };
         var dateLabel = Ui.Text(s["Date"], "label");
         void Layout()
         {
-            fields.Children.Clear();
+            fields.Children.Clear(); foreach (var editor in editors) Ui.Detach(editor);
             title.Watermark = s["placeholder." + kind];
             fields.Children.Add(Row(kind is "person" ? s["Name"] : s["Title"], title));
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             if (kind == "transport") { fields.Children.Add(Row(s["TransportMode"], modes)); fields.Children.Add(Ui.Columns("*,Auto,*", Row(s["From"], from), Ui.Icon("arrow-right", 16, "Text.Subtle").Margin(8, 22, 8, 0), Row(s["To"], to))); }
             if (kind is "activity" or "food" or "sightseeing") fields.Children.Add(Row(s["Where"], place));
-            if (scheduled) { fields.Children.Add(whenRow); time.IsEnabled = length.IsEnabled = hasTime.IsChecked == true && unscheduled.IsChecked != true; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true; }
+            if (scheduled) { fields.Children.Add(WhenRow()); time.IsEnabled = length.IsEnabled = hasTime.IsChecked == true && unscheduled.IsChecked != true; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true; }
             if (kind == "accommodation") { fields.Children.Add(Row(s["Place"], place)); fields.Children.Add(Ui.Columns("*,*", Row(s["CheckInDate"], date), Row(s["Nights"], nights).Margin(10, 0, 0, 0))); }
             if (kind is "booking") { fields.Children.Add(Row(s["Reference"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
             if (kind is "expense" or "budget") fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0))));

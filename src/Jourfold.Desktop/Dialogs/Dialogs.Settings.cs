@@ -3,6 +3,8 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
 
 namespace Jourfold.Desktop;
 
@@ -15,6 +17,8 @@ public sealed partial class Dialogs
         var nav = Ui.V(2); nav.Width = 200; var page = Ui.V(4);
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), MinHeight = 480 };
         grid.Children.Add(nav); grid.Children.Add(new ScrollViewer { Content = page.Margin(28, 0, 6, 0), MaxHeight = 560 }.Col(1));
+        // GitHub is checked once per opening of Settings; the page redraws when the answer arrives.
+        var gitHubChecked = false; var avatarRequested = false; Bitmap? avatar = null;
         var pages = new[] { ("General", "sliders-horizontal"), ("Appearance", "palette"), ("LocalIdentity", "user"), ("MapsAndPlaces", "map"), ("Providers", "cloud"), ("Plugins", "plug"), ("Advanced", "wrench") };
         void Render()
         {
@@ -36,6 +40,41 @@ public sealed partial class Dialogs
             Control Segments(string key, string fallback, params (string Value, string Icon)[] values) => ViewToolbar.Segmented(values.Select(v => (v.Value, s[v.Value], (string?)v.Icon)), model.Preference(key, fallback), v => { model.SetPreference(key, v); Render(); });
             ToggleSwitch Toggle(bool value, Action<bool> changed, string label) { var t = new ToggleSwitch { IsChecked = value, OnContent = null, OffContent = null }; AutomationProperties.SetName(t, label); t.IsCheckedChanged += (_, _) => changed(t.IsChecked == true); return t; }
             Button Run(string key, string icon, bool primary = false, string? label = null) { var b = Ui.Button(label ?? s[key], icon, primary ? "primary" : ""); b.Click += async (_, _) => { b.IsEnabled = false; try { await model.SettingsActionAsync(key); } finally { b.IsEnabled = true; Render(); } }; return b; }
+            void RenderLater() => Dispatcher.UIThread.Post(() => { if (settingsPage == "Providers") Render(); });
+            Control GitHubCard()
+            {
+                Control Title(Control? badge) => Ui.H(10, Ui.Text("GitHub", "h3"), badge);
+                if (!gitHubChecked)
+                {
+                    gitHubChecked = true;
+                    _ = model.RefreshGitHubAccountAsync().ContinueWith(_ => RenderLater(), TaskScheduler.Default);
+                    return Ui.Card(Ui.Columns("Auto,*", Ui.Tile("cloud", "Transport", 44), Ui.V(4, Title(null), Ui.Text(s["Checking"], "muted")).Margin(14, 0, 0, 0)), 16);
+                }
+                if (!model.GitHubConnected)
+                {
+                    var connect = Run("ConnectGitHub", "cloud", true).Also(b => b.VerticalAlignment = VerticalAlignment.Center);
+                    return Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Tile("cloud", "Transport", 44), Ui.V(4, Title(null), Ui.Text(s["GitHubAccountHint"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap)).Margin(14, 0, 14, 0), connect), 16);
+                }
+                var account = model.GitHubAccount; var login = model.GitHubLogin;
+                if (!avatarRequested && account?.AvatarUrl is not null)
+                {
+                    avatarRequested = true;
+                    _ = model.GitHubAvatarAsync().ContinueWith(t =>
+                    {
+                        if (t.Result is not { } bytes) return;
+                        Dispatcher.UIThread.Post(() => { try { avatar = new Bitmap(new MemoryStream(bytes)); } catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException) { return; } RenderLater(); });
+                    }, TaskScheduler.Default);
+                }
+                var badge = Ui.Pill(s["Connected"], "circle-check", "Success.Soft", "Success");
+                var who = Ui.Text(login is null ? s["GitHubSignedIn"] : string.Format(s["GitHubSignedInAs"], login), "strong");
+                var name = account?.Name is { } full ? Ui.Text(full, "muted") : null;
+                var session = model.GitHubSessionOnly ? Ui.Text(s["SessionOnly"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null;
+                var profile = account?.ProfileUrl is { } url ? Ui.Button(s["GitHubProfile"], "external-link", "ghost").Also(b => b.Click += (_, _) => Open(url.AbsoluteUri)) : null;
+                var disconnect = Ui.Button(s["Disconnect"], "log-out", "ghost");
+                disconnect.Click += async (_, _) => { disconnect.IsEnabled = false; await model.DisconnectGitHubCommand.ExecuteAsync(null); avatar = null; avatarRequested = false; Render(); };
+                var actions = Ui.H(4, profile, disconnect).Also(h => h.VerticalAlignment = VerticalAlignment.Center);
+                return Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Avatar(account?.Name ?? login ?? "GitHub", 44, avatar), Ui.V(3, Title(badge), who, name, session).Margin(14, 0, 14, 0), actions), 16);
+            }
             switch (settingsPage)
             {
                 case "General":
@@ -65,8 +104,7 @@ public sealed partial class Dialogs
                     break;
                 case "Providers":
                     page.Children.Add(Ui.Text(s["ProvidersHint"], "muted").Margin(0, 0, 0, 8));
-                    _ = model.HasGitHubTokenAsync().ContinueWith(_ => { }, TaskScheduler.Default);
-                    Row("GitHub", model.GitHubConnected ? s["GitHubConnectedHint"] : s["GitHubNotConnected"], Run("ConnectGitHub", "cloud", !model.GitHubConnected));
+                    page.Children.Add(GitHubCard().Margin(0, 4, 0, 8));
                     Row(s["DiscoverGitHub"], s["DiscoverGitHubHint"], Run("DiscoverGitHub", "search"));
                     if (model.HasTrip) { Row(s["AddRemote"], s["UseOwnGitHint"], Run("AddRemote", "plus")); Row(s["PreferredRemote"], s["PreferredRemoteHint"], Run("PreferredRemote", "cloud")); }
                     break;

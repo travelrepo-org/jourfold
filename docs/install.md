@@ -71,10 +71,10 @@ On Windows, open the `install.ps1` link in a browser, or save it with `irm ... -
 Releases are made by hand in GitHub, and publishing one starts `.github/workflows/release.yml`:
 
 1. Make sure `Version` in `Directory.Build.props` on `main` is the version you want, and that the TravelRepo release `v<TravelRepoVersion>` is published.
-2. In GitHub, draft a new release with the tag `v<Version>` (for example `v0.2.0`) on `main`, write the notes and publish it.
+2. In GitHub, draft a new release with the tag `v<Version>` (for example `v0.2.0`) on `main`, write the notes, tick **Set as a pre-release** and publish it.
 3. The workflow checks that the tag matches `Version` and that the TravelRepo tag exists, then builds Jourfold against exactly that TravelRepo tag. It tests, packages x64 and ARM64 for Linux and Windows, compiles the Windows setups, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and attaches everything to the release.
 
-While it runs, the previous release stays "latest", so the one-line installers keep working; the new release becomes latest once its files are attached. If a check or build fails, the workflow turns the release back into a draft and the run log says why. Fix the problem and publish the draft again. Pre-releases (for example `v0.2.0-beta.1`, with the same `Version` in `Directory.Build.props`) are built the same way, but `releases/latest` skips them, so install them with `--version`. "Run workflow" rebuilds the files of an already published release.
+Because it starts as a pre-release, the one-line installers keep using the previous release until the files are attached. Then the workflow turns it into a full release and marks it as latest. Publishing directly as a full release also works; the workflow then keeps the previous release as latest while it builds. If a check or build fails, the workflow turns the release back into a draft and the run log says why. Fix the problem and publish the draft again. Tags with a suffix (for example `v0.2.0-beta.1`, with the same `Version` in `Directory.Build.props`) stay pre-releases. `releases/latest` skips them, so install them with `--version`. "Run workflow" rebuilds the files of an already published release.
 
 A ruleset lets only organisation admins create, move or delete `v*` tags. The workflow checks out TravelRepo from the repository named in the `TRAVELREPO_REPOSITORY` variable.
 

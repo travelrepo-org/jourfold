@@ -5,8 +5,11 @@ name: Release
 # for the tagged commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
-# While the packages are built, the previous release stays "latest", so the installers never see a release
-# without files. If anything fails, the release goes back to draft; fix the problem and publish it again.
+# Publish the release as a pre-release: the installers only use the latest full release, so they never see it
+# before its files are attached. Afterwards, a tag without a suffix (v1.2.3) becomes a full, latest release; tags
+# with a suffix (v1.2.3-beta.1) stay pre-releases. A release published as a full release also works: the previous
+# release is kept as latest while the files are built. If anything fails, the release goes back to draft; fix the
+# problem and publish it again.
 #
 # ARM64 packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
 # repository variables LINUX_ARM64_RUNNER (for example ubuntu-24.04-arm) and WINDOWS_ARM64_RUNNER (windows-11-arm).
@@ -59,6 +62,7 @@ jobs:
         run: python3 eng/version.py --check-tag "$TAG" --github
       - id: latest
         name: Keep the previous release as latest until the packages are attached
+        if: github.event.release.prerelease != true
         run: |
           latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2> /dev/null || true)
           if [ "$latest" = "$TAG" ]; then
@@ -154,6 +158,11 @@ jobs:
           cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - name: Attach packages to the release
         run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
+      - name: Turn the pre-release into a full release
+        # Publish as a pre-release; once everything is attached, a tag without a suffix (v1.2.3) becomes a full,
+        # latest release. Tags with a suffix (v1.2.3-beta.1) stay pre-releases.
+        if: github.event_name == 'release' && github.event.release.prerelease && !contains(env.TAG, '-')
+        run: gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
       - name: Make the release latest again
         if: needs.version.outputs.latest == 'true'
         run: gh release edit "$TAG" --latest --repo "$GITHUB_REPOSITORY"

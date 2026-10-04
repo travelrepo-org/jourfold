@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
@@ -18,7 +19,11 @@ public partial class MainWindow : Window
     public MainViewModel Model { get; }
     public Dialogs Dialogs { get; }
     private readonly DispatcherTimer poll;
-    private readonly Dictionary<string, Vector> scrollOffsets = new();
+    /// <summary>Where a view was scrolled: the offset and, for lists, the entry used as anchor with its distance from the top.</summary>
+    private sealed record ScrollPlace(Vector Offset, Guid? Anchor, double AnchorTop);
+    private readonly Dictionary<string, ScrollPlace> scrollOffsets = new();
+    // A rebuilt view whose scroll position is not restored yet; rebuilding it again passes the place on.
+    private (Control View, ScrollPlace Place)? pendingRestore;
     private Guid? inspectorFor;
     private bool renderQueued;
 
@@ -155,7 +160,8 @@ public partial class MainWindow : Window
     public void RenderMain()
     {
         if (!Model.HasTrip) return;
-        if (MainContent.Content is Control old && old.Tag is string oldKey && old.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } oldScroll) scrollOffsets[oldKey] = oldScroll.Offset;
+        // The view itself may be the scroll viewer (the list) or contain it (collections, history).
+        if (MainContent.Content is Control old && old.Tag is string oldKey && (old as ScrollViewer ?? old.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { } oldScroll) scrollOffsets[oldKey] = pendingRestore is { } pending && pending.View == old ? pending.Place : PlaceOf(oldScroll, anchored: old is not TimetableView, Model.Selected?.Id);
         ToolbarHost.Child = ViewToolbar.Build(this);
         InboxHost.Child = Model.InboxOpen ? InboxView.Build(this) : null;
         var key = Model.View + (Model.View == "Plan" ? ":" + Model.StartDate + ":" + Model.Zoom + ":" + Model.Lanes : "");
@@ -169,11 +175,45 @@ public partial class MainWindow : Window
             _ => CollectionViews.Build(this)
         };
         content.Tag = key;
-        if (content is TimetableView timetable && scrollOffsets.TryGetValue(key, out var kept)) { timetable.InitialOffset = kept.Y; scrollOffsets.Remove(key); }
+        if (content is TimetableView timetable && scrollOffsets.TryGetValue(key, out var kept)) { timetable.InitialOffset = kept.Offset.Y; scrollOffsets.Remove(key); }
         MainContent.Content = content;
         if (content is not TimetableView) Model.RevealInTimetable = null;
-        if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var offset))
-            Dispatcher.UIThread.Post(() => { if (MainContent.Content == content && content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll) scroll.Offset = offset; }, DispatcherPriority.Loaded);
+        pendingRestore = null;
+        if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var place))
+        {
+            pendingRestore = (content, place);
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (MainContent.Content != content) return;
+                pendingRestore = null;
+                if ((content as ScrollViewer ?? content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { } scroll) Restore(scroll, place);
+            }, DispatcherPriority.Loaded);
+        }
+    }
+
+    /// <summary>
+    /// Remembers the scroll position together with an anchor entry: the selected entry when it is in view, otherwise
+    /// the first entry at the top. Rows carry their entity id as Tag.
+    /// </summary>
+    private static ScrollPlace PlaceOf(ScrollViewer scroll, bool anchored, Guid? selected)
+    {
+        if (!anchored) return new(scroll.Offset, null, 0);
+        var rows = scroll.GetVisualDescendants().OfType<Button>().Where(b => b.Tag is Guid && b.IsEffectivelyVisible)
+            .Select(b => (Id: (Guid)b.Tag!, Top: b.TranslatePoint(default, scroll)?.Y ?? double.NaN)).Where(r => r.Top >= 0 && r.Top < scroll.Viewport.Height).ToArray();
+        var anchor = rows.Where(r => r.Id == selected).Concat(rows.OrderBy(r => r.Top)).FirstOrDefault();
+        return rows.Length == 0 ? new(scroll.Offset, null, 0) : new(scroll.Offset, anchor.Id, anchor.Top);
+    }
+
+    /// <summary>
+    /// Scrolls a rebuilt view so its anchor entry is where it was, even when entries above it were added or removed
+    /// (for example by another program). Without the anchor, the previous offset is kept.
+    /// </summary>
+    private static void Restore(ScrollViewer scroll, ScrollPlace place)
+    {
+        var target = place.Offset;
+        if (place.Anchor is { } id && scroll.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.Tag is Guid g && g == id) is { } row && row.TranslatePoint(default, scroll) is { } now)
+            target = new Vector(place.Offset.X, scroll.Offset.Y + now.Y - place.AnchorTop);
+        scroll.Offset = target;
     }
 
     /// <summary>Rebuild the inspector unless the user is typing in it for the same item.</summary>
@@ -193,16 +233,16 @@ public partial class MainWindow : Window
 
     public void ShowToast(string message, string? action, Func<Task>? onAction)
     {
-        var text = Ui.Text(message).Res(TextBlock.ForegroundProperty, "Text");
-        var row = Ui.H(14, Ui.Icon("circle-check", 16, "Accent"), text);
-        Border? toast = null;
+        // A grid rather than a horizontal stack, so a long message wraps inside the toast instead of running past it.
+        var text = Ui.Text(message).Res(TextBlock.ForegroundProperty, "Text").Also(t => { t.TextWrapping = TextWrapping.Wrap; t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(14, 0, 8, 0); });
+        var icon = Ui.Icon("circle-check", 16, "Accent").Also(i => i.VerticalAlignment = VerticalAlignment.Center);
+        Border? toast = null; Button? button = null;
         if (action is not null && onAction is not null)
         {
-            var button = Ui.Button(action, null, "link"); button.Click += async (_, _) => { if (toast is not null) ToastLayer.Children.Remove(toast); await onAction(); };
-            row.Children.Add(button);
+            button = Ui.Button(action, null, "link"); button.VerticalAlignment = VerticalAlignment.Center; button.Click += async (_, _) => { if (toast is not null) ToastLayer.Children.Remove(toast); await onAction(); };
         }
-        var close = Ui.IconButton("x", Model.Strings["Close"], "small"); row.Children.Add(close);
-        toast = new Border { Child = row, Padding = new Thickness(16, 8, 8, 8), MaxWidth = 560 }.Classed("raised");
+        var close = Ui.IconButton("x", Model.Strings["Close"], "small"); close.VerticalAlignment = VerticalAlignment.Center;
+        toast = new Border { Child = Ui.Columns("Auto,*,Auto,Auto", icon, text, button, close), Padding = new Thickness(16, 8, 8, 8), MaxWidth = 560 }.Classed("raised");
         Avalonia.Automation.AutomationProperties.SetLiveSetting(toast, Avalonia.Automation.AutomationLiveSetting.Polite);
         close.Click += (_, _) => ToastLayer.Children.Remove(toast);
         ToastLayer.Children.Add(toast);

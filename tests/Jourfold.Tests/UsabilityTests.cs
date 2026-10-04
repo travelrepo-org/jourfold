@@ -316,6 +316,116 @@ public sealed class UsabilityTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task SelectingInTheListKeepsItsScrollPosition()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; Entity? last = null;
+            for (var day = 0; day < 12; day++)
+            {
+                last = Entity.Create("schedule_item", "Visit " + day); await m.Workspace!.EditAsync(last);
+                await m.Workspace.ScheduleAsync(last.Id, new ZonedTime($"2027-05-{14 + day}T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            }
+            m.View = "List"; m.Refresh(); Probe.Layout();
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(w.FindControl<ContentControl>("MainContent")!).First();
+            Scroll().Offset = new Vector(0, Scroll().Extent.Height); Probe.Layout();
+            var offset = Scroll().Offset.Y; Assert.True(offset > 200);
+            Probe.All<Button>(w.FindControl<ContentControl>("MainContent")!).First(b => Probe.All<TextBlock>(b).Any(t => t.Text == "Visit 11")).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            Assert.Equal(last!.Id, m.Selected?.Id);
+            Assert.Equal(offset, Scroll().Offset.Y, 0.5);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ExternalChangesKeepTheListAtTheSameEntries()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            for (var day = 0; day < 12; day++)
+            {
+                var visit = Entity.Create("schedule_item", "Visit " + day); await m.Workspace!.EditAsync(visit);
+                await m.Workspace.ScheduleAsync(visit.Id, new ZonedTime($"2027-05-{14 + day}T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            }
+            m.View = "List"; m.Refresh(); Probe.Layout();
+            var content = w.FindControl<ContentControl>("MainContent")!;
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(content).First();
+            double Top(string title) { var row = Probe.All<Button>(content).First(b => Probe.All<TextBlock>(b).Any(t => t.Text == title)); return row.TranslatePoint(default, Scroll())!.Value.Y; }
+            async Task External(params string[] titles)
+            {
+                // Another program (an assistant, a sync) adds items on earlier days, above the visible part of the list.
+                var repo = m.Workspace!.Repository; var state = await repo.ReadAsync(); var edits = new List<EntityEdit>();
+                foreach (var (title, i) in titles.Select((t, i) => (t, i)))
+                {
+                    var e = Entity.Create("schedule_item", title); e.Data["status"] = "planned";
+                    e.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime($"2027-05-{10 + i:00}T09:00:00", "Europe/Berlin").ToJson() };
+                    edits.Add(new(e.Id, e));
+                }
+                await repo.ApplyAsync(state, edits); await m.PollAsync(); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            }
+
+            Scroll().Offset = new Vector(0, Scroll().Offset.Y + Top("Visit 6") - 40); Probe.Layout();
+            var before = Top("Visit 6"); Assert.True(Scroll().Offset.Y > 100); Assert.InRange(before, 0, Scroll().Viewport.Height - 60);
+            await External("Early 1", "Early 2");
+            Assert.Equal(before, Top("Visit 6"), 1.0);
+
+            // A visible selection is the anchor: it stays where it was even when rows above it change.
+            m.Selected = m.Workspace!.State.Trip.Entities.Values.First(e => e.Title == "Visit 8"); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            var selected = Top("Visit 8");
+            await External("Early 3", "Early 4");
+            Assert.Equal(selected, Top("Visit 8"), 1.0);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task InspectorButtonsWrapInGerman()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model; m.SetPreference("Language", "de"); Probe.Layout();
+            var image = Path.Combine(root, "hobbit-house-photo.png"); await File.WriteAllBytesAsync(image, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5V8AAAAASUVORK5CYII="));
+            var document = await m.Workspace!.Repository.ImportDocumentAsync(image, "image/png"); await m.Workspace.ReloadAsync();
+            var visit = Entity.Create("schedule_item", "Hobbiton"); await m.Workspace.EditAsync(visit);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            void AllButtonsFit()
+            {
+                Probe.Layout();
+                foreach (var button in Probe.All<Button>(inspector).Where(b => b.IsEffectivelyVisible && b.Bounds.Width > 0))
+                {
+                    var right = button.TranslatePoint(new Point(button.Bounds.Width, 0), inspector)!.Value.X;
+                    Assert.True(right <= inspector.Bounds.Width + 0.5, $"\"{Avalonia.Automation.AutomationProperties.GetName(button)}{button.Content as string}\" ends at {right}, the inspector is {inspector.Bounds.Width} wide");
+                }
+            }
+            var place = Entity.Create("place", "Hobbiton Movie Set"); await m.Workspace.EditAsync(place);
+            m.Selected = m.Workspace.State.Trip.Find(document.Id); AllButtonsFit();
+            m.Selected = m.Workspace.State.Trip.Find(place.Id); AllButtonsFit();
+            m.Selected = m.Workspace.State.Trip.Find(visit.Id); Probe.Layout(); Probe.Click(inspector, m.Strings["Notes"]); AllButtonsFit();
+            Probe.Click(inspector, m.Strings["Details"]);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task LongToastMessagesWrapInsideTheToast()
+    {
+        var w = Window(); try
+        {
+            await Open(w); w.Model.SetPreference("Language", "de"); Probe.Layout();
+            w.ShowToast(w.Model.Strings["External"], null, null); Probe.Layout();
+            var toast = Probe.Named<StackPanel>(w, "ToastLayer").Children.OfType<Border>().Last();
+            var text = Probe.All<TextBlock>(toast).Single(t => t.Text == w.Model.Strings["External"]);
+            Assert.True(toast.Bounds.Width <= 560);
+            var right = text.TranslatePoint(new Point(text.Bounds.Width, 0), toast)!.Value.X;
+            Assert.True(right <= toast.Bounds.Width, $"text ends at {right}, toast is {toast.Bounds.Width} wide");
+            Assert.True(text.Bounds.Height > 24, "the message wraps onto more than one line");
+        }
+        finally { w.Close(); }
+    }
+
     [Fact]
     public void AssistantServerNamesAreShortAndPlain()
     {

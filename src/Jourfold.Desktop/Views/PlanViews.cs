@@ -75,7 +75,7 @@ public static class AgendaView
             Ui.V(1, Ui.Line(item.Title, "title"), where is null ? null : Ui.Line(where, "caption")),
             people.Length > 0 ? Ui.AvatarStack(people, 24).Margin(10, 0) : null,
             Ui.Pill(s[status], statusIcon, bg, fg));
-        var button = new Button { Content = grid }.Classed("row").Named(item.Title);
+        var button = new Button { Content = grid, Tag = item.Id }.Classed("row").Named(item.Title);
         if (m.Selected?.Id == item.Id) button.Classes.Add("selected");
         button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(item.Id);
         return button;

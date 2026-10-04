@@ -39,7 +39,7 @@ public static class CollectionViews
     }
     private static Button Row(MainWindow w, Entity e, Control content)
     {
-        var button = new Button { Content = content }.Classed("row").Named(e.Title);
+        var button = new Button { Content = content, Tag = e.Id }.Classed("row").Named(e.Title);
         if (w.Model.Selected?.Id == e.Id) button.Classes.Add("selected");
         button.Click += (_, _) => w.Model.Selected = w.Model.Workspace?.State.Trip.Find(e.Id);
         var menu = new ContextMenu(); var delete = new MenuItem { Header = w.Model.Strings["Delete"], Icon = Ui.Icon("trash-2", 15) }; delete.Click += (_, _) => _ = w.Model.DeleteAsync(e.Id); menu.Items.Add(delete);

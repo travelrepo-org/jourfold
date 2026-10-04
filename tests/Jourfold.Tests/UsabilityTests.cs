@@ -340,6 +340,48 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ExternalChangesKeepTheListAtTheSameEntries()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            for (var day = 0; day < 12; day++)
+            {
+                var visit = Entity.Create("schedule_item", "Visit " + day); await m.Workspace!.EditAsync(visit);
+                await m.Workspace.ScheduleAsync(visit.Id, new ZonedTime($"2027-05-{14 + day}T10:00:00", "Europe/Berlin"), Duration.FromHours(1));
+            }
+            m.View = "List"; m.Refresh(); Probe.Layout();
+            var content = w.FindControl<ContentControl>("MainContent")!;
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(content).First();
+            double Top(string title) { var row = Probe.All<Button>(content).First(b => Probe.All<TextBlock>(b).Any(t => t.Text == title)); return row.TranslatePoint(default, Scroll())!.Value.Y; }
+            async Task External(params string[] titles)
+            {
+                // Another program (an assistant, a sync) adds items on earlier days, above the visible part of the list.
+                var repo = m.Workspace!.Repository; var state = await repo.ReadAsync(); var edits = new List<EntityEdit>();
+                foreach (var (title, i) in titles.Select((t, i) => (t, i)))
+                {
+                    var e = Entity.Create("schedule_item", title); e.Data["status"] = "planned";
+                    e.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime($"2027-05-{10 + i:00}T09:00:00", "Europe/Berlin").ToJson() };
+                    edits.Add(new(e.Id, e));
+                }
+                await repo.ApplyAsync(state, edits); await m.PollAsync(); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            }
+
+            Scroll().Offset = new Vector(0, Scroll().Offset.Y + Top("Visit 6") - 40); Probe.Layout();
+            var before = Top("Visit 6"); Assert.True(Scroll().Offset.Y > 100); Assert.InRange(before, 0, Scroll().Viewport.Height - 60);
+            await External("Early 1", "Early 2");
+            Assert.Equal(before, Top("Visit 6"), 1.0);
+
+            // A visible selection is the anchor: it stays where it was even when rows above it change.
+            m.Selected = m.Workspace!.State.Trip.Entities.Values.First(e => e.Title == "Visit 8"); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            var selected = Top("Visit 8");
+            await External("Early 3", "Early 4");
+            Assert.Equal(selected, Top("Visit 8"), 1.0);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task LongToastMessagesWrapInsideTheToast()
     {
         var w = Window(); try

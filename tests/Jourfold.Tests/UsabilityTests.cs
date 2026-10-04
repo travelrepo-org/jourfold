@@ -316,6 +316,23 @@ public sealed class UsabilityTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task LongToastMessagesWrapInsideTheToast()
+    {
+        var w = Window(); try
+        {
+            await Open(w); w.Model.SetPreference("Language", "de"); Probe.Layout();
+            w.ShowToast(w.Model.Strings["External"], null, null); Probe.Layout();
+            var toast = Probe.Named<StackPanel>(w, "ToastLayer").Children.OfType<Border>().Last();
+            var text = Probe.All<TextBlock>(toast).Single(t => t.Text == w.Model.Strings["External"]);
+            Assert.True(toast.Bounds.Width <= 560);
+            var right = text.TranslatePoint(new Point(text.Bounds.Width, 0), toast)!.Value.X;
+            Assert.True(right <= toast.Bounds.Width, $"text ends at {right}, toast is {toast.Bounds.Width} wide");
+            Assert.True(text.Bounds.Height > 24, "the message wraps onto more than one line");
+        }
+        finally { w.Close(); }
+    }
+
     [Fact]
     public void AssistantServerNamesAreShortAndPlain()
     {

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.Styling;
@@ -193,16 +194,16 @@ public partial class MainWindow : Window
 
     public void ShowToast(string message, string? action, Func<Task>? onAction)
     {
-        var text = Ui.Text(message).Res(TextBlock.ForegroundProperty, "Text");
-        var row = Ui.H(14, Ui.Icon("circle-check", 16, "Accent"), text);
-        Border? toast = null;
+        // A grid rather than a horizontal stack, so a long message wraps inside the toast instead of running past it.
+        var text = Ui.Text(message).Res(TextBlock.ForegroundProperty, "Text").Also(t => { t.TextWrapping = TextWrapping.Wrap; t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(14, 0, 8, 0); });
+        var icon = Ui.Icon("circle-check", 16, "Accent").Also(i => i.VerticalAlignment = VerticalAlignment.Center);
+        Border? toast = null; Button? button = null;
         if (action is not null && onAction is not null)
         {
-            var button = Ui.Button(action, null, "link"); button.Click += async (_, _) => { if (toast is not null) ToastLayer.Children.Remove(toast); await onAction(); };
-            row.Children.Add(button);
+            button = Ui.Button(action, null, "link"); button.VerticalAlignment = VerticalAlignment.Center; button.Click += async (_, _) => { if (toast is not null) ToastLayer.Children.Remove(toast); await onAction(); };
         }
-        var close = Ui.IconButton("x", Model.Strings["Close"], "small"); row.Children.Add(close);
-        toast = new Border { Child = row, Padding = new Thickness(16, 8, 8, 8), MaxWidth = 560 }.Classed("raised");
+        var close = Ui.IconButton("x", Model.Strings["Close"], "small"); close.VerticalAlignment = VerticalAlignment.Center;
+        toast = new Border { Child = Ui.Columns("Auto,*,Auto,Auto", icon, text, button, close), Padding = new Thickness(16, 8, 8, 8), MaxWidth = 560 }.Classed("raised");
         Avalonia.Automation.AutomationProperties.SetLiveSetting(toast, Avalonia.Automation.AutomationLiveSetting.Polite);
         close.Click += (_, _) => ToastLayer.Children.Remove(toast);
         ToastLayer.Children.Add(toast);

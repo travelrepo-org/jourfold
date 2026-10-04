@@ -36,7 +36,7 @@
   "Saved": "Lokal gespeichert",
   "Changed": "Lokale Änderungen",
   "Error": "Aktion erforderlich",
-  "External": "Diese Reise wurde außerhalb von Jourfold geändert. Der Rückgängig-Verlauf wurde gelöscht, um Ihre Änderungen zu schützen.",
+  "External": "Die Reise wurde außerhalb von Jourfold geändert und neu geladen. Frühere Schritte lassen sich nicht mehr rückgängig machen.",
   "Delete": "Löschen",
   "Details": "Details",
   "AddFile": "Datei hinzufügen",

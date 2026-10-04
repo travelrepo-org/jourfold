@@ -12,6 +12,12 @@ public partial class MainViewModel
     public TimeSpan MergeGracePeriod { get; init; } = TimeSpan.FromSeconds(10);
     private CancellationTokenSource? mergeCancellation;
     private int syncTicks;
+    private DateTime lastExternalNotice = DateTime.MinValue;
+    /// <summary>
+    /// Shortest time between two notices about changes made outside Jourfold. An assistant working over MCP changes
+    /// the trip every few seconds; one notice per minute is enough to say what is going on.
+    /// </summary>
+    public static readonly TimeSpan ExternalNoticeInterval = TimeSpan.FromMinutes(1);
 
     public async Task<IReadOnlyDictionary<string, string>> RemotesAsync() => Workspace is null ? new Dictionary<string, string>() : await Workspace.Git.RemotesAsync();
 
@@ -94,7 +100,12 @@ public partial class MainViewModel
         if (Workspace is null) return;
         try
         {
-            if (await Workspace.ReloadAsync()) { Refresh(); Status = Strings["External"]; Interaction.Toast(Strings["External"]); await UpdateLocalStateAsync(); }
+            if (await Workspace.ReloadAsync())
+            {
+                Refresh(); Status = Strings["External"];
+                if (DateTime.UtcNow - lastExternalNotice >= ExternalNoticeInterval) { lastExternalNotice = DateTime.UtcNow; Interaction.Toast(Strings["External"]); }
+                await UpdateLocalStateAsync();
+            }
             if (++syncTicks >= 20)
             {
                 syncTicks = 0;

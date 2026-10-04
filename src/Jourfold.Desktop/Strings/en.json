@@ -36,7 +36,7 @@
   "Saved": "Saved locally",
   "Changed": "Local changes",
   "Error": "Needs attention",
-  "External": "This trip changed outside Jourfold. Undo history was cleared to protect your changes.",
+  "External": "This trip was changed outside Jourfold and has been reloaded. Earlier steps can no longer be undone.",
   "Delete": "Delete",
   "Details": "Details",
   "AddFile": "Add file",

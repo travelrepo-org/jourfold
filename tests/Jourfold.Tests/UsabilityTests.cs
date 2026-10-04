@@ -266,6 +266,39 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task NewTimeKeepsTheTimetableInPlaceWhileTheItemStaysVisible()
+    {
+        var w = Window(); try
+        {
+            await Open(w); var m = w.Model;
+            var visit = Entity.Create("schedule_item", "Cathedral"); await m.Workspace!.EditAsync(visit);
+            async Task MoveTo(string local)
+            {
+                await m.Workspace!.ScheduleAsync(visit.Id, new ZonedTime(local, "Europe/Berlin"), Duration.FromHours(1));
+                m.KeepInView(visit.Id); m.Refresh(); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            }
+            ScrollViewer Scroll() => Probe.All<ScrollViewer>(w.FindControl<ContentControl>("MainContent")!).First();
+            await MoveTo("2027-05-15T10:00:00");
+            var offset = Scroll().Offset.Y; Assert.True(offset > 0);
+
+            // Still visible: neither the days nor the scroll position change.
+            await MoveTo("2027-05-15T11:00:00");
+            Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate); Assert.Equal(offset, Scroll().Offset.Y);
+
+            // Later in the evening: scrolled down just to the item, same days.
+            await MoveTo("2027-05-15T22:00:00");
+            Assert.Equal(new LocalDate(2027, 5, 14), m.StartDate); Assert.True(Scroll().Offset.Y > offset);
+            var block = Probe.All<Button>(Scroll()).First(b => Equals(b.Tag, visit.Id));
+            var top = Canvas.GetTop(block) - Scroll().Offset.Y; Assert.InRange(top, 0, Scroll().Viewport.Height - block.Bounds.Height);
+
+            // Another week: the timetable moves to that day.
+            await MoveTo("2027-06-10T10:00:00");
+            Assert.Equal(new LocalDate(2027, 6, 10), m.StartDate);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task QuickAddActivityUsesThePlaceTimezone()
     {
         var w = Window(); try

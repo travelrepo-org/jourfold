@@ -171,6 +171,7 @@ public partial class MainWindow : Window
         content.Tag = key;
         if (content is TimetableView timetable && scrollOffsets.TryGetValue(key, out var kept)) { timetable.InitialOffset = kept.Y; scrollOffsets.Remove(key); }
         MainContent.Content = content;
+        if (content is not TimetableView) Model.RevealInTimetable = null;
         if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var offset))
             Dispatcher.UIThread.Post(() => { if (MainContent.Content == content && content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll) scroll.Offset = offset; }, DispatcherPriority.Loaded);
     }

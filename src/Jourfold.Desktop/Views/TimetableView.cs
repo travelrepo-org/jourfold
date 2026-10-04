@@ -74,12 +74,28 @@ public sealed class TimetableView : UserControl
             if (scroll.Extent.Height <= scroll.Viewport.Height || scroll.Viewport.Height <= 0) return;
             scroll.LayoutUpdated -= place;
             if (InitialOffset is { } offset) scroll.Offset = new Vector(0, offset); else ScrollToMorning();
+            Reveal();
         };
         scroll.LayoutUpdated += place;
     }
 
     /// <summary>Vertical scroll position to restore, for example after an edit re-renders the view.</summary>
     public double? InitialOffset { get; set; }
+
+    /// <summary>Scrolls just enough to show an item that was given a new time, if it is outside the visible hours.</summary>
+    private void Reveal()
+    {
+        if (vm.RevealInTimetable is not { } id) return;
+        vm.RevealInTimetable = null;
+        var blocks = canvas.Children.Where(c => c.Tag is Guid tag && tag == id).ToArray();
+        if (blocks.Length == 0) return;
+        var top = blocks.Min(Canvas.GetTop) - 8; var bottom = blocks.Max(b => Canvas.GetTop(b) + b.Bounds.Height) + 8;
+        var visible = scroll.Viewport.Height; var offset = scroll.Offset.Y;
+        if (top >= offset && bottom <= offset + visible) return;
+        // Show the start of the item, with some room above it; a long item that does not fit is cut at the bottom.
+        var target = bottom - top <= visible && bottom > offset + visible && top >= offset ? bottom - visible : top - hourHeight / 2;
+        scroll.Offset = new Vector(0, Math.Clamp(target, 0, Math.Max(0, scroll.Extent.Height - visible)));
+    }
 
     private void ScrollToMorning()
     {

@@ -179,7 +179,8 @@ public sealed class UsageFixTests : IDisposable
             await m.RunAsync(() => m.Workspace.Git.CreateVersionAsync("Add Hobbiton"));
             var problem = Assert.Single(interaction.Problems);
             Assert.Contains(problem.Actions, a => a.Id == "lock");
-            Assert.Contains("git commit", problem.Details); Assert.Contains("lock file: .git/index.lock", problem.Details);
+            // Depending on the Git version, staging or committing is the step that meets the lock.
+            Assert.Matches(@"\ngit (add|commit) ", problem.Details); Assert.Contains("lock file: .git/index.lock", problem.Details);
             Assert.False(File.Exists(lockFile));
             Assert.Empty(await m.Workspace.Git.StatusAsync());
         }

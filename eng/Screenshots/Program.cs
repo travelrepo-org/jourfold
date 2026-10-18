@@ -183,6 +183,21 @@ try
                     var problem = new Problem(m.Strings["SomethingWentWrong"], m.Strings.Error(failure) + "\n\n" + m.Strings["problem.git.locked"], MainViewModel.ProblemDetails(failure), [new("lock", m.Strings["FixRemoveLock"], "wrench")]);
                     await m.Interaction.ProblemAsync(problem);
                 }, "problem", m.Strings["Close"]);
+                // Stays entered night by night, as people did before stays had their own band, and the offer to merge them.
+                {
+                    var hakone = Entity.Create("place", "Hakone ryokan"); var edits = new List<TravelRepo.Repository.EntityEdit> { new(hakone.Id, hakone) };
+                    foreach (var date in new[] { "2027-05-19", "2027-05-20" })
+                    {
+                        var night = Entity.Create("schedule_item", "Night in Hakone"); night.Data["status"] = date == "2027-05-19" ? "idea" : "confirmed";
+                        night.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "day_part", ["date"] = date, ["day_part"] = "night", ["timezone"] = "Asia/Tokyo" };
+                        night.Data["components"]!["accommodation"] = new System.Text.Json.Nodes.JsonObject { ["place"] = hakone.Id.ToString() };
+                        edits.Add(new(night.Id, night));
+                    }
+                    await m.Workspace.ApplyAsync(edits.ToArray()); m.View = "Plan"; m.InboxOpen = false; m.Selected = null; m.ShowDate(new NodaTime.LocalDate(2027, 5, 17)); await Settle(300);
+                    await Capture("stays-per-night");
+                    await Dialog(() => m.MergeStaysCommand.ExecuteAsync(null), "merge-stays", m.Strings["MergeStaysConfirm"]); await Settle(300);
+                    m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Night in Hakone"); await Capture("stays-merged");
+                }
                 // The assistant configuration with neutral paths instead of this machine's program and trip folders.
                 var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =

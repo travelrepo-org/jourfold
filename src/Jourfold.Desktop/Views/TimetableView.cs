@@ -15,8 +15,9 @@ namespace Jourfold.Desktop;
 
 /// <summary>
 /// Schedule-first timetable: days (or people) as columns, time on the vertical axis. Every block is a
-/// focusable button bound to exactly one canonical schedule item; long stays and all-day items sit in
-/// a strip above the grid. All edits go through the view model's undoable commands.
+/// focusable button bound to exactly one canonical schedule item; long items and all-day items sit in
+/// a strip above the grid, and stays in a band of nights below it. All edits go through the view model's
+/// undoable commands.
 /// </summary>
 public sealed class TimetableView : UserControl
 {
@@ -30,6 +31,7 @@ public sealed class TimetableView : UserControl
     private readonly Canvas canvas = new() { Background = Brushes.Transparent };
     private readonly Grid header = new();
     private readonly Canvas strip = new();
+    private readonly Canvas nights = new();
     private readonly ScrollViewer scroll;
     private readonly double hourHeight;
     private double columnWidth = 200;
@@ -51,10 +53,11 @@ public sealed class TimetableView : UserControl
         selection.Res(Border.BackgroundProperty, "Accent.Soft").Res(Border.BorderBrushProperty, "Accent");
         dragLabel.Res(TextBlock.ForegroundProperty, "Accent.SoftText");
         scroll = new ScrollViewer { Content = canvas, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto") };
         layout.Children.Add(new Border { Child = header, BorderThickness = new Thickness(0, 0, 0, 1) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface"));
         layout.Children.Add(new Border { Child = strip, BorderThickness = new Thickness(0, 0, 0, 1) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface").Row(1));
         layout.Children.Add(scroll.Row(2));
+        layout.Children.Add(new Border { Child = nights, BorderThickness = new Thickness(0, 1, 0, 0) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface").Row(3));
         Content = layout; this.Res(BackgroundProperty, "Bg.Grid");
         AutomationProperties.SetName(this, vm.Strings["Timetable"]);
         canvas.Height = Top + 24 * hourHeight + 16;
@@ -112,7 +115,8 @@ public sealed class TimetableView : UserControl
     {
         var parents = trip.Entities.Values.Where(e => e.Data["children"] is JsonArray { Count: > 0 }).ToDictionary(e => e.Id);
         int Depth(Entity e) { var d = 0; var current = e; while (TripQueries.Parent(trip, current.Id) is { } p && d < 6) { d++; current = p; } return d; }
-        foreach (var e in trip.Entities.Values.Where(e => e.Type == "schedule_item"))
+        // Stays are shown as nights in their own band, not as blocks next to the day's activities.
+        foreach (var e in trip.Entities.Values.Where(e => e.Type == "schedule_item" && !Stays.IsStay(e)))
         {
             var span = ScheduleQueries.Span(trip, e);
             if (span.Start is not { } start || span.End is not { } end) continue;
@@ -140,6 +144,7 @@ public sealed class TimetableView : UserControl
         DrawStrip(placed.Where(InStrip).Where(p => p.Start < visibleEnd && p.End > visibleStart).ToArray());
         var grid = placed.Where(p => !InStrip(p)).ToArray();
         for (var column = 0; column < columns; column++) DrawColumn(column, grid);
+        DrawNights(); DrawStayMarkers();
         DrawNowLine();
         if (!placed.Any(p => p.Start < visibleEnd && p.End > visibleStart)) DrawEmptyHint();
     }
@@ -227,6 +232,123 @@ public sealed class TimetableView : UserControl
         }
         strip.Height = 10 + placed * 28;
         Canvas.SetLeft(label, 0); Canvas.SetTop(label, 10); strip.Children.Add(label);
+    }
+
+    /// <summary>
+    /// The band of nights below the grid: each stay is a bar over the nights it covers, and a night between the trip's
+    /// first and last day without a stay or an overnight item gets a quiet placeholder that adds one.
+    /// </summary>
+    private void DrawNights()
+    {
+        nights.Children.Clear(); nights.Width = canvas.Width;
+        var s = vm.Strings;
+        var stays = Stays.All(trip).Where(x => x.FirstNight is not null && x.Nights > 0).ToArray();
+        var rows = new List<List<(int From, int To)>>();
+        int Row(int from, int to)
+        {
+            var index = rows.FindIndex(r => r.All(x => x.To < from || x.From > to));
+            if (index < 0) { rows.Add([]); index = rows.Count - 1; }
+            rows[index].Add((from, to)); return index;
+        }
+        var bars = new List<(Control Bar, int From, int Row)>();
+        foreach (var stay in stays)
+        {
+            (int From, int To)[] spans;
+            if (vm.Lanes) { if (!stay.Covers(vm.StartDate)) continue; spans = Lanes(stay.Item).Select(l => (l, l)).ToArray(); }
+            else
+            {
+                var first = Period.DaysBetween(vm.StartDate, stay.FirstNight!.Value); var last = first + stay.Nights - 1;
+                if (last < 0 || first > columns - 1) continue;
+                spans = [(Math.Max(0, first), Math.Min(columns - 1, last))];
+            }
+            foreach (var (from, to) in spans) bars.Add((NightBar(stay, from, to), from, Row(from, to)));
+        }
+        var missing = vm.Lanes ? [] : Stays.MissingNights(trip).Select(n => Period.DaysBetween(vm.StartDate, n)).Where(c => c >= 0 && c < columns).ToArray();
+        if (bars.Count == 0 && missing.Length == 0) { nights.Height = 0; return; }
+        foreach (var (bar, from, row) in bars) { Canvas.SetLeft(bar, Gutter + from * columnWidth + 4); Canvas.SetTop(bar, 6 + row * 30); nights.Children.Add(bar); }
+        foreach (var column in missing)
+        {
+            var night = DayOf(column);
+            var text = Ui.H(5, Ui.Icon("bed-double", 12, "Text.Subtle"), Ui.Line(s["NoStayTonight"], "caption")).Also(h => { h.HorizontalAlignment = HorizontalAlignment.Center; h.VerticalAlignment = VerticalAlignment.Center; });
+            var frame = new Panel { Width = columnWidth - 8, Height = 26, Children = { new Rectangle { StrokeThickness = 1, StrokeDashArray = [3, 3], RadiusX = 6, RadiusY = 6, IsHitTestVisible = false }.Res(Shape.StrokeProperty, "Line.Strong"), text } };
+            var add = new Button { Content = frame, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0, Opacity = 0.8 }.Classed("block");
+            AutomationProperties.SetName(add, s["NoStayTonight"] + ", " + Formats.LongDay(night) + ". " + s["AddStay"]); ToolTip.SetTip(add, s["AddStay"]);
+            add.Click += (_, _) => _ = vm.AddAsync("accommodation", false, night);
+            Canvas.SetLeft(add, Gutter + column * columnWidth + 4); Canvas.SetTop(add, 6); nights.Children.Add(add);
+        }
+        var label = Ui.Text(s["NightsBand"], "caption").Also(t => { t.FontSize = 10.5; t.Width = Gutter - 10; t.TextAlignment = TextAlignment.Right; t.TextWrapping = TextWrapping.NoWrap; });
+        Canvas.SetLeft(label, 0); Canvas.SetTop(label, 12); nights.Children.Add(label);
+        nights.Height = 10 + Math.Max(1, rows.Count) * 30;
+    }
+
+    private Control NightBar(Stay stay, int from, int to)
+    {
+        var s = vm.Strings; var item = stay.Item; var status = item.Data["status"]?.ToString(); var selected = vm.Selected?.Id == item.Id;
+        var count = stay.Nights == 1 ? s["OneNight"] : string.Format(s["NightsCount"], stay.Nights);
+        if (vm.Lanes || to == from && stay.Nights > 1) count = string.Format(s["NightOf"], Period.DaysBetween(stay.FirstNight!.Value, DayOf(from)) + 1, stay.Nights);
+        var title = new TextBlock { Text = item.Title, FontWeight = FontWeight.SemiBold, FontSize = 12, TextTrimming = TextTrimming.CharacterEllipsis, TextWrapping = TextWrapping.NoWrap }.Res(TextBlock.ForegroundProperty, "Text");
+        if (status == "cancelled") title.TextDecorations = TextDecorations.Strikethrough;
+        var warn = stay.Issues != StayIssues.None;
+        var body = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("bed-double", 13, "Kind.Accommodation.Fg"), title.Margin(6, 0), Ui.Text(count, "caption").Also(t => { t.FontSize = 11; t.TextWrapping = TextWrapping.NoWrap; }),
+            Ui.H(3, warn ? Ui.Icon("triangle-alert", 12, "Warning") : null, status is "confirmed" or "completed" ? Ui.Icon("circle-check", 12, "Success") : null).Margin(6, 0, 0, 0));
+        var width = columnWidth * (to - from + 1) - 8;
+        var dashed = status is "idea";
+        var border = new Border { Width = width, Height = 26, CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 2, 6, 2), BorderThickness = new Thickness(selected ? 2 : 1), Child = body, ClipToBounds = true }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
+        if (dashed && !selected) border.BorderBrush = Brushes.Transparent; else border.Res(Border.BorderBrushProperty, selected ? "Accent" : "Kind.Accommodation.Bar");
+        var layered = new Panel { Children = { border } };
+        if (dashed && !selected) layered.Children.Add(new Rectangle { StrokeThickness = 1.2, StrokeDashArray = [4, 3], RadiusX = 6, RadiusY = 6, Width = width, Height = 26, IsHitTestVisible = false }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"));
+        if (status == "cancelled") layered.Opacity = 0.55;
+        var button = new Button { Content = layered, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0, CornerRadius = new CornerRadius(6), Tag = item.Id, Cursor = new Cursor(StandardCursorType.Hand) }.Classed("block");
+        var arrive = stay.CheckIn is { } ci ? Formats.LongDay(stay.FirstNight!.Value) + " " + Formats.Time(NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(ci.Local).Value.TimeOfDay) : Formats.LongDay(stay.FirstNight!.Value);
+        var leave = stay.CheckOut is { } co ? Formats.LongDay(stay.DepartureDay!.Value) + " " + Formats.Time(NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(co.Local).Value.TimeOfDay) : Formats.LongDay(stay.DepartureDay!.Value);
+        var description = item.Title + ", " + count + ", " + string.Format(s["StayFromTo"], arrive, leave);
+        AutomationProperties.SetName(button, description + ", " + s.Optional(status ?? "")); ToolTip.SetTip(button, description);
+        button.ContextMenu = EntityMenu.Context(window, item);
+        // Dragging the bar sideways moves the stay by whole nights; a click selects it.
+        Point? pressed = null; var shifted = 0;
+        button.AddHandler(PointerPressedEvent, (_, e) => { if (e.GetCurrentPoint(button).Properties.IsLeftButtonPressed && !vm.Lanes) { pressed = e.GetPosition(nights); shifted = 0; e.Pointer.Capture(button); } }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        button.PointerMoved += (_, e) =>
+        {
+            if (pressed is not { } start) return;
+            shifted = (int)Math.Round((e.GetPosition(nights).X - start.X) / columnWidth);
+            button.RenderTransform = shifted == 0 ? null : new TranslateTransform(shifted * columnWidth, 0);
+        };
+        button.PointerReleased += async (_, e) =>
+        {
+            if (pressed is null) return;
+            pressed = null; e.Pointer.Capture(null); button.RenderTransform = null;
+            if (shifted == 0) { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); return; }
+            var days = shifted; shifted = 0;
+            await vm.MoveStayAsync(item.Id, days);
+        };
+        button.KeyDown += async (_, e) =>
+        {
+            if (e.KeyModifiers == KeyModifiers.Alt && e.Key is Key.Left or Key.Right) { e.Handled = true; await vm.MoveStayAsync(item.Id, e.Key == Key.Left ? -1 : 1); }
+            if (e.Key == Key.Enter) { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); e.Handled = true; }
+        };
+        return button;
+    }
+
+    /// <summary>Thin lines in the grid at check-in and check-out, so arrival and departure are visible next to the day's plans without taking room.</summary>
+    private void DrawStayMarkers()
+    {
+        var s = vm.Strings;
+        foreach (var stay in Stays.All(trip))
+            foreach (var (moment, key) in new[] { (stay.CheckIn, "CheckInAt"), (stay.CheckOut, "CheckOutAt") })
+            {
+                if (moment is null) continue;
+                Instant instant; try { instant = moment.ToInstant(); } catch (DomainException) { continue; }
+                var local = instant.InZone(zone);
+                var cols = vm.Lanes ? (local.Date == vm.StartDate ? Lanes(stay.Item) : []) : [Period.DaysBetween(vm.StartDate, local.Date)];
+                foreach (var column in cols.Where(c => c >= 0 && c < columns))
+                {
+                    var y = Top + local.TimeOfDay.TickOfDay / (double)NodaConstants.TicksPerHour * hourHeight; var x = Gutter + column * columnWidth;
+                    Place(new Line { StartPoint = new Point(x + 2, y), EndPoint = new Point(x + columnWidth - 2, y), StrokeThickness = 1.5, StrokeDashArray = [5, 3], IsHitTestVisible = false, Opacity = 0.8 }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"), 0, 0, 1);
+                    var tag = new Border { Padding = new Thickness(5, 0), CornerRadius = new CornerRadius(4), IsHitTestVisible = false, Child = Ui.H(3, Ui.Icon("bed-double", 10, "Kind.Accommodation.Fg"), Ui.Text(string.Format(s[key], Formats.Time(local.TimeOfDay)), "caption").Also(t => { t.FontSize = 10; t.TextWrapping = TextWrapping.NoWrap; })) }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
+                    ToolTip.SetTip(tag, stay.Item.Title);
+                    tag.Measure(Size.Infinity); Place(tag, x + columnWidth - 6 - tag.DesiredSize.Width, y - 8, 1);
+                }
+            }
     }
 
     private IReadOnlyList<int> Lanes(Entity item)

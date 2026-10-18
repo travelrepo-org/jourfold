@@ -84,6 +84,8 @@ public static class EditorModel
             if (result is null) return;
             var value = await vm.Interaction.ResolveTimeAsync(result["local"], result["zone"], current?["offset"]?.ToString());
             if (value is null) return; value.ToInstant(); Set(e, field.Path, value.ToJson());
+            // Check-in and check-out decide a stay's nights; its general time follows them.
+            if (field.Path.StartsWith("components/accommodation/", StringComparison.Ordinal)) e = TravelRepo.Core.Stays.Align(vm.Workspace.State.Trip, e);
         }
         if (field.Kind == "money")
         {
@@ -109,7 +111,10 @@ public static class EditorModel
         var id = vm.Selected.Id;
         var time = await vm.Interaction.ScheduleAsync(vm.Selected.Data["time"] as JsonObject, vm.StartDate, vm.Workspace.State.Trip.Manifest.Data["default_timezone"]?.ToString() ?? "Etc/UTC");
         if (time is null) return;
-        var e = vm.Workspace.State.Trip.Find(id)!.Copy(); e.Data["time"] = time["precision"]?.ToString() == "unscheduled" ? null : time;
+        var e = vm.Workspace.State.Trip.Find(id)!.Copy();
+        if (TravelRepo.Core.Stays.IsStay(e) && time["precision"]?.ToString() != "unscheduled") e = MainViewModel.WithStayTime(vm.Workspace.State.Trip, e, time);
+        else if (time["precision"]?.ToString() == "unscheduled") MainViewModel.Unschedule(e);
+        else e.Data["time"] = time;
         await vm.Workspace.EditAsync(e);
     }
 }

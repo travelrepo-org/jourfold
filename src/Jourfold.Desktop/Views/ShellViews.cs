@@ -277,7 +277,10 @@ public static class ViewToolbar
                 var zoomIn = Ui.IconButton("zoom-in", s["ZoomIn"], "small"); zoomIn.IsEnabled = m.Zoom < 2; zoomIn.Click += (_, _) => m.SetZoom(m.Zoom + .25);
                 var lanes = Ui.Button(s["ByPerson"], "users", "chip"); if (m.Lanes) lanes.Classes.Add("selected"); lanes.Click += (_, _) => m.SetLanes(!m.Lanes); ToolTip.SetTip(lanes, s["ByPersonTip"]);
                 var zone = ZoneSwitch(w);
-                return Bar(Ui.Columns("*,Auto", left.Also(l => l.ClipToBounds = true), Ui.H(8, zone, lanes, Ui.H(0, zoomOut, zoomIn))));
+                // Offered when stays were entered one item per night; merging makes each one stay over its nights.
+                var mergeable = m.StayMergeCandidates.Count;
+                var merge = mergeable == 0 ? null : Ui.Button(string.Format(s["MergeStaysChip"], mergeable), "bed-double", "chip").Also(b => { b.Command = m.MergeStaysCommand; ToolTip.SetTip(b, s["MergeStaysBody"]); });
+                return Bar(Ui.Columns("*,Auto", left.Also(l => l.ClipToBounds = true), Ui.H(8, merge, zone, lanes, Ui.H(0, zoomOut, zoomIn))));
             }
             return Bar(left);
         }

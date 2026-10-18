@@ -79,6 +79,8 @@ public interface IInteraction
     /// delete as well, or <c>null</c> when the person cancels.
     /// </summary>
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
+    /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
+    Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
     /// <summary>Explains a failure, offers fixes and lets the person copy the technical details. Returns the chosen action ID.</summary>
     Task<string?> ProblemAsync(Problem problem);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>

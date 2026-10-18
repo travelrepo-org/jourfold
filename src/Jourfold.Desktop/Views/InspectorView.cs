@@ -88,6 +88,24 @@ public static class InspectorView
     private static void Add(StackPanel body, string title, Control? content, Control? action = null) { if (content is not null) body.Children.Add(Ui.Section(title, content, action)); }
     private static Control Field(string label, Control editor) => Ui.Field(label, editor);
 
+    /// <summary>The nights of a stay with a stepper, and a note with a fix when check-in, check-out and time disagree or one is missing.</summary>
+    private static Control? StayNights(MainWindow w, Entity e, Stay? stay)
+    {
+        if (stay is null) return null;
+        var m = w.Model; var s = m.Strings;
+        if (stay.FirstNight is not { } first) return Ui.Text(s["StayUnscheduled"], "caption");
+        var count = stay.Nights == 0 ? s["DayRoom"] : stay.Nights == 1 ? s["OneNight"] : string.Format(s["NightsCount"], stay.Nights);
+        var fewer = Ui.IconButton("minus", s["FewerNights"], "small"); fewer.IsEnabled = stay.Nights > 1; fewer.Click += (_, _) => _ = m.SetStayNightsAsync(e.Id, stay.Nights - 1);
+        var more = Ui.IconButton("plus", s["MoreNights"], "small"); more.Click += (_, _) => _ = m.SetStayNightsAsync(e.Id, Math.Max(1, stay.Nights) + 1);
+        var summary = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("bed-double", 15, "Kind.Accommodation.Fg"), Ui.V(1, Ui.Text(count, "strong"), Ui.Text(Formats.DateRange(first, stay.DepartureDay), "caption")).Margin(8, 0), fewer, more);
+        AutomationProperties.SetName(summary, count + ", " + Formats.DateRange(first, stay.DepartureDay));
+        string? note = stay.Issues.HasFlag(StayIssues.TimeMismatch) ? s["StayTimeMismatch"] : stay.Issues.HasFlag(StayIssues.MissingCheckOut) ? s["StayMissingCheckOut"] : stay.Issues.HasFlag(StayIssues.MissingCheckIn) ? s["StayMissingCheckIn"] : null;
+        if (note is null) return summary;
+        var fix = Ui.Button(s["AlignStay"], "wrench", "compact"); fix.Click += (_, _) => _ = m.AlignStayAsync(e.Id);
+        var hint = new Border { Padding = new Thickness(10, 8), CornerRadius = new CornerRadius(8), Child = Ui.V(6, Ui.Columns("Auto,*", Ui.Icon("triangle-alert", 14, "Warning"), Ui.Text(note, "caption").Margin(8, 0, 0, 0)), fix) }.Res(Border.BackgroundProperty, "Warning.Soft");
+        return Ui.V(8, summary, hint);
+    }
+
     private static void DetailsTab(MainWindow w, Entity e, StackPanel body)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
@@ -184,8 +202,10 @@ public static class InspectorView
         {
             string Zoned(string key) => stay[key] is JsonObject z && LocalDateTimePattern.ExtendedIso.Parse(z["local"]?.ToString() ?? "").TryGetValue(default, out var local) ? Formats.LongDay(local.Date) + " · " + Formats.Time(local.TimeOfDay) : s["Choose"];
             var fields = EditorModel.Fields(e);
+            var resolved = Stays.Resolve(trip, e);
             var stayPanel = Ui.V(10,
                 Field(s["Place"], Editors.Reference(w, e.Id, "components/accommodation/place", s["Place"], "place")),
+                StayNights(w, e, resolved),
                 Ui.Columns("*,*", Field(s["CheckIn"], Editors.ValueButton(Zoned("check_in"), "log-out", s["CheckIn"], () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Path.EndsWith("check_in", StringComparison.Ordinal)))))), Field(s["CheckOut"], Editors.ValueButton(Zoned("check_out"), "log-out", s["CheckOut"], () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Path.EndsWith("check_out", StringComparison.Ordinal)))))).Margin(10, 0, 0, 0)),
                 Field(s["Guests"], Editors.References(w, e.Id, "components/accommodation/guests", s["Guests"], "person")),
                 Field(s["Rooms"], ListText(w, e, "components/accommodation/rooms", s["Rooms"])));

@@ -124,7 +124,15 @@ public partial class MainViewModel
     }
 
     /// <summary>Removes an item's time so it goes back to the Inbox; a planned item becomes an idea again.</summary>
-    public Task MoveToInboxAsync(Guid id) => UpdateAsync(id, e => { e.Data["time"] = null; if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea"; });
+    public Task MoveToInboxAsync(Guid id) => UpdateAsync(id, Unschedule);
+
+    /// <summary>Removes an item's time; a stay also loses check-in and check-out, which would otherwise keep it scheduled.</summary>
+    public static void Unschedule(Entity e)
+    {
+        e.Data["time"] = null;
+        if (e.Data["components"]?["accommodation"] is JsonObject accommodation) { accommodation.Remove("check_in"); accommodation.Remove("check_out"); }
+        if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea";
+    }
 
     public Task DuplicateAsync(Guid id) => RunEditAsync(async () =>
     {

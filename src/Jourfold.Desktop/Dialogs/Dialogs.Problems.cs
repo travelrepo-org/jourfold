@@ -33,6 +33,23 @@ public sealed partial class Dialogs
         return await sheet.ShowDialog<string?>(owner);
     }
 
+    public async Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm)
+    {
+        var chosen = selected.ToHashSet(); var list = Ui.V(4);
+        foreach (var choice in choices)
+        {
+            var check = new CheckBox { Content = Ui.Columns("Auto,*", choice.Icon is null ? null : Ui.Icon(choice.Icon, 16, "Kind.Accommodation.Fg").Margin(0, 0, 10, 0), Ui.V(1, Ui.Text(choice.Label), choice.Hint is null ? null : Ui.Text(choice.Hint, "caption"))), IsChecked = chosen.Contains(choice.Id), Margin = new Thickness(2, 2) };
+            AutomationProperties.SetName(check, choice.Label + (choice.Hint is null ? "" : ", " + choice.Hint));
+            check.IsCheckedChanged += (_, _) => { if (check.IsChecked == true) chosen.Add(choice.Id); else chosen.Remove(choice.Id); };
+            list.Children.Add(check);
+        }
+        var ok = Ui.Button(confirm, null, "primary"); ok.IsDefault = true; var cancel = Action("Cancel");
+        var sheet = new DialogSheet(title, Ui.V(14, new SelectableTextBlock { Text = message, TextWrapping = TextWrapping.Wrap }.Classed("muted"), new ScrollViewer { Content = list, MaxHeight = 400 }, Footer(cancel, ok)), 560);
+        ok.Click += (_, _) => sheet.Close(choices.Where(c => chosen.Contains(c.Id)).Select(c => c.Id).ToArray() as IReadOnlyList<string>);
+        cancel.Click += (_, _) => sheet.Close(null);
+        return await sheet.ShowDialog<IReadOnlyList<string>?>(owner);
+    }
+
     public async Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt)
     {
         var chosen = prompt.Preselected.ToHashSet();

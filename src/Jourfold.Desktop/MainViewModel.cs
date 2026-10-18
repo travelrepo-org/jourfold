@@ -139,7 +139,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             catch { next.Dispose(); throw; }
         }
         catch { next.Dispose(); throw; }
-        Workspace?.Dispose(); Workspace = next; next.Changed += (_, _) => { Refresh(); _ = UpdateLocalStateAsync(); };
+        Workspace?.Dispose(); Workspace = next; next.Changed += (_, _) => { Refresh(); _ = UpdateLocalStateAsync(); _ = UpdateRemindersAsync(); };
         var remotes = await next.Git.RemotesAsync();
         Store.Remember(path, next.State.Trip, remotes.Count > 0 ? "remote" : "local");
         RefreshRecent();
@@ -149,7 +149,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var preferred = Store.Get("openingView");
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
-        Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync();
+        Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateRemindersAsync();
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>

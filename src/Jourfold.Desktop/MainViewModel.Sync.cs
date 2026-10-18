@@ -109,6 +109,8 @@ public partial class MainViewModel
             if (++syncTicks >= 20)
             {
                 syncTicks = 0;
+                // Reminders depend on the time of day too, so they are checked once a minute.
+                await UpdateRemindersAsync();
                 if (await PreferredRemote(ask: false) is not null)
                 {
                     Busy = true;

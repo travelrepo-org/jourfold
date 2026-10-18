@@ -192,7 +192,7 @@ public static class HeaderView
         if (m.HasUncommitted) version.Classes.Add("soft");
         var add = Ui.Button(s["Add"], "plus", "primary"); add.Command = m.QuickAddCommand; ToolTip.SetTip(add, s["QuickAdd"] + " (Ctrl+N)");
         var more = Ui.IconButton("ellipsis", s["More"]); more.Flyout = MoreMenu(w);
-        var right = Ui.H(8, avatars, share, version, add, more);
+        var right = Ui.H(8, avatars, Reminders(w), share, version, add, more);
         left.ClipToBounds = true; title.MaxWidth = 420;
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
         grid.Children.Add(left); grid.Children.Add(right.Margin(12, 0, 0, 0).Col(1));
@@ -213,6 +213,39 @@ public static class HeaderView
         var create = new MenuItem { Header = s["NewVariant"], Icon = Ui.Icon("plus", 15) }; create.Click += (_, _) => m.NewVariantCommand.Execute(null); menu.Items.Add(create);
         var manage = new MenuItem { Header = s["ManageVariants"], Icon = Ui.Icon("git-compare", 15) }; manage.Click += (_, _) => m.Navigate("Variants"); menu.Items.Add(manage);
         return menu;
+    }
+
+    /// <summary>
+    /// The bell in the header: how many reminders there are, and a list with Show, Later (a day) and Done for each.
+    /// Urgent ones are marked with colour and text, not colour alone.
+    /// </summary>
+    private static Control Reminders(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var reminders = m.Reminders;
+        var count = reminders.Count; var urgent = m.UrgentReminders;
+        var badge = count == 0 ? null : new Border { CornerRadius = new CornerRadius(8), Padding = new Thickness(5, 0), MinWidth = 16, Child = Ui.Text(count.ToString(System.Globalization.CultureInfo.CurrentCulture), "caption").Also(t => { t.FontSize = 10.5; t.FontWeight = FontWeight.Bold; t.HorizontalAlignment = HorizontalAlignment.Center; t.Res(TextBlock.ForegroundProperty, "Text.OnAccent"); }) }
+            .Res(Border.BackgroundProperty, urgent > 0 ? "Danger" : "Accent");
+        var bell = new Button { Content = Ui.H(4, Ui.Icon("bell", 16, urgent > 0 ? "Danger" : "Text"), badge), Padding = new Thickness(8, 6) }.Classed("ghost");
+        var name = count == 0 ? s["RemindersNone"] : urgent > 0 ? string.Format(s["RemindersUrgent"], count, urgent) : string.Format(s["RemindersCount"], count);
+        AutomationProperties.SetName(bell, name); ToolTip.SetTip(bell, name);
+        var list = Ui.V(8);
+        if (count == 0) list.Children.Add(Ui.Text(s["RemindersNoneBody"], "muted"));
+        foreach (var reminder in reminders)
+        {
+            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", _ => "ticket" };
+            var show = Ui.Button(s["ReminderShow"], null, "compact"); show.Click += (_, _) => { bell.Flyout?.Hide(); m.ShowReminder(reminder); };
+            var later = Ui.Button(s["ReminderLater"], null, "compact"); later.Click += async (_, _) => await m.SnoozeReminderAsync(reminder);
+            var done = Ui.Button(s["ReminderDone"], "check", "compact"); done.Click += async (_, _) => await m.DismissReminderAsync(reminder);
+            ToolTip.SetTip(later, s["ReminderLaterTip"]);
+            var title = Ui.Line(m.ReminderTitle(reminder), "title");
+            var text = Ui.Text(m.ReminderText(reminder), "caption");
+            var row = Ui.Columns("Auto,*", Ui.Icon(icon, 16, reminder.Urgent ? "Danger" : "Accent").Margin(0, 2, 10, 0),
+                Ui.V(4, Ui.H(6, title, reminder.Urgent ? Ui.Pill(s["Urgent"], "triangle-alert", "Danger.Soft", "Danger") : null), text, Ui.H(6, show, later, done)));
+            AutomationProperties.SetName(row, m.ReminderTitle(reminder) + ". " + m.ReminderText(reminder) + (reminder.Urgent ? ". " + s["Urgent"] : ""));
+            list.Children.Add(new Border { Padding = new Thickness(10, 8), CornerRadius = new CornerRadius(8), Child = row }.Res(Border.BackgroundProperty, reminder.Urgent ? "Danger.Soft" : "Bg.Subtle"));
+        }
+        bell.Flyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedRight, Content = new Border { Width = 380, Padding = new Thickness(4), Child = Ui.V(10, Ui.Text(s["Reminders"], "h3"), new ScrollViewer { MaxHeight = 460, Content = list }) } };
+        return bell;
     }
 
     private static MenuFlyout MoreMenu(MainWindow w)

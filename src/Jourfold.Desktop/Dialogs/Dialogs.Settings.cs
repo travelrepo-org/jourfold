@@ -108,6 +108,7 @@ public sealed partial class Dialogs
                     Row(s["Units"], s["UnitsHint"], Option("Units", "Metric", "Metric", "Imperial"));
                     var folder = Ui.Button(model.DefaultTripsFolder, "folder-open", "ghost"); folder.MaxWidth = 280; folder.Click += async (_, _) => { if (await FolderAsync(s["TripsFolder"]) is { } chosen) { model.Store.Set("trips.folder", chosen); Render(); } };
                     Row(s["TripsFolder"], s["TripsFolderHint"], folder);
+                    Row(s["DesktopNotifications"], s["DesktopNotificationsHint"], Toggle(model.DesktopNotificationsEnabled, model.SetDesktopNotifications, s["DesktopNotifications"]));
                     break;
                 case "Appearance":
                     Row(s["Theme"], s["ThemeHint"], Segments("Theme", "System", ("System", "monitor"), ("Light", "sun"), ("Dark", "moon")));

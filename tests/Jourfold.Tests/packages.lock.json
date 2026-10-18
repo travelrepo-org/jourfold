@@ -485,6 +485,7 @@
           "PDFsharp": "[6.2.4, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )",
           "System.Security.Cryptography.Pkcs": "[10.0.13, )",
+          "Tmds.DBus.Protocol": "[0.21.3, )",
           "bblanchon.PDFium.Linux": "[157.0.8100, )",
           "bblanchon.PDFium.Win32": "[157.0.8100, )"
         }

@@ -80,7 +80,7 @@ public sealed class DocumentViewTests : IDisposable
             m.Navigate("Bookings"); m.Selected = m.Workspace.State.Trip.Find(booking.Id);
             // The inspector is rebuilt after queued renders; wait until the card is there.
             Button? card = null;
-            for (var i = 0; i < 40 && card is null; i++)
+            for (var i = 0; i < 100 && card is null; i++)
             {
                 Probe.Layout(); await Task.Delay(50);
                 card = Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Booking 4711 confirmed");

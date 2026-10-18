@@ -59,7 +59,7 @@ public partial class MainViewModel
         SyncKey = "Syncing";
         try
         {
-            var state = await Workspace.Git.SyncAsync(remote); await Workspace.ReloadAsync(); Refresh();
+            var state = await Workspace.Git.SyncAsync(remote); await Workspace.ReloadAsync();
             if (state == SyncState.Diverged)
             {
                 var branch = "refs/remotes/" + remote + "/" + await Workspace.Git.CurrentBranchAsync(); var plan = await Workspace.CompareMergeAsync(branch);

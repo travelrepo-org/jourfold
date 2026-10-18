@@ -41,7 +41,7 @@ public sealed class MapView : UserControl
             // Check the provider list (at most daily) and keep the cache within its limit, off the UI thread.
             _ = Task.Run(async () => { await MapProviders.RefreshAsync(vm.Store, Http); MapTiles.Prune(vm.Store.Root); });
         }
-        surface.Routes = routes.Select(r => (Coordinates(r.From)!.Value, Coordinates(r.To)!.Value, r.Item.Data["status"]?.ToString() is "confirmed" or "completed", Highlighted(r.Item, r.From, r.To))).ToArray();
+        SetRoutes();
         surface.Changed += Layout;
         AutomationProperties.SetName(this, s["Map"]);
         var root = new Panel { Children = { surface, markers, overlay } };
@@ -54,13 +54,29 @@ public sealed class MapView : UserControl
             if (!placedOnce && e.NewSize.Width > 0 && e.NewSize.Height > 0)
             {
                 placedOnce = true;
-                if (remembered is { } r && places.Length > 0 && vm.Selected is not { Type: "place" }) surface.Restore(r.X, r.Y, r.Zoom); else Fit(e.NewSize);
+                // Keep the area the person looked at last. Rebuilding the view, for example after a sync, must not move the map.
+                if (remembered is { } r && places.Length > 0) { surface.Restore(r.X, r.Y, r.Zoom); Reveal(e.NewSize); } else Fit(e.NewSize);
             }
             Layout();
         };
     }
 
     private bool Highlighted(Entity item, Entity from, Entity to) => vm.Selected is { } s && (s.Id == item.Id || s.Id == from.Id || s.Id == to.Id);
+    private void SetRoutes() => surface.Routes = routes.Select(r => (Coordinates(r.From)!.Value, Coordinates(r.To)!.Value, r.Item.Data["status"]?.ToString() is "confirmed" or "completed", Highlighted(r.Item, r.From, r.To))).ToArray();
+
+    /// <summary>Shows the new selection without rebuilding the map or changing the visible area, unless the selected place is off screen.</summary>
+    public void UpdateSelection() { SetRoutes(); Reveal(Bounds.Size); surface.Redraw(); }
+
+    /// <summary>Moves the map so a selected place that is outside the visible area comes into view. The zoom stays.</summary>
+    private void Reveal(Size size)
+    {
+        if (vm.Selected is not { Type: "place" } selected || Coordinates(selected) is not { } focus || size.Width <= 0) return;
+        var point = surface.ToScreen(focus);
+        if (point.X < 40 || point.Y < 40 || point.X > size.Width - 40 || point.Y > size.Height - 40) surface.CenterOn(focus);
+    }
+
+    /// <summary>How map labels are shown: <c>auto</c> (only when they fit), <c>always</c> or <c>off</c>. A local setting.</summary>
+    public static string LabelMode(MainViewModel vm) => vm.Store.Get("map.labels") switch { "always" => "always", "off" => "off", _ => "auto" };
 
     public static (double Lat, double Lon)? Coordinates(Entity place)
     {
@@ -89,6 +105,14 @@ public sealed class MapView : UserControl
         var layers = Ui.IconButton("layers", s["MapLayers"]);
         var menu = new MenuFlyout();
         var street = new MenuItem { Header = s["StreetMap"], Icon = Ui.Icon(vm.OnlineMaps ? "check" : "globe", 15) }; street.Click += (_, _) => vm.SetOnlineMaps(!vm.OnlineMaps); menu.Items.Add(street);
+        menu.Items.Add(new Separator());
+        menu.Items.Add(new MenuItem { Header = s["MapLabels"], IsEnabled = false });
+        foreach (var (mode, label) in new[] { ("auto", "MapLabelsAuto"), ("always", "MapLabelsAlways"), ("off", "MapLabelsOff") })
+        {
+            var item = new MenuItem { Header = s[label], ToggleType = MenuItemToggleType.Radio, IsChecked = LabelMode(vm) == mode, GroupName = "map-labels" };
+            item.Click += (_, _) => { vm.Store.Set("map.labels", mode); BuildOverlay(); Layout(); };
+            menu.Items.Add(item);
+        }
         layers.Flyout = menu;
         var controls = new Border { Child = Ui.V(2, zoomIn, zoomOut, fit, layers), Padding = new Thickness(4), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(16) }.Classed("raised");
         overlay.Children.Add(controls);
@@ -121,7 +145,8 @@ public sealed class MapView : UserControl
     private void Layout()
     {
         markers.Children.Clear(); var trip = vm.Trip; if (trip is null) return;
-        var showLabels = places.Length <= 14 || surface.Zoom >= 12;
+        var mode = LabelMode(vm);
+        var showLabels = mode == "always" || mode == "auto" && (places.Length <= 14 || surface.Zoom >= 12);
         foreach (var place in places.OrderBy(p => vm.Selected?.Id == p.Id))
         {
             var point = surface.ToScreen(Coordinates(place)!.Value); if (point.X < -40 || point.Y < -40 || point.X > Bounds.Width + 40 || point.Y > Bounds.Height + 40) continue;
@@ -135,6 +160,7 @@ public sealed class MapView : UserControl
             if (showLabels || selected) content.Children.Add(new Border { Child = Ui.Text(place.Title, "caption").Also(t => { t.FontWeight = FontWeight.SemiBold; t.Res(TextBlock.ForegroundProperty, "Text"); t.TextWrapping = TextWrapping.NoWrap; }), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface"));
             var button = new Button { Content = content, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0 }.Classed("block").Named(place.Title);
             button.Click += (_, _) => vm.Selected = vm.Workspace?.State.Trip.Find(place.Id);
+            button.ContextMenu = EntityMenu.Context(window, place);
             Canvas.SetLeft(button, point.X - 80); Canvas.SetTop(button, point.Y - size / 2.0); button.Width = 160; content.HorizontalAlignment = HorizontalAlignment.Center;
             button.ZIndex = selected ? 2 : 1; markers.Children.Add(button);
         }
@@ -142,7 +168,9 @@ public sealed class MapView : UserControl
         {
             var a = surface.ToScreen(Coordinates(from)!.Value); var b = surface.ToScreen(Coordinates(to)!.Value);
             // Label at the middle of the drawn arc (same bend as the surface), so opposite directions do not collide.
-            var mid = new Point((a.X + b.X) / 2 - (b.Y - a.Y) * 0.09, (a.Y + b.Y) / 2 + (b.X - a.X) * 0.09); if (Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) < 120) continue;
+            var mid = new Point((a.X + b.X) / 2 - (b.Y - a.Y) * 0.09, (a.Y + b.Y) / 2 + (b.X - a.X) * 0.09);
+            var chosen = vm.Selected?.Id == item.Id;
+            if (mode == "off" && !chosen || mode != "always" && !chosen && Math.Abs(a.X - b.X) + Math.Abs(a.Y - b.Y) < 120) continue;
             var (icon, kind) = Visuals.For(trip, item);
             var chip = new Button { Content = Ui.H(5, Ui.Icon(icon, 13, "Kind." + kind + ".Fg"), Ui.Text(item.Title, "caption").Also(t => { t.FontWeight = FontWeight.SemiBold; t.TextWrapping = TextWrapping.NoWrap; })), Padding = new Thickness(8, 3), MinHeight = 0, CornerRadius = new CornerRadius(12) }.Named(item.Title);
             chip.Res(Button.BackgroundProperty, "Bg.Surface"); chip.Click += (_, _) => vm.Selected = vm.Workspace?.State.Trip.Find(item.Id);
@@ -178,6 +206,8 @@ public sealed class MapView : UserControl
         public Point ToScreen((double Lat, double Lon) p) { var (x, y) = World(p); return new Point((x - centerX) * Scale + Bounds.Width / 2, (y - centerY) * Scale + Bounds.Height / 2); }
 
         public void Restore(double x, double y, int zoom) { centerX = x; centerY = y; Zoom = zoom; Refresh(); }
+        public void CenterOn((double Lat, double Lon) p) { (centerX, centerY) = World(p); Refresh(); }
+        public void Redraw() => Refresh();
         public void Fit(IReadOnlyList<(double Lat, double Lon)> points, Size size)
         {
             if (points.Count == 0) { centerX = 0.5; centerY = 0.42; Zoom = 2; Refresh(); return; }

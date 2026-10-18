@@ -8,6 +8,7 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform.Storage;
 using NodaTime;
 using NodaTime.Text;
 using TravelRepo.Core;
@@ -243,6 +244,7 @@ public static class InspectorView
         var booking = Guid.TryParse(e.Data["components"]?["booking"]?["ref"]?.ToString(), out var bookingId) ? trip.Find(bookingId) : null;
         Add(body, s["Booking"], Ui.V(6, Editors.Reference(w, e.Id, "components/booking/ref", s["Booking"], "booking"),
             booking is null ? null : Ui.H(8, booking.Data["reference"]?.ToString() is { } reference ? Ui.Pill(reference, "ticket", "Bg.Subtle", "Text") : null, Ui.Pill(s[booking.Data["status"]?.ToString() ?? "pending"], Visuals.Status(booking.Data["status"]?.ToString()).Icon, Visuals.Status(booking.Data["status"]?.ToString()).Background, Visuals.Status(booking.Data["status"]?.ToString()).Foreground))));
+        Add(body, s["Confirmations"], Confirmations(w, e));
 
         // Nesting
         var parent = TripQueries.Parent(trip, e.Id);
@@ -343,8 +345,16 @@ public static class InspectorView
         if (m.Advanced) body.Children.Add(new SelectableTextBlock { Text = "sha256 " + e.Data["blob"]?["hash"], FontFamily = FontFamily.Parse("monospace"), FontSize = 11, TextWrapping = TextWrapping.Wrap }.Classed("muted"));
     }
 
-    /// <summary>Open a document with the system viewer through a temporary copy outside the repository.</summary>
+    /// <summary>
+    /// Show a document: PDFs, e-mails and images in Jourfold's document window, other files with the system viewer.
+    /// </summary>
     public static void OpenDocument(MainViewModel m, Entity e)
+    {
+        if (DocumentPreviews.CanView(e)) m.Interaction.ViewDocument(e); else OpenExternally(m, e);
+    }
+
+    /// <summary>Open a document with the system viewer through a temporary copy outside the repository.</summary>
+    public static void OpenExternally(MainViewModel m, Entity e)
     {
         try
         {
@@ -384,7 +394,55 @@ public static class InspectorView
         body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
         body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item")));
-        body.Children.Add(Field(s["Documents"], Editors.References(w, e.Id, "documents", s["Documents"], "document")));
+        Add(body, s["Confirmations"], Confirmations(w, e));
+    }
+
+    /// <summary>
+    /// Confirmations and other files of a booking or schedule item: e-mails and PDFs shown as cards that open in the
+    /// document window, a drop area for files dragged from a mail program, and help for getting an e-mail out of
+    /// common mail programs.
+    /// </summary>
+    private static Control Confirmations(MainWindow w, Entity e)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var panel = Ui.V(8);
+        foreach (var document in TripCommands.AttachedDocuments(trip, e))
+        {
+            Control preview = DocumentPreviews.PdfThumbnail(m, document, 72) is { } thumbnail
+                ? new Border { Width = 36, Height = 46, ClipToBounds = true, CornerRadius = new CornerRadius(3), BorderThickness = new Thickness(1), Child = new Image { Source = thumbnail, Stretch = Stretch.UniformToFill } }.Res(Border.BorderBrushProperty, "Line")
+                : Ui.Tile(DocumentPreviews.IsMail(document) ? "mail" : DocumentPreviews.IsImage(document) ? "image" : DocumentPreviews.IsPdf(document) ? "file-text" : "file", "Transport", 36);
+            var title = DocumentPreviews.Title(m, document);
+            var card = new Button { Content = Ui.Columns("Auto,*,Auto", preview, Ui.V(1, Ui.Line(title, "title"), Ui.Line(DocumentPreviews.Summary(m, document), "caption")).Margin(10, 0), Ui.Icon("eye", 14, "Text.Subtle")), Padding = new Thickness(8, 6), HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("card").Named(title);
+            card.Click += (_, _) => OpenDocument(m, document);
+            card.ContextMenu = EntityMenu.Context(w, document);
+            panel.Children.Add(card);
+        }
+        var drop = new Border { Padding = new Thickness(12, 10), CornerRadius = new CornerRadius(8), BorderThickness = new Thickness(1.2), Child = Ui.Columns("Auto,*", Ui.Icon("paperclip", 16, "Accent"), Ui.V(1, Ui.Text(s["DropConfirmationTitle"], "strong"), Ui.Text(s["DropConfirmationBody"], "caption")).Margin(10, 0, 0, 0)) }
+            .Res(Border.BorderBrushProperty, "Line.Strong").Res(Border.BackgroundProperty, "Bg.Subtle");
+        AutomationProperties.SetName(drop, s["DropConfirmationTitle"]);
+        DragDrop.SetAllowDrop(drop, true);
+        drop.AddHandler(DragDrop.DragOverEvent, (_, args) => { if (args.DataTransfer.Contains(DataFormat.File)) { args.DragEffects = DragDropEffects.Copy; drop.Res(Border.BorderBrushProperty, "Accent"); args.Handled = true; } });
+        drop.AddHandler(DragDrop.DragLeaveEvent, (_, _) => drop.Res(Border.BorderBrushProperty, "Line.Strong"));
+        drop.AddHandler(DragDrop.DropEvent, async (_, args) =>
+        {
+            var files = args.DataTransfer.TryGetFiles()?.Select(f => f.TryGetLocalPath()).OfType<string>().ToArray();
+            if (files is not { Length: > 0 }) return;
+            args.Handled = true; await m.AddFilesAsync(files, e.Id);
+        });
+        var choose = Ui.Button(s["ChooseFile"], "upload", "compact"); choose.Click += async (_, _) => { var file = await m.Interaction.FileAsync(); if (file is not null) await m.AddFilesAsync([file], e.Id); };
+        var existing = Ui.Button(s["LinkExistingFile"], "link", "compact");
+        existing.Click += async (_, _) =>
+        {
+            var attached = TripCommands.AttachedDocuments(m.Trip!, e).Select(d => d.Id).ToHashSet();
+            var choices = m.Trip!.Entities.Values.Where(d => d.Type == "document" && !attached.Contains(d.Id)).OrderBy(d => DocumentPreviews.Title(m, d), StringComparer.CurrentCulture).Select(d => new Choice(d.Id.ToString(), DocumentPreviews.Title(m, d), DocumentPreviews.IsMail(d) ? "mail" : "file", DocumentPreviews.Summary(m, d))).ToArray();
+            if (choices.Length == 0) { m.Interaction.Toast(s["NoOtherFiles"]); return; }
+            if (await m.Interaction.ChooseAsync(s["LinkExistingFile"], choices) is { } id && m.Trip!.Find(Guid.Parse(id)) is { } document) await m.UpdateAsync(TripCommands.AttachDocument(m.Trip!.Find(e.Id)!, document));
+        };
+        var help = Ui.IconButton("circle-help", s["MailHelpTitle"], "small");
+        help.Flyout = new Flyout { Content = new Border { MaxWidth = 380, Padding = new Thickness(4), Child = Ui.V(8, Ui.Text(s["MailHelpTitle"], "strong"), new SelectableTextBlock { Text = s["MailHelp"], TextWrapping = TextWrapping.Wrap, FontSize = 12.5 }) } };
+        panel.Children.Add(drop);
+        panel.Children.Add(Ui.Flow(6, choose, existing, help));
+        return panel;
     }
 
     private static void PersonDetails(MainWindow w, Entity e, StackPanel body)

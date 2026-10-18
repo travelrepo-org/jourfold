@@ -83,6 +83,8 @@ public interface IInteraction
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
     /// <summary>Explains a failure, offers fixes and lets the person copy the technical details. Returns the chosen action ID.</summary>
     Task<string?> ProblemAsync(Problem problem);
+    /// <summary>Shows a PDF, e-mail or image of the trip in the document window, next to the main window.</summary>
+    void ViewDocument(Entity document);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>
     void Toast(string message, string? action = null, Func<Task>? onAction = null);
     void Open(string path);

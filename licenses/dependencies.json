@@ -199,6 +199,10 @@
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
+  "System.Security.Cryptography.Pkcs/10.0.13": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
   "System.Security.Cryptography.Pkcs/8.0.1": {
     "license": "MIT",
     "project": "https://dot.net/"

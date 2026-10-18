@@ -12,7 +12,7 @@ If you are new, choose **Explore a sample trip**. It creates "Spring in Japan" i
 
 ## Planning
 
-The sidebar switches between the parts of a trip. **Plan** shows the timetable. The buttons above it switch to the day-by-day **List** or the **Map**.
+The sidebar switches between the parts of a trip. **Plan** shows the timetable. The buttons above it switch to the day-by-day **List** or the **Map**. On the map, the layers button sets **Labels** to show names when there is room, always, or never; with labels off you see only routes and symbols, and the selected place keeps its name.
 
 - **Add** (Ctrl+N) opens Quick Add. Pick a type, give it a title and, if you like, a place, date and time. Typing a place name that does not exist yet creates it.
 - Drag across empty time in the timetable to add an activity for exactly that span. Double-click empty time for a one-hour activity.
@@ -43,7 +43,9 @@ Selecting anything opens the details panel on the right. Changes are saved as so
 - **Notes** holds Markdown notes, links, attached files and links to other items.
 - **Comments** lets travel companions leave remarks under their own name.
 
-Deleting shows a short notice with **Undo** instead of asking first.
+Right-click any item in a list, a file, a person or a map pin for the same actions as in the inspector's menu, including **Delete**.
+
+Deleting an item that nothing else refers to shows a short notice with **Undo** instead of asking first. When other items link to it, Jourfold lists them and removes the link, so deleting a place leaves the activities there without a place. Places, files, notes and bookings that only the deleted item used are offered for deletion as well; places, files and notes are preselected, bookings are not. Comments on the item go with it. One **Undo** brings everything back.
 
 ## Bookings, costs, tasks and files
 
@@ -62,6 +64,8 @@ A **variant** is an alternative plan, for example "Cheaper hotels". Use the vari
 - On another Git server: copy an invitation link. The other person needs access on that server; a link does not grant it.
 
 Shared trips sync in the background. Changes that fit together are merged after a short notice that offers **Review** and **Cancel**.
+
+When sync or another Git step fails, Jourfold says what happened in plain words and offers a fix where it can make one safely, for example removing a lock file left by a stopped Git program, moving files that are in the way into a separate folder, or getting newer versions first. **Technical details** shows the Git command, its output with sign-in data and your home folder removed, and the state of the trip folder. **Copy details** puts that text on the clipboard for a bug report; nothing is sent. Files in the trip folder that are not part of the trip, such as your own notes, no longer count as unsaved changes.
 
 ## Search and keyboard
 
@@ -83,7 +87,7 @@ Assistants without MCP can edit the trip folder directly. **Save agent guide** s
 
 ## About Jourfold
 
-**About Jourfold** (in Settings, or search for it with Ctrl+K) shows the version with its code name and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
+**About Jourfold** (click the version next to the logo, use Settings, or search for it with Ctrl+K) shows the version with its code name and build, the TravelRepo version and trip format, links to the source code, the licenses of Jourfold and TravelRepo, the plugins you have loaded with their licenses and websites, and the open-source components Jourfold includes. **Copy details** copies the versions for a bug report.
 
 ## Exporting
 

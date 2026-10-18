@@ -173,6 +173,16 @@ try
                 var maps = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["MapsAndPlaces"]); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Expander>().First().IsExpanded = true; await Settle(300);
                 await Capture("settings-maps"); Click(m.Strings["Close"]); await maps;
+                // Deleting a stay offers to delete its place, which nothing else uses. Cancelled, so the trip is unchanged.
+                var stay = m.Workspace.State.Trip.Entities.Values.First(e => e.Data["components"]?["accommodation"] is not null);
+                await Dialog(() => m.DeleteAsync(stay.Id), "delete-linked", m.Strings["Cancel"]);
+                // A Git failure with its explanation and technical details, using a made-up lock file problem.
+                var failure = new TravelRepo.Git.GitCommandException("git.locked", "Another Git process is using the trip folder.", TravelRepo.Git.GitFailure.Locked, "git commit -F -", 128, "fatal: Unable to create '/home/alex/Documents/Jourfold/Japan/.git/index.lock': File exists.", []);
+                await Dialog(async () =>
+                {
+                    var problem = new Problem(m.Strings["SomethingWentWrong"], m.Strings.Error(failure) + "\n\n" + m.Strings["problem.git.locked"], MainViewModel.ProblemDetails(failure), [new("lock", m.Strings["FixRemoveLock"], "wrench")]);
+                    await m.Interaction.ProblemAsync(problem);
+                }, "problem", m.Strings["Close"]);
                 // The assistant configuration with neutral paths instead of this machine's program and trip folders.
                 var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =

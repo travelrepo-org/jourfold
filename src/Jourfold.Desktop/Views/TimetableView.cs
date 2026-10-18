@@ -345,14 +345,7 @@ public sealed class TimetableView : UserControl
             if (e.KeyModifiers == KeyModifiers.Alt && e.Key is Key.Up or Key.Down) { e.Handled = true; await vm.RunEditAsync(() => ShiftAsync(item.Id, Duration.FromMinutes(e.Key == Key.Up ? -15 : 15))); }
             if (e.Key == Key.Enter) { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); e.Handled = true; }
         };
-        var menu = new ContextMenu();
-        MenuItem Item(string text, string icon, Action action) { var mi = new MenuItem { Header = text, Icon = Ui.Icon(icon, 15) }; mi.Click += (_, _) => action(); return mi; }
-        menu.Items.Add(Item(s["EditTime"], "clock", () => { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); _ = vm.ScheduleSelectedAsync(); }));
-        menu.Items.Add(Item(s["Duplicate"], "copy", () => _ = vm.DuplicateAsync(item.Id)));
-        menu.Items.Add(Item(s["MoveToInbox"], "inbox", () => _ = vm.UpdateAsync(item.Id, e => { e.Data["time"] = null; if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea"; })));
-        menu.Items.Add(new Separator());
-        menu.Items.Add(Item(s["Delete"], "trash-2", () => _ = vm.DeleteAsync(item.Id)));
-        button.ContextMenu = menu;
+        button.ContextMenu = EntityMenu.Context(window, item);
         if (draggable) button.AddHandler(PointerPressedEvent, (_, e) =>
         {
             var point = e.GetCurrentPoint(button);

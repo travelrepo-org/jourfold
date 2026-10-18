@@ -112,6 +112,8 @@ public static class VariantsView
             var meta = variant.Manifest.Data["variant"]; var isCurrent = variant.Branch == m.CurrentBranch; var isArchived = meta?["state"]?.ToString() == "archived";
             if (isArchived) { archived++; if (!m.Advanced) continue; }
             if (variant.IsRemote && !m.Advanced && variants.Any(v => !v.IsRemote && v.Commit == variant.Commit)) continue;
+            // Older versions pushed a second copy of a variant under a generated name; show such a copy once.
+            if (variant.IsRemote && !m.Advanced && ordered.TakeWhile(v => v != variant).Any(v => v.IsRemote && v.Commit == variant.Commit && v.Manifest.Data["variant"]?["id"]?.ToString() == variant.Manifest.Data["variant"]?["id"]?.ToString())) continue;
             var title = meta?["title"]?.ToString() ?? variant.Branch;
             var created = DateTimeOffset.TryParse(meta?["created_at"]?.ToString(), CultureInfo.InvariantCulture, out var at) ? string.Format(s["CreatedAgo"], Formats.Relative(at, s)) : "";
             var parent = meta?["parent"]?["branch"]?.ToString();

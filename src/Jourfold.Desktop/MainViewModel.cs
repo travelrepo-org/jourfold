@@ -102,12 +102,26 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (operationScope.Value?.Active == true) { await action(); return; }
         await operations.WaitAsync(); var scope = new OperationScope(); operationScope.Value = scope;
         Editing = edit; Busy = true; if (edit && !background) Saving = true;
-        try { await action(); }
+        try
+        {
+            // A chosen fix runs, then the action is tried again until it works or the person closes the explanation.
+            Func<Task>? next = action;
+            while (next is not null)
+            {
+                try { await next(); next = null; }
+                catch (Exception ex) when (Expected(ex))
+                {
+                    Status = Strings["Error"];
+                    var fix = await ExplainAsync(ex);
+                    next = fix is null ? null : async () => { await fix(); await action(); };
+                }
+            }
+        }
         catch (OperationCanceledException) { }
-        catch (Exception ex) when (ex is DomainException or IOException or UnauthorizedAccessException or HttpRequestException or FormatException or InvalidOperationException or System.Text.Json.JsonException)
-        { Status = Strings["Error"]; await Interaction.ShowAsync(Strings["SomethingWentWrong"], Strings.Error(ex, Advanced)); }
         finally { Busy = false; Editing = false; if (!background) Saving = false; scope.Active = false; operationScope.Value = null; operations.Release(); }
     }
+
+    private static bool Expected(Exception ex) => ex is DomainException or IOException or UnauthorizedAccessException or HttpRequestException or FormatException or InvalidOperationException or System.Text.Json.JsonException;
 
     public async Task OpenAsync(string path)
     {

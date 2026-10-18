@@ -31,6 +31,13 @@ public sealed class Localization
     public IReadOnlyDictionary<string, string> All => strings;
 }
 
+/// <param name="Dependents">Entities deleted with the target because they cannot exist without it, such as comments.</param>
+/// <param name="Affected">Entities that lose their link to the target.</param>
+/// <param name="Unused">Places, files, notes and bookings that nothing uses after the deletion.</param>
+/// <param name="Preselected">Unused entities suggested for deletion.</param>
+public sealed record DeletionPrompt(Entity Target, IReadOnlyList<Entity> Dependents, IReadOnlyList<Entity> Affected, IReadOnlyList<Entity> Unused, IReadOnlyList<Guid> Preselected);
+/// <param name="Details">Technical details for a bug report: versions, error codes and redacted Git output. Shown and copied, never sent.</param>
+public sealed record Problem(string Title, string Message, string Details, IReadOnlyList<Choice> Actions);
 public sealed record Choice(string Id, string Label, string? Icon = null, string? Hint = null) { public override string ToString() => Label; }
 /// <param name="GitHubRepository">When set, the trip is published to a new private GitHub repository with this name.</param>
 public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
@@ -67,6 +74,13 @@ public interface IInteraction
     Task AboutAsync(MainViewModel model);
     /// <summary>Shows how to connect an AI assistant to the open trip over MCP.</summary>
     Task ConnectAssistantAsync(MainViewModel model);
+    /// <summary>
+    /// Asks before a deletion that changes other items or leaves some unused. Returns the IDs of unused entities to
+    /// delete as well, or <c>null</c> when the person cancels.
+    /// </summary>
+    Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
+    /// <summary>Explains a failure, offers fixes and lets the person copy the technical details. Returns the chosen action ID.</summary>
+    Task<string?> ProblemAsync(Problem problem);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>
     void Toast(string message, string? action = null, Func<Task>? onAction = null);
     void Open(string path);

@@ -83,6 +83,9 @@ public sealed class DocumentViewTests : IDisposable
             for (var i = 0; i < 100 && card is null; i++)
             {
                 Probe.Layout(); await Task.Delay(50);
+                // The inspector remembers the last tab across items, and another test may have left it on Comments.
+                Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == m.Strings["Details"] || b.Content as string == m.Strings["Details"])?.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+                Probe.Layout();
                 card = Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Booking 4711 confirmed");
             }
             Assert.True(card is not null, "No confirmation card. Buttons: " + string.Join(" | ", Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Select(b => Avalonia.Automation.AutomationProperties.GetName(b))));

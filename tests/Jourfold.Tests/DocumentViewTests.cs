@@ -77,8 +77,15 @@ public sealed class DocumentViewTests : IDisposable
             Assert.Contains("Lakeview Lodge", DocumentPreviews.Summary(m, mail));
 
             // The inspector lists it under the booking's confirmations; opening it shows the document window.
-            m.Navigate("Bookings"); m.Selected = m.Workspace.State.Trip.Find(booking.Id); Probe.Layout();
-            var card = Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Booking 4711 confirmed");
+            m.Navigate("Bookings"); m.Selected = m.Workspace.State.Trip.Find(booking.Id);
+            // The inspector is rebuilt after queued renders; wait until the card is there.
+            Button? card = null;
+            for (var i = 0; i < 40 && card is null; i++)
+            {
+                Probe.Layout(); await Task.Delay(50);
+                card = Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Booking 4711 confirmed");
+            }
+            Assert.True(card is not null, "No confirmation card. Buttons: " + string.Join(" | ", Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Select(b => Avalonia.Automation.AutomationProperties.GetName(b))));
             card.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout();
             var viewer = Assert.IsType<DocumentWindow>(DocumentWindow.Current);
             try

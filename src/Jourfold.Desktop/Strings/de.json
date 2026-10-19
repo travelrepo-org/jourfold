@@ -1195,5 +1195,6 @@
   "ClearWeatherCache": "Wetter-Cache leeren",
   "WeatherCacheSize": "Wetterdaten auf diesem Computer: {0}.",
   "WeatherCacheCleared": "Wetter-Cache geleert",
-  "WeatherFallbackHint": "Wo der gewählte Dienst keine Vorhersage hat, etwa über seine Tage hinaus oder außerhalb seines Landes, nutzt Jourfold Open-Meteo. Ab 16 Tagen zeigt es Klimamittel aus dem Archiv von Open-Meteo über die letzten zehn Jahre."
+  "WeatherFallbackHint": "Wo der gewählte Dienst keine Vorhersage hat, etwa über seine Tage hinaus oder außerhalb seines Landes, nutzt Jourfold Open-Meteo. Ab 16 Tagen zeigt es Klimamittel aus dem Archiv von Open-Meteo über die letzten zehn Jahre.",
+  "diagnostic.git.folder_missing": "Den Reiseordner gibt es nicht mehr. Er wurde vielleicht verschoben, umbenannt oder gelöscht. Öffnen Sie ihn an seinem neuen Ort erneut."
 }

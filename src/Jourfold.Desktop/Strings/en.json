@@ -1195,5 +1195,6 @@
   "ClearWeatherCache": "Clear weather cache",
   "WeatherCacheSize": "Weather data on this computer: {0}.",
   "WeatherCacheCleared": "Weather cache cleared",
-  "WeatherFallbackHint": "Where the chosen service has no forecast, for example beyond its days or outside its country, Jourfold uses Open-Meteo. Beyond 16 days it shows climate averages from Open-Meteo's archive of the last ten years."
+  "WeatherFallbackHint": "Where the chosen service has no forecast, for example beyond its days or outside its country, Jourfold uses Open-Meteo. Beyond 16 days it shows climate averages from Open-Meteo's archive of the last ten years.",
+  "diagnostic.git.folder_missing": "The trip folder no longer exists. It may have been moved, renamed or deleted. Open it again from its new place."
 }

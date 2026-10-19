@@ -2,7 +2,7 @@
 
 These images are captures of the real `App` and `MainWindow`, rendered by Avalonia Headless with Skia. They have no operating-system window frame and do not show native file dialogs, popups, desktop integration or screen-reader behaviour.
 
-The capture tool creates the same sample trip that **Explore a sample trip** offers in the application ("Spring in Japan", fixed to May 2027 for repeatable images) and an empty "Weekend in Aachen" trip. Place names are real; times, bookings, references and prices are invented. Everything is written to a temporary directory with its own settings and Git configuration and removed afterwards. No network service is contacted; the map shows the offline view with its opt-in prompt.
+The capture tool creates the same sample trip that **Explore a sample trip** offers in the application ("Spring in Japan", fixed to May 2027 for repeatable images) and an empty "Weekend in Aachen" trip. Place names are real; times, bookings, references and prices are invented. Everything is written to a temporary directory with its own settings and Git configuration and removed afterwards. No network service is contacted; the map shows the offline view with its opt-in prompt, and the weather comes from a built-in synthetic service with invented values, seen the evening before the plan's first day.
 
 ## Regenerate
 
@@ -13,9 +13,9 @@ dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
 dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 ```
 
-This writes the twelve images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
+This writes the thirteen images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
 
-- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
@@ -53,6 +53,10 @@ The document window with the confirmation e-mail and with its PDF attachment, se
 ![Document window showing the e-mail's sender, date, an attached PDF and the text, with a note that one remote image was not loaded](screenshots/viewer-mail.png)
 
 ![Document window showing the attached PDF confirmation with the search result for 15:00 highlighted](screenshots/viewer-pdf.png)
+
+The weather of an outdoor activity with rain in the forecast, and the day forecasts above the timetable:
+
+![Timetable with weather icons and temperatures in each day header; the inspector shows Kegon Falls with the outdoor estimate, an hourly forecast, a rain warning, sunrise and sunset and the data source](screenshots/weather.png)
 
 Quick Add:
 

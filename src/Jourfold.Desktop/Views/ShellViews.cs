@@ -239,7 +239,7 @@ public static class HeaderView
         if (count == 0) list.Children.Add(Ui.Text(s["RemindersNoneBody"], "muted"));
         foreach (var reminder in reminders)
         {
-            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", ReminderKind.VariantsDeletedOnline => "git-branch", _ => "ticket" };
+            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", ReminderKind.VariantsDeletedOnline => "git-branch", ReminderKind.WeatherWarning => m.Weather.Items.TryGetValue(reminder.Entity ?? default, out var weather) && weather.Concerns.Count > 0 ? WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind) : "cloud-rain", _ => "ticket" };
             var show = Ui.Button(s["ReminderShow"], null, "compact"); show.Click += (_, _) => { bell.Flyout?.Hide(); m.ShowReminder(reminder); };
             var later = Ui.Button(s["ReminderLater"], null, "compact"); later.Click += async (_, _) => await m.SnoozeReminderAsync(reminder);
             var done = Ui.Button(s["ReminderDone"], "check", "compact"); done.Click += async (_, _) => await m.DismissReminderAsync(reminder);

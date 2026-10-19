@@ -38,6 +38,7 @@ public partial class MainViewModel
         bool Postponed(Reminder r) => snoozed.TryGetValue(r.Key, out var until) && InstantPattern.ExtendedIso.Parse(until).TryGetValue(default, out var moment) && moment > now;
         IReadOnlyList<Reminder> all = TripReminders.For(Workspace.State.Trip, now);
         if (GoneVariantsReminder() is { } gone) all = [.. all, gone];
+        all = [.. all, .. WeatherReminders(now)];
         var current = all.Where(r => !dismissed.Contains(r.Key) && !Postponed(r)).ToArray();
         if (!current.Select(r => r.Key).SequenceEqual(Reminders.Select(r => r.Key)) || current.Count(r => r.Urgent) != UrgentReminders) Reminders = current;
         if (!DesktopNotificationsEnabled || DesktopNotifier is null) return;
@@ -95,6 +96,8 @@ public partial class MainViewModel
             ReminderKind.NightsWithoutStay => string.Format(r.Dates.Count == 1 ? s["ReminderOneNight"] : s["ReminderNights"], r.Dates.Count, string.Join(", ", r.Dates.Select(Formats.ShortDate))),
             ReminderKind.VariantsDeletedOnline => string.Format(GoneVariants.Count == 1 ? s["VariantsDeletedOnlineOne"] : s["VariantsDeletedOnlineMany"], GoneVariants.Count, string.Join(", ", GoneVariants.Select(v => v.Title))),
             ReminderKind.UnconfirmedBooking => string.Format(s["ReminderUnconfirmed"], r.Moment is { } b ? Formats.LongDay(b.InZone(zone).Date) : ""),
+            ReminderKind.WeatherWarning => (r.Moment is { } at ? Formats.LongDay(at.InZone(zone).Date) + " · " + Formats.Time(at.InZone(zone).TimeOfDay) + ": " : "")
+                + (r.Entity is { } item && Weather.Items.TryGetValue(item, out var weather) ? WeatherDisplay.Concerns(weather.Concerns, s, Imperial) : ""),
             _ => ""
         };
     }

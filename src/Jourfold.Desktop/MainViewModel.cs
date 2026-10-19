@@ -10,6 +10,7 @@ using NodaTime.Text;
 using TravelRepo.Core;
 using TravelRepo.Git;
 using TravelRepo.Providers.GitHub;
+using TravelRepo.Providers.Weather;
 
 namespace Jourfold.Desktop;
 
@@ -139,7 +140,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             catch { next.Dispose(); throw; }
         }
         catch { next.Dispose(); throw; }
-        Workspace?.Dispose(); Workspace = next; next.Changed += (_, _) => { Refresh(); _ = UpdateLocalStateAsync(); _ = UpdateRemindersAsync(); };
+        Workspace?.Dispose(); Workspace = next; next.Changed += (_, _) => { Refresh(); _ = UpdateLocalStateAsync(); _ = UpdateRemindersAsync(); _ = UpdateWeatherAsync(); };
         var remotes = await next.Git.RemotesAsync();
         Store.Remember(path, next.State.Trip, remotes.Count > 0 ? "remote" : "local");
         RefreshRecent();
@@ -149,7 +150,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var preferred = Store.Get("openingView");
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
-        Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync();
+        Weather = TripWeather.Empty; Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync(); _ = UpdateWeatherAsync(force: true);
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>
@@ -218,5 +219,5 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public static string GitHubName(string url) { var name = url.StartsWith("git@github.com:", StringComparison.Ordinal) ? url[15..] : new Uri(url).AbsolutePath.Trim('/'); return name.EndsWith(".git", StringComparison.Ordinal) ? name[..^4] : name; }
     private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, Store.Get("github.client") ?? "");
 
-    public void Dispose() { Workspace?.Dispose(); mergeCancellation?.Cancel(); githubHttp.Dispose(); }
+    public void Dispose() { Workspace?.Dispose(); mergeCancellation?.Cancel(); githubHttp.Dispose(); weatherHttp.Dispose(); }
 }

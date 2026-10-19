@@ -124,7 +124,15 @@ public partial class MainViewModel
     }
 
     /// <summary>Removes an item's time so it goes back to the Inbox; a planned item becomes an idea again.</summary>
-    public Task MoveToInboxAsync(Guid id) => UpdateAsync(id, e => { e.Data["time"] = null; if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea"; });
+    public Task MoveToInboxAsync(Guid id) => UpdateAsync(id, Unschedule);
+
+    /// <summary>Removes an item's time; a stay also loses check-in and check-out, which would otherwise keep it scheduled.</summary>
+    public static void Unschedule(Entity e)
+    {
+        e.Data["time"] = null;
+        if (e.Data["components"]?["accommodation"] is JsonObject accommodation) { accommodation.Remove("check_in"); accommodation.Remove("check_out"); }
+        if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea";
+    }
 
     public Task DuplicateAsync(Guid id) => RunEditAsync(async () =>
     {
@@ -160,8 +168,7 @@ public partial class MainViewModel
             var edits = new List<EntityEdit> { new(import.Document.Id, import.Document) };
             if (attachTo is { } owner && Workspace.State.Trip.Find(owner) is { } target)
             {
-                var copy = target.Copy(); var content = copy.Data["content"] as JsonArray ?? new JsonArray(); copy.Data["content"] = content;
-                content.Add(new JsonObject { ["type"] = import.Document.Data["media_type"]!.ToString().StartsWith("image/", StringComparison.Ordinal) ? "image" : import.Document.Data["media_type"]!.ToString() == "application/pdf" ? "pdf" : "reference", [import.Document.Data["media_type"]!.ToString().StartsWith("image/", StringComparison.Ordinal) || import.Document.Data["media_type"]!.ToString() == "application/pdf" ? "document" : "entity"] = import.Document.Id.ToString() });
+                var copy = TripCommands.AttachDocument(target, import.Document);
                 edits.Add(new(copy.Id, copy));
             }
             await Workspace.ApplyAsync(edits.ToArray(), resources: [import.Resource]); last = import.Document;
@@ -171,22 +178,18 @@ public partial class MainViewModel
         Interaction.Toast(paths.Count == 1 ? string.Format(Strings["FileAdded"], last.Title) : string.Format(Strings["FilesAdded"], paths.Count));
     });
 
-    public static string MediaType(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    public static string MediaType(string path) => TravelRepo.Documents.MediaTypes.FromFileName(path);
+
+    /// <summary>Adds a file that is not on disk, such as an e-mail attachment, and attaches it to <paramref name="attachTo"/>.</summary>
+    public Task AddDocumentAsync(string name, string mediaType, byte[] bytes, IReadOnlyList<Guid> attachTo) => RunEditAsync(async () =>
     {
-        ".png" => "image/png",
-        ".jpg" or ".jpeg" => "image/jpeg",
-        ".gif" => "image/gif",
-        ".webp" => "image/webp",
-        ".pdf" => "application/pdf",
-        ".txt" => "text/plain",
-        ".md" => "text/markdown",
-        ".ics" => "text/calendar",
-        ".html" or ".htm" => "text/html",
-        ".json" => "application/json",
-        ".doc" => "application/msword",
-        ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        _ => "application/octet-stream"
-    };
+        if (Workspace is null) return;
+        var import = TravelRepository.PrepareDocument(bytes, name, mediaType);
+        var edits = new List<EntityEdit> { new(import.Document.Id, import.Document) };
+        foreach (var owner in attachTo.Distinct()) if (Workspace.State.Trip.Find(owner) is { } target) edits.Add(new(owner, TripCommands.AttachDocument(target, import.Document)));
+        await Workspace.ApplyAsync(edits.ToArray(), resources: [import.Resource]);
+        Interaction.Toast(string.Format(Strings["FileAdded"], name));
+    });
 
     public Task AddCommentAsync(Entity? target, string? body) => RunEditAsync(async () =>
     {

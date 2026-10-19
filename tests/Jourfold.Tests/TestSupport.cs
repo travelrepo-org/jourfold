@@ -73,9 +73,12 @@ public sealed class TestInteraction : IInteraction
     /// <summary>Answers deletion prompts; without it the suggested unused entities are deleted too.</summary>
     public Func<DeletionPrompt, IReadOnlyList<Guid>?>? Deletion { get; set; }
     public Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt) { DeletionPrompts.Add(prompt); return Task.FromResult(Deletion is { } answer ? answer(prompt) : prompt.Preselected); }
+    public Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm) => Task.FromResult<IReadOnlyList<string>?>(selected);
     public List<Problem> Problems { get; } = [];
     public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
+    public List<Entity> Viewed { get; } = [];
+    public void ViewDocument(Entity document) => Viewed.Add(document);
     public void Open(string path) { }
 }
 

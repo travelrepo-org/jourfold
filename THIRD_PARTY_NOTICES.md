@@ -22,6 +22,8 @@ Jourfold includes the following open-source software. License files from each pa
 - Humanizer: MIT, https://github.com/Humanizr/Humanizer
 - Microsoft.Data.Sqlite and SQLitePCLRaw: MIT and Apache-2.0. The SQLite engine is in the public domain.
 - PDFsharp: MIT, https://github.com/empira/PDFsharp
+- PDFium (native builds from bblanchon/pdfium-binaries): BSD-3-Clause with bundled permissive third-party libraries, see `licenses/pdfium/LICENSE`. https://pdfium.googlesource.com/pdfium. Renders PDF pages in the document window from memory; PDF JavaScript is not run.
+- TravelRepo.Documents uses MimeKit (MIT, https://github.com/jstedfast/MimeKit) with BouncyCastle.Cryptography (MIT) to read e-mails, and PdfPig (Apache-2.0, https://github.com/UglyToad/PdfPig) to read PDF text. Remote content in e-mails is never loaded.
 - MCP C# SDK (ModelContextProtocol.Core) with Microsoft.Extensions.AI.Abstractions: Apache-2.0 and MIT, https://github.com/modelcontextprotocol/csharp-sdk. Used for the local assistant server; it communicates only through standard input and output.
 - Markdig: BSD-2-Clause, https://github.com/xoofx/markdig. Used for local CommonMark parsing; no remote content is executed.
 

@@ -181,12 +181,15 @@ public static class CollectionViews
             try { using var stream = File.OpenRead(path); preview = new Image { Source = Bitmap.DecodeToWidth(stream, 360), Stretch = Stretch.UniformToFill }; }
             catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException) { preview = Ui.Icon("image", 36, "Text.Subtle"); }
         }
+        else if (DocumentPreviews.PdfThumbnail(m, doc, 360) is { } page) preview = new Image { Source = page, Stretch = Stretch.UniformToFill, VerticalAlignment = VerticalAlignment.Top };
+        else if (DocumentPreviews.MailOf(m, doc) is { } mail)
+            preview = Ui.V(4, Ui.H(6, Ui.Icon("mail", 14, "Accent"), Ui.Line(mail.From.FirstOrDefault() is { } from ? from.Name ?? from.Address : s["EmailMessage"], "strong")), Ui.Text(mail.Text.Length > 140 ? mail.Text[..140] + "…" : mail.Text, "caption").Also(t => t.MaxHeight = 64)).Margin(12);
         else preview = Ui.Icon(media == "application/pdf" ? "file-text" : "file", 36, "Text.Subtle").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center);
         var size = path is not null && File.Exists(path) ? Formats.Bytes(new FileInfo(path).Length) : "";
         var references = TripSummaries.ReferencesTo(trip, doc.Id).Count;
         var thumb = new Border { Height = 120, Child = preview, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0) }.Res(Border.BackgroundProperty, "Bg.Subtle");
-        var info = Ui.V(2, Ui.Line(doc.Title, "title"), Ui.Line(string.Join(" · ", new[] { media == "application/pdf" ? "PDF" : media.Split('/').LastOrDefault()?.ToUpperInvariant(), size, references > 0 ? string.Format(s["UsedIn"], references) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")).Margin(12, 10);
-        var button = new Button { Width = 200, Content = Ui.V(0, thumb, info) }.Classed("card").Named(doc.Title).Bind(w, doc);
+        var info = Ui.V(2, Ui.Line(DocumentPreviews.Title(m, doc), "title"), Ui.Line(string.Join(" · ", new[] { DocumentPreviews.Summary(m, doc), references > 0 ? string.Format(s["UsedIn"], references) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")).Margin(12, 10);
+        var button = new Button { Width = 200, Content = Ui.V(0, thumb, info) }.Classed("card").Named(DocumentPreviews.Title(m, doc)).Bind(w, doc);
         button.DoubleTapped += (_, _) => InspectorView.OpenDocument(m, doc);
         return button;
     }

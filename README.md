@@ -6,10 +6,10 @@ A desktop travel planner for Windows and Linux, built with Avalonia on the open 
 
 ## What it does
 
-- **Plan days on a timetable.** Drag across the grid to add an activity, drag blocks to move them and their lower edge to change the duration. Stays and all-day plans sit in a strip above the grid. Times stay correct across timezones and daylight-saving changes.
+- **Plan days on a timetable.** Drag across the grid to add an activity, drag blocks to move them and their lower edge to change the duration. All-day plans sit in a strip above the grid, and stays in a band of nights below it, so a night without a place to stay stands out. Times stay correct across timezones and daylight-saving changes.
 - **Collect ideas first.** The Inbox holds activities without a time, notes and files. Drag them onto the timetable when you know when.
 - **See the trip as a list or on a map.** The map works offline with coordinates you enter. A street map and address search from OpenStreetMap are available after you turn them on.
-- **Keep the details together.** Bookings with references and prices, costs per currency with budgets, tasks, files, people, places and collections.
+- **Keep the details together.** Bookings with references and prices, costs per currency with budgets, tasks, files, people, places and collections. Drop a confirmation e-mail or PDF onto a booking and read it in Jourfold, without loading anything from the internet.
 - **Try alternatives.** Variants let you plan a cheaper or slower version, compare it day by day and merge the parts you like. Conflicts are resolved in plain language.
 - **Record versions and share.** Create a version with a suggested description of what changed. Publish privately to GitHub or any Git server; Jourfold syncs in the background and merges compatible changes automatically.
 - **Export** a day-by-day PDF, a calendar file or a printable web page.
@@ -21,7 +21,7 @@ No account is needed and nothing leaves your computer unless you share a trip or
 | --- | --- |
 | ![Trip library with cover cards and a sample trip](docs/screenshots/library.png) | ![The same timetable in the dark theme](docs/screenshots/planning-dark.png) |
 
-More captures, including the map, costs, Quick Add, settings and the About window, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
+More captures, including the map, costs, a booking confirmation in the document window, Quick Add, settings and the About window, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
 
 ## Install
 

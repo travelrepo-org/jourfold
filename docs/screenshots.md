@@ -13,7 +13,7 @@ dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
 dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 ```
 
-This writes the nine images below at 1440 × 900 pixels. Two options help when checking changes:
+This writes the twelve images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
 
 - `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, deleting a linked stay, a Git problem with its fix), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
@@ -22,7 +22,7 @@ Open the images and check text, clipping, theme and selection before committing 
 
 ## Captures
 
-The timetable with the Inbox and the inspector, in light and dark themes:
+The timetable with the Inbox and the inspector, in light and dark themes. Stays are the band of nights at the bottom:
 
 ![Timetable for a sample trip to Japan with the Inbox open and an activity selected](screenshots/planning-light.png)
 
@@ -43,6 +43,16 @@ The map before online maps are enabled. Places and routes come from the trip's o
 Costs per currency with budgets:
 
 ![Costs page with totals for euros and yen, budget progress and the list of expenses](screenshots/costs.png)
+
+A booking with its confirmation e-mail attached, and the drop area for more:
+
+![Bookings page with a ryokan booking selected; the inspector lists the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
+
+The document window with the confirmation e-mail and with its PDF attachment, searched for a time:
+
+![Document window showing the e-mail's sender, date, an attached PDF and the text, with a note that one remote image was not loaded](screenshots/viewer-mail.png)
+
+![Document window showing the attached PDF confirmation with the search result for 15:00 highlighted](screenshots/viewer-pdf.png)
 
 Quick Add:
 

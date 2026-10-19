@@ -89,6 +89,32 @@ try
             m.View = "List"; await Capture("list");
             m.View = "Map"; m.Selected = null; await Capture("map");
             m.View = "Costs"; await Capture("costs");
+            // A booking confirmation e-mail with its ticket, attached to a booking and shown in the document window.
+            {
+                var booking = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "booking" && e.Title.Contains("Ryokan", StringComparison.Ordinal));
+                var builder = new UglyToad.PdfPig.Writer.PdfDocumentBuilder(); var font = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.Helvetica); var bold = builder.AddStandard14Font(UglyToad.PdfPig.Fonts.Standard14Fonts.Standard14Font.HelveticaBold);
+                var ticket = builder.AddPage(UglyToad.PdfPig.Content.PageSize.A4);
+                ticket.AddText("Ryokan in Gion", 26, new UglyToad.PdfPig.Core.PdfPoint(60, 760), bold);
+                var lines = new[] { "Reservation RG-20270518", "Guests: Alex, Sam", "Check-in: Tuesday, 18 May 2027, from 15:00", "Check-out: Friday, 21 May 2027, by 10:00", "Room: Garden view, futon for two", "Dinner: kaiseki at 18:30 on the first evening", "", "Please show this confirmation at the front desk." };
+                for (var i = 0; i < lines.Length; i++) ticket.AddText(lines[i], 13, new UglyToad.PdfPig.Core.PdfPoint(60, 710 - i * 24), font);
+                var message = new MimeKit.MimeMessage { Subject = "Your stay at Ryokan in Gion is confirmed", Date = new DateTimeOffset(2027, 3, 2, 10, 15, 0, TimeSpan.FromHours(9)) };
+                message.From.Add(new MimeKit.MailboxAddress("Ryokan in Gion", "stay@ryokan.example")); message.To.Add(new MimeKit.MailboxAddress("Alex", "alex@example.invalid"));
+                var body = new MimeKit.BodyBuilder { HtmlBody = "<p>Dear Alex,</p><p>thank you for your reservation. We look forward to welcoming you and Sam from <b>18 to 21 May 2027</b>.</p><p>Check-in is from 15:00, check-out by 10:00. Dinner is served at 18:30 on the first evening.</p><p><a href=\"https://ryokan.example/manage\">Manage your reservation</a></p><p>Kind regards<br>Ryokan in Gion</p><img src=\"https://ryokan.example/open.gif\">" };
+                body.Attachments.Add("confirmation-RG-20270518.pdf", builder.Build(), new MimeKit.ContentType("application", "pdf"));
+                message.Body = body.ToMessageBody();
+                var eml = Path.Combine(temporary, "ryokan-confirmation.eml"); using (var file = File.Create(eml)) message.WriteTo(file);
+                await m.AddFilesAsync([eml], booking.Id); await Settle(300); window.FindControl<Panel>("ToastLayer")?.Children.Clear();
+                m.View = "Bookings"; m.Selected = m.Workspace.State.Trip.Find(booking.Id); await Settle(300); await Capture("booking-confirmation");
+                var document = TripCommands.AttachedDocuments(m.Workspace.State.Trip, m.Workspace.State.Trip.Find(booking.Id)!).First(d => d.Data["media_type"]?.ToString() == "message/rfc822");
+                DocumentWindow.Show(window, document); var viewer = DocumentWindow.Current!; viewer.Width = 1100; viewer.Height = 820;
+                async Task CaptureViewer(string name) { for (var i = 0; i < 6; i++) { await Task.Delay(100); Dispatcher.UIThread.RunJobs(); } using var frame = viewer.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path); Console.WriteLine(path); }
+                await CaptureViewer("viewer-mail");
+                viewer.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(m.Strings["OpenFile"] + ":", StringComparison.Ordinal) == true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                await Task.Delay(300); Dispatcher.UIThread.RunJobs();
+                var search = viewer.GetVisualDescendants().OfType<TextBox>().First(); search.Text = "15:00";
+                search.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+                await CaptureViewer("viewer-pdf"); viewer.Close(); await Settle();
+            }
             if (all)
             {
                 m.View = "Bookings"; m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "booking"); await Capture("bookings");
@@ -183,6 +209,21 @@ try
                     var problem = new Problem(m.Strings["SomethingWentWrong"], m.Strings.Error(failure) + "\n\n" + m.Strings["problem.git.locked"], MainViewModel.ProblemDetails(failure), [new("lock", m.Strings["FixRemoveLock"], "wrench")]);
                     await m.Interaction.ProblemAsync(problem);
                 }, "problem", m.Strings["Close"]);
+                // Stays entered night by night, as people did before stays had their own band, and the offer to merge them.
+                {
+                    var hakone = Entity.Create("place", "Hakone ryokan"); var edits = new List<TravelRepo.Repository.EntityEdit> { new(hakone.Id, hakone) };
+                    foreach (var date in new[] { "2027-05-19", "2027-05-20" })
+                    {
+                        var night = Entity.Create("schedule_item", "Night in Hakone"); night.Data["status"] = date == "2027-05-19" ? "idea" : "confirmed";
+                        night.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "day_part", ["date"] = date, ["day_part"] = "night", ["timezone"] = "Asia/Tokyo" };
+                        night.Data["components"]!["accommodation"] = new System.Text.Json.Nodes.JsonObject { ["place"] = hakone.Id.ToString() };
+                        edits.Add(new(night.Id, night));
+                    }
+                    await m.Workspace.ApplyAsync(edits.ToArray()); m.View = "Plan"; m.InboxOpen = false; m.Selected = null; m.ShowDate(new NodaTime.LocalDate(2027, 5, 17)); await Settle(300);
+                    await Capture("stays-per-night");
+                    await Dialog(() => m.MergeStaysCommand.ExecuteAsync(null), "merge-stays", m.Strings["MergeStaysConfirm"]); await Settle(300);
+                    m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Night in Hakone"); await Capture("stays-merged");
+                }
                 // The assistant configuration with neutral paths instead of this machine's program and trip folders.
                 var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =

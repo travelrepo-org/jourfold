@@ -80,6 +80,7 @@ public sealed partial class Dialogs(Window owner, Func<Localization> strings) : 
     public async Task CopyAsync(string value) { if (owner.Clipboard is not null) await owner.Clipboard.SetTextAsync(value); }
     public void Open(string path) { try { Process.Start(new ProcessStartInfo(path) { UseShellExecute = true }); } catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Toast(S["CannotOpen"]); } }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Main?.ShowToast(message, action, onAction);
+    public void ViewDocument(TravelRepo.Core.Entity document) { if (Main is { } main) DocumentWindow.Show(main, document); }
 
     public async Task<IReadOnlyDictionary<string, string>?> FormAsync(string title, IReadOnlyList<FormField> fields)
     {

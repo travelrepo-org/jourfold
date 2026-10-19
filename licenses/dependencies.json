@@ -51,6 +51,10 @@
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
+  "BouncyCastle.Cryptography/2.7.0": {
+    "license": "MIT",
+    "project": "https://www.bouncycastle.org/stable/nuget/csharp/website"
+  },
   "CommunityToolkit.Mvvm/8.4.0": {
     "license": "MIT",
     "project": "https://github.com/CommunityToolkit/dotnet"
@@ -147,6 +151,10 @@
     "license": "MIT",
     "project": "https://github.com/microsoft/vstest"
   },
+  "MimeKit/4.18.1": {
+    "license": "MIT",
+    "project": "https://www.mimekit.net/"
+  },
   "ModelContextProtocol.Core/2.2.0": {
     "license": "Apache-2.0",
     "project": "https://csharp.sdk.modelcontextprotocol.io/"
@@ -162,6 +170,10 @@
   "PDFsharp/6.2.4": {
     "license": "MIT",
     "project": "https://docs.pdfsharp.net/"
+  },
+  "PdfPig/0.1.16": {
+    "license": "Apache-2.0",
+    "project": "https://github.com/UglyToad/PdfPig"
   },
   "SQLitePCLRaw.bundle_e_sqlite3/2.1.11": {
     "license": "Apache-2.0",
@@ -203,10 +215,6 @@
     "license": "MIT",
     "project": "https://dot.net/"
   },
-  "System.Security.Cryptography.Pkcs/8.0.1": {
-    "license": "MIT",
-    "project": "https://dot.net/"
-  },
   "Tmds.DBus.Protocol/0.21.3": {
     "license": "MIT",
     "project": null
@@ -214,6 +222,14 @@
   "YamlDotNet/16.3.0": {
     "license": "MIT",
     "project": "https://github.com/aaubry/YamlDotNet/wiki"
+  },
+  "bblanchon.PDFium.Linux/157.0.8100": {
+    "license": "Apache-2.0",
+    "project": "https://github.com/bblanchon/pdfium-binaries"
+  },
+  "bblanchon.PDFium.Win32/157.0.8100": {
+    "license": "Apache-2.0",
+    "project": "https://github.com/bblanchon/pdfium-binaries"
   },
   "xunit.abstractions/2.0.3": {
     "license": "https://raw.githubusercontent.com/xunit/xunit/master/license.txt",

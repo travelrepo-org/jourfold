@@ -34,7 +34,7 @@ public partial class MainWindow : Window
         Dialogs = new Dialogs(this, () => vm?.Strings ?? new Localization("en"));
         vm = new MainViewModel(store, App.Services.GetRequiredService<IGitBackend>(), App.Services.GetRequiredService<OsSecretStore>(), Dialogs); Model = vm; DataContext = Model;
         Model.ContentChanged += (_, _) => QueueRender();
-        Model.SelectionChanged += (_, _) => { if (Model.HasTrip) { RenderInspector(); RenderMain(); } };
+        Model.SelectionChanged += (_, _) => { if (Model.HasTrip) { RenderInspector(); if (!ShowSelection()) RenderMain(); } };
         Model.PropertyChanged += (_, e) =>
         {
             if (e.PropertyName is nameof(MainViewModel.Notice) or nameof(MainViewModel.SyncKey) or nameof(MainViewModel.HasUncommitted) or nameof(MainViewModel.Saving) or nameof(MainViewModel.PrivacyWarning) or nameof(MainViewModel.GitHubConnected))
@@ -181,6 +181,10 @@ public partial class MainWindow : Window
         pendingRestore = null;
         if (content is not TimetableView && scrollOffsets.TryGetValue(key, out var place))
         {
+            // Lay the new view out now and scroll it before it is drawn. Restoring later showed the top of the list
+            // for a frame or two whenever the view was rebuilt.
+            MainContent.UpdateLayout();
+            if ((content as ScrollViewer ?? content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { Extent.Height: > 0 } ready) { Restore(ready, place); return; }
             pendingRestore = (content, place);
             Dispatcher.UIThread.Post(() =>
             {
@@ -189,6 +193,22 @@ public partial class MainWindow : Window
                 if ((content as ScrollViewer ?? content.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault()) is { } scroll) Restore(scroll, place);
             }, DispatcherPriority.Loaded);
         }
+    }
+
+    /// <summary>
+    /// Marks the selected entity in the current view without rebuilding it, so the view keeps its scroll position and
+    /// nothing flickers. Returns false when the view has to be rebuilt to show the selection (the timetable).
+    /// </summary>
+    private bool ShowSelection()
+    {
+        if (MainContent.Content is TimetableView or null) return false;
+        if (MainContent.Content is MapView map) { map.UpdateSelection(); return true; }
+        var selected = Model.Selected?.Id;
+        foreach (var host in new Control?[] { MainContent.Content as Control, InboxHost.Child })
+            if (host is not null)
+                foreach (var button in host.GetVisualDescendants().OfType<Button>().Prepend(host as Button).OfType<Button>().Where(b => b.Tag is Guid))
+                    button.Classes.Set("selected", (Guid)button.Tag! == selected);
+        return true;
     }
 
     /// <summary>
@@ -227,7 +247,10 @@ public partial class MainWindow : Window
         if (typing && inspectorFor == selected.Id && !force) return;
         if (typing && inspectorFor == selected.Id) return;
         var focusKey = focused?.GetVisualAncestors().Contains(InspectorHost) == true ? focused.Tag as string : null;
+        // Rebuilding the inspector for the same item, for example after an edit or a sync, keeps its scroll position.
+        var kept = inspectorFor == selected.Id && InspectorHost.Child?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } oldScroll ? oldScroll.Offset : (Vector?)null;
         InspectorHost.Child = InspectorView.Build(this, selected); inspectorFor = selected.Id;
+        if (kept is { } offset) { InspectorHost.UpdateLayout(); if (InspectorHost.Child?.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault() is { } scroll) scroll.Offset = offset; }
         if (focusKey is not null) Dispatcher.UIThread.Post(() => InspectorHost.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c.Tag as string == focusKey)?.Focus(), DispatcherPriority.Background);
     }
 

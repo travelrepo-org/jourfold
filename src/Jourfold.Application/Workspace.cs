@@ -55,7 +55,8 @@ public sealed class Workspace : IDisposable
         var import = await TravelRepository.PrepareDocumentAsync(path, mediaType, allowLarge, ct); existing.Data["blob"] = import.Document.Data["blob"]!.DeepClone(); existing.Data["media_type"] = mediaType;
         await ApplyAsync([new(id, existing)], ct, [import.Resource]);
     }
-    public Task DeleteAsync(Guid id, CancellationToken ct = default) => ApplyAsync([new(id, null)], ct);
+    /// <summary>Deletes an entity and removes references to it, as planned by <see cref="TripDeletion.Plan"/>. Unused places or files are kept.</summary>
+    public Task DeleteAsync(Guid id, CancellationToken ct = default) { var plan = TripDeletion.Plan(State.Trip, [id]); return ApplyAsync(plan.Edits, ct, plan.ResourceEdits); }
     public async Task ScheduleAsync(Guid id, ZonedTime start, Duration duration, CancellationToken ct = default)
     {
         var e = State.Trip.Find(id)?.Copy() ?? throw new DomainException("entity.missing", "Item not found.");

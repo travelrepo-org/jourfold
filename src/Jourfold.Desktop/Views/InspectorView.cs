@@ -82,15 +82,7 @@ public static class InspectorView
 
     private static MenuFlyout ItemMenu(MainWindow w, Entity e)
     {
-        var m = w.Model; var s = m.Strings; var menu = new MenuFlyout();
-        void Item(string text, string icon, Action action) { var i = new MenuItem { Header = text, Icon = Ui.Icon(icon, 15) }; i.Click += (_, _) => action(); menu.Items.Add(i); }
-        if (e.Type == "schedule_item") Item(s["EditTime"], "clock", () => _ = m.ScheduleSelectedAsync());
-        if (e.Type is not ("person" or "comment")) Item(s["Duplicate"], "copy", () => _ = m.DuplicateAsync(e.Id));
-        if (e.Type == "schedule_item" && e.Data["time"] is not null) Item(s["MoveToInbox"], "inbox", () => _ = m.UpdateAsync(e.Id, x => { x.Data["time"] = null; }));
-        Item(s["AddComment"], "message-square", () => { tab = "Comments"; w.RenderInspector(); });
-        menu.Items.Add(new Separator());
-        Item(s["Delete"], "trash-2", () => _ = m.DeleteAsync(e.Id));
-        return menu;
+        return EntityMenu.Flyout(w, e, new EntityMenu.Action(w.Model.Strings["AddComment"], "message-square", () => { tab = "Comments"; w.RenderInspector(); }));
     }
 
     private static void Add(StackPanel body, string title, Control? content, Control? action = null) { if (content is not null) body.Children.Add(Ui.Section(title, content, action)); }

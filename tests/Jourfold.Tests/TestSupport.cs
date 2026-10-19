@@ -69,6 +69,12 @@ public sealed class TestInteraction : IInteraction
     public Task AboutAsync(MainViewModel model) { AboutShown++; return Task.CompletedTask; }
     public int AssistantShown { get; private set; }
     public Task ConnectAssistantAsync(MainViewModel model) { AssistantShown++; return Task.CompletedTask; }
+    public List<DeletionPrompt> DeletionPrompts { get; } = [];
+    /// <summary>Answers deletion prompts; without it the suggested unused entities are deleted too.</summary>
+    public Func<DeletionPrompt, IReadOnlyList<Guid>?>? Deletion { get; set; }
+    public Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt) { DeletionPrompts.Add(prompt); return Task.FromResult(Deletion is { } answer ? answer(prompt) : prompt.Preselected); }
+    public List<Problem> Problems { get; } = [];
+    public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
     public void Open(string path) { }
 }

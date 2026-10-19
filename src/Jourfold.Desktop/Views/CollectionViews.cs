@@ -39,11 +39,7 @@ public static class CollectionViews
     }
     private static Button Row(MainWindow w, Entity e, Control content)
     {
-        var button = new Button { Content = content, Tag = e.Id }.Classed("row").Named(e.Title);
-        if (w.Model.Selected?.Id == e.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => w.Model.Selected = w.Model.Workspace?.State.Trip.Find(e.Id);
-        var menu = new ContextMenu(); var delete = new MenuItem { Header = w.Model.Strings["Delete"], Icon = Ui.Icon("trash-2", 15) }; delete.Click += (_, _) => _ = w.Model.DeleteAsync(e.Id); menu.Items.Add(delete);
-        button.ContextMenu = menu; return button;
+        return new Button { Content = content }.Classed("row").Named(e.Title).Bind(w, e);
     }
     private static string Names(TripSnapshot trip, JsonNode? ids) => string.Join(", ", (ids as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>());
     private static IEnumerable<string> PeopleNames(TripSnapshot trip, JsonNode? ids) => (ids as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>();
@@ -190,9 +186,7 @@ public static class CollectionViews
         var references = TripSummaries.ReferencesTo(trip, doc.Id).Count;
         var thumb = new Border { Height = 120, Child = preview, ClipToBounds = true, CornerRadius = new CornerRadius(11, 11, 0, 0) }.Res(Border.BackgroundProperty, "Bg.Subtle");
         var info = Ui.V(2, Ui.Line(doc.Title, "title"), Ui.Line(string.Join(" · ", new[] { media == "application/pdf" ? "PDF" : media.Split('/').LastOrDefault()?.ToUpperInvariant(), size, references > 0 ? string.Format(s["UsedIn"], references) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")).Margin(12, 10);
-        var button = new Button { Width = 200, Content = Ui.V(0, thumb, info) }.Classed("card").Named(doc.Title);
-        if (m.Selected?.Id == doc.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(doc.Id);
+        var button = new Button { Width = 200, Content = Ui.V(0, thumb, info) }.Classed("card").Named(doc.Title).Bind(w, doc);
         button.DoubleTapped += (_, _) => InspectorView.OpenDocument(m, doc);
         return button;
     }
@@ -202,10 +196,7 @@ public static class CollectionViews
         var body = note.Data["body"]?.ToString() ?? "";
         var preview = new Border { Height = 120, Padding = new Thickness(12), Child = Ui.Text(body.Length > 160 ? body[..160] + "…" : body, "caption"), CornerRadius = new CornerRadius(11, 11, 0, 0) }.Res(Border.BackgroundProperty, "Kind.Nightlife.Bg");
         var info = Ui.H(6, Ui.Icon("sticky-note", 14, "Kind.Nightlife.Fg"), Ui.Line(note.Title, "title")).Margin(12, 10);
-        var button = new Button { Width = 200, Content = Ui.V(0, preview, info) }.Classed("card").Named(note.Title);
-        if (m.Selected?.Id == note.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(note.Id);
-        return button;
+        return new Button { Width = 200, Content = Ui.V(0, preview, info) }.Classed("card").Named(note.Title).Bind(w, note);
     }
 
     private static Control People(MainWindow w)
@@ -223,10 +214,7 @@ public static class CollectionViews
             var github = (person.Data["identities"]?["github"] as JsonArray ?? []).Select(g => g?["username"]?.ToString()).FirstOrDefault(x => x is not null);
             var body = Ui.V(10, Ui.Columns("Auto,*", Ui.Avatar(person.Title, 52), Ui.V(3, Ui.H(6, Ui.Line(person.Title, "h3"), person.Id == me?.Id ? Ui.Pill(s["You"], null, "Accent.Soft", "Accent.SoftText") : null), Ui.Line(roles.Length > 0 ? string.Join(", ", roles) : s["traveler"], "caption")).Margin(14, 0, 0, 0)),
                 Ui.H(14, Ui.H(5, Ui.Icon("calendar", 13, "Text.Subtle"), Ui.Text(string.Format(s["InItems"], items), "caption")), github is null ? null : Ui.H(5, Ui.Icon("cloud", 13, "Text.Subtle"), Ui.Text("@" + github, "caption"))));
-            var button = new Button { Width = 300, Content = body.Margin(18) }.Classed("card").Named(person.Title);
-            if (m.Selected?.Id == person.Id) button.Classes.Add("selected");
-            button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(person.Id);
-            grid.Children.Add(button);
+            grid.Children.Add(new Button { Width = 300, Content = body.Margin(18) }.Classed("card").Named(person.Title).Bind(w, person));
         }
         return Page(w, s["People"], s["PeopleHint"], grid, addMe, AddButton(w, s["AddPerson"], "person"));
     }
@@ -265,10 +253,7 @@ public static class CollectionViews
             var list = Ui.V(6); foreach (var item in items.Take(4)) { var (icon, kind) = Visuals.For(trip, item); list.Children.Add(Ui.H(8, Ui.Icon(icon, 13, "Kind." + kind + ".Fg"), Ui.Line(item.Title, "caption"))); }
             if (items.Length > 4) list.Children.Add(Ui.Text(string.Format(s["AndMore"], items.Length - 4), "caption"));
             var body = Ui.V(10, Ui.Columns("Auto,*", Ui.Tile("layers", "Culture", 34), Ui.V(1, Ui.Line(c.Title, "h3"), Ui.Text(string.Format(s["ItemsCount"], items.Length), "caption")).Margin(12, 0, 0, 0)), list);
-            var button = new Button { Width = 300, MinHeight = 180, Content = body.Margin(18), VerticalContentAlignment = VerticalAlignment.Top }.Classed("card").Named(c.Title);
-            if (m.Selected?.Id == c.Id) button.Classes.Add("selected");
-            button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(c.Id);
-            grid.Children.Add(button);
+            grid.Children.Add(new Button { Width = 300, MinHeight = 180, Content = body.Margin(18), VerticalContentAlignment = VerticalAlignment.Top }.Classed("card").Named(c.Title).Bind(w, c));
         }
         return Page(w, s["Collections"], s["CollectionsHint"], grid, AddButton(w, s["AddCollection"], "collection"));
     }

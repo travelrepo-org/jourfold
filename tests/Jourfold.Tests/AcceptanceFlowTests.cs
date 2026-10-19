@@ -18,6 +18,22 @@ public sealed class AcceptanceFlowTests : IDisposable
 {
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-acceptance-" + Guid.NewGuid());
     public void Dispose() => TestFiles.Delete(root);
+    [AvaloniaFact]
+    public async Task AnAssistantsStreamOfChangesGivesOneNotice()
+    {
+        var path = await Create(); using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); await vm.OpenAsync(path);
+        async Task ChangeOutside(string title)
+        {
+            var repo = new TravelRepository(path); var item = Entity.Create("schedule_item", title);
+            await repo.ApplyAsync(await repo.ReadAsync(), [new(item.Id, item)]); await vm.PollAsync();
+        }
+        await ChangeOutside("Idea 1"); await ChangeOutside("Idea 2"); await ChangeOutside("Idea 3");
+        Assert.Equal(3, vm.Workspace!.State.Trip.Entities.Values.Count(e => e.Title.StartsWith("Idea", StringComparison.Ordinal)));
+        Assert.Single(interaction.Toasts, t => t == vm.Strings["External"]);
+        Assert.Equal(vm.Strings["External"], vm.Status);
+    }
+
     private async Task<string> Create()
     {
         var repo = new TravelRepository(Path.Combine(root, "trip")); await repo.InitializeAsync(Entity.CreateTrip("Aachen", "de", "Europe/Berlin")); await new GitRepository(repo, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); return repo.Root;

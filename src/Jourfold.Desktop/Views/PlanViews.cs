@@ -75,10 +75,7 @@ public static class AgendaView
             Ui.V(1, Ui.Line(item.Title, "title"), where is null ? null : Ui.Line(where, "caption")),
             people.Length > 0 ? Ui.AvatarStack(people, 24).Margin(10, 0) : null,
             Ui.Pill(s[status], statusIcon, bg, fg));
-        var button = new Button { Content = grid, Tag = item.Id }.Classed("row").Named(item.Title);
-        if (m.Selected?.Id == item.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(item.Id);
-        return button;
+        return new Button { Content = grid }.Classed("row").Named(item.Title).Bind(w, item);
     }
 }
 
@@ -125,9 +122,7 @@ public static class InboxView
         };
         var content = Ui.Columns("Auto,*", Ui.Tile(icon, kind, 30), Ui.V(1, Ui.Line(item.Title, "title"), Ui.Line(subtitle, "caption")).Margin(10, 0, 0, 0));
         var button = new Button { Content = content, Padding = new Thickness(10, 8), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("card").Named(item.Title + ", " + subtitle);
-        button.CornerRadius = new CornerRadius(10);
-        if (m.Selected?.Id == item.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(item.Id);
+        button.CornerRadius = new CornerRadius(10); button.Bind(w, item);
         PointerPressedEventArgs? press = null; Point start = default;
         button.AddHandler(InputElement.PointerPressedEvent, (_, e) => { if (e.GetCurrentPoint(button).Properties.IsLeftButtonPressed) { press = e; start = e.GetPosition(button); } }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
         button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => press = null, Avalonia.Interactivity.RoutingStrategies.Tunnel);

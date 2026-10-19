@@ -23,8 +23,15 @@ public static class SidebarView
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         var root = new DockPanel { LastChildFill = true };
-        var logo = new Image { Source = Brand(w), Height = 30, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(20, 20, 20, 14) };
-        AutomationProperties.SetName(logo, "Jourfold"); DockPanel.SetDock(logo, Dock.Top); root.Children.Add(logo);
+        var logo = new Image { Source = Brand(w), Height = 30, HorizontalAlignment = HorizontalAlignment.Left };
+        AutomationProperties.SetName(logo, "Jourfold");
+        // The version sits next to the wordmark, so a screenshot or bug report shows which release is running.
+        var version = Ui.Button("v" + AppVersion.Version, null, "link"); version.FontSize = 11; version.Padding = new Thickness(4, 0); version.MinHeight = 0;
+        version.VerticalAlignment = VerticalAlignment.Bottom; version.Margin = new Thickness(6, 0, 0, 3); version.Res(Button.ForegroundProperty, "Text.Subtle");
+        version.Click += (_, _) => _ = w.Model.AboutCommand.ExecuteAsync(null);
+        AutomationProperties.SetName(version, "Jourfold " + string.Format(w.Model.Strings["AboutVersion"], AppVersion.Version)); ToolTip.SetTip(version, w.Model.Strings["About"]);
+        var brand = Ui.H(0, logo, version); brand.Margin = new Thickness(20, 20, 20, 14);
+        DockPanel.SetDock(brand, Dock.Top); root.Children.Add(brand);
 
         var tripButton = new Button { Content = TripBadge(w), HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(10, 0, 10, 10) }.Classed("row").Named(s["TripMenu"]);
         tripButton.Flyout = TripMenu(w); DockPanel.SetDock(tripButton, Dock.Top); root.Children.Add(tripButton);

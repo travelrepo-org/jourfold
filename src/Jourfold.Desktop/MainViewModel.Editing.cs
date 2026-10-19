@@ -84,21 +84,47 @@ public partial class MainViewModel
     [RelayCommand] private Task Undo() => RunEditAsync(async () => { if (Workspace?.CanUndo == true) { await Workspace.UndoAsync(); Interaction.Toast(Strings["Undone"]); } });
     [RelayCommand] private Task Redo() => RunEditAsync(async () => { if (Workspace?.CanRedo == true) await Workspace.RedoAsync(); });
 
-    /// <summary>Delete the selection. Deletion is undoable; a notice offers Undo instead of asking first.</summary>
+    /// <summary>
+    /// Delete the selection. References from other items are removed with it, so the trip stays valid. When that
+    /// changes other items, or leaves places, files or bookings unused, Jourfold asks first and offers to delete the
+    /// unused ones too. Everything is one undoable step.
+    /// </summary>
     [RelayCommand] private Task Delete() => DeleteAsync(Selected?.Id);
     public Task DeleteAsync(Guid? id) => RunEditAsync(async () =>
     {
         if (Workspace is null || id is not { } target || Workspace.State.Trip.Find(target) is not { Type: not "trip" } entity) return;
-        var edits = new List<EntityEdit> { new(target, null) };
-        // Detach the item from a parent and from the manifest so no dangling references remain.
-        foreach (var parent in Workspace.State.Trip.Entities.Values.Where(e => e.Data["children"] is JsonArray a && a.Any(c => c?.ToString() == target.ToString())))
-        { var copy = parent.Copy(); var list = (JsonArray)copy.Data["children"]!; foreach (var node in list.Where(c => c?.ToString() == target.ToString()).ToArray()) list.Remove(node); edits.Add(new(copy.Id, copy)); }
-        if (entity.Type == "person" && Workspace.State.Trip.Manifest.Data["participants"] is JsonArray people && people.Any(p => p?.ToString() == target.ToString()))
-        { var manifest = Workspace.State.Trip.Manifest.Copy(); var list = (JsonArray)manifest.Data["participants"]!; foreach (var node in list.Where(c => c?.ToString() == target.ToString()).ToArray()) list.Remove(node); edits.Add(new(manifest.Id, manifest)); }
-        await Workspace.ApplyAsync(edits.ToArray());
-        if (Selected?.Id == target) Selected = null;
-        Interaction.Toast(string.Format(Strings["DeletedItem"], entity.Title), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
+        var trip = Workspace.State.Trip;
+        var plan = TripDeletion.Plan(trip, [target]);
+        var affected = AffectedByDeletion(trip, plan, target);
+        if (plan.Dependents.Any() || affected.Count > 0 || plan.Unused.Count > 0)
+        {
+            var also = await Interaction.ConfirmDeletionAsync(new DeletionPrompt(entity, plan.Dependents.ToArray(), affected, plan.Unused, plan.Unused.Where(e => e.Type is not "booking").Select(e => e.Id).ToArray()));
+            if (also is null) return;
+            if (also.Count > 0) plan = TripDeletion.Plan(trip, plan.Requested.Concat(also));
+        }
+        await Workspace.ApplyAsync(plan.Edits, resources: plan.ResourceEdits);
+        if (Selected is { } selected && plan.Deleted.Any(e => e.Id == selected.Id)) Selected = null;
+        var others = plan.Deleted.Count - 1;
+        Interaction.Toast(others == 0 ? string.Format(Strings["DeletedItem"], entity.Title) : string.Format(Strings["DeletedItemAndMore"], entity.Title, others), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
     });
+
+    /// <summary>
+    /// Items that lose a link to the deleted entity and are worth mentioning. Leaving a parent block or the trip's
+    /// list of people is expected and not listed.
+    /// </summary>
+    public static IReadOnlyList<Entity> AffectedByDeletion(TripSnapshot trip, DeletionPlan plan, Guid target)
+    {
+        bool OnlyMembership(Entity before)
+        {
+            if (before.Type == "trip") return true;
+            var refs = TripReferences.From(before, includeExtensions: false).Where(r => r.Target == target).ToArray();
+            return refs.All(r => r.Path.StartsWith("/children/", StringComparison.Ordinal));
+        }
+        return plan.Updated.Select(e => trip.Find(e.Id)!).Where(e => !OnlyMembership(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+    }
+
+    /// <summary>Removes an item's time so it goes back to the Inbox; a planned item becomes an idea again.</summary>
+    public Task MoveToInboxAsync(Guid id) => UpdateAsync(id, e => { e.Data["time"] = null; if (e.Data["status"]?.ToString() == "planned") e.Data["status"] = "idea"; });
 
     public Task DuplicateAsync(Guid id) => RunEditAsync(async () =>
     {

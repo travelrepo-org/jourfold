@@ -136,9 +136,10 @@ public partial class MainViewModel
         await Workspace.Git.CreateVersionAsync(SuggestVersionMessage(await PendingChangesAsync()));
     }
 
-    private async Task MergeAsync(string branch, string otherTitle)
+    /// <summary>Merges another variant into the open one. Returns false when the person cancelled.</summary>
+    private async Task<bool> MergeAsync(string branch, string otherTitle)
     {
-        if (Workspace is null) return;
+        if (Workspace is null) return false;
         var baseline = await Workspace.Git.SnapshotAsync(await Workspace.Git.MergeBaseAsync(branch)); var incoming = await Workspace.Git.SnapshotAsync(branch);
         var plan = SemanticMerge.Plan(baseline, Workspace.State.Trip, incoming);
         var resolutions = new Dictionary<string, JsonNode?>(); var duplicates = new Dictionary<Guid, Entity>();
@@ -152,7 +153,7 @@ public partial class MainViewModel
                 var other = conflict.Kind == ConflictKind.Binary ? Strings["BinaryConflict"] : DescribeValue(conflict.Incoming, incoming);
                 return new ConflictPrompt(title, FieldLabel(conflict.Path), current, other, actions, conflict.Current?.ToString() ?? "");
             }).ToArray();
-            var answers = await Interaction.ResolveConflictsAsync(prompts, VariantTitle, otherTitle); if (answers is null) return;
+            var answers = await Interaction.ResolveConflictsAsync(prompts, VariantTitle, otherTitle); if (answers is null) return false;
             var keptBoth = new HashSet<Guid>();
             for (var i = 0; i < plan.Conflicts.Count; i++)
             {
@@ -168,11 +169,17 @@ public partial class MainViewModel
             plan = SemanticMerge.Plan(baseline, Workspace.State.Trip, incoming, resolutions);
             if (duplicates.Count > 0) { var all = plan.Result.Entities.ToDictionary(p => p.Key, p => p.Value); foreach (var duplicate in duplicates) all[duplicate.Key] = duplicate.Value; plan = plan with { Result = plan.Result with { Entities = all } }; }
         }
-        else if (!await Interaction.ConfirmAsync(Strings["Merge"], string.Format(Strings["MergeNoConflicts"], otherTitle, ChangeSummary.Between(Workspace.State.Trip, plan.Result).Count), Strings["Merge"])) return;
+        else if (!await Interaction.ConfirmAsync(Strings["Merge"], string.Format(Strings["MergeNoConflicts"], otherTitle, ChangeSummary.Between(Workspace.State.Trip, plan.Result).Count), Strings["Merge"])) return false;
         await Workspace.ApplyMergeAsync(branch, plan);
         var currentBranch = await Workspace.Git.CurrentBranchAsync();
-        if ((await Workspace.Git.VariantsAsync()).Any(v => v.Branch == branch && !v.IsRemote && v.Manifest.Data["variant"]?["role"]?.ToString() == "variant")) { await Workspace.Git.SwitchAsync(branch); await Workspace.Git.UpdateVariantAsync(archive: true); await Workspace.Git.SwitchAsync(currentBranch); await Workspace.ReloadAsync(); }
+        // The merged variant records that it was taken over, so every client shows it as such.
+        if ((await Workspace.Git.VariantsAsync()).Any(v => v.Branch == branch && !v.IsRemote && v.Manifest.Data["variant"]?["role"]?.ToString() == "variant"))
+        {
+            var into = Workspace.State.Trip.Manifest.Data["variant"]?["id"]?.ToString() ?? ""; var head = await Workspace.Git.HeadAsync();
+            await Workspace.Git.SwitchAsync(branch); await Workspace.Git.MarkMergedAsync(into, head); await Workspace.Git.SwitchAsync(currentBranch); await Workspace.ReloadAsync();
+        }
         Refresh(); Status = Strings["Merged"]; Interaction.Toast(string.Format(Strings["MergedInto"], otherTitle, VariantTitle));
+        return true;
     }
 
     public string FieldLabel(string path)

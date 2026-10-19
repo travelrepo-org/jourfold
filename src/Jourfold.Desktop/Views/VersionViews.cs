@@ -1,5 +1,6 @@
 using System.Globalization;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -101,40 +102,95 @@ public static class VariantsView
     private static async Task LoadAsync(MainWindow w, StackPanel list)
     {
         var m = w.Model; var s = m.Strings;
-        IReadOnlyList<Variant> variants;
-        try { variants = await m.VariantsAsync(); } catch (DomainException ex) { list.Children.Clear(); list.Children.Add(Ui.Text(s.Error(ex, m.Advanced))); return; }
+        IReadOnlyList<VariantOverview> variants; IReadOnlyList<DeletedVariant> deleted;
+        bool shared;
+        try { variants = await m.VariantOverviewAsync(); deleted = await m.DeletedVariantsAsync(); shared = (await m.RemotesAsync()).Count > 0; }
+        catch (DomainException ex) { list.Children.Clear(); list.Children.Add(Ui.Text(s.Error(ex))); return; }
         list.Children.Clear();
-        var current = variants.FirstOrDefault(v => v.Branch == m.CurrentBranch);
-        var ordered = variants.OrderByDescending(v => v.Branch == m.CurrentBranch).ThenBy(v => v.IsRemote).ThenBy(v => v.Manifest.Data["variant"]?["state"]?.ToString() == "archived").ThenBy(v => v.Manifest.Data["variant"]?["title"]?.ToString(), StringComparer.CurrentCulture).ToArray();
-        var archived = 0;
-        foreach (var variant in ordered)
+        var gone = variants.Where(v => v.UpstreamGone && v.LocalBranch is not null).ToArray();
+        if (gone.Length > 0)
         {
-            var meta = variant.Manifest.Data["variant"]; var isCurrent = variant.Branch == m.CurrentBranch; var isArchived = meta?["state"]?.ToString() == "archived";
-            if (isArchived) { archived++; if (!m.Advanced) continue; }
-            if (variant.IsRemote && !m.Advanced && variants.Any(v => !v.IsRemote && v.Commit == variant.Commit)) continue;
-            // Older versions pushed a second copy of a variant under a generated name; show such a copy once.
-            if (variant.IsRemote && !m.Advanced && ordered.TakeWhile(v => v != variant).Any(v => v.IsRemote && v.Commit == variant.Commit && v.Manifest.Data["variant"]?["id"]?.ToString() == variant.Manifest.Data["variant"]?["id"]?.ToString())) continue;
-            var title = meta?["title"]?.ToString() ?? variant.Branch;
-            var created = DateTimeOffset.TryParse(meta?["created_at"]?.ToString(), CultureInfo.InvariantCulture, out var at) ? string.Format(s["CreatedAgo"], Formats.Relative(at, s)) : "";
-            var parent = meta?["parent"]?["branch"]?.ToString();
-            var subtitle = string.Join(" · ", new[] { meta?["role"]?.ToString() == "primary" ? s["MainPlan"] : parent is null ? null : string.Format(s["BasedOn"], ordered.FirstOrDefault(v => v.Branch == parent)?.Manifest.Data["variant"]?["title"]?.ToString() ?? parent), created, variant.IsRemote ? s["OnlineCopy"] : null }.Where(x => !string.IsNullOrEmpty(x)));
-            var badges = Ui.H(6, isCurrent ? Ui.Pill(s["YouAreHere"], "check", "Accent.Soft", "Accent.SoftText") : null, isArchived ? Ui.Pill(s["archived"], "archive", "Bg.Subtle", "Text.Muted") : null);
-            var actions = Ui.H(6);
-            Button Action(string key, string icon, bool primary = false) { var b = Ui.Button(s[key], icon, "compact", primary ? "soft" : ""); b.Click += (_, _) => _ = m.VariantActionAsync(variant, key); actions.Children.Add(b); return b; }
-            if (!isCurrent) { Action("Switch", "arrow-right", true); Action("Compare", "git-compare"); Action("Merge", "git-merge"); }
-            Action("ShareVariant", "share-2");
-            var more = Ui.IconButton("ellipsis", s["More"], "small"); var menu = new MenuFlyout();
-            var rename = new MenuItem { Header = s["Rename"], Icon = Ui.Icon("pencil", 15) }; rename.Click += (_, _) => _ = m.VariantActionAsync(variant, "Rename"); menu.Items.Add(rename);
-            if (!isCurrent && !isArchived) { var archive = new MenuItem { Header = s["Archive"], Icon = Ui.Icon("archive", 15) }; archive.Click += (_, _) => _ = m.VariantActionAsync(variant, "Archive"); menu.Items.Add(archive); }
-            more.Flyout = menu; actions.Children.Add(more);
-            var body = Ui.V(10,
-                Ui.Columns("Auto,*,Auto", Ui.Tile(isCurrent ? "check" : "git-branch", isCurrent ? "Activity" : "Transport", 38), Ui.V(2, Ui.H(8, Ui.Line(title, "h3"), badges), Ui.Line(subtitle, "caption"), m.Advanced ? Ui.Line(variant.Branch + " · " + variant.Commit[..Math.Min(10, variant.Commit.Length)], "caption").Also(t => t.FontFamily = FontFamily.Parse("monospace")) : null).Margin(14, 0, 0, 0)),
-                actions);
-            var card = Ui.Card(body, 16); if (isCurrent) card.Res(Border.BorderBrushProperty, "Accent");
-            if (isArchived) card.Opacity = 0.7;
-            list.Children.Add(card);
+            var clean = Ui.Button(s["CleanUpVariants"], "git-branch", "primary", "compact"); clean.Command = m.CleanUpVariantsCommand;
+            list.Children.Add(Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Icon("triangle-alert", 16, "Warning"), Ui.Text(string.Format(gone.Length == 1 ? s["VariantsDeletedOnlineOne"] : s["VariantsDeletedOnlineMany"], gone.Length, string.Join(", ", gone.Select(v => v.Title))), "muted").Margin(10, 0), clean), 14));
         }
-        if (archived > 0 && !m.Advanced) list.Children.Add(Ui.Text(string.Format(s["ArchivedHidden"], archived), "caption"));
+        void Section(string title, IEnumerable<VariantOverview> items, bool collapsed = false)
+        {
+            var cards = items.Select(v => Card(w, v, variants, shared)).ToArray(); if (cards.Length == 0) return;
+            var body = Ui.V(12, cards);
+            list.Children.Add(collapsed ? new Expander { Header = Ui.Text(title + " (" + cards.Length + ")", "strong"), Content = body, HorizontalAlignment = HorizontalAlignment.Stretch } : Ui.V(10, Ui.Text(title, "overline"), body));
+        }
+        Section(s["MainPlan"], variants.Where(v => v.Primary));
+        Section(s["Variants"], variants.Where(v => !v.Primary && !v.Archived && !v.RemoteOnly));
+        Section(s["OnlyOnline"], variants.Where(v => !v.Primary && !v.Archived && v.RemoteOnly));
+        Section(s["MergedAndArchived"], variants.Where(v => !v.Primary && v.Archived), collapsed: true);
+        if (deleted.Count > 0)
+        {
+            var rows = Ui.V(6);
+            foreach (var d in deleted)
+            {
+                var days = Math.Max(0, (int)Math.Ceiling((MainViewModel.DeletedVariantsKept - (DateTimeOffset.UtcNow - d.DeletedAt)).TotalDays));
+                var restore = Ui.Button(s["Restore"], "rotate-ccw", "compact"); restore.Click += (_, _) => _ = m.RestoreVariantAsync(d);
+                AutomationProperties.SetName(restore, s["Restore"] + ": " + d.Title);
+                rows.Children.Add(Ui.Columns("Auto,*,Auto", Ui.Icon("trash-2", 15, "Text.Subtle"), Ui.V(1, Ui.Line(d.Title, "title"), Ui.Text(string.Format(s["DeletedVariantInfo"], Formats.Relative(d.DeletedAt, s), days), "caption")).Margin(10, 0), restore));
+            }
+            list.Children.Add(new Expander { Header = Ui.Text(s["DeletedVariants"] + " (" + deleted.Count + ")", "strong"), Content = Ui.Card(rows, 14), HorizontalAlignment = HorizontalAlignment.Stretch });
+        }
         if (variants.Count <= 1) list.Children.Add(Ui.Card(Ui.Columns("Auto,*", Ui.Icon("info", 16, "Info"), Ui.Text(s["VariantsExplainer"], "muted").Margin(10, 0, 0, 0)), 16));
+    }
+
+    /// <summary>One variant: where it lives, how it differs from its online copy and from the main plan, and what can be done.</summary>
+    /// <param name="shared">Whether the trip has a remote; without one, where a variant lives needs no label.</param>
+    private static Control Card(MainWindow w, VariantOverview v, IReadOnlyList<VariantOverview> all, bool shared)
+    {
+        var m = w.Model; var s = m.Strings;
+        var legacy = new Variant(v.Branch, "", new Entity(v.Manifest), v.RemoteOnly);
+        var badges = Ui.Flow(6,
+            v.Current ? Ui.Pill(s["YouAreHere"], "check", "Accent.Soft", "Accent.SoftText") : null,
+            v.Merged ? Ui.Pill(s["TakenOver"], "git-merge", "Success.Soft", "Success") : v.Archived ? Ui.Pill(s["archived"], "archive", "Bg.Subtle", "Text.Muted") : null,
+            v.UpstreamGone ? Ui.Pill(s["DeletedOnline"], "triangle-alert", "Warning.Soft", "Warning")
+                : v.RemoteOnly ? Ui.Pill(s["OnlyOnline"], "cloud", "Info.Soft", "Info")
+                : !shared ? null
+                : v.LocalOnly || !v.OnRemote ? Ui.Pill(s["OnlyOnThisComputer"], "monitor", "Bg.Subtle", "Text.Muted")
+                : Ui.Pill(s["Online"], "cloud", "Bg.Subtle", "Text.Muted"));
+        var lines = Ui.V(4);
+        // How the local copy and the online copy differ, in words and arrows, never by colour alone.
+        if (v.LocalBranch is not null && v.OnRemote)
+        {
+            var (icon, text) = v.Diverged ? ("git-compare", string.Format(s["VariantDiverged"], v.Ahead, v.Behind))
+                : v.Ahead > 0 ? ("upload", string.Format(v.Ahead == 1 ? s["SyncAheadOne"] : s["SyncAhead"], v.Ahead))
+                : v.Behind > 0 ? ("download", string.Format(v.Behind == 1 ? s["SyncBehindOne"] : s["SyncBehind"], v.Behind))
+                : ("circle-check", s["SyncSame"]);
+            var sync = v.Ahead + v.Behind > 0 ? Ui.Button(s["Sync"], "refresh-cw", "link").Also(b => b.Click += (_, _) => _ = m.SyncVariantAsync(v)) : null;
+            lines.Children.Add(Ui.H(6, Ui.Icon(icon, 13, v.Diverged ? "Warning" : "Text.Subtle"), Ui.Text(text, "caption"), sync));
+        }
+        if (!v.Primary && !v.Archived && v.BehindPrimary > 0)
+        {
+            var update = v.Current ? Ui.Button(s["UpdateFromMainPlan"], "download", "link").Also(b => b.Click += (_, _) => _ = m.UpdateFromPrimaryAsync()) : null;
+            lines.Children.Add(Ui.H(6, Ui.Icon("git-branch", 13, "Text.Subtle"), Ui.Text(string.Format(v.BehindPrimary == 1 ? s["BehindMainOne"] : s["BehindMain"], v.BehindPrimary, all.FirstOrDefault(x => x.Primary)?.Title ?? s["MainPlan"]), "caption"), update));
+        }
+        if (v.LastChanged is { } changed) lines.Children.Add(Ui.Text(string.Format(s["LastChangedBy"], v.LastAuthor ?? "", Formats.Relative(changed, s)), "caption"));
+        if (m.Advanced) lines.Children.Add(Ui.Line(string.Join(" · ", new[] { v.LocalBranch, v.RemoteBranch }.Where(b => b is not null)), "caption").Also(t => t.FontFamily = FontFamily.Parse("monospace")));
+
+        var actions = Ui.Flow(6);
+        Button Add(string label, string icon, Func<Task> run, bool primary = false) { var b = Ui.Button(label, icon, "compact", primary ? "soft" : ""); b.Click += (_, _) => _ = run(); AutomationProperties.SetName(b, label + ": " + v.Title); actions.Children.Add(b); return b; }
+        if (!v.Current) Add(s["Switch"], "arrow-right", () => m.VariantActionAsync(legacy, "Switch"), primary: true);
+        if (!v.Current) Add(s["Compare"], "git-compare", () => m.VariantActionAsync(legacy, "Compare"));
+        if (!v.Primary && !v.Archived) Add(s["PromoteVariant"], "git-merge", () => m.PromoteVariantAsync(v));
+        if (v.LocalBranch is not null && (v.LocalOnly || v.UpstreamGone)) Add(s["ShareAgain"], "cloud", () => m.ShareLocalVariantAsync(v));
+        var more = Ui.IconButton("ellipsis", s["More"], "small"); var menu = new MenuFlyout();
+        void Item(string label, string icon, Func<Task> run) { var item = new MenuItem { Header = label, Icon = Ui.Icon(icon, 15) }; item.Click += (_, _) => _ = run(); menu.Items.Add(item); }
+        if (!v.Current && !v.Primary && !v.Archived) Item(s["Merge"], "git-merge", () => m.VariantActionAsync(legacy, "Merge"));
+        if (v.OnRemote || v.LocalBranch is not null) Item(s["ShareVariant"], "share-2", () => m.VariantActionAsync(legacy, "ShareVariant"));
+        if (v.LocalBranch is not null) Item(s["Rename"], "pencil", () => m.VariantActionAsync(legacy, "Rename"));
+        if (v.LocalBranch is not null && !v.Current && !v.Primary && !v.Archived) Item(s["Archive"], "archive", () => m.VariantActionAsync(legacy, "Archive"));
+        if (v.LocalBranch is not null && !v.Primary) { if (menu.Items.Count > 0) menu.Items.Add(new Separator()); Item(s["Delete"], "trash-2", () => m.DeleteVariantAsync(v)); }
+        if (menu.Items.Count > 0) { more.Flyout = menu; actions.Children.Add(more); }
+
+        var tile = Ui.Tile(v.Current ? "check" : v.Primary ? "house" : "git-branch", v.Current ? "Activity" : "Transport", 38);
+        var body = Ui.V(10, Ui.Columns("Auto,*", tile, Ui.V(4, Ui.Line(v.Title, "h3"), badges, lines).Margin(14, 0, 0, 0)), actions);
+        var card = Ui.Card(body, 16); if (v.Current) card.Res(Border.BorderBrushProperty, "Accent");
+        if (v.Archived) card.Opacity = 0.8;
+        AutomationProperties.SetName(card, v.Title);
+        return card;
     }
 }

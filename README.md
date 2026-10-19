@@ -1,6 +1,6 @@
 # Jourfold
 
-A desktop travel planner for Windows and Linux, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later.
+A desktop travel planner for Windows and Linux, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later. Website: [jourfold.dev](https://jourfold.dev).
 
 ![Jourfold timetable with the Inbox open and an activity selected in the inspector](docs/screenshots/planning-light.png)
 

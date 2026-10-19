@@ -65,6 +65,11 @@ public sealed class AboutTests : IDisposable
             using var process = System.Diagnostics.Process.Start(info)!; var output = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit();
             Assert.Equal(CodeNames.For(version), output);
         }
+        // The website the installer gets is the one the About window links to.
+        var website = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsWindows() ? "python" : "python3") { RedirectStandardOutput = true, WorkingDirectory = repository.FullName };
+        website.ArgumentList.Add("eng/version.py"); website.ArgumentList.Add("--website");
+        using (var process = System.Diagnostics.Process.Start(website)!) { var output = process.StandardOutput.ReadToEnd().Trim(); process.WaitForExit(); Assert.Equal(AppVersion.WebsiteUrl?.AbsoluteUri.TrimEnd('/'), output); }
+        Assert.Equal("https://jourfold.dev/", AppVersion.WebsiteUrl?.AbsoluteUri);
     }
 
     [Fact]
@@ -111,7 +116,9 @@ public sealed class AboutTests : IDisposable
             Assert.Contains(texts, t => t?.Contains("Adds walks.") == true);
             Assert.Contains(texts, t => t?.Contains("MIT") == true);
             Assert.Equal(3, Probe.All<Button>(sheet).Count(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Read license"));
-            Assert.Single(Probe.All<Button>(sheet), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Website");
+            // Jourfold's own website and the plugin's.
+            var websites = Probe.All<Button>(sheet).Where(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Website").ToArray();
+            Assert.Equal(2, websites.Length); Assert.Equal("https://jourfold.dev/", ToolTip.GetTip(websites[0]));
 
             Probe.Click(sheet, "Read license"); Probe.Layout();
             var license = Probe.Sheet(w); Assert.NotSame(sheet, license);

@@ -1,5 +1,5 @@
 ; Build after `python eng/package.py --rid win-<arch>`:
-;   ISCC /DAppVersion=<python eng/version.py> [/DArch=arm64] eng/windows.iss
+;   ISCC /DAppVersion=<python eng/version.py> /DAppUrl=<python eng/version.py --website> [/DArch=arm64] eng/windows.iss
 #ifndef AppVersion
   #error Pass the version from Directory.Build.props: ISCC /DAppVersion=x.y.z (python eng/version.py prints it)
 #endif
@@ -18,6 +18,10 @@ AppId={{A4F1077F-857B-4CFA-8BCB-A12F80773B56}
 AppName=Jourfold
 AppVersion={#AppVersion}
 AppPublisher=Jourfold contributors
+#ifdef AppUrl
+AppPublisherURL={#AppUrl}
+AppSupportURL={#AppUrl}
+#endif
 UninstallDisplayName=Jourfold
 UninstallDisplayIcon={app}\Jourfold.Desktop.exe
 SetupIconFile=..\assets\branding\jourfold.ico

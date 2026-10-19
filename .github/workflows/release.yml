@@ -148,7 +148,7 @@ jobs:
         run: |
           choco install innosetup --yes --no-progress
           $arch = '${{ matrix.rid }}'.Substring(4)
-          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=$(python eng/version.py)" "/DArch=$arch" eng/windows.iss
+          & 'C:\Program Files (x86)\Inno Setup 6\ISCC.exe' "/DAppVersion=$(python eng/version.py)" "/DAppUrl=$(python eng/version.py --website)" "/DArch=$arch" eng/windows.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         with:

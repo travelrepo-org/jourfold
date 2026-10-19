@@ -59,7 +59,7 @@ public sealed class TestInteraction : IInteraction
     public Task<string?> FileAsync(bool save = false, string? extension = null, string? suggestedName = null) => Task.FromResult(Next());
     public Task ShowAsync(string title, string message) { Errors.Add(message); return Task.CompletedTask; }
     public Task CompareAsync(TripSnapshot current, TripSnapshot incoming, string currentTitle, string otherTitle) => Task.CompletedTask;
-    public Task CopyAsync(string value) => Task.CompletedTask;
+    public Task CopyAsync(string value) { Copied.Add(value); return Task.CompletedTask; }
     public Task<IReadOnlyDictionary<string, string>?> FormAsync(string title, IReadOnlyList<FormField> fields) => Task.FromResult<IReadOnlyDictionary<string, string>?>(fields.ToDictionary(f => f.Key, f => Next(f.Value) ?? ""));
     public Task<IReadOnlyList<string>?> SelectManyAsync(string title, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected) => Task.FromResult<IReadOnlyList<string>?>(Answers.Count > 0 ? new[] { Answers.Dequeue()! } : selected);
     public Task<JsonObject?> ScheduleAsync(JsonObject? initial, LocalDate date, string zone) => Task.FromResult(initial);
@@ -81,7 +81,12 @@ public sealed class TestInteraction : IInteraction
     public Task ReleaseNotesAsync(IReadOnlyList<ReleaseNote> releases, bool highlightsOnly) { ReleaseNotesShown.Add((releases, highlightsOnly)); return Task.CompletedTask; }
     public List<Entity> Viewed { get; } = [];
     public void ViewDocument(Entity document) => Viewed.Add(document);
-    public void Open(string path) { }
+    public List<string> Opened { get; } = [];
+    public void Open(string path) => Opened.Add(path);
+    public List<string> Copied { get; } = [];
+    /// <summary>Answers the report review; without it the report is copied unchanged.</summary>
+    public Func<string, ReportReview?>? Report { get; set; }
+    public Task<ReportReview?> ReviewReportAsync(string text) => Task.FromResult(Report is { } answer ? answer(text) : new ReportReview(text, false));
 }
 
 public static class Probe

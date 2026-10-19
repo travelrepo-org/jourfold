@@ -75,14 +75,33 @@ public partial class MainViewModel
         }
         if (key.StartsWith("UsePlugin:", StringComparison.Ordinal)) await UsePluginAsync(key["UsePlugin:".Length..]);
         if (key.StartsWith("ForgetPlugin:", StringComparison.Ordinal)) PluginCatalog.Forget(Store, key["ForgetPlugin:".Length..]);
-        if (key == "Report")
-        {
-            var report = await Interaction.PromptAsync(Strings["ReportInfo"], Strings["ReportTemplate"] + "\n\n" + await DiagnosticsTextAsync(), true);
-            if (report is not null) { await Interaction.CopyAsync(report); Interaction.Toast(Strings["ReportCopied"]); }
-        }
+        if (key == "Report") await ReportAsync();
         if (key == "ClearMapCache") { MapTiles.ClearCache(Store.Root); Interaction.Toast(Strings["MapCacheCleared"]); }
         if (key is "ConnectGitHub" or "DiscoverGitHub" or "AddRemote") { Busy = false; await (key == "ConnectGitHub" ? ConnectGitHubCommand : key == "DiscoverGitHub" ? DiscoverGitHubCommand : AddRemoteCommand).ExecuteAsync(null); }
     });
+
+    /// <summary>For looking up where reports go; tests replace it.</summary>
+    public HttpClient SupportHttp { get; set; } = new() { Timeout = TimeSpan.FromSeconds(15) };
+
+    /// <summary>
+    /// Prepares a problem report with the diagnostics, lets the person review and edit it, then copies it or opens it
+    /// in their mail program, addressed to the public contact address of the GitHub account that publishes Jourfold.
+    /// Nothing is sent by Jourfold itself.
+    /// </summary>
+    public async Task ReportAsync(string? context = null)
+    {
+        var text = Strings["ReportTemplate"] + (context is { Length: > 0 } ? "\n\n" + context : "") + "\n\n" + await DiagnosticsTextAsync();
+        if (await Interaction.ReviewReportAsync(text) is not { } review) return;
+        if (!review.ByMail) { await Interaction.CopyAsync(review.Text); Interaction.Toast(Strings["ReportCopied"]); return; }
+        if (await SupportContact.EmailAsync(Store, SupportHttp) is not { } address)
+        {
+            await Interaction.CopyAsync(review.Text); Interaction.Toast(Strings["ReportNoContact"]); return;
+        }
+        var (link, complete) = SupportContact.MailTo(address, string.Format(Strings["ReportSubject"], AppVersion.Version), review.Text, Strings["ReportPasteHere"]);
+        if (!complete) await Interaction.CopyAsync(review.Text);
+        Interaction.Open(link);
+        Interaction.Toast(complete ? Strings["ReportMailOpened"] : Strings["ReportMailTooLong"]);
+    }
 
     /// <summary>Starts the plugin in <paramref name="folder"/>, remembers it and, with an item selected, adds one of its components.</summary>
     private async Task UsePluginAsync(string folder)

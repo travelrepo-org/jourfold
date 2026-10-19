@@ -52,6 +52,14 @@
           "Tmds.DBus.Protocol": "0.21.2"
         }
       },
+      "Avalonia.HtmlRenderer": {
+        "type": "Transitive",
+        "resolved": "11.3.0",
+        "contentHash": "y4+ZiaI8l6iMWS6iS0PQ7dsY1d9bPDKDPvdZLac1msJSQTYpJulPb2PN1uB8xGAX5yR3LcxkiTGG6ISJfyyiuQ==",
+        "dependencies": {
+          "Avalonia": "11.1.0"
+        }
+      },
       "Avalonia.Native": {
         "type": "Transitive",
         "resolved": "11.3.13",
@@ -362,6 +370,7 @@
         "dependencies": {
           "Avalonia": "[11.3.13, )",
           "Avalonia.Desktop": "[11.3.13, )",
+          "Avalonia.HtmlRenderer": "[11.3.0, )",
           "Avalonia.Themes.Fluent": "[11.3.13, )",
           "CommunityToolkit.Mvvm": "[8.4.0, )",
           "Jourfold.Application": "[0.4.0, )",
@@ -412,7 +421,8 @@
           "ModelContextProtocol.Core": "[2.2.0, )",
           "TravelRepo.Documents": "[0.4.0, )",
           "TravelRepo.Git": "[0.4.0, )",
-          "TravelRepo.Merge": "[0.4.0, )"
+          "TravelRepo.Merge": "[0.4.0, )",
+          "TravelRepo.Providers.Weather": "[0.4.0, )"
         }
       },
       "travelrepo.merge": {

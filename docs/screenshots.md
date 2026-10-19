@@ -50,7 +50,7 @@ A booking with its confirmation e-mail attached, and the drop area for more:
 
 The document window with the confirmation e-mail and with its PDF attachment, searched for a time:
 
-![Document window showing the e-mail's sender, date, an attached PDF and the text, with a note that one remote image was not loaded](screenshots/viewer-mail.png)
+![Document window showing the e-mail's sender, date and attached PDF, a note that one remote image was not loaded with a button to load it, and the message in its original layout](screenshots/viewer-mail.png)
 
 ![Document window showing the attached PDF confirmation with the search result for 15:00 highlighted](screenshots/viewer-pdf.png)
 

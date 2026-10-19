@@ -235,9 +235,14 @@ try
                     m.View = "Plan"; m.ShowDate(new NodaTime.LocalDate(2027, 5, 15)); m.Selected = m.Workspace.State.Trip.Find(hotel.Id); await Settle(400);
                     // A taller window shows the whole accommodation section without scrolling.
                     window.FindControl<Panel>("ToastLayer")?.Children.Clear(); window.Height = 1500; await Settle(400); await Capture("stay-details"); window.Height = 900; await Settle(300);
-                    window.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b)?.Contains("urgent", StringComparison.OrdinalIgnoreCase) == true || Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(m.Strings["RemindersCount"].Split(' ')[^1], StringComparison.Ordinal) == true).Flyout!.ShowAt(window.GetVisualDescendants().OfType<Button>().First(b => b.Flyout is Flyout));
-                    await Settle(400); await Capture("reminders");
+                    var bellName = m.UrgentReminders > 0 ? string.Format(m.Strings["RemindersUrgent"], m.Reminders.Count, m.UrgentReminders) : string.Format(m.Strings["RemindersCount"], m.Reminders.Count);
+                    var bell = window.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b) == bellName);
+                    bell.Flyout!.ShowAt(bell);
+                    await Settle(400); await Capture("reminders"); bell.Flyout.Hide(); await Settle(200);
                 }
+                // "What's new" after an update from 0.3.1, and the full version history.
+                await Dialog(() => m.Interaction.ReleaseNotesAsync(ReleaseNotes.Since("0.3.1", AppVersion.Version, true), highlightsOnly: true), "whats-new", m.Strings["LetsGo"]);
+                await Dialog(() => m.Interaction.ReleaseNotesAsync(ReleaseNotes.All, highlightsOnly: false), "version-history", m.Strings["Close"]);
                 // The assistant configuration with neutral paths instead of this machine's program and trip folders.
                 var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =

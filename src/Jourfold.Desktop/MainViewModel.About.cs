@@ -57,6 +57,22 @@ public partial class MainViewModel
 {
     [RelayCommand] private Task About() => Interaction.AboutAsync(this);
 
+    /// <summary>
+    /// Shows what is new once after an update. The last version seen is remembered on this computer; a fresh install
+    /// starts with the sample trip instead.
+    /// </summary>
+    public async Task ShowWhatsNewAsync()
+    {
+        var seen = Store.Get("whatsnew.seen"); var current = AppVersion.Version;
+        var usedBefore = Store.Recent().Count > 0 || Store.Get("lastView") is not null;
+        var releases = ReleaseNotes.Since(seen, current, usedBefore);
+        Store.Set("whatsnew.seen", current);
+        if (releases.Count > 0) await Interaction.ReleaseNotesAsync(releases, highlightsOnly: true);
+    }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private Task VersionHistory() => Interaction.ReleaseNotesAsync(ReleaseNotes.All, highlightsOnly: false);
+
     public AboutInfo AboutInfo() => new(AppVersion.Version, AppVersion.CodeName, AppVersion.Commit, AppVersion.RepositoryUrl, TravelRepoInfo.Version, TravelRepoInfo.FormatVersion, TravelRepoInfo.RepositoryUrl, AppVersion.Platform, PluginCatalog.Known(Store));
 
     /// <summary>License and notice texts compiled into the application: <c>Jourfold.LICENSE</c>, <c>TravelRepo.LICENSE</c> and <c>Jourfold.NOTICES</c>.</summary>

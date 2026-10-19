@@ -23,6 +23,8 @@ No account is needed and nothing leaves your computer unless you share a trip or
 
 More captures, including the map, costs, a booking confirmation in the document window, Quick Add, settings and the About window, are in [docs/screenshots.md](docs/screenshots.md). They are taken from the real application with synthetic data.
 
+What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
+
 ## Install
 
 Once a release is published, one command installs Jourfold for your user account.

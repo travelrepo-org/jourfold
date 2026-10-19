@@ -1,0 +1,45 @@
+# Release notes for Jourfold 0.4.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.4.0
+date: 2026-10-19
+highlights:
+  - icon: bed-double
+    en: Stays are shown as nights in a band below the timetable. Nights entered one by one can be merged into one stay, and nights without a place to stay stand out.
+    de: Unterkünfte stehen als Nächte in einem Band unter dem Zeitplan. Einzeln eingetragene Nächte lassen sich zu einer Unterkunft zusammenfassen, und Nächte ohne Unterkunft fallen auf.
+  - icon: mail
+    en: Confirmation e-mails and PDFs open inside Jourfold, next to the plan. Drop them onto a booking or a stay.
+    de: Bestätigungs-E-Mails und PDFs öffnen sich direkt in Jourfold, neben dem Plan. Ziehen Sie sie auf eine Buchung oder Unterkunft.
+  - icon: bell
+    en: The bell reminds you of free cancellation deadlines, tasks due, late arrivals and unconfirmed bookings, also as a system notification.
+    de: Die Glocke erinnert an kostenlose Stornofristen, fällige Aufgaben, späte Ankünfte und unbestätigte Buchungen, auch als Benachrichtigung des Systems.
+  - icon: git-merge
+    en: Variants can be taken over into the main plan, deleted with a 30-day recycle bin, and cleaned up when someone deleted them online.
+    de: Varianten lassen sich in den Hauptplan übernehmen, mit 30 Tagen Papierkorb löschen und aufräumen, wenn jemand sie online gelöscht hat.
+  - icon: trash-2
+    en: Deleting an item that others link to asks first and offers to delete places and files nothing else uses.
+    de: Beim Löschen von verknüpften Einträgen fragt Jourfold nach und bietet an, nicht mehr verwendete Orte und Dateien mitzulöschen.
+  - icon: wrench
+    en: Sync problems are explained in plain words, with safe fixes and technical details to copy.
+    de: Probleme beim Synchronisieren werden verständlich erklärt, mit sicheren Lösungen und technischen Details zum Kopieren.
+changes:
+  - en: Accommodation details hold check-in hours, how to get in, free cancellation, breakfast, parking and arrival notes. Places have phone, e-mail and website.
+    de: Details der Unterkunft enthalten Check-in-Zeiten, Zugang, kostenlose Stornierung, Frühstück, Parken und Hinweise zur Anreise. Orte haben Telefon, E-Mail und Website.
+  - en: The variants page shows each variant once, with where it lives and how it differs from its online copy and from the main plan.
+    de: Die Variantenseite zeigt jede Variante einmal, mit Ort und Unterschied zur Online-Kopie und zum Hauptplan.
+  - en: Lists, tiles, people, files and map pins share one right-click menu.
+    de: Listen, Kacheln, Personen, Dateien und Kartenpins haben ein gemeinsames Rechtsklick-Menü.
+  - en: Map labels can be shown when there is room, always, or never.
+    de: Kartenbeschriftungen lassen sich automatisch, immer oder nie zeigen.
+  - en: The version appears next to the logo, and About Jourfold has a version history.
+    de: Die Version steht neben dem Logo, und „Über Jourfold“ enthält einen Versionsverlauf.
+  - en: Quick Add no longer stores check-in and check-out hours you did not enter.
+    de: „Hinzufügen“ speichert keine Check-in- und Check-out-Zeiten mehr, die Sie nicht eingegeben haben.
+fixes:
+  - en: Lists, the inspector and the map no longer jump when they are rebuilt or when something is selected.
+    de: Listen, Inspector und Karte springen nicht mehr, wenn sie neu aufgebaut werden oder etwas ausgewählt wird.
+  - en: Sync follows the branch a variant tracks instead of uploading a copy under another name.
+    de: Der Sync folgt dem Branch, den eine Variante verfolgt, statt eine Kopie unter anderem Namen hochzuladen.
+  - en: Files in the trip folder that are not part of the trip no longer count as unsaved changes.
+    de: Dateien im Reiseordner, die nicht zur Reise gehören, zählen nicht mehr als ungespeicherte Änderungen.
+  - en: Deleting a place keeps the stays that used it.
+    de: Beim Löschen eines Orts bleiben Unterkünfte, die ihn verwendet haben, erhalten.

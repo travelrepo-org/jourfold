@@ -77,6 +77,8 @@ public sealed class TestInteraction : IInteraction
     public List<Problem> Problems { get; } = [];
     public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
+    public List<(IReadOnlyList<ReleaseNote> Releases, bool HighlightsOnly)> ReleaseNotesShown { get; } = [];
+    public Task ReleaseNotesAsync(IReadOnlyList<ReleaseNote> releases, bool highlightsOnly) { ReleaseNotesShown.Add((releases, highlightsOnly)); return Task.CompletedTask; }
     public List<Entity> Viewed { get; } = [];
     public void ViewDocument(Entity document) => Viewed.Add(document);
     public void Open(string path) { }

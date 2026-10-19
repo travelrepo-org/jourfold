@@ -329,26 +329,55 @@ public sealed class TimetableView : UserControl
         return button;
     }
 
-    /// <summary>Thin lines in the grid at check-in and check-out, so arrival and departure are visible next to the day's plans without taking room.</summary>
+    /// <summary>
+    /// Check-in and check-out in the grid, taking no room: a thin line at a planned hour, and a soft band for the
+    /// accommodation's check-in hours. A planned hour that is not fixed gets no line.
+    /// </summary>
     private void DrawStayMarkers()
     {
         var s = vm.Strings;
-        foreach (var stay in Stays.All(trip))
-            foreach (var (moment, key) in new[] { (stay.CheckIn, "CheckInAt"), (stay.CheckOut, "CheckOutAt") })
+        IEnumerable<int> Columns(Stay stay, LocalDate date) => vm.Lanes ? (date == vm.StartDate ? Lanes(stay.Item) : []) : [Period.DaysBetween(vm.StartDate, date)];
+        double Y(LocalTime time) => Top + time.TickOfDay / (double)NodaConstants.TicksPerHour * hourHeight;
+        void Tag(Stay stay, string text, double x, double y)
+        {
+            var tag = new Border { Padding = new Thickness(5, 0), CornerRadius = new CornerRadius(4), IsHitTestVisible = false, Child = Ui.H(3, Ui.Icon("bed-double", 10, "Kind.Accommodation.Fg"), Ui.Text(text, "caption").Also(t => { t.FontSize = 10; t.TextWrapping = TextWrapping.NoWrap; })) }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
+            ToolTip.SetTip(tag, stay.Item.Title);
+            tag.Measure(Size.Infinity); Place(tag, x + columnWidth - 6 - tag.DesiredSize.Width, y - 8, 1);
+        }
+        void Line(double x, double y) => Place(new Line { StartPoint = new Point(x + 2, y), EndPoint = new Point(x + columnWidth - 2, y), StrokeThickness = 1.5, StrokeDashArray = [5, 3], IsHitTestVisible = false, Opacity = 0.8 }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"), 0, 0, 1);
+        foreach (var stay in Stays.All(trip).Where(x => x.FirstNight is not null))
+        {
+            var stayZone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(stay.Zone) ?? zone;
+            LocalDate Day(LocalDate local, LocalTime time) => stayZone.AtLeniently(local.At(time)).ToInstant().InZone(zone).Date;
+            LocalTime Time(LocalDate local, LocalTime time) => stayZone.AtLeniently(local.At(time)).ToInstant().InZone(zone).TimeOfDay;
+            // The accommodation's check-in hours on the arrival day.
+            if (stay.CheckInWindow is { From: { } from } window)
             {
-                if (moment is null) continue;
-                Instant instant; try { instant = moment.ToInstant(); } catch (DomainException) { continue; }
-                var local = instant.InZone(zone);
-                var cols = vm.Lanes ? (local.Date == vm.StartDate ? Lanes(stay.Item) : []) : [Period.DaysBetween(vm.StartDate, local.Date)];
-                foreach (var column in cols.Where(c => c >= 0 && c < columns))
+                var day = stay.FirstNight!.Value; var start = Time(day, from); var end = window.Until is { } until ? Time(day, until) : new LocalTime(23, 59);
+                foreach (var column in Columns(stay, Day(day, from)).Where(c => c >= 0 && c < columns))
                 {
-                    var y = Top + local.TimeOfDay.TickOfDay / (double)NodaConstants.TicksPerHour * hourHeight; var x = Gutter + column * columnWidth;
-                    Place(new Line { StartPoint = new Point(x + 2, y), EndPoint = new Point(x + columnWidth - 2, y), StrokeThickness = 1.5, StrokeDashArray = [5, 3], IsHitTestVisible = false, Opacity = 0.8 }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"), 0, 0, 1);
-                    var tag = new Border { Padding = new Thickness(5, 0), CornerRadius = new CornerRadius(4), IsHitTestVisible = false, Child = Ui.H(3, Ui.Icon("bed-double", 10, "Kind.Accommodation.Fg"), Ui.Text(string.Format(s[key], Formats.Time(local.TimeOfDay)), "caption").Also(t => { t.FontSize = 10; t.TextWrapping = TextWrapping.NoWrap; })) }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
-                    ToolTip.SetTip(tag, stay.Item.Title);
-                    tag.Measure(Size.Infinity); Place(tag, x + columnWidth - 6 - tag.DesiredSize.Width, y - 8, 1);
+                    var x = Gutter + column * columnWidth;
+                    Place(new Border { Width = columnWidth - 4, Height = Math.Max(4, Y(end) - Y(start)), IsHitTestVisible = false, Opacity = 0.35, CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg"), x + 2, Y(start), 0);
+                    if (stay.CheckIn is null || stay.CheckInApproximate) Tag(stay, window.Until is { } u ? string.Format(s["CheckInBetween"], Formats.Time(from), Formats.Time(u)) : string.Format(s["CheckInFromTime"], Formats.Time(from)), x, Y(start));
                 }
             }
+            foreach (var (moment, approximate, key) in new[] { (stay.CheckIn, stay.CheckInApproximate, "CheckInAt"), (stay.CheckOut, stay.CheckOutApproximate, "CheckOutAt") })
+            {
+                if (moment is null || approximate) continue;
+                Instant instant; try { instant = moment.ToInstant(); } catch (DomainException) { continue; }
+                var local = instant.InZone(zone);
+                foreach (var column in Columns(stay, local.Date).Where(c => c >= 0 && c < columns))
+                {
+                    var x = Gutter + column * columnWidth; Line(x, Y(local.TimeOfDay)); Tag(stay, string.Format(s[key], Formats.Time(local.TimeOfDay)), x, Y(local.TimeOfDay));
+                }
+            }
+            // Without a fixed departure hour, the latest check-out is the useful time.
+            if ((stay.CheckOut is null || stay.CheckOutApproximate) && stay.CheckOutWindow?.Until is { } latest && stay.DepartureDay is { } departure)
+                foreach (var column in Columns(stay, Day(departure, latest)).Where(c => c >= 0 && c < columns))
+                {
+                    var x = Gutter + column * columnWidth; var y = Y(Time(departure, latest)); Line(x, y); Tag(stay, string.Format(s["CheckOutByTime"], Formats.Time(latest)), x, y);
+                }
+        }
     }
 
     private IReadOnlyList<int> Lanes(Entity item)

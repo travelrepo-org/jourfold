@@ -89,6 +89,62 @@ public static class InspectorView
     private static void Add(StackPanel body, string title, Control? content, Control? action = null) { if (content is not null) body.Children.Add(Ui.Section(title, content, action)); }
     private static Control Field(string label, Control editor) => Ui.Field(label, editor);
 
+    /// <summary>
+    /// The accommodation's rules and practical details: check-in and check-out hours, how to get in, whether the
+    /// planned hours are fixed, free cancellation, breakfast, parking, arrival notes and the place's contact.
+    /// </summary>
+    private static Control StayDetails(MainWindow w, Entity e, Stay? stay)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!; var a = e.Data["components"]?["accommodation"];
+        const string Root = "components/accommodation/";
+        var hours = Ui.Columns("*,*",
+            Field(s["CheckInHours"], Ui.H(6, Editors.TimeOfDay(w, e.Id, Root + "check_in_window/from", s["CheckInFrom"], a?["check_in_window"]?["from"]?.ToString()), Ui.Text("–", "muted").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Editors.TimeOfDay(w, e.Id, Root + "check_in_window/until", s["CheckInUntil"], a?["check_in_window"]?["until"]?.ToString()))),
+            Field(s["CheckOutBy"], Editors.TimeOfDay(w, e.Id, Root + "check_out_window/until", s["CheckOutBy"], a?["check_out_window"]?["until"]?.ToString())).Margin(10, 0, 0, 0));
+        var panel = Ui.V(10, hours);
+        if (stay is { CheckIn: { } ci, CheckInApproximate: false, CheckInWindow.Until: { } until } && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(ci.Local).TryGetValue(default, out var arrive) && arrive.TimeOfDay > until)
+            panel.Children.Add(new Border { Padding = new Thickness(10, 8), CornerRadius = new CornerRadius(8), Child = Ui.Columns("Auto,*", Ui.Icon("clock", 14, "Warning"), Ui.Text(string.Format(s["LateArrivalHint"], Formats.Time(arrive.TimeOfDay), Formats.Time(until)), "caption").Margin(8, 0, 0, 0)) }.Res(Border.BackgroundProperty, "Warning.Soft"));
+        panel.Children.Add(Field(s["Access"], Editors.Chips(w, e.Id, Root + "access", s["Access"], stay?.Access, [("reception", "building-2", s["AccessReception"]), ("self", "lock", s["AccessSelf"]), ("host", "user-round", s["AccessHost"])])));
+        Control Open(string key, string label, bool value)
+        {
+            var toggle = new ToggleSwitch { IsChecked = value, OnContent = label, OffContent = label }; AutomationProperties.SetName(toggle, label);
+            // The stay's general time follows: approximate when neither hour is fixed.
+            toggle.IsCheckedChanged += (_, _) =>
+            {
+                if (m.Trip?.Find(e.Id)?.Copy() is not { } copy || copy.Data["components"]?["accommodation"]?[key] is not JsonObject moment) return;
+                if (toggle.IsChecked == true) moment["approximate"] = true; else moment.Remove("approximate");
+                _ = m.UpdateAsync(Stays.Align(m.Trip!, copy));
+            };
+            return toggle;
+        }
+        if (stay?.CheckIn is not null) panel.Children.Add(Ui.Flow(16, Open("check_in", s["ArrivalTimeOpen"], stay.CheckInApproximate), Open("check_out", s["DepartureTimeOpen"], stay.CheckOutApproximate)));
+        var fields = EditorModel.Fields(e);
+        var free = stay?.FreeCancellationUntil is { } until2 && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(until2.Local).TryGetValue(default, out var freeLocal) ? Formats.LongDay(freeLocal.Date) + " · " + Formats.Time(freeLocal.TimeOfDay) : s["Choose"];
+        panel.Children.Add(Ui.Columns("*,*",
+            Field(s["FreeCancellationUntil"], Editors.ValueButton(free, "receipt", s["FreeCancellationUntil"], () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Path.EndsWith("cancellation/free_until", StringComparison.Ordinal)))))),
+            Field(s["CancellationNote"], Editors.Text(w, e.Id, Root + "cancellation/note", s["CancellationNote"], a?["cancellation"]?["note"]?.ToString())).Margin(10, 0, 0, 0)));
+        panel.Children.Add(Field(s["Breakfast"], Editors.Chips(w, e.Id, Root + "breakfast", s["Breakfast"], a?["breakfast"]?.ToString(), [("included", "coffee", s["BreakfastIncluded"]), ("available", "utensils", s["BreakfastAvailable"]), ("none", "x", s["BreakfastNone"])])));
+        panel.Children.Add(Ui.Columns("Auto,*", Field(s["Parking"], Editors.Toggle(w, e.Id, Root + "parking/included", s["ParkingIncluded"], a?["parking"]?["included"] is JsonValue p && p.TryGetValue<bool>(out var included) && included)),
+            Field(s["ParkingNote"], Editors.Text(w, e.Id, Root + "parking/note", s["ParkingNote"], a?["parking"]?["note"]?.ToString())).Margin(10, 0, 0, 0)));
+        panel.Children.Add(Field(s["ArrivalNotes"], Ui.V(4, Editors.Text(w, e.Id, Root + "arrival_notes", s["ArrivalNotes"], a?["arrival_notes"]?.ToString(), multiline: true), Ui.Text(s["NoDoorCodes"], "caption"))));
+        if (stay?.Place is { } placeId && trip.Find(placeId) is { } place && ContactLinks(m, place) is { } contact) panel.Children.Add(Field(s["Contact"], contact));
+        return panel;
+    }
+
+    /// <summary>Phone, e-mail and website of a place as buttons that open the phone app, mail program or browser.</summary>
+    private static Control? ContactLinks(MainViewModel m, Entity place)
+    {
+        var contact = place.Data["contact"]; var links = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        void Link(string? value, string icon, Func<string, string> target)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return;
+            var button = Ui.Button(value, icon, "compact"); button.Click += (_, _) => m.Interaction.Open(target(value.Trim())); links.Children.Add(button);
+        }
+        Link(contact?["phone"]?.ToString(), "message-square", v => "tel:" + new string(v.Where(c => char.IsDigit(c) || c == '+').ToArray()));
+        Link(contact?["email"]?.ToString(), "mail", v => "mailto:" + v);
+        Link(contact?["website"]?.ToString(), "globe", v => v.StartsWith("http", StringComparison.OrdinalIgnoreCase) ? v : "https://" + v);
+        return links.Children.Count == 0 ? null : links;
+    }
+
     /// <summary>The nights of a stay with a stepper, and a note with a fix when check-in, check-out and time disagree or one is missing.</summary>
     private static Control? StayNights(MainWindow w, Entity e, Stay? stay)
     {
@@ -211,6 +267,7 @@ public static class InspectorView
                 Field(s["Guests"], Editors.References(w, e.Id, "components/accommodation/guests", s["Guests"], "person")),
                 Field(s["Rooms"], ListText(w, e, "components/accommodation/rooms", s["Rooms"])));
             Add(body, s["Stay"], stayPanel);
+            Add(body, s["StayDetails"], StayDetails(w, e, resolved));
         }
         else
         {
@@ -384,6 +441,10 @@ public static class InspectorView
         var show = Ui.Button(s["ShowOnMap"], "map"); show.IsEnabled = coords is not null; show.Click += (_, _) => m.Navigate("Map");
         Add(body, s["Location"], Ui.V(10, location, Ui.Flow(8, find, show), m.OnlineMaps ? null : Ui.Text(s["EnableOnlineSearchHint"], "caption")));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "timezone", s["Timezone"], e.Data["timezone"]?.ToString(), FieldOptions.Timezones)));
+        var contact = e.Data["contact"]; var ps = w.Model.Strings;
+        body.Children.Add(Ui.Columns("*,*", Field(ps["Phone"], Editors.Text(w, e.Id, "contact/phone", ps["Phone"], contact?["phone"]?.ToString())), Field(ps["Email"], Editors.Text(w, e.Id, "contact/email", ps["Email"], contact?["email"]?.ToString())).Margin(10, 0, 0, 0)));
+        body.Children.Add(Field(ps["Website"], Editors.Text(w, e.Id, "contact/website", ps["Website"], contact?["website"]?.ToString())));
+        if (ContactLinks(w.Model, e) is { } links) body.Children.Add(links);
     }
 
     private static void BookingDetails(MainWindow w, Entity e, StackPanel body)
@@ -394,6 +455,11 @@ public static class InspectorView
         body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
         body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item")));
+        var fields = EditorModel.Fields(e);
+        var free = Stays.Zoned(e.Data["cancellation"]?["free_until"]) is { } until && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(until.Local).TryGetValue(default, out var freeLocal) ? Formats.LongDay(freeLocal.Date) + " · " + Formats.Time(freeLocal.TimeOfDay) : s["Choose"];
+        body.Children.Add(Ui.Columns("*,*",
+            Field(s["FreeCancellationUntil"], Editors.ValueButton(free, "receipt", s["FreeCancellationUntil"], () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Path == "cancellation/free_until"))))),
+            Field(s["CancellationNote"], Editors.Text(w, e.Id, "cancellation/note", s["CancellationNote"], e.Data["cancellation"]?["note"]?.ToString())).Margin(10, 0, 0, 0)));
         Add(body, s["Confirmations"], Confirmations(w, e));
     }
 

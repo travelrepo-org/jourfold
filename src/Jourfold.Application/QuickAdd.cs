@@ -82,14 +82,14 @@ public static class QuickAdd
                 {
                     var accommodation = new JsonObject();
                     if (Place(draft.Place) is { } stay) accommodation["place"] = stay;
+                    main.Data["components"]!["accommodation"] = accommodation;
                     if (draft.Date is { } arrival)
                     {
-                        var checkIn = new ZonedTime(arrival.At(draft.Start ?? new LocalTime(15, 0)).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), zone);
-                        var checkOut = new ZonedTime(arrival.PlusDays(Math.Max(1, draft.Nights)).At(new LocalTime(11, 0)).ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), zone);
-                        accommodation["check_in"] = checkIn.ToJson(); accommodation["check_out"] = checkOut.ToJson();
-                        main.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = checkIn.ToJson(), ["end"] = checkOut.ToJson() };
+                        // Without an arrival time the hours are TravelRepo's defaults, marked as not fixed.
+                        var checkIn = Stays.At(arrival, draft.Start ?? Stays.DefaultCheckIn, zone);
+                        var checkOut = Stays.At(arrival.PlusDays(Math.Max(1, draft.Nights)), Stays.DefaultCheckOut, zone);
+                        main = Stays.WithSpan(main, checkIn, checkOut, checkInApproximate: draft.Start is null, checkOutApproximate: true);
                     }
-                    main.Data["components"]!["accommodation"] = accommodation;
                 }
                 else if (Place(draft.Place) is { } place) main.Data["default_place"] = place;
                 if (draft.Kind != "accommodation" && draft.Date is { } day && draft.Start is { } start)

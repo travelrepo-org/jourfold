@@ -5,6 +5,7 @@
   <StreamGeometry x:Key="Icon.arrow-right">M 5 12 h 14 M 0 0 m 12 5 l 7 7 l -7 7</StreamGeometry>
   <StreamGeometry x:Key="Icon.arrow-up-right">M 7 7 h 10 v 10 M 7 17 L 17 7</StreamGeometry>
   <StreamGeometry x:Key="Icon.bed-double">M 2 20 v -8 a 2 2 0 0 1 2 -2 h 16 a 2 2 0 0 1 2 2 v 8 M 4 10 V 6 a 2 2 0 0 1 2 -2 h 12 a 2 2 0 0 1 2 2 v 4 M 12 4 v 6 M 2 18 h 20</StreamGeometry>
+  <StreamGeometry x:Key="Icon.bell">M 10.268 21 a 2 2 0 0 0 3.464 0 M 3.262 15.326 A 1 1 0 0 0 4 17 h 16 a 1 1 0 0 0 0.74 -1.673 C 19.41 13.956 18 12.499 18 8 A 6 6 0 0 0 6 8 c 0 4.499 -1.411 5.956 -2.738 7.326</StreamGeometry>
   <StreamGeometry x:Key="Icon.bike">M 15 17.5 A 3.5 3.5 0 1 0 22 17.5 A 3.5 3.5 0 1 0 15 17.5 Z M 2 17.5 A 3.5 3.5 0 1 0 9 17.5 A 3.5 3.5 0 1 0 2 17.5 Z M 14 5 A 1 1 0 1 0 16 5 A 1 1 0 1 0 14 5 Z M 12 17.5 V 14 l -3 -3 l 4 -3 l 2 3 h 2</StreamGeometry>
   <StreamGeometry x:Key="Icon.bookmark">M 17 3 a 2 2 0 0 1 2 2 v 15 a 1 1 0 0 1 -1.496 0.868 l -4.512 -2.578 a 2 2 0 0 0 -1.984 0 l -4.512 2.578 A 1 1 0 0 1 5 20 V 5 a 2 2 0 0 1 2 -2 z</StreamGeometry>
   <StreamGeometry x:Key="Icon.bot">M 12 8 V 4 H 8 M 6 8 H 18 A 2 2 0 0 1 20 10 V 18 A 2 2 0 0 1 18 20 H 6 A 2 2 0 0 1 4 18 V 10 A 2 2 0 0 1 6 8 Z M 2 14 h 2 M 20 14 h 2 M 15 13 v 2 M 9 13 v 2</StreamGeometry>

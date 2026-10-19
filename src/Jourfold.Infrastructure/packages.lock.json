@@ -47,6 +47,12 @@
         "resolved": "10.0.13",
         "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
       },
+      "Tmds.DBus.Protocol": {
+        "type": "Direct",
+        "requested": "[0.21.3, )",
+        "resolved": "0.21.3",
+        "contentHash": "hDwB8WsQoyALQKqIbwzS68UKdlnafDm4T/DkO/JrA/YIneP/rKv96SxYPVXeh3FP4i/SXfShrYftKLtciJAIlw=="
+      },
       "Humanizer.Core": {
         "type": "Transitive",
         "resolved": "2.14.1",

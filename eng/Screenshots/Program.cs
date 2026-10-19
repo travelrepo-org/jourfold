@@ -224,6 +224,20 @@ try
                     await Dialog(() => m.MergeStaysCommand.ExecuteAsync(null), "merge-stays", m.Strings["MergeStaysConfirm"]); await Settle(300);
                     m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Night in Hakone"); await Capture("stays-merged");
                 }
+                // Accommodation details and the reminders, seen a few days before the trip with a fixed clock.
+                {
+                    var hotel = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && Stays.IsStay(e));
+                    var details = hotel.Copy(); var stayData = (System.Text.Json.Nodes.JsonObject)details.Data["components"]!["accommodation"]!;
+                    stayData["check_in_window"] = new System.Text.Json.Nodes.JsonObject { ["from"] = "15:00", ["until"] = "23:00" }; stayData["check_out_window"] = new System.Text.Json.Nodes.JsonObject { ["until"] = "11:00" };
+                    stayData["access"] = "reception"; stayData["breakfast"] = "available";
+                    stayData["cancellation"] = new System.Text.Json.Nodes.JsonObject { ["free_until"] = new ZonedTime("2027-05-12T23:59:00", "Asia/Tokyo").ToJson(), ["note"] = "Free until three days before arrival" };
+                    m.DesktopNotifier = null; await m.Workspace.EditAsync(details); m.Clock = () => new ZonedTime("2027-05-11T09:00:00", "Asia/Tokyo").ToInstant(); await m.UpdateRemindersAsync();
+                    m.View = "Plan"; m.ShowDate(new NodaTime.LocalDate(2027, 5, 15)); m.Selected = m.Workspace.State.Trip.Find(hotel.Id); await Settle(400);
+                    // A taller window shows the whole accommodation section without scrolling.
+                    window.FindControl<Panel>("ToastLayer")?.Children.Clear(); window.Height = 1500; await Settle(400); await Capture("stay-details"); window.Height = 900; await Settle(300);
+                    window.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b)?.Contains("urgent", StringComparison.OrdinalIgnoreCase) == true || Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(m.Strings["RemindersCount"].Split(' ')[^1], StringComparison.Ordinal) == true).Flyout!.ShowAt(window.GetVisualDescendants().OfType<Button>().First(b => b.Flyout is Flyout));
+                    await Settle(400); await Capture("reminders");
+                }
                 // The assistant configuration with neutral paths instead of this machine's program and trip folders.
                 var assistant = m.ConnectAssistantCommand.ExecuteAsync(null); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<TextBox>().First(t => t.Tag as string == "assistant-configuration").Text =

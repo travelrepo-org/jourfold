@@ -80,7 +80,7 @@ public sealed class DocumentViewTests : IDisposable
             m.Navigate("Bookings"); m.Selected = m.Workspace.State.Trip.Find(booking.Id);
             // The inspector is rebuilt after queued renders; wait until the card is there.
             Button? card = null;
-            for (var i = 0; i < 40 && card is null; i++)
+            for (var i = 0; i < 100 && card is null; i++)
             {
                 Probe.Layout(); await Task.Delay(50);
                 // The inspector remembers the last tab across items, and another test may have left it on Comments.

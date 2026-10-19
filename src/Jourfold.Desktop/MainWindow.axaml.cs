@@ -37,10 +37,13 @@ public partial class MainWindow : Window
         Model.SelectionChanged += (_, _) => { if (Model.HasTrip) { RenderInspector(); if (!ShowSelection()) RenderMain(); } };
         Model.PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName is nameof(MainViewModel.Notice) or nameof(MainViewModel.SyncKey) or nameof(MainViewModel.HasUncommitted) or nameof(MainViewModel.Saving) or nameof(MainViewModel.PrivacyWarning) or nameof(MainViewModel.GitHubConnected))
+            if (e.PropertyName is nameof(MainViewModel.Notice) or nameof(MainViewModel.SyncKey) or nameof(MainViewModel.HasUncommitted) or nameof(MainViewModel.Saving) or nameof(MainViewModel.PrivacyWarning) or nameof(MainViewModel.GitHubConnected) or nameof(MainViewModel.Reminders))
                 Dispatcher.UIThread.Post(RefreshChrome);
         };
         Model.OpenRequested += path => Dispatcher.UIThread.Post(() => OpenTrip(path));
+        // Only the real desktop application notifies; headless tests and screenshot runs never reach the system.
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            Model.DesktopNotifier = (title, body) => DesktopNotifications.ShowAsync(title, body, TryGetPlatformHandle()?.Handle ?? IntPtr.Zero);
         poll = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         poll.Tick += async (_, _) => { if (FocusManager?.GetFocusedElement() is not TextBox && DialogLayer.Children.Count == 0) await Model.PollAsync(); };
         poll.Start();
@@ -142,7 +145,7 @@ public partial class MainWindow : Window
     private void RefreshChrome()
     {
         if (!Model.HasTrip) return;
-        var state = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen);
+        var state = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen, string.Join(",", Model.Reminders.Select(r => r.Key)), Model.UrgentReminders);
         if (state == chromeState) return;
         RenderSidebar(); RenderHeader(); RenderBanner();
     }
@@ -150,7 +153,7 @@ public partial class MainWindow : Window
     private void RenderHeader()
     {
         if (!Model.HasTrip) return;
-        chromeState = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen);
+        chromeState = string.Join("|", Model.SyncKey, Model.HasUncommitted, Model.Saving, Model.PrivacyWarning, Model.Notice, Model.GitHubConnected, Model.TripTitle, Model.VariantTitle, Model.CurrentBranch, Model.InboxItems.Count, Model.View, Model.InboxOpen, string.Join(",", Model.Reminders.Select(r => r.Key)), Model.UrgentReminders);
         Header.Child = HeaderView.Build(this);
     }
     private void RenderBanner() { Banner.Child = Model.HasPrivacyWarning ? HeaderView.PrivacyBanner(this) : Model.Notice.Length > 0 ? HeaderView.MergeNotice(this) : null; }

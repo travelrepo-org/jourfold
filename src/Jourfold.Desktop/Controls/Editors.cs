@@ -60,6 +60,49 @@ public static class Editors
         return panel;
     }
 
+    /// <summary>
+    /// A local time of day such as 15:00, stored as "HH:mm". Accepts "15", "15:30", "15.30" and "1530"; an empty field
+    /// removes the value, and text that is not a time is kept for correction without saving.
+    /// </summary>
+    public static Control TimeOfDay(MainWindow w, Guid id, string path, string label, string? value, Func<Entity, Entity>? after = null)
+    {
+        var box = new TextBox { Text = value ?? "", Watermark = "15:00", Width = 76, Tag = path, HorizontalContentAlignment = HorizontalAlignment.Center };
+        AutomationProperties.SetName(box, label); var original = value ?? "";
+        async Task Commit()
+        {
+            var text = (box.Text ?? "").Trim(); if (text == original) return;
+            string? stored = null;
+            if (text.Length > 0)
+            {
+                var digits = new string(text.Where(char.IsDigit).ToArray());
+                var (hour, minute) = digits.Length switch { 1 or 2 => (int.Parse(digits, CultureInfo.InvariantCulture), 0), 3 => (int.Parse(digits[..1], CultureInfo.InvariantCulture), int.Parse(digits[1..], CultureInfo.InvariantCulture)), 4 => (int.Parse(digits[..2], CultureInfo.InvariantCulture), int.Parse(digits[2..], CultureInfo.InvariantCulture)), _ => (-1, -1) };
+                if (hour is < 0 or > 23 || minute is < 0 or > 59) { box.Classes.Add("invalid"); return; }
+                stored = hour.ToString("00", CultureInfo.InvariantCulture) + ":" + minute.ToString("00", CultureInfo.InvariantCulture);
+            }
+            box.Classes.Remove("invalid"); original = stored ?? ""; box.Text = original;
+            if (w.Model.Workspace?.State.Trip.Find(id) is not { } existing) return;
+            var copy = existing.Copy(); EditorModel.Set(copy, path, stored is null ? null : JsonValue.Create(stored));
+            await w.Model.UpdateAsync(after?.Invoke(copy) ?? copy);
+        }
+        box.LostFocus += async (_, _) => await Commit();
+        box.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await Commit(); } if (e.Key == Key.Escape) { box.Text = original; e.Handled = true; } };
+        return box;
+    }
+
+    /// <summary>One of a few values as chips; choosing the selected chip again clears the value.</summary>
+    public static Control Chips(MainWindow w, Guid id, string path, string label, string? value, IReadOnlyList<(string Value, string Icon, string Label)> options)
+    {
+        var panel = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        foreach (var (option, icon, text) in options)
+        {
+            var chip = Ui.Button(text, icon, "chip"); if (option == value) chip.Classes.Add("selected");
+            chip.Click += (_, _) => _ = w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, option == value ? null : JsonValue.Create(option)));
+            panel.Children.Add(chip);
+        }
+        AutomationProperties.SetName(panel, label);
+        return panel;
+    }
+
     public static Control Toggle(MainWindow w, Guid id, string path, string label, bool value)
     {
         var toggle = new ToggleSwitch { IsChecked = value, OnContent = label, OffContent = label, Tag = path };

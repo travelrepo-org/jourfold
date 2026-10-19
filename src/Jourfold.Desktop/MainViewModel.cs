@@ -149,7 +149,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var preferred = Store.Get("openingView");
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
-        Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateRemindersAsync();
+        Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync();
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>

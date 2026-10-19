@@ -211,6 +211,13 @@ public static class HeaderView
         }
         if (menu.Items.Count > 0) menu.Items.Add(new Separator());
         var create = new MenuItem { Header = s["NewVariant"], Icon = Ui.Icon("plus", 15) }; create.Click += (_, _) => m.NewVariantCommand.Execute(null); menu.Items.Add(create);
+        if (m.Trip?.Manifest.Data["variant"]?["role"]?.ToString() == "variant")
+        {
+            var promote = new MenuItem { Header = s["PromoteVariant"], Icon = Ui.Icon("git-merge", 15) };
+            promote.Click += async (_, _) => { if ((await m.VariantOverviewAsync()).FirstOrDefault(v => v.Current) is { } current) await m.PromoteVariantAsync(current); };
+            var update = new MenuItem { Header = s["UpdateFromMainPlan"], Icon = Ui.Icon("download", 15) }; update.Click += (_, _) => _ = m.UpdateFromPrimaryAsync();
+            menu.Items.Add(promote); menu.Items.Add(update);
+        }
         var manage = new MenuItem { Header = s["ManageVariants"], Icon = Ui.Icon("git-compare", 15) }; manage.Click += (_, _) => m.Navigate("Variants"); menu.Items.Add(manage);
         return menu;
     }
@@ -232,7 +239,7 @@ public static class HeaderView
         if (count == 0) list.Children.Add(Ui.Text(s["RemindersNoneBody"], "muted"));
         foreach (var reminder in reminders)
         {
-            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", _ => "ticket" };
+            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", ReminderKind.VariantsDeletedOnline => "git-branch", _ => "ticket" };
             var show = Ui.Button(s["ReminderShow"], null, "compact"); show.Click += (_, _) => { bell.Flyout?.Hide(); m.ShowReminder(reminder); };
             var later = Ui.Button(s["ReminderLater"], null, "compact"); later.Click += async (_, _) => await m.SnoozeReminderAsync(reminder);
             var done = Ui.Button(s["ReminderDone"], "check", "compact"); done.Click += async (_, _) => await m.DismissReminderAsync(reminder);

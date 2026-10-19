@@ -63,6 +63,12 @@ Your changes are saved on your computer immediately. The line under the trip tit
 
 A **variant** is an alternative plan, for example "Cheaper hotels". Use the variant button next to the title to switch, or **Variants** to create, compare and merge them. Comparison shows the two plans day by day. When both changed the same detail, Jourfold asks once which result to keep.
 
+**Variants** shows each variant once, whether it is on this computer, online or both. Labels say where it lives (online, only on this computer, only online) and a line says how it differs from its online copy: the same, versions not uploaded yet, new versions online, or changed on both sides. **Sync** on a variant that is not open brings it up to date without switching, unless it changed on both sides. A note says when the main plan has newer versions; **Get changes from the main plan** in the open variant brings them in.
+
+When a variant is ready, **Take over into main plan** merges it into the main plan, with the usual questions when both changed the same detail. The variant is then marked as taken over and Jourfold offers to delete it, online too. **Delete** (in the menu of a variant) keeps deleted variants restorable for 30 days under **Deleted**; for variants that were not taken over, deleting the online copy is an extra choice. The main plan and the open variant cannot be deleted. **Archive** still hides a variant without deleting it.
+
+When someone deletes a variant online that you still have, the bell shows **Variants deleted online**. **Clean up** lists them: unchanged copies are suggested for deletion, copies with your own versions and the open variant are kept unless you choose otherwise. Kept copies stay only on this computer and are not uploaded again, so they do not come back for the others; **Share again** puts one online once more.
+
 **Share** depends on where the trip lives:
 
 - On this computer only: publish to a new private GitHub repository, or connect any Git server.

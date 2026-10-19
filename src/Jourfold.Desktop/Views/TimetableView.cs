@@ -330,14 +330,15 @@ public sealed class TimetableView : UserControl
             shifted = (int)Math.Round((e.GetPosition(nights).X - start.X) / columnWidth);
             button.RenderTransform = shifted == 0 ? null : new TranslateTransform(shifted * columnWidth, 0);
         };
-        button.PointerReleased += async (_, e) =>
+        // The button handles the release itself to raise Click, so this handler also listens to handled events.
+        button.AddHandler(PointerReleasedEvent, async (_, e) =>
         {
             if (pressed is null) return;
             pressed = null; e.Pointer.Capture(null); button.RenderTransform = null;
             if (shifted == 0) { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); return; }
             var days = shifted; shifted = 0;
             await vm.MoveStayAsync(item.Id, days);
-        };
+        }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         button.KeyDown += async (_, e) =>
         {
             if (e.KeyModifiers == KeyModifiers.Alt && e.Key is Key.Left or Key.Right) { e.Handled = true; await vm.MoveStayAsync(item.Id, e.Key == Key.Left ? -1 : 1); }

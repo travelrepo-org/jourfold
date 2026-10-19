@@ -1,0 +1,13 @@
+version: 0.2.0
+date: 2026-10-04
+highlights:
+  - icon: clock
+    en: A second timezone can be shown in the timetable and the list.
+    de: Eine zweite Zeitzone lässt sich im Zeitplan und in der Liste zeigen.
+changes:
+  - en: Transport times are entered in local time at each end, and timezones can be found by country.
+    de: Transportzeiten werden in der Ortszeit an beiden Enden eingegeben, Zeitzonen lassen sich nach Land finden.
+  - en: Place coordinates are saved as a pair, and coordinates pasted from a map fill both fields.
+    de: Koordinaten eines Orts werden als Paar gespeichert, aus einer Karte eingefügte Koordinaten füllen beide Felder.
+  - en: Map tiles and search follow the OpenStreetMap usage policies.
+    de: Kartenkacheln und Suche halten die Nutzungsrichtlinien von OpenStreetMap ein.

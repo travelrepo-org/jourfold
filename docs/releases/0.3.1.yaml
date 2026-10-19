@@ -1,0 +1,7 @@
+version: 0.3.1
+date: 2026-10-04
+fixes:
+  - en: Lists keep their scroll position when an item is selected or the trip changes outside Jourfold.
+    de: Listen behalten ihre Position, wenn etwas ausgewählt wird oder die Reise außerhalb von Jourfold geändert wird.
+  - en: Long notices and rows of buttons in the inspector wrap instead of being cut off.
+    de: Lange Hinweise und Knopfreihen im Inspector brechen um, statt abgeschnitten zu werden.

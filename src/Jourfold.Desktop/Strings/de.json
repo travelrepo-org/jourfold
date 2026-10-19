@@ -1124,5 +1124,12 @@
   "BehindMain": "{1} hat {0} neuere Versionen",
   "LastChangedBy": "Zuletzt geändert von {0} {1}",
   "ShareAgain": "Wieder teilen",
-  "VariantDiverged": "Hier und online geändert: ↑{0} ↓{1}"
+  "VariantDiverged": "Hier und online geändert: ↑{0} ↓{1}",
+  "VersionHistory": "Versionsverlauf",
+  "WhatsNewTitle": "Neu in Jourfold {0} „{1}“",
+  "LetsGo": "Los geht’s",
+  "InstalledVersion": "Installiert",
+  "ReleaseHighlights": "Highlights",
+  "ReleaseChanges": "Änderungen",
+  "ReleaseFixes": "Behoben"
 }

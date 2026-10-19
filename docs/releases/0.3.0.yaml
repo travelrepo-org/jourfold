@@ -1,0 +1,11 @@
+version: 0.3.0
+date: 2026-10-04
+highlights:
+  - icon: bot
+    en: AI assistants that support MCP can read and change a trip through Jourfold.
+    de: KI-Assistenten mit MCP-Unterstützung können eine Reise über Jourfold lesen und ändern.
+changes:
+  - en: The timetable has one-day arrows and stays in place when an item gets a new time.
+    de: Der Zeitplan hat Pfeile für einen Tag und bleibt an seiner Stelle, wenn ein Eintrag eine neue Zeit bekommt.
+  - en: The install scripts report a new install, an update or a reinstall with the versions.
+    de: Die Installationsskripte melden eine Neuinstallation, ein Update oder eine erneute Installation mit den Versionen.

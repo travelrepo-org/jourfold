@@ -60,6 +60,19 @@ jobs:
           path: travelrepo
       - working-directory: jourfold
         run: python3 eng/version.py --check-tag "$TAG" --github
+      # Nothing is built when the release notes for this version are missing or incomplete.
+      - name: Check the release notes
+        working-directory: jourfold
+        run: |
+          python3 -m pip install --quiet pyyaml==6.0.2
+          python3 eng/changelog.py --check --github
+      - name: Write the release text below what is already there
+        if: github.event_name == 'release'
+        working-directory: jourfold
+        run: |
+          gh release view "$TAG" --json body --jq .body --repo "$GITHUB_REPOSITORY" > "$RUNNER_TEMP/existing.md"
+          python3 eng/changelog.py --release-body "$TAG" --repository "$GITHUB_REPOSITORY" --existing "$RUNNER_TEMP/existing.md" > "$RUNNER_TEMP/body.md"
+          gh release edit "$TAG" --notes-file "$RUNNER_TEMP/body.md" --repo "$GITHUB_REPOSITORY"
       - name: Title the release with its code name when it has no title
         if: github.event_name == 'release'
         working-directory: jourfold

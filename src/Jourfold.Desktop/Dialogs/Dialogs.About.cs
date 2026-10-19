@@ -28,7 +28,8 @@ public sealed partial class Dialogs
 
         var body = Ui.V(12, header.Margin(0, 0, 0, 6));
         body.Children.Add(Section("Jourfold", null, s["AboutJourfoldLicense"], null,
-            Actions(LicenseButton("GPL-3.0-or-later", () => MainViewModel.BundledText("Jourfold.LICENSE")), info.Source is null ? null : LinkButton("SourceCode", info.Source))));
+            Actions(LicenseButton("GPL-3.0-or-later", () => MainViewModel.BundledText("Jourfold.LICENSE")), info.Source is null ? null : LinkButton("SourceCode", info.Source),
+                Ui.Button(s["VersionHistory"], "history", "ghost", "compact").Also(b => b.Click += async (_, _) => await ReleaseNotesAsync(ReleaseNotes.All, highlightsOnly: false)))));
         body.Children.Add(Section("TravelRepo", string.Format(s["AboutTravelRepoVersion"], info.TravelRepoVersion, info.FormatVersion), s["AboutTravelRepo"], s["AboutTravelRepoLicense"],
             Actions(LicenseButton("Apache-2.0", () => MainViewModel.BundledText("TravelRepo.LICENSE")), info.TravelRepoSource is null ? null : LinkButton("SourceCode", info.TravelRepoSource))));
 

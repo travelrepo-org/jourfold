@@ -65,6 +65,9 @@ public partial class MainWindow : Window
             TitleBar.PointerPressed += (_, e) => { if (e.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; else BeginMoveDrag(e); };
         }
         Render();
+        // "What's new" belongs to the real desktop application; headless tests and screenshot runs never see it.
+        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)
+            Opened += (_, _) => Dispatcher.UIThread.Post(() => _ = Model.ShowWhatsNewAsync(), DispatcherPriority.Background);
     }
 
     private void OpenTrip(string path)

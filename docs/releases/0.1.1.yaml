@@ -1,0 +1,10 @@
+version: 0.1.1
+date: 2026-10-04
+changes:
+  - en: Each feature release has a code name.
+    de: Jedes Feature-Release hat einen Codenamen.
+  - en: New trips can be published to GitHub from the wizard, and the connected GitHub account is shown and can be disconnected.
+    de: Neue Reisen lassen sich im Assistenten auf GitHub veröffentlichen, das verbundene GitHub-Konto wird angezeigt und lässt sich trennen.
+fixes:
+  - en: Quick Add no longer crashes when switching the type or toggling options.
+    de: „Hinzufügen“ stürzt beim Wechsel des Typs oder bei Optionen nicht mehr ab.

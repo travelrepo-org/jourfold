@@ -10,12 +10,13 @@ A desktop travel planner for Windows and Linux, built with Avalonia on the open 
 - **Collect ideas first.** The Inbox holds activities without a time, notes and files. Drag them onto the timetable when you know when.
 - **See the trip as a list or on a map.** The map works offline with coordinates you enter. A street map and address search from OpenStreetMap are available after you turn them on.
 - **Keep the details together.** Bookings with references and prices, costs per currency with budgets, tasks, files, people, places and collections. Drop a confirmation e-mail or PDF onto a booking and read it in Jourfold, without loading anything from the internet. Stays keep their check-in hours, cancellation deadline and practical details, and a bell reminds you of deadlines, tasks due and late arrivals.
+- **See the weather where you will be.** After you turn weather on, each day and each activity shows its forecast, with climate averages for dates further ahead. Jourfold estimates which activities are outdoors and warns about rain, wind, heat or frost a few days before. Forecasts come from Open-Meteo, or MET Norway, the US National Weather Service or Visual Crossing with your own key.
 - **Try alternatives.** Variants let you plan a cheaper or slower version, compare it day by day and merge the parts you like. Conflicts are resolved in plain language.
 - **Record versions and share.** Create a version with a suggested description of what changed. Publish privately to GitHub or any Git server; Jourfold syncs in the background and merges compatible changes automatically.
 - **Export** a day-by-day PDF, a calendar file or a printable web page.
 - **Plan with an AI assistant.** Assistants that support MCP, including local ones, can read and change a trip through Jourfold. Their changes are checked like your own and appear in the open trip within seconds. See [connecting a local AI assistant](docs/ai-assistants.md).
 
-No account is needed and nothing leaves your computer unless you share a trip or turn on online maps. There are no analytics.
+No account is needed and nothing leaves your computer unless you share a trip or turn on online maps or weather. Weather requests contain only coordinates rounded to about a kilometre. There are no analytics.
 
 | Library | Dark theme |
 | --- | --- |

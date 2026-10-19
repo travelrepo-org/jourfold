@@ -285,6 +285,8 @@ public static class InspectorView
             Add(body, s["Where"], Editors.Reference(w, e.Id, "default_place", s["DefaultPlace"], "place"));
         }
 
+        if (stay is not JsonObject) Add(body, s["Weather"], WeatherSection(w, e));
+
         // Who
         var participants = TripQueries.Resolve(trip, e.Id, "participants");
         var who = Ui.V(6, Editors.References(w, e.Id, "participants/values", s["Participants"], "person",
@@ -320,6 +322,92 @@ public static class InspectorView
 
         Add(body, s["Tags"], ListText(w, e, "tags", s["Tags"]));
         Add(body, s["Constraints"], Constraints(w, e));
+    }
+
+    /// <summary>
+    /// Whether the item is outdoors (estimated unless stated), and its weather: hour by hour within a week, a trend
+    /// up to about two weeks, climate averages beyond. Weather is off until the person turns it on.
+    /// </summary>
+    private static Control WeatherSection(MainWindow w, Entity e)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!; var zone = ScheduleQueries.TripZone(trip); var panel = Ui.V(12);
+        var estimate = OutdoorEstimates.For(trip, e);
+        bool? stated = e.Data[OutdoorEstimates.Field] is JsonValue v && v.TryGetValue<bool>(out var flag) ? flag : null;
+        var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        void Chip(string label, string icon, bool? value)
+        {
+            var chip = Ui.Button(label, icon, "chip"); if (stated == value) chip.Classes.Add("selected");
+            chip.Click += (_, _) => _ = m.SetOutdoorAsync(e.Id, value); chips.Children.Add(chip);
+        }
+        Chip(s["OutdoorAuto"], "sparkles", null); Chip(s["exposure.Outdoor"], "trees", true); Chip(s["exposure.Indoor"], "house", false);
+        var reason = stated is not null ? null : estimate.Source == ExposureSource.Inherited ? string.Format(s["OutdoorInherited"], WeatherDisplay.Exposure(estimate.Exposure, s))
+            : string.Format(s["OutdoorEstimated"], WeatherDisplay.Exposure(estimate.Exposure, s), WeatherDisplay.Reason(estimate, e, s));
+        panel.Children.Add(Ui.V(6, chips, reason is null ? null : Ui.Text(reason, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+
+        if (!m.WeatherOn)
+        {
+            var enable = Ui.Button(s["WeatherTurnOn"], "cloud-sun", m.WeatherPromptDismissed ? "link" : "primary"); enable.Click += async (_, _) => await m.SetWeatherAsync(true);
+            if (m.WeatherPromptDismissed) { panel.Children.Add(enable.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)); return panel; }
+            var later = Ui.Button(s["NotNow"], null, "ghost"); later.Click += (_, _) => { m.WeatherPromptDismissed = true; m.RaiseContentChanged(); };
+            panel.Children.Add(Ui.Card(Ui.V(10, Ui.Columns("Auto,*", Ui.Icon("cloud-sun", 18, "Accent"), Ui.Text(s["WeatherPrompt"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap).Margin(10, 0, 0, 0)), Ui.H(8, enable, later)), 14));
+            return panel;
+        }
+        if (!m.Weather.Items.TryGetValue(e.Id, out var weather))
+        {
+            var span = ScheduleQueries.Span(trip, e);
+            var hasPlace = e.Data["components"]?["transport"] is JsonObject ? ScheduleQueries.Route(trip, e) is var r && (TravelRepo.Providers.Weather.GeoPoint.Of(r.From) ?? TravelRepo.Providers.Weather.GeoPoint.Of(r.To)) is not null : TravelRepo.Providers.Weather.GeoPoint.Of(ScheduleQueries.PrimaryPlace(trip, e)) is not null;
+            var hint = !hasPlace ? s["WeatherNeedsPlace"] : !span.IsPlaced ? s["WeatherNeedsTime"] : span.End < m.Clock() ? null : m.Weather.Problems.Count > 0 ? WeatherProblem(m) : s["WeatherLoading"];
+            if (hint is not null) panel.Children.Add(Ui.Text(hint, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+            return panel;
+        }
+        var route = ScheduleQueries.Route(trip, e);
+        for (var index = 0; index < weather.Outlooks.Count; index++)
+        {
+            var outlook = weather.Outlooks[index]; var place = trip.Find(outlook.Place)?.Title ?? "";
+            // A journey has the departure first, unless it has already left; then only the arrival is left.
+            var departure = weather.Outlooks.Count == 2 ? index == 0 : outlook.Place == route.From?.Id && route.To?.Id != outlook.Place;
+            if (e.Data["components"]?["transport"] is JsonObject) place = string.Format(s[departure ? "WeatherAtDeparture" : "WeatherAtArrival"], place);
+            var summary = WeatherDisplay.Summary(outlook, s, m.Imperial);
+            var block = Ui.V(8, Ui.Columns("Auto,*", Ui.Icon(WeatherDisplay.Icon(outlook), 22, "Text.Muted"), Ui.V(1, Ui.Line(place, "title"), Ui.Text(summary, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)).Margin(10, 0, 0, 0)));
+            if (outlook.Kind == TravelRepo.Providers.Weather.OutlookKind.Forecast && outlook.Hours.Count > 0) block.Children.Add(HourlyStrip(m, outlook.Hours, zone));
+            if (outlook.Kind == TravelRepo.Providers.Weather.OutlookKind.Trend) block.Children.Add(Ui.Text(s["TrendHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+            if (outlook.Climate is { } climate) block.Children.Add(Ui.Text(string.Format(s["ClimateDetail"], climate.Years), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+            if (WeatherDisplay.SunTimes(outlook.Day?.Sunrise ?? outlook.Climate?.Sunrise, outlook.Day?.Sunset ?? outlook.Climate?.Sunset, zone, s) is { } sun)
+                block.Children.Add(Ui.H(6, Ui.Icon("sunrise", 14, "Text.Subtle"), Ui.Text(sun, "caption")));
+            AutomationProperties.SetName(block, place + ". " + summary);
+            panel.Children.Add(block);
+        }
+        foreach (var concern in weather.Concerns)
+            panel.Children.Add(new Border { Padding = new Thickness(10, 6), CornerRadius = new CornerRadius(8), Child = Ui.H(8, Ui.Icon(WeatherDisplay.ConcernIcon(concern.Kind), 15, concern.Severe ? "Danger" : "Warning"), Ui.Text(WeatherDisplay.Concern(concern, s, m.Imperial), "strong")) }
+                .Res(Border.BackgroundProperty, concern.Severe ? "Danger.Soft" : "Warning.Soft"));
+        if (m.Weather.Problems.Count > 0) panel.Children.Add(Ui.Text(WeatherProblem(m), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        var first = weather.Outlooks[0];
+        var source = WeatherDisplay.Source(first, m.WeatherServices.Providers, s) + (first.Fetched is { } fetched ? " · " + string.Format(s["WeatherAsOf"], Formats.Time(fetched.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).TimeOfDay)) : "");
+        var credits = Ui.Flow(4, m.Weather.Sources.Select(a => (Control)Ui.Button(a.Text + (a.License is null ? "" : " (" + a.License + ")"), "external-link", "ghost", "compact").Also(b => b.Click += (_, _) => m.Interaction.Open(a.Url))).ToArray());
+        panel.Children.Add(Ui.V(2, Ui.Text(source, "caption"), credits));
+        return panel;
+    }
+
+    private static string WeatherProblem(MainViewModel m) => m.Weather.Problems.Any(p => p.Code == "weather.key") ? m.Strings["WeatherKeyProblem"] : m.Strings["WeatherUnavailable"];
+
+    /// <summary>The hours of an item side by side: time, sky, temperature, and the chance of rain where it matters.</summary>
+    private static Control HourlyStrip(MainViewModel m, IReadOnlyList<TravelRepo.Providers.Weather.WeatherHour> hours, DateTimeZone zone)
+    {
+        var step = Math.Max(1, (int)Math.Ceiling(hours.Count / 8.0)); var shown = hours.Where((_, i) => i % step == 0).Take(8).ToArray();
+        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(",", shown.Select(_ => "*"))) };
+        for (var i = 0; i < shown.Length; i++)
+        {
+            var hour = shown[i]; var local = hour.Time.InZone(zone);
+            var night = local.Hour is < 6 or >= 21;
+            var rain = hour.PrecipitationChance is >= 20 ? WeatherDisplay.Percent(hour.PrecipitationChance.Value) : hour.PrecipitationMm is >= 0.2 ? WeatherDisplay.Precipitation(hour.PrecipitationMm.Value, m.Imperial) : null;
+            var cell = Ui.V(3, Ui.Text(Formats.Time(local.TimeOfDay), "caption").Also(t => { t.FontSize = 10.5; t.HorizontalAlignment = HorizontalAlignment.Center; }),
+                Ui.Icon(WeatherDisplay.Icon(hour.Condition, night), 16, "Text.Muted").Also(c => c.HorizontalAlignment = HorizontalAlignment.Center),
+                hour.TemperatureC is { } t ? Ui.Text(WeatherDisplay.Temperature(t, m.Imperial), "strong").Also(x => x.HorizontalAlignment = HorizontalAlignment.Center) : null,
+                rain is null ? null : Ui.Text(rain, "caption").Also(x => { x.FontSize = 10.5; x.HorizontalAlignment = HorizontalAlignment.Center; }).Res(TextBlock.ForegroundProperty, "Info"));
+            AutomationProperties.SetName(cell, Formats.Time(local.TimeOfDay) + ", " + WeatherDisplay.Condition(hour.Condition, m.Strings) + (hour.TemperatureC is { } c ? ", " + WeatherDisplay.Temperature(c, m.Imperial) : "") + (rain is null ? "" : ", " + rain));
+            grid.Children.Add(cell.Col(i));
+        }
+        return new Border { Child = grid, Padding = new Thickness(4, 8), CornerRadius = new CornerRadius(8) }.Res(Border.BackgroundProperty, "Bg.Subtle");
     }
 
     private static Control ListText(MainWindow w, Entity e, string path, string label)

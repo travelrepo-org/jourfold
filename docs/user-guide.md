@@ -49,9 +49,19 @@ Right-click any item in a list, a file, a person or a map pin for the same actio
 
 Deleting an item that nothing else refers to shows a short notice with **Undo** instead of asking first. When other items link to it, Jourfold lists them and removes the link, so deleting a place leaves the activities there without a place. Places, files, notes and bookings that only the deleted item used are offered for deletion as well; places, files and notes are preselected, bookings are not. Comments on the item go with it. One **Undo** brings everything back.
 
+### Weather
+
+Weather is off until you turn it on, from the **Weather** section of an activity or under **Settings**, **Weather**. Then each day of the timetable and the list shows the weather at the place where most of that day happens, or where you sleep. Activities show the forecast for their own place and time: hour by hour within a week, as a trend up to about two weeks ahead, and as climate averages beyond that, taken from the same days of the last ten years. Journeys show the weather at departure and arrival.
+
+Jourfold estimates whether an activity is outdoors. A walk, a bike ride, nature and sightseeing count as outdoors; food, culture, shopping, nightlife, meetings and stays as indoors; general activities and free time as maybe outdoors. Car, bus, train and plane journeys only matter in severe weather. Some words in the title change the estimate, such as "hike", "beach" or "Wanderung" towards outdoors and "museum" or "caves" towards indoors. The **Weather** section says what Jourfold assumed and why. **Outdoors** or **Indoors** sets it for the item, and items in a group take the group's choice; **Automatic** goes back to the estimate. The choice is saved in the trip, so your travel companions see it too.
+
+Within three days, weather that matters becomes a reminder: rain, strong wind, heat or frost for outdoor activities, only heavy rain, storms, thunderstorms or severe heat for activities that may be outdoors, and only severe weather for journeys, with a lower wind limit for ferries. Indoor activities never get a weather warning.
+
+Open-Meteo is the default service. Under **Settings**, **Weather** you can choose MET Norway, the US National Weather Service, or Visual Crossing with your own API key, which is kept in the system's secure storage. Where the chosen service has no forecast, Jourfold uses Open-Meteo. Only coordinates rounded to about a kilometre are sent; titles, dates and names never are. Forecasts are kept on this computer for offline use and never written into the trip. A connected AI assistant can read these cached forecasts, but cannot make Jourfold download weather.
+
 ### Reminders
 
-The bell next to the people in the header counts reminders: free cancellation deadlines within two weeks, tasks due today or overdue, arrivals after the last check-in, nights without a place to stay and bookings that are not confirmed shortly before they start. Urgent ones are marked in red and with the word **Urgent**. **Show** opens what the reminder is about, **Later** hides it until tomorrow and **Done** hides it for good. What you dismiss is remembered on this computer only; the trip is not changed. While Jourfold is open, urgent reminders also appear once as a notification of your system. Turn this off under **Settings**, **General**, **Desktop notifications**. Jourfold does not run in the background, so there are no reminders while it is closed.
+The bell next to the people in the header counts reminders: free cancellation deadlines within two weeks, tasks due today or overdue, arrivals after the last check-in, nights without a place to stay, bookings that are not confirmed shortly before they start and, with weather on, weather warnings. Urgent ones are marked in red and with the word **Urgent**. **Show** opens what the reminder is about, **Later** hides it until tomorrow and **Done** hides it for good. What you dismiss is remembered on this computer only; the trip is not changed. While Jourfold is open, urgent reminders also appear once as a notification of your system. Turn this off under **Settings**, **General**, **Desktop notifications**. Jourfold does not run in the background, so there are no reminders while it is closed.
 
 ## Bookings, costs, tasks and files
 
@@ -85,9 +95,9 @@ Ctrl+K opens search and commands. It finds items in the trip and runs actions su
 
 ## Settings and privacy
 
-Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, GitHub and plugins. Under **Sharing**, the GitHub card shows which account is connected, links to its profile and can disconnect it. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
+Settings covers language (English and German), theme, density, text size, high contrast, units, your name for versions, the folder for new trips, online maps, weather, GitHub and plugins. Under **Sharing**, the GitHub card shows which account is connected, links to its profile and can disconnect it. **Advanced mode** adds Git branch names, commit details and the stored data of each item.
 
-Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to the map servers, OpenStreetMap unless you enter others under **Map servers**. It also checks Jourfold's published list of map servers once a day. Your trip data is never sent. Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
+Online maps are off until you enable them. When on, Jourfold loads map images for the area you look at and sends the address searches you start to the map servers, OpenStreetMap unless you enter others under **Map servers**. It also checks Jourfold's published list of map servers once a day. Your trip data is never sent. Weather is off until you turn it on as well; it sends only rounded coordinates (see [Weather](#weather)). Jourfold has no analytics and sends nothing automatically. **Report a problem** prepares a text you can review and copy.
 
 ## Planning with an AI assistant
 

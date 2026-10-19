@@ -18,8 +18,8 @@ public sealed partial class Dialogs
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("Auto,*"), MinHeight = 480 };
         grid.Children.Add(nav); grid.Children.Add(new ScrollViewer { Content = page.Margin(28, 0, 6, 0), MaxHeight = 560 }.Col(1));
         // GitHub is checked once per opening of Settings; the page redraws when the answer arrives.
-        var gitHubChecked = false; var avatarRequested = false; Bitmap? avatar = null;
-        var pages = new[] { ("General", "sliders-horizontal"), ("Appearance", "palette"), ("LocalIdentity", "user"), ("MapsAndPlaces", "map"), ("Providers", "cloud"), ("Plugins", "plug"), ("Advanced", "wrench") };
+        var gitHubChecked = false; var avatarRequested = false; Bitmap? avatar = null; bool? weatherKey = null;
+        var pages = new[] { ("General", "sliders-horizontal"), ("Appearance", "palette"), ("LocalIdentity", "user"), ("MapsAndPlaces", "map"), ("Weather", "cloud-sun"), ("Providers", "cloud"), ("Plugins", "plug"), ("Advanced", "wrench") };
         void Render()
         {
             var s = model.Strings; nav.Children.Clear(); page.Children.Clear();
@@ -129,6 +129,28 @@ public sealed partial class Dialogs
                     Row(s["ClearMapCache"], string.Format(s["MapCacheSize"], Formats.Bytes(Jourfold.Infrastructure.MapTiles.CacheSize(model.Store.Root)), Formats.Bytes(Jourfold.Infrastructure.MapTiles.MaxCacheBytes)), Run("ClearMapCache", "trash-2"));
                     page.Children.Add(MapServers().Margin(0, 12, 0, 0));
                     break;
+                case "Weather":
+                    {
+                        page.Children.Add(Ui.Card(Ui.Columns("Auto,*", Ui.Icon("shield", 18, "Accent"), Ui.Text(s["WeatherPrivacy"], "muted").Margin(12, 0, 0, 0)), 14));
+                        Row(s["WeatherOnline"], s["WeatherOnlineHint"], Toggle(model.WeatherOn, v => _ = model.SetWeatherAsync(v), s["WeatherOnline"]));
+                        var services = model.WeatherServices.Providers; var current = services.FirstOrDefault(p => p.Id == model.WeatherProvider) ?? services[0];
+                        var choices = services.Select(p => new Choice(p.Id, p.Name)).ToArray();
+                        var combo = new ComboBox { ItemsSource = choices, SelectedItem = choices.First(c => c.Id == current.Id), Width = 260 }; AutomationProperties.SetName(combo, s["WeatherService"]);
+                        combo.SelectionChanged += async (_, _) => { if (combo.SelectedItem is Choice c && c.Id != model.WeatherProvider) { weatherKey = null; await model.SetWeatherProviderAsync(c.Id); Render(); } };
+                        Row(s["WeatherService"], s["WeatherAbout." + current.Id], combo);
+                        if (current.RequiresKey)
+                        {
+                            var secret = TravelRepo.Providers.Weather.VisualCrossing.KeyName;
+                            if (weatherKey is null) _ = model.HasWeatherKeyAsync(secret).ContinueWith(t => Dispatcher.UIThread.Post(() => { weatherKey = t.Result; if (settingsPage == "Weather") Render(); }), TaskScheduler.Default);
+                            var key = new TextBox { PasswordChar = '•', Watermark = weatherKey == true ? s["WeatherKeyStored"] : s["WeatherKey"], Width = 260 }; AutomationProperties.SetName(key, s["WeatherKey"]);
+                            var saveKey = Ui.Button(s["Save"], "check", "primary"); saveKey.Click += async (_, _) => { if (string.IsNullOrWhiteSpace(key.Text)) return; await model.SetWeatherKeyAsync(secret, key.Text); weatherKey = true; Toast(s["WeatherKeySaved"]); Render(); };
+                            var removeKey = Ui.Button(s["Remove"], "trash-2", "ghost"); removeKey.IsEnabled = weatherKey == true; removeKey.Click += async (_, _) => { await model.SetWeatherKeyAsync(secret, null); weatherKey = false; Render(); };
+                            Row(s["WeatherKey"], weatherKey == true ? s["WeatherKeyStored"] : s["WeatherKeyHint"], Ui.H(6, key, saveKey, removeKey));
+                        }
+                        Row(s["ClearWeatherCache"], string.Format(s["WeatherCacheSize"], Formats.Bytes(model.WeatherServices.Cache.Size)), Ui.Button(s["ClearWeatherCache"], "trash-2").Also(b => b.Click += (_, _) => { model.ClearWeatherCache(); Toast(s["WeatherCacheCleared"]); Render(); }));
+                        page.Children.Add(Ui.Text(s["WeatherFallbackHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap).Margin(0, 12, 0, 0));
+                        break;
+                    }
                 case "Providers":
                     page.Children.Add(Ui.Text(s["ProvidersHint"], "muted").Margin(0, 0, 0, 8));
                     page.Children.Add(GitHubCard().Margin(0, 4, 0, 8));

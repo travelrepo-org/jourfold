@@ -52,6 +52,10 @@ try
             window.Show();
             var m = window.Model;
             m.Store.Set("identity.name", "Alex"); m.Store.Set("identity.email", "alex@example.invalid");
+            // Weather from a synthetic service, as seen the evening before the plan's first day. Nothing is sent anywhere.
+            var weatherNow = new ZonedTime("2027-05-14T20:00:00", "Asia/Tokyo").ToInstant();
+            m.WeatherFactory = () => new TravelRepo.Providers.Weather.WeatherService([new SyntheticWeather(weatherNow)], null, new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(temporary, "weather")), clock: new FixedClock(weatherNow));
+            m.Store.Set("weather.online", "true");
             if (language == "de") m.SetPreference("Language", "de");
             async Task Settle(int ms = 150) { using (window.CaptureRenderedFrame()) { } for (var i = 0; i < 4; i++) { await Task.Delay(ms / 4); Dispatcher.UIThread.RunJobs(); } }
             async Task Capture(string name) { await Settle(); using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path); Console.WriteLine(path); }
@@ -84,6 +88,11 @@ try
             await Capture("planning-light");
             Theme("Dark"); await Settle(300); await Capture("planning-dark"); Theme("Light");
             m.InboxOpen = false;
+
+            // An outdoor activity with rain in the forecast; the inspector is scrolled to its weather.
+            m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "schedule_item" && e.Title == "Kegon Falls"); await Settle(300);
+            window.GetVisualDescendants().OfType<TextBlock>().First(t => t.Text == m.Strings["Weather"].ToUpperInvariant() && t.FindAncestorOfType<StackPanel>() is { } p && p.GetVisualAncestors().OfType<StackPanel>().Any(a => a.Name == "Inspector")).BringIntoView();
+            await Settle(300); await Capture("weather");
 
             m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Shinkansen to Kyoto");
             m.View = "List"; await Capture("list");
@@ -199,6 +208,8 @@ try
                 var maps = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["MapsAndPlaces"]); await Settle(300);
                 window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Expander>().First().IsExpanded = true; await Settle(300);
                 await Capture("settings-maps"); Click(m.Strings["Close"]); await maps;
+                var weatherSettings = m.SettingsCommand.ExecuteAsync(null); await Settle(300); Click(m.Strings["Weather"]); await Settle(300);
+                await Capture("settings-weather"); Click(m.Strings["Close"]); await weatherSettings;
                 // Deleting a stay offers to delete its place, which nothing else uses. Cancelled, so the trip is unchanged.
                 var stay = m.Workspace.State.Trip.Entities.Values.First(e => e.Data["components"]?["accommodation"] is not null);
                 await Dialog(() => m.DeleteAsync(stay.Id), "delete-linked", m.Strings["Cancel"]);
@@ -282,4 +293,35 @@ sealed class SyntheticSecrets : TravelRepo.Providers.ISecretStore
     public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult<string?>("synthetic-token");
     public Task WriteAsync(string key, string value, CancellationToken ct = default) => Task.CompletedTask;
     public Task DeleteAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+}
+
+sealed class FixedClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
+
+/// <summary>
+/// Invented forecasts for the sample trip: mostly fine in Tokyo and Kyoto, clouds on the second day and rain in Nikko on
+/// the third day from noon, so the Kegon Falls visit gets a warning.
+/// </summary>
+sealed class SyntheticWeather(Instant now) : TravelRepo.Providers.Weather.IWeatherProvider
+{
+    public string Id => "open-meteo";
+    public string Name => "Open-Meteo";
+    public TravelRepo.Providers.Weather.WeatherAttribution Attribution { get; } = new("Weather data by Open-Meteo.com", "https://open-meteo.com/", "CC BY 4.0");
+    public bool RequiresKey => false;
+    public int HorizonDays => 16;
+    public bool Covers(TravelRepo.Providers.Weather.GeoPoint point) => true;
+    public Task<IReadOnlyList<TravelRepo.Providers.Weather.WeatherForecast?>> ForecastAsync(IReadOnlyList<TravelRepo.Providers.Weather.GeoPoint> points, CancellationToken ct = default)
+    {
+        var zone = DateTimeZoneProviders.Tzdb["Asia/Tokyo"]; var first = zone.AtStartOfDay(new LocalDate(2027, 5, 14)).ToInstant();
+        TravelRepo.Providers.Weather.WeatherHour Hour(TravelRepo.Providers.Weather.GeoPoint p, int index)
+        {
+            var at = first + Duration.FromHours(index); var local = at.InZone(zone); var day = local.Date.Day; var hour = local.Hour;
+            var mountains = p.Latitude > 36.5; var kyoto = p.Latitude < 35.2;
+            var warmth = Math.Sin((hour - 9) / 24.0 * 2 * Math.PI) * 4;
+            var temperature = Math.Round((mountains ? 13 : kyoto ? 20 : 19) + warmth + (day % 3) * 0.6, 1);
+            var rain = mountains && day == 17 && hour is >= 12 and < 17;
+            var condition = rain ? TravelRepo.Providers.Weather.WeatherCondition.Rain : day == 16 || mountains ? TravelRepo.Providers.Weather.WeatherCondition.Cloudy : hour is >= 12 and < 18 && day % 2 == 1 ? TravelRepo.Providers.Weather.WeatherCondition.PartlyCloudy : TravelRepo.Providers.Weather.WeatherCondition.Clear;
+            return new(at, 1, temperature, rain ? 80 : day == 16 ? 30 : 5, rain ? 2.4 : 0, 12, rain ? 38 : 22, condition);
+        }
+        return Task.FromResult<IReadOnlyList<TravelRepo.Providers.Weather.WeatherForecast?>>(points.Select(p => (TravelRepo.Providers.Weather.WeatherForecast?)new TravelRepo.Providers.Weather.WeatherForecast(Id, p, now, now + Duration.FromDays(30), Enumerable.Range(0, 16 * 24).Select(i => Hour(p, i)).ToArray())).ToArray());
+    }
 }

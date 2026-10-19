@@ -173,7 +173,9 @@ public sealed class TimetableView : UserControl
                 var number = Ui.Text(Formats.DayNumber(day), outside ? "subtle" : "title");
                 Control date = isToday ? new Border { Child = number.Res(TextBlock.ForegroundProperty, "Text.OnAccent"), Padding = new Thickness(8, 1), CornerRadius = new CornerRadius(10) }.Res(Border.BackgroundProperty, "Accent") : number;
                 cell = Ui.V(1, Ui.Text(Formats.DayHeader(day).ToUpper(CultureInfo.CurrentCulture), "overline").Also(t => { if (isToday) t.Res(TextBlock.ForegroundProperty, "Accent"); }), date);
-                AutomationProperties.SetName(cell, Formats.LongDay(day));
+                var weather = vm.Weather.Days.GetValueOrDefault(day) is { } dayWeather ? DayWeather(dayWeather) : null;
+                if (weather is not null) cell = Ui.Columns("*,Auto", cell, weather.Also(c => c.VerticalAlignment = VerticalAlignment.Center));
+                AutomationProperties.SetName(cell, Formats.LongDay(day) + (vm.Weather.Days.GetValueOrDefault(day) is { } named ? ", " + WeatherDisplay.Summary(named.Outlook, vm.Strings, vm.Imperial) : ""));
             }
             cell.Margin = new Thickness(10, 0); cell.VerticalAlignment = VerticalAlignment.Center;
             header.Children.Add(new Border { Child = cell, BorderThickness = new Thickness(1, 0, 0, 0) }.Res(Border.BorderBrushProperty, "Line.Soft").Col(c + 1));
@@ -185,6 +187,21 @@ public sealed class TimetableView : UserControl
             Control Name(string id, string brush, HorizontalAlignment side) => Ui.Text(Formats.ZoneName(id), "caption").Also(t => { t.FontSize = 10.5; t.TextTrimming = TextTrimming.CharacterEllipsis; t.HorizontalAlignment = side; t.VerticalAlignment = VerticalAlignment.Bottom; ToolTip.SetTip(t, FieldOptions.ZoneLabel(id)); }).Res(TextBlock.ForegroundProperty, brush);
             header.Children.Add(Ui.Columns("*,*", Name(secondZone.Id, "Accent", HorizontalAlignment.Left), Name(zone.Id, "Text.Muted", HorizontalAlignment.Right)).Also(g => g.Margin = new Thickness(4, 0, 10, 6)));
         }
+    }
+
+    /// <summary>The day's weather in the column header: an icon and the high and low; climate averages in a quieter tone.</summary>
+    private Control DayWeather(TravelRepo.Providers.Weather.DayWeather day)
+    {
+        var s = vm.Strings; var outlook = day.Outlook; var climate = outlook.Kind == TravelRepo.Providers.Weather.OutlookKind.Climate;
+        var brush = climate || outlook.Kind == TravelRepo.Providers.Weather.OutlookKind.Trend ? "Text.Subtle" : "Text.Muted";
+        var max = outlook.Climate?.MaxC ?? outlook.Day?.MaxC; var min = outlook.Climate?.MinC ?? outlook.Day?.MinC;
+        var temperatures = Ui.V(0, max is { } high ? Ui.Text(WeatherDisplay.Temperature(high, vm.Imperial), "caption").Also(t => { t.FontWeight = FontWeight.SemiBold; t.TextAlignment = TextAlignment.Right; }).Res(TextBlock.ForegroundProperty, brush) : null,
+            min is { } low ? Ui.Text(WeatherDisplay.Temperature(low, vm.Imperial), "caption").Also(t => { t.FontSize = 10.5; t.TextAlignment = TextAlignment.Right; }).Res(TextBlock.ForegroundProperty, "Text.Subtle") : null);
+        var panel = Ui.H(4, Ui.Icon(WeatherDisplay.Icon(outlook), 16, brush), temperatures);
+        if (columnWidth < 120) temperatures.IsVisible = false;
+        var place = trip.Find(day.Place)?.Title;
+        ToolTip.SetTip(panel, (place is null ? "" : place + "\n") + WeatherDisplay.Summary(outlook, s, vm.Imperial) + (climate ? "\n" + s["ClimateHint"] : ""));
+        return panel;
     }
 
     private void DrawGrid()
@@ -445,7 +462,7 @@ public sealed class TimetableView : UserControl
         if (status == "cancelled") title.TextDecorations = TextDecorations.Strikethrough;
         var time = new TextBlock { Text = timeText, FontSize = 11, FontWeight = FontWeight.SemiBold, TextTrimming = TextTrimming.CharacterEllipsis }.Res(TextBlock.ForegroundProperty, "Kind." + kind + ".Fg");
         var warn = vm.Diagnostics.Any(d => d.Path.StartsWith(item.Id.ToString(), StringComparison.Ordinal) && d.Severity >= Severity.Warning);
-        var badges = Ui.H(3, warn ? Ui.Icon("triangle-alert", 12, "Warning") : null, status is "confirmed" or "completed" ? Ui.Icon("circle-check", 12, "Success") : null, item.Data["content"] is JsonArray { Count: > 0 } ? Ui.Icon("paperclip", 11, "Text.Subtle") : null);
+        var badges = Ui.H(3, warn ? Ui.Icon("triangle-alert", 12, "Warning") : null, WeatherBadge(item), status is "confirmed" or "completed" ? Ui.Icon("circle-check", 12, "Success") : null, item.Data["content"] is JsonArray { Count: > 0 } ? Ui.Icon("paperclip", 11, "Text.Subtle") : null);
         Control body;
         if (compact || height < 38)
             body = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 13, "Kind." + kind + ".Fg"), Ui.H(6, title, strip ? time : null).Margin(5, 0), badges);
@@ -482,12 +499,28 @@ public sealed class TimetableView : UserControl
         return Wrap(item, layered, p.Span, resizable: !strip && !compact && p.Span.Precision is TimePrecision.Exact or TimePrecision.Approximate && !p.Group, draggable: !strip);
     }
 
+    /// <summary>
+    /// A weather icon on items where weather matters: a warning sign for concerns, otherwise the forecast for items
+    /// that are or may be outdoors. Indoor items and journeys without concerns stay quiet.
+    /// </summary>
+    private Control? WeatherBadge(Entity item)
+    {
+        if (!vm.Weather.Items.TryGetValue(item.Id, out var weather) || weather.Outlooks.Count == 0) return null;
+        var s = vm.Strings;
+        if (weather.Concerns.Count > 0)
+            return Ui.Icon(WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind), 12, weather.Concerns[0].Severe ? "Danger" : "Warning").Also(i => ToolTip.SetTip(i, WeatherDisplay.Concerns(weather.Concerns, s, vm.Imperial)));
+        if (weather.Exposure.Exposure is not (TravelRepo.Core.Exposure.Outdoor or TravelRepo.Core.Exposure.Possibly)) return null;
+        var outlook = weather.Outlooks[0];
+        return Ui.Icon(WeatherDisplay.Icon(outlook), 12, "Text.Subtle").Also(i => ToolTip.SetTip(i, WeatherDisplay.Summary(outlook, s, vm.Imperial)));
+    }
+
     private Button Wrap(Entity item, Control visual, ScheduleSpan span, bool resizable = false, bool draggable = true)
     {
         var s = vm.Strings;
         var button = new Button { Content = visual, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0, CornerRadius = new CornerRadius(8), Tag = item.Id, Cursor = new Cursor(StandardCursorType.Hand) }.Classed("block");
         var when = span.Start is { } a && span.End is { } b ? Formats.LongDay(a.InZone(zone).Date) + ", " + Formats.Time(a.InZone(zone).TimeOfDay) + " – " + Formats.Time(b.InZone(zone).TimeOfDay) : "";
-        AutomationProperties.SetName(button, item.Title + ", " + when + ", " + s.Optional(item.Data["status"]?.ToString() ?? ""));
+        var concerns = vm.Weather.Items.TryGetValue(item.Id, out var weather) && weather.Concerns.Count > 0 ? ", " + WeatherDisplay.Concerns(weather.Concerns, s, vm.Imperial) : "";
+        AutomationProperties.SetName(button, item.Title + ", " + when + ", " + s.Optional(item.Data["status"]?.ToString() ?? "") + concerns);
         ToolTip.SetTip(button, item.Title + "\n" + when);
         button.Click += (_, _) => { if (!moved) vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); };
         button.DoubleTapped += (_, _) => _ = vm.ScheduleSelectedAsync();

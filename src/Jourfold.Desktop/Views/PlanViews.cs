@@ -32,7 +32,7 @@ public static class AgendaView
         foreach (var day in placed.GroupBy(x => x.Span.Start!.Value.InZone(zone).Date))
         {
             var dayIndex = trip.Manifest.Data["dates"]?["start"] is { } st && NodaTime.Text.LocalDatePattern.Iso.Parse(st.ToString()).TryGetValue(default, out var first) ? Period.Between(first, day.Key, PeriodUnits.Days).Days + 1 : (int?)null;
-            var heading = Ui.H(10, Ui.Text(Formats.LongDay(day.Key), "h3"), dayIndex is > 0 ? Ui.Pill(string.Format(s["DayN"], dayIndex), null, "Bg.Subtle", "Text.Muted") : null, day.Key == today ? Ui.Pill(s["Today"], null, "Accent.Soft", "Accent.SoftText") : null);
+            var heading = Ui.H(10, Ui.Text(Formats.LongDay(day.Key), "h3"), dayIndex is > 0 ? Ui.Pill(string.Format(s["DayN"], dayIndex), null, "Bg.Subtle", "Text.Muted") : null, day.Key == today ? Ui.Pill(s["Today"], null, "Accent.Soft", "Accent.SoftText") : null, DayWeather(m, trip, day.Key));
             var rows = Ui.V(2);
             foreach (var (item, span) in day) rows.Children.Add(Row(w, item, span));
             panel.Children.Add(Ui.V(8, heading, Ui.Card(rows, 6)));
@@ -44,6 +44,33 @@ public static class AgendaView
             panel.Children.Add(Ui.V(8, Ui.H(10, Ui.Text(s["NotScheduledYet"], "h3"), Ui.Pill(unplaced.Length.ToString(System.Globalization.CultureInfo.CurrentCulture), null, "Bg.Subtle", "Text.Muted")), Ui.Card(rows, 6)));
         }
         return new ScrollViewer { Content = new Border { Child = panel, HorizontalAlignment = HorizontalAlignment.Center } };
+    }
+
+    /// <summary>The day's weather next to its heading: icon, high and low, and the place it is for.</summary>
+    private static Control? DayWeather(MainViewModel m, TripSnapshot trip, LocalDate date)
+    {
+        if (!m.Weather.Days.TryGetValue(date, out var day)) return null;
+        var outlook = day.Outlook; var quiet = outlook.Kind != TravelRepo.Providers.Weather.OutlookKind.Forecast;
+        var text = WeatherDisplay.Range(outlook.Climate?.MaxC ?? outlook.Day?.MaxC, outlook.Climate?.MinC ?? outlook.Day?.MinC, m.Imperial) + (trip.Find(day.Place) is { } place ? " · " + place.Title : "");
+        var panel = Ui.H(5, Ui.Icon(WeatherDisplay.Icon(outlook), 15, quiet ? "Text.Subtle" : "Text.Muted"), Ui.Text(text, "caption")).Also(p => p.VerticalAlignment = VerticalAlignment.Center);
+        var summary = WeatherDisplay.Summary(outlook, m.Strings, m.Imperial) + (outlook.Kind == TravelRepo.Providers.Weather.OutlookKind.Climate ? "\n" + m.Strings["ClimateHint"] : "");
+        ToolTip.SetTip(panel, summary); AutomationProperties.SetName(panel, summary);
+        return panel;
+    }
+
+    /// <summary>A weather hint for a row: the concern when there is one, otherwise the outlook for items outdoors.</summary>
+    private static Control? WeatherHint(MainViewModel m, Entity item)
+    {
+        if (!m.Weather.Items.TryGetValue(item.Id, out var weather) || weather.Outlooks.Count == 0) return null;
+        var s = m.Strings;
+        if (weather.Concerns.Count > 0)
+        {
+            var text = WeatherDisplay.Concerns(weather.Concerns, s, m.Imperial);
+            return Ui.Pill(WeatherDisplay.Concern(weather.Concerns[0], s, m.Imperial), WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind), weather.Concerns[0].Severe ? "Danger.Soft" : "Warning.Soft", weather.Concerns[0].Severe ? "Danger" : "Warning").Also(p => { ToolTip.SetTip(p, text); AutomationProperties.SetName(p, text); }).Margin(10, 0, 0, 0);
+        }
+        if (weather.Exposure.Exposure is not (TravelRepo.Core.Exposure.Outdoor or TravelRepo.Core.Exposure.Possibly)) return null;
+        var outlook = weather.Outlooks[0]; var summary = WeatherDisplay.Summary(outlook, s, m.Imperial);
+        return Ui.H(4, Ui.Icon(WeatherDisplay.Icon(outlook), 14, "Text.Subtle"), Ui.Text(WeatherDisplay.Temperatures(outlook, m.Imperial), "caption")).Also(p => { p.VerticalAlignment = VerticalAlignment.Center; ToolTip.SetTip(p, summary); AutomationProperties.SetName(p, summary); }).Margin(10, 0, 0, 0);
     }
 
     public static Button Row(MainWindow w, Entity item, ScheduleSpan span)
@@ -68,11 +95,12 @@ public static class AgendaView
         var where = route.From is not null && route.To is not null ? route.From.Title + " → " + route.To.Title : place?.Title;
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).ToArray();
         var status = item.Data["status"]?.ToString() ?? "idea"; var (statusIcon, bg, fg) = Visuals.Status(status);
-        var grid = Ui.Columns(m.SecondZone is null ? "74,Auto,*,Auto,Auto" : "104,Auto,*,Auto,Auto",
+        var grid = Ui.Columns(m.SecondZone is null ? "74,Auto,*,Auto,Auto,Auto" : "104,Auto,*,Auto,Auto,Auto",
             Ui.V(0, Ui.Text(time, "strong"), end.Length > 0 ? Ui.Text(end, "caption") : null,
                 elsewhere is null ? null : Ui.Text(elsewhere, "caption").Res(TextBlock.ForegroundProperty, "Accent").Also(t => ToolTip.SetTip(t, FieldOptions.ZoneLabel(m.SecondZone!)))),
             Ui.Tile(icon, kind, 34).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(item.Title, "title"), where is null ? null : Ui.Line(where, "caption")),
+            WeatherHint(m, item),
             people.Length > 0 ? Ui.AvatarStack(people, 24).Margin(10, 0) : null,
             Ui.Pill(s[status], statusIcon, bg, fg));
         return new Button { Content = grid }.Classed("row").Named(item.Title).Bind(w, item);

@@ -60,6 +60,8 @@ The assistant's changes appear in Jourfold within a few seconds. They are checke
 - **A change is refused.** The reason is in the tool result, for example `time.start.local`. Most models correct themselves when they read it; otherwise point the assistant to it.
 - **You want the assistant to stop changing things.** Turn the server off in the assistant, or replace its entry with the read-only configuration.
 
-Jourfold itself sends nothing to any service. With an online assistant instead of a local one, what the assistant reads from the trip goes to that assistant's provider.
+With weather turned on in Jourfold, the assistant can read the weather Jourfold has already downloaded for the trip (`get_weather`). It is told that this is cached data and how old each forecast is. The assistant cannot make Jourfold download anything: it gets no other places or dates, and the forecasts are only refreshed while the trip is open in Jourfold. When weather is off, the assistant gets no weather at all.
+
+Jourfold itself sends nothing to any service on the assistant's behalf. With an online assistant instead of a local one, what the assistant reads from the trip goes to that assistant's provider.
 
 The server and its tools are described in more detail in the TravelRepo documentation (`docs/mcp.md` in the TravelRepo repository).

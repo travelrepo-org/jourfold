@@ -4,6 +4,7 @@
   python eng/version.py                  prints the Jourfold version, for example 0.2.0
   python eng/version.py --travelrepo     prints the TravelRepo version Jourfold is built against
   python eng/version.py --codename       prints the release code name, for example Curious Caribou
+  python eng/version.py --website        prints the product website, for example https://jourfold.dev
   python eng/version.py --check-tag v0.2.0
                                          fails unless the tag is v<Version> and a TravelRepo checkout
                                          beside this repository has the expected version
@@ -20,12 +21,12 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = re.compile(r'^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$')
 
 
-def read(name='Version', props=ROOT / 'Directory.Build.props'):
+def read(name='Version', props=ROOT / 'Directory.Build.props', version=True):
     for group in ET.parse(props).getroot().iter('PropertyGroup'):
         node = group.find(name)
         if node is not None and node.text and node.text.strip():
             value = node.text.strip()
-            if not VERSION.match(value):
+            if version and not VERSION.match(value):
                 raise SystemExit(f'{props}: {name} "{value}" is not a version like 1.2.3 or 1.2.3-beta.1')
             return value
     raise SystemExit(f'{props} does not define {name}')
@@ -61,6 +62,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('--travelrepo', action='store_true')
     parser.add_argument('--codename', nargs='?', const='', metavar='VERSION', help='code name of VERSION (default: this version)')
+    parser.add_argument('--website', action='store_true')
     parser.add_argument('--check-tag')
     parser.add_argument('--github', action='store_true', help='format errors as GitHub Actions annotations')
     args = parser.parse_args()
@@ -68,5 +70,8 @@ if __name__ == '__main__':
         sys.exit(check_tag(args.check_tag))
     if args.codename is not None:
         print(codename(args.codename.lstrip('v') or read()))
+        sys.exit(0)
+    if args.website:
+        print(read('WebsiteUrl', version=False))
         sys.exit(0)
     print(read('TravelRepoVersion' if args.travelrepo else 'Version'))

@@ -16,6 +16,7 @@ public sealed partial class Dialogs
         AutomationProperties.SetName(details, S["TechnicalDetails"]);
         var expander = new Expander { Header = Ui.Text(S["TechnicalDetails"], "caption"), Content = new ScrollViewer { Content = details, MaxHeight = 240 }, HorizontalAlignment = HorizontalAlignment.Stretch };
         var copy = Ui.Button(S["CopyDetails"], "copy", "ghost");
+        var report = Ui.Button(S["ReportProblem"], "mail", "ghost"); ToolTip.SetTip(report, S["ReportProblemHint"]);
         var close = Action("Close", primary: problem.Actions.Count == 0);
         DialogSheet? sheet = null;
         var buttons = new List<Control> { close };
@@ -25,12 +26,27 @@ public sealed partial class Dialogs
             var button = Ui.Button(choice.Label, choice.Icon, i == problem.Actions.Count - 1 ? "primary" : ""); button.IsDefault = i == problem.Actions.Count - 1;
             button.Click += (_, _) => sheet?.Close(choice.Id); buttons.Add(button);
         }
-        var footer = Ui.Columns("Auto,*", copy, Footer(buttons.ToArray()).Also(f => f.Margin = new Thickness(0)));
+        var footer = Ui.Columns("Auto,Auto,*", copy, report, Footer(buttons.ToArray()).Also(f => f.Margin = new Thickness(0)));
         footer.Margin = new Thickness(0, 8, 0, 0);
         sheet = new DialogSheet(problem.Title, Ui.V(14, message, expander, footer), 600);
         close.Click += (_, _) => sheet.Close(null);
         copy.Click += async (_, _) => { await CopyAsync(problem.Message + "\n\n" + problem.Details); Toast(S["Copied"]); };
+        // The report opens after this explanation closes, with the message and details already filled in.
+        report.Click += (_, _) => { sheet.Close(null); if (Main?.Model is { } model) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = model.ReportAsync(problem.Message + "\n\n" + problem.Details)); };
         return await sheet.ShowDialog<string?>(owner);
+    }
+
+    public async Task<ReportReview?> ReviewReportAsync(string text)
+    {
+        var box = new TextBox { Text = text, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 280, MaxHeight = 420, FontFamily = FontFamily.Parse("monospace"), FontSize = 12 };
+        AutomationProperties.SetName(box, S["Report"]);
+        var cancel = Action("Cancel"); var copy = Ui.Button(S["CopyReport"], "copy", ""); var mail = Ui.Button(S["ReportByMail"], "mail", "primary"); mail.IsDefault = true;
+        var sheet = new DialogSheet(S["Report"], Ui.V(12, Ui.Text(S["ReportInfo"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap), box,
+            Ui.Columns("Auto,*", Ui.Icon("shield", 14, "Text.Subtle"), Ui.Text(S["ReportPrivacy"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap).Margin(8, 0, 0, 0)), Footer(cancel, copy, mail)), 680);
+        cancel.Click += (_, _) => sheet.Close(null);
+        copy.Click += (_, _) => sheet.Close(new ReportReview(box.Text ?? "", false));
+        mail.Click += (_, _) => sheet.Close(new ReportReview(box.Text ?? "", true));
+        return await sheet.ShowDialog<ReportReview?>(owner);
     }
 
     public async Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm)

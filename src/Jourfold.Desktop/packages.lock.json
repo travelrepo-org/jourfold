@@ -26,6 +26,15 @@
           "Avalonia.X11": "11.3.13"
         }
       },
+      "Avalonia.HtmlRenderer": {
+        "type": "Direct",
+        "requested": "[11.3.0, )",
+        "resolved": "11.3.0",
+        "contentHash": "y4+ZiaI8l6iMWS6iS0PQ7dsY1d9bPDKDPvdZLac1msJSQTYpJulPb2PN1uB8xGAX5yR3LcxkiTGG6ISJfyyiuQ==",
+        "dependencies": {
+          "Avalonia": "11.1.0"
+        }
+      },
       "Avalonia.Themes.Fluent": {
         "type": "Direct",
         "requested": "[11.3.13, )",

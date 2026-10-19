@@ -23,6 +23,10 @@
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
+  "Avalonia.HtmlRenderer/11.3.0": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/"
+  },
   "Avalonia.Native/11.3.13": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"

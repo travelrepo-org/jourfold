@@ -20,6 +20,8 @@ public static class AppVersion
     /// <summary>The first seven characters of the source commit, if the build recorded one.</summary>
     public static string? Commit => Informational.Split('+') is [_, var commit, ..] && commit.Length >= 7 ? commit[..7] : null;
     public static Uri? RepositoryUrl => TravelRepoInfo.Metadata(Assembly, "RepositoryUrl");
+    /// <summary>The product website, from <c>WebsiteUrl</c> in Directory.Build.props.</summary>
+    public static Uri? WebsiteUrl => TravelRepoInfo.Metadata(Assembly, "WebsiteUrl");
     /// <summary>The code name of this feature release, for example <c>Curious Caribou</c>.</summary>
     public static string CodeName => CodeNames.For(Version);
     public static string Platform => RuntimeInformation.OSDescription.Trim() + " (" + RuntimeInformation.OSArchitecture.ToString().ToLowerInvariant() + "), .NET " + Environment.Version;
@@ -51,7 +53,7 @@ public static class CodeNames
 }
 
 /// <summary>Everything the About window shows.</summary>
-public sealed record AboutInfo(string Version, string CodeName, string? Commit, Uri? Source, string TravelRepoVersion, string FormatVersion, Uri? TravelRepoSource, string Platform, IReadOnlyList<KnownPlugin> Plugins);
+public sealed record AboutInfo(string Version, string CodeName, string? Commit, Uri? Source, string TravelRepoVersion, string FormatVersion, Uri? TravelRepoSource, string Platform, IReadOnlyList<KnownPlugin> Plugins, Uri? Website = null);
 
 public partial class MainViewModel
 {
@@ -73,7 +75,7 @@ public partial class MainViewModel
     [CommunityToolkit.Mvvm.Input.RelayCommand]
     private Task VersionHistory() => Interaction.ReleaseNotesAsync(ReleaseNotes.All, highlightsOnly: false);
 
-    public AboutInfo AboutInfo() => new(AppVersion.Version, AppVersion.CodeName, AppVersion.Commit, AppVersion.RepositoryUrl, TravelRepoInfo.Version, TravelRepoInfo.FormatVersion, TravelRepoInfo.RepositoryUrl, AppVersion.Platform, PluginCatalog.Known(Store));
+    public AboutInfo AboutInfo() => new(AppVersion.Version, AppVersion.CodeName, AppVersion.Commit, AppVersion.RepositoryUrl, TravelRepoInfo.Version, TravelRepoInfo.FormatVersion, TravelRepoInfo.RepositoryUrl, AppVersion.Platform, PluginCatalog.Known(Store), AppVersion.WebsiteUrl);
 
     /// <summary>License and notice texts compiled into the application: <c>Jourfold.LICENSE</c>, <c>TravelRepo.LICENSE</c> and <c>Jourfold.NOTICES</c>.</summary>
     public static string BundledText(string name)

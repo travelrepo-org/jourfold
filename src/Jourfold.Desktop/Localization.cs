@@ -39,6 +39,8 @@ public sealed record DeletionPrompt(Entity Target, IReadOnlyList<Entity> Depende
 /// <param name="Details">Technical details for a bug report: versions, error codes and redacted Git output. Shown and copied, never sent.</param>
 public sealed record Problem(string Title, string Message, string Details, IReadOnlyList<Choice> Actions);
 public sealed record Choice(string Id, string Label, string? Icon = null, string? Hint = null) { public override string ToString() => Label; }
+/// <summary>A problem report after review: the text as edited, and whether to send it by e-mail or only copy it.</summary>
+public sealed record ReportReview(string Text, bool ByMail);
 /// <param name="GitHubRepository">When set, the trip is published to a new private GitHub repository with this name.</param>
 public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
 public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName, bool GitHubConnected = false, string? GitHubLogin = null);
@@ -81,6 +83,8 @@ public interface IInteraction
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
     /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
+    /// <summary>Shows a problem report to review and edit before it is copied or opened in the mail program. Null when cancelled.</summary>
+    Task<ReportReview?> ReviewReportAsync(string text);
     /// <summary>Explains a failure, offers fixes and lets the person copy the technical details. Returns the chosen action ID.</summary>
     Task<string?> ProblemAsync(Problem problem);
     /// <summary>Shows release notes: only the highlights after an update, or every change for the version history.</summary>

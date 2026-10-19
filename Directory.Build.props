@@ -14,8 +14,11 @@
     <Authors>Jourfold contributors</Authors>
     <!-- Public source repository, shown in the About window. -->
     <RepositoryUrl>https://github.com/travelrepo-org/jourfold</RepositoryUrl>
+    <!-- Product website, shown in the About window and the Windows installer. eng/version.py prints it with the website option. -->
+    <WebsiteUrl>https://jourfold.dev</WebsiteUrl>
   </PropertyGroup>
   <ItemGroup>
     <AssemblyMetadata Include="RepositoryUrl" Value="$(RepositoryUrl)" />
+    <AssemblyMetadata Include="WebsiteUrl" Value="$(WebsiteUrl)" />
   </ItemGroup>
 </Project>

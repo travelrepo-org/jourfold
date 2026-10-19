@@ -68,7 +68,7 @@ public sealed class DocumentViewTests : IDisposable
         var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Show(); Dispatcher.UIThread.RunJobs();
         try
         {
-            var m = w.Model; await m.OpenAsync(await Trip()); m.InboxOpen = false;
+            var m = w.Model; await m.OpenAsync(await Trip()); m.InboxOpen = false; m.Store.Set("viewer.mail", "original");
             var booking = Entity.Create("booking", "Lakeview Lodge"); await m.Workspace!.EditAsync(booking);
             await m.AddFilesAsync([Confirmation()], booking.Id);
             var mail = Assert.Single(TripCommands.AttachedDocuments(m.Workspace.State.Trip, m.Workspace.State.Trip.Find(booking.Id)!));
@@ -94,8 +94,25 @@ public sealed class DocumentViewTests : IDisposable
             try
             {
                 Probe.Layout();
-                Assert.Contains(Probe.All<SelectableTextBlock>(viewer), t => t.Text == "Check-in from 15:00.");
+                // The original layout first, without the tracking image until the person loads images.
+                var html = Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(viewer).Single();
+                Assert.Contains("Check-in from 15:00.", html.Text); Assert.DoesNotContain("tracker.example", html.Text);
                 Assert.Contains(Probe.All<TextBlock>(viewer), t => t.Text?.StartsWith("1 image from the internet was not loaded", StringComparison.Ordinal) == true);
+                var fetched = new List<string>(); var fetch = DocumentWindow.FetchImage; DocumentWindow.FetchImage = url => { fetched.Add(url); return Task.FromResult<byte[]?>(null); };
+                try
+                {
+                    Probe.Click(viewer, m.Strings["LoadImages"]); Probe.Layout();
+                    html = Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(viewer).Single();
+                    Assert.Contains("https://tracker.example/p.gif", html.Text);
+                    for (var i = 0; i < 40 && fetched.Count == 0; i++) { await Task.Delay(50); Probe.Layout(); }
+                    Assert.Equal(["https://tracker.example/p.gif"], fetched.ToArray());
+                }
+                finally { DocumentWindow.FetchImage = fetch; }
+                // The plain text is one click away, and remembered.
+                Probe.Click(viewer, m.Strings["MailText"]); Probe.Layout();
+                Assert.Contains(Probe.All<SelectableTextBlock>(viewer), t => t.Text == "Check-in from 15:00.");
+                Assert.Empty(Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(viewer));
+                Assert.Equal("text", m.Store.Get("viewer.mail")); m.Store.Set("viewer.mail", "original");
 
                 // Its PDF attachment is added to the trip and attached to the same booking.
                 var add = Probe.All<Button>(viewer).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == m.Strings["AddToTrip"] + ": ticket.pdf");

@@ -109,14 +109,7 @@ public sealed class WeatherViewTests : IDisposable
             m.WeatherPromptDismissed = false; m.Navigate("Plan"); m.ShowDate(Tomorrow);
             m.Selected = m.Workspace!.State.Trip.Find(hike); Probe.Layout();
             // Before weather is on, the inspector offers it once.
-            // The inspector remembers the last tab across items, and another test may have left it on Comments.
-            await Probe.Until(() =>
-            {
-                Probe.Layout();
-                Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => AutomationProperties.GetName(b) == m.Strings["Details"] || b.Content as string == m.Strings["Details"])?.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-                Probe.Layout();
-                return Probe.All<Button>(w).Any(b => AutomationProperties.GetName(b) == "Show weather");
-            });
+            await Probe.Until(() => { Probe.ShowDetails(w); return Probe.All<Button>(w).Any(b => AutomationProperties.GetName(b) == "Show weather"); });
             Probe.Click(w, "Show weather"); await Probe.Until(() => m.Weather.Items.Count > 0); Probe.Layout();
 
             var timetable = Assert.IsType<TimetableView>(w.FindControl<ContentControl>("MainContent")!.Content);

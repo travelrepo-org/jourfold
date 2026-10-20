@@ -98,6 +98,13 @@ public static class Probe
     public static Control Sheet(MainWindow w) => (Control)w.FindControl<Grid>("DialogLayer")!.Children.Last();
     public static Button Button(Visual root, string label) => All<Button>(root).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == label || b.Content as string == label);
     public static void Click(Visual root, string label) => Button(root, label).RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+    /// <summary>Opens the inspector's Details tab: the tab is kept across items, and another test may have left it on Comments.</summary>
+    public static void ShowDetails(MainWindow w)
+    {
+        Layout();
+        All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == w.Model.Strings["Details"] || b.Content as string == w.Model.Strings["Details"])?.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        Layout();
+    }
     public static async Task Until(Func<bool> condition, int timeoutMs = 4000)
     {
         for (var waited = 0; waited < timeoutMs && !condition(); waited += 20) { await Task.Delay(20); Layout(); }

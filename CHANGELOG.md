@@ -2,6 +2,30 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.5.0 “Polar Pelican” – 2026-10-20
+
+### Highlights
+
+- Weather for every day and activity, from forecasts within two weeks to climate averages further ahead. It is off until you turn it on, and only rounded coordinates are sent.
+- Warnings about rain, wind, heat or frost before outdoor activities. Jourfold estimates what happens outdoors, and you can set it for each activity.
+- E-mails open in their original layout. Images from the internet load only when you choose, and links show where they go before they open.
+- Problems can be reported by e-mail. You review the report first and send it from your own mail program.
+
+### Changes
+
+- Weather comes from Open-Meteo by default. MET Norway, the US National Weather Service and Visual Crossing with your own key can be chosen under Settings, Weather.
+- Connected AI assistants can read the weather Jourfold has already downloaded for the trip. They are told it is not live and cannot make Jourfold download anything.
+- Every error message has a Report button that prepares the report with its details.
+- When a stay is selected, its check-in and check-out times are drawn above the activities.
+- About Jourfold links to the website jourfold.dev.
+
+### Fixes
+
+- Stays in the band of nights can be selected with a click again.
+- A tooltip no longer takes the click meant for the item below it.
+- A stay whose time differs from check-in and check-out shows the warning once, with its fix and in your language.
+- A trip folder that was moved or deleted while open is explained instead of making Jourfold fail.
+
 ## 0.4.0 “Zippy Zebra” – 2026-10-19
 
 ### Highlights

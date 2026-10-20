@@ -156,7 +156,9 @@
   <Style Selector="TabItem:selected"><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
   <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe"><Setter Property="Background" Value="{DynamicResource Accent}"/></Style>
 
-  <Style Selector="ToolTip"><Setter Property="FontSize" Value="12"/><Setter Property="CornerRadius" Value="6"/></Style>
+  <!-- Tooltips never take a click: on Linux popups are drawn inside the window, where a tooltip under the pointer
+       would otherwise swallow the click meant for the item below it. -->
+  <Style Selector="ToolTip"><Setter Property="FontSize" Value="12"/><Setter Property="CornerRadius" Value="6"/><Setter Property="IsHitTestVisible" Value="False"/></Style>
   <Style Selector="Expander"><Setter Property="CornerRadius" Value="{StaticResource Radius.Medium}"/></Style>
   <Style Selector="ScrollViewer"><Setter Property="AllowAutoHide" Value="True"/></Style>
 

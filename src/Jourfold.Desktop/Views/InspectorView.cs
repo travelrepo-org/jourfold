@@ -166,8 +166,14 @@ public static class InspectorView
     private static void DetailsTab(MainWindow w, Entity e, StackPanel body)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        foreach (var d in m.Diagnostics.Where(d => d.Path.StartsWith(e.Id.ToString(), StringComparison.Ordinal) || e.Type == "trip" && d.Path is "travel.yaml" or "cover" or "dates"))
-            body.Children.Add(new Border { Padding = new Thickness(12, 10), CornerRadius = new CornerRadius(10), Child = Ui.Columns("Auto,*", Ui.Icon(d.Severity == Severity.Error ? "circle-help" : "triangle-alert", 16, d.Severity == Severity.Error ? "Danger" : "Warning"), Ui.Text(m.Advanced ? d.Message : s.Diagnostic(d.Code)).Margin(10, 0, 0, 0)) }.Res(Border.BackgroundProperty, d.Severity == Severity.Error ? "Danger.Soft" : "Warning.Soft"));
+        // A stay explains a time that differs from check-in and check-out in its Nights section, with a fix.
+        var explainedBelow = Stays.IsStay(e) ? new HashSet<string> { "stay.time_mismatch" } : [];
+        foreach (var d in m.Diagnostics.Where(d => (d.Path.StartsWith(e.Id.ToString(), StringComparison.Ordinal) || e.Type == "trip" && d.Path is "travel.yaml" or "cover" or "dates") && !explainedBelow.Contains(d.Code)))
+        {
+            // Advanced mode adds the code and TravelRepo's own wording below the translated text.
+            var text = Ui.V(2, Ui.Text(s.Diagnostic(d.Code)).Also(t => t.TextWrapping = TextWrapping.Wrap), m.Advanced ? new SelectableTextBlock { Text = d.Code + ": " + d.Message, TextWrapping = TextWrapping.Wrap, FontSize = 11 }.Classed("muted") : null);
+            body.Children.Add(new Border { Padding = new Thickness(12, 10), CornerRadius = new CornerRadius(10), Child = Ui.Columns("Auto,*", Ui.Icon(d.Severity == Severity.Error ? "circle-help" : "triangle-alert", 16, d.Severity == Severity.Error ? "Danger" : "Warning"), text.Margin(10, 0, 0, 0)) }.Res(Border.BackgroundProperty, d.Severity == Severity.Error ? "Danger.Soft" : "Warning.Soft"));
+        }
         switch (e.Type)
         {
             case "schedule_item": ScheduleDetails(w, e, body); break;

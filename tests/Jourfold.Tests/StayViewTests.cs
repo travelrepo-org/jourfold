@@ -1,5 +1,9 @@
 using System.Text.Json.Nodes;
 using Avalonia.Controls;
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.Input;
+using Avalonia.VisualTree;
 using Avalonia.Headless.XUnit;
 using Jourfold.Desktop;
 using Jourfold.Infrastructure;
@@ -51,6 +55,50 @@ public sealed class StayViewTests : IDisposable
             Assert.Contains("2 nights", Avalonia.Automation.AutomationProperties.GetName(bar));
             // Nights 11 and 12 have no stay; their placeholders add one.
             Assert.Equal(2, Probe.All<Button>(timetable).Count(b => Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(m.Strings["NoStayTonight"], StringComparison.Ordinal) == true));
+
+            // The bar's tooltip opens above it and never takes a click, also when popups are drawn inside the window.
+            Assert.Equal(PlacementMode.Top, ToolTip.GetPlacement(bar));
+            ToolTip.SetIsOpen(bar, true); Probe.Layout();
+            try
+            {
+                await Probe.Until(() => { Probe.Layout(); return Probe.All<ToolTip>(w).Any(t => Equals(t.Content, ToolTip.GetTip(bar))); });
+                var tip = Probe.All<ToolTip>(w).First(t => Equals(t.Content, ToolTip.GetTip(bar)));
+                Assert.False(tip.IsHitTestVisible);
+                var inside = tip.TranslatePoint(new Point(tip.Bounds.Width / 2, tip.Bounds.Height / 2), w)!.Value;
+                Assert.False(w.InputHitTest(inside) is Visual hit && hit.GetSelfAndVisualAncestors().Contains(tip));
+            }
+            finally { ToolTip.SetIsOpen(bar, false); Probe.Layout(); }
+
+            // A real left click on the bar selects the stay (the button handles the release itself).
+            m.Selected = null; Probe.Layout();
+            var point = bar.TranslatePoint(new Avalonia.Point(30, 12), w)!.Value;
+            w.MouseDown(point, Avalonia.Input.MouseButton.Left); w.MouseUp(point, Avalonia.Input.MouseButton.Left);
+            await Probe.Until(() => { Probe.Layout(); return m.Selected?.Id == stay.Id; });
+            Assert.Equal(stay.Id, m.Selected?.Id);
+
+            // Selected, the stay's check-in and check-out markers sit above the activities; otherwise behind them.
+            static int[] Markers(TimetableView view, string text) => [.. Probe.All<Border>(view).Where(b => !b.IsHitTestVisible && Probe.All<TextBlock>(b).Any(t => t.Text?.StartsWith(text, StringComparison.Ordinal) == true)).Select(b => b.ZIndex)];
+            await m.Workspace.EditAsync(Stays.WithSpan(m.Workspace.State.Trip.Find(stay.Id)!, new ZonedTime("2026-11-09T15:00:00", Zone), new ZonedTime("2026-11-11T10:00:00", Zone)));
+            m.Selected = m.Workspace.State.Trip.Find(stay.Id);
+            var checkIn = m.Strings["CheckInAt"].Split('{')[0];
+            TimetableView Current() => Assert.IsType<TimetableView>(w.FindControl<ContentControl>("MainContent")!.Content);
+            await Probe.Until(() => { Probe.Layout(); return Markers(Current(), checkIn) is { Length: > 0 } z && z.All(v => v > 2); });
+            m.Selected = null;
+            await Probe.Until(() => { Probe.Layout(); return Markers(Current(), checkIn) is { Length: > 0 } z && z.All(v => v < 2); });
+
+            // A time that differs from check-in and check-out is explained once, in the Nights section with its fix,
+            // in the interface language even in Advanced mode.
+            var differing = m.Workspace.State.Trip.Find(stay.Id)!.Copy();
+            differing.Data["time"] = new JsonObject { ["precision"] = "day_part", ["date"] = "2026-11-12", ["day_part"] = "night", ["timezone"] = Zone };
+            await m.Workspace.EditAsync(differing); m.Advanced = true; m.Selected = m.Workspace.State.Trip.Find(stay.Id); Probe.ShowDetails(w);
+            try
+            {
+                Assert.Contains(m.Diagnostics, d => d.Code == "stay.time_mismatch");
+                var texts = Probe.All<TextBlock>(Probe.Named<StackPanel>(w, "Inspector")).Select(t => t.Text).ToArray();
+                Assert.Contains(m.Strings["StayTimeMismatch"], texts);
+                Assert.DoesNotContain(texts, t => t?.Contains("check-in and check-out apply", StringComparison.Ordinal) == true || t == m.Strings.Diagnostic("stay.time_mismatch"));
+            }
+            finally { m.Advanced = false; }
         }
         finally { w.Close(); }
     }

@@ -320,6 +320,8 @@ public sealed class TimetableView : UserControl
         var leave = stay.CheckOut is { } co ? Formats.LongDay(stay.DepartureDay!.Value) + " " + Formats.Time(NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(co.Local).Value.TimeOfDay) : Formats.LongDay(stay.DepartureDay!.Value);
         var description = item.Title + ", " + count + ", " + string.Format(s["StayFromTo"], arrive, leave);
         AutomationProperties.SetName(button, description + ", " + s.Optional(status ?? "")); ToolTip.SetTip(button, description);
+        // The band sits at the bottom of the window, where a tooltip at the pointer would flip up under the cursor.
+        ToolTip.SetPlacement(button, PlacementMode.Top); ToolTip.SetVerticalOffset(button, -4);
         button.ContextMenu = EntityMenu.Context(window, item);
         // Dragging the bar sideways moves the stay by whole nights; a click selects it.
         Point? pressed = null; var shifted = 0;
@@ -330,14 +332,15 @@ public sealed class TimetableView : UserControl
             shifted = (int)Math.Round((e.GetPosition(nights).X - start.X) / columnWidth);
             button.RenderTransform = shifted == 0 ? null : new TranslateTransform(shifted * columnWidth, 0);
         };
-        button.PointerReleased += async (_, e) =>
+        // The button handles the release itself to raise Click, so this handler also listens to handled events.
+        button.AddHandler(PointerReleasedEvent, async (_, e) =>
         {
             if (pressed is null) return;
             pressed = null; e.Pointer.Capture(null); button.RenderTransform = null;
             if (shifted == 0) { vm.Selected = vm.Workspace?.State.Trip.Find(item.Id); return; }
             var days = shifted; shifted = 0;
             await vm.MoveStayAsync(item.Id, days);
-        };
+        }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
         button.KeyDown += async (_, e) =>
         {
             if (e.KeyModifiers == KeyModifiers.Alt && e.Key is Key.Left or Key.Right) { e.Handled = true; await vm.MoveStayAsync(item.Id, e.Key == Key.Left ? -1 : 1); }
@@ -355,15 +358,19 @@ public sealed class TimetableView : UserControl
         var s = vm.Strings;
         IEnumerable<int> Columns(Stay stay, LocalDate date) => vm.Lanes ? (date == vm.StartDate ? Lanes(stay.Item) : []) : [Period.DaysBetween(vm.StartDate, date)];
         double Y(LocalTime time) => Top + time.TickOfDay / (double)NodaConstants.TicksPerHour * hourHeight;
+        // The markers of the selected stay come to the front, above the activities; the others stay behind them.
+        // They never take clicks, so activities under them remain clickable.
+        var z = 1;
         void Tag(Stay stay, string text, double x, double y)
         {
             var tag = new Border { Padding = new Thickness(5, 0), CornerRadius = new CornerRadius(4), IsHitTestVisible = false, Child = Ui.H(3, Ui.Icon("bed-double", 10, "Kind.Accommodation.Fg"), Ui.Text(text, "caption").Also(t => { t.FontSize = 10; t.TextWrapping = TextWrapping.NoWrap; })) }.Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
             ToolTip.SetTip(tag, stay.Item.Title);
-            tag.Measure(Size.Infinity); Place(tag, x + columnWidth - 6 - tag.DesiredSize.Width, y - 8, 1);
+            tag.Measure(Size.Infinity); Place(tag, x + columnWidth - 6 - tag.DesiredSize.Width, y - 8, z);
         }
-        void Line(double x, double y) => Place(new Line { StartPoint = new Point(x + 2, y), EndPoint = new Point(x + columnWidth - 2, y), StrokeThickness = 1.5, StrokeDashArray = [5, 3], IsHitTestVisible = false, Opacity = 0.8 }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"), 0, 0, 1);
+        void Line(double x, double y) => Place(new Line { StartPoint = new Point(x + 2, y), EndPoint = new Point(x + columnWidth - 2, y), StrokeThickness = 1.5, StrokeDashArray = [5, 3], IsHitTestVisible = false, Opacity = z > 1 ? 1 : 0.8 }.Res(Shape.StrokeProperty, "Kind.Accommodation.Bar"), 0, 0, z);
         foreach (var stay in Stays.All(trip).Where(x => x.FirstNight is not null))
         {
+            z = vm.Selected?.Id == stay.Item.Id ? 5 : 1;
             var stayZone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(stay.Zone) ?? zone;
             LocalDate Day(LocalDate local, LocalTime time) => stayZone.AtLeniently(local.At(time)).ToInstant().InZone(zone).Date;
             LocalTime Time(LocalDate local, LocalTime time) => stayZone.AtLeniently(local.At(time)).ToInstant().InZone(zone).TimeOfDay;

@@ -1,0 +1,37 @@
+# Release notes for Jourfold 0.5.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.5.0
+date: 2026-10-20
+highlights:
+  - icon: cloud-sun
+    en: Weather for every day and activity, from forecasts within two weeks to climate averages further ahead. It is off until you turn it on, and only rounded coordinates are sent.
+    de: Wetter für jeden Tag und jede Aktivität, von der Vorhersage für die nächsten zwei Wochen bis zu Klimamitteln weiter voraus. Es ist aus, bis Sie es einschalten, und es werden nur gerundete Koordinaten gesendet.
+  - icon: umbrella
+    en: Warnings about rain, wind, heat or frost before outdoor activities. Jourfold estimates what happens outdoors, and you can set it for each activity.
+    de: Warnungen vor Regen, Wind, Hitze oder Frost vor Aktivitäten im Freien. Jourfold schätzt, was draußen stattfindet, und Sie können es für jede Aktivität festlegen.
+  - icon: mail
+    en: E-mails open in their original layout. Images from the internet load only when you choose, and links show where they go before they open.
+    de: E-Mails öffnen sich im Originallayout. Bilder aus dem Internet werden nur auf Wunsch geladen, und Links zeigen vor dem Öffnen, wohin sie führen.
+  - icon: message-square
+    en: Problems can be reported by e-mail. You review the report first and send it from your own mail program.
+    de: Probleme lassen sich per E-Mail melden. Sie prüfen den Bericht vorher und senden ihn aus Ihrem eigenen Mailprogramm.
+changes:
+  - en: Weather comes from Open-Meteo by default. MET Norway, the US National Weather Service and Visual Crossing with your own key can be chosen under Settings, Weather.
+    de: Das Wetter kommt standardmäßig von Open-Meteo. MET Norway, der US National Weather Service und Visual Crossing mit eigenem Schlüssel lassen sich unter Einstellungen, Wetter wählen.
+  - en: Connected AI assistants can read the weather Jourfold has already downloaded for the trip. They are told it is not live and cannot make Jourfold download anything.
+    de: Verbundene KI-Assistenten können das Wetter lesen, das Jourfold für die Reise schon geladen hat. Sie erfahren, dass es keine Live-Daten sind, und können Jourfold nichts herunterladen lassen.
+  - en: Every error message has a Report button that prepares the report with its details.
+    de: Jede Fehlermeldung hat einen Button „Melden“, der den Bericht mit den Details vorbereitet.
+  - en: When a stay is selected, its check-in and check-out times are drawn above the activities.
+    de: Ist eine Unterkunft ausgewählt, liegen ihre Check-in- und Check-out-Zeiten über den Aktivitäten.
+  - en: About Jourfold links to the website jourfold.dev.
+    de: „Über Jourfold“ verlinkt die Website jourfold.dev.
+fixes:
+  - en: Stays in the band of nights can be selected with a click again.
+    de: Unterkünfte im Band der Nächte lassen sich wieder per Klick auswählen.
+  - en: A tooltip no longer takes the click meant for the item below it.
+    de: Ein Tooltip fängt keinen Klick mehr ab, der für den Eintrag darunter gedacht ist.
+  - en: A stay whose time differs from check-in and check-out shows the warning once, with its fix and in your language.
+    de: Weicht die Zeit einer Unterkunft von Check-in und Check-out ab, erscheint die Warnung nur einmal, mit Lösung und in Ihrer Sprache.
+  - en: A trip folder that was moved or deleted while open is explained instead of making Jourfold fail.
+    de: Wird ein geöffneter Reiseordner verschoben oder gelöscht, erklärt Jourfold das, statt abzustürzen.

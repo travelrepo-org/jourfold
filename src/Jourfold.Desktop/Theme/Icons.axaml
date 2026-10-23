@@ -4,6 +4,7 @@
   <StreamGeometry x:Key="Icon.arrow-left">M 0 0 m 12 19 l -7 -7 l 7 -7 M 19 12 H 5</StreamGeometry>
   <StreamGeometry x:Key="Icon.arrow-right">M 5 12 h 14 M 0 0 m 12 5 l 7 7 l -7 7</StreamGeometry>
   <StreamGeometry x:Key="Icon.arrow-up-right">M 7 7 h 10 v 10 M 7 17 L 17 7</StreamGeometry>
+  <StreamGeometry x:Key="Icon.backpack">M 4 10 a 4 4 0 0 1 4 -4 h 8 a 4 4 0 0 1 4 4 v 10 a 2 2 0 0 1 -2 2 H 6 a 2 2 0 0 1 -2 -2 z M 8 10 h 8 M 8 18 h 8 M 8 22 v -6 a 2 2 0 0 1 2 -2 h 4 a 2 2 0 0 1 2 2 v 6 M 9 6 V 4 a 2 2 0 0 1 2 -2 h 2 a 2 2 0 0 1 2 2 v 2</StreamGeometry>
   <StreamGeometry x:Key="Icon.bed-double">M 2 20 v -8 a 2 2 0 0 1 2 -2 h 16 a 2 2 0 0 1 2 2 v 8 M 4 10 V 6 a 2 2 0 0 1 2 -2 h 12 a 2 2 0 0 1 2 2 v 4 M 12 4 v 6 M 2 18 h 20</StreamGeometry>
   <StreamGeometry x:Key="Icon.bell">M 10.268 21 a 2 2 0 0 0 3.464 0 M 3.262 15.326 A 1 1 0 0 0 4 17 h 16 a 1 1 0 0 0 0.74 -1.673 C 19.41 13.956 18 12.499 18 8 A 6 6 0 0 0 6 8 c 0 4.499 -1.411 5.956 -2.738 7.326</StreamGeometry>
   <StreamGeometry x:Key="Icon.bike">M 15 17.5 A 3.5 3.5 0 1 0 22 17.5 A 3.5 3.5 0 1 0 15 17.5 Z M 2 17.5 A 3.5 3.5 0 1 0 9 17.5 A 3.5 3.5 0 1 0 2 17.5 Z M 14 5 A 1 1 0 1 0 16 5 A 1 1 0 1 0 14 5 Z M 12 17.5 V 14 l -3 -3 l 4 -3 l 2 3 h 2</StreamGeometry>
@@ -86,6 +87,7 @@
   <StreamGeometry x:Key="Icon.locate-fixed">M 2 12 L 5 12 M 19 12 L 22 12 M 12 2 L 12 5 M 12 19 L 12 22 M 5 12 A 7 7 0 1 0 19 12 A 7 7 0 1 0 5 12 Z M 9 12 A 3 3 0 1 0 15 12 A 3 3 0 1 0 9 12 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.lock">M 5 11 H 19 A 2 2 0 0 1 21 13 V 20 A 2 2 0 0 1 19 22 H 5 A 2 2 0 0 1 3 20 V 13 A 2 2 0 0 1 5 11 Z M 7 11 V 7 a 5 5 0 0 1 10 0 v 4</StreamGeometry>
   <StreamGeometry x:Key="Icon.log-out">M 0 0 m 16 17 l 5 -5 l -5 -5 M 21 12 H 9 M 9 21 H 5 a 2 2 0 0 1 -2 -2 V 5 a 2 2 0 0 1 2 -2 h 4</StreamGeometry>
+  <StreamGeometry x:Key="Icon.luggage">M 6 20 a 2 2 0 0 1 -2 -2 V 8 a 2 2 0 0 1 2 -2 h 12 a 2 2 0 0 1 2 2 v 10 a 2 2 0 0 1 -2 2 M 8 18 V 4 a 2 2 0 0 1 2 -2 h 4 a 2 2 0 0 1 2 2 v 14 M 10 20 h 4 M 14 20 A 2 2 0 1 0 18 20 A 2 2 0 1 0 14 20 Z M 6 20 A 2 2 0 1 0 10 20 A 2 2 0 1 0 6 20 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.mail">M 0 0 m 22 7 l -8.991 5.727 a 2 2 0 0 1 -2.009 0 L 2 7 M 4 4 H 20 A 2 2 0 0 1 22 6 V 18 A 2 2 0 0 1 20 20 H 4 A 2 2 0 0 1 2 18 V 6 A 2 2 0 0 1 4 4 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.map-pin">M 20 10 c 0 4.993 -5.539 10.193 -7.399 11.799 a 1 1 0 0 1 -1.202 0 C 9.539 20.193 4 14.993 4 10 a 8 8 0 0 1 16 0 M 9 10 A 3 3 0 1 0 15 10 A 3 3 0 1 0 9 10 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.map">M 14.106 5.553 a 2 2 0 0 0 1.788 0 l 3.659 -1.83 A 1 1 0 0 1 21 4.619 v 12.764 a 1 1 0 0 1 -0.553 0.894 l -4.553 2.277 a 2 2 0 0 1 -1.788 0 l -4.212 -2.106 a 2 2 0 0 0 -1.788 0 l -3.659 1.83 A 1 1 0 0 1 3 19.381 V 6.618 a 1 1 0 0 1 0.553 -0.894 l 4.553 -2.277 a 2 2 0 0 1 1.788 0 z M 15 5.764 v 15 M 9 3.236 v 15</StreamGeometry>
@@ -98,6 +100,8 @@
   <StreamGeometry x:Key="Icon.mountain">M 0 0 m 8 3 l 4 8 l 5 -5 l 5 15 H 2 L 8 3 z</StreamGeometry>
   <StreamGeometry x:Key="Icon.music">M 9 18 V 5 l 12 -2 v 13 M 3 18 A 3 3 0 1 0 9 18 A 3 3 0 1 0 3 18 Z M 15 16 A 3 3 0 1 0 21 16 A 3 3 0 1 0 15 16 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.navigation">M 3 11 L 22 2 L 13 21 L 11 13 L 3 11 Z</StreamGeometry>
+  <StreamGeometry x:Key="Icon.package-check">M 12 22 V 12 M 0 0 m 16 17 l 2 2 l 4 -4 M 21 11.127 V 8 a 2 2 0 0 0 -1 -1.73 l -7 -4 a 2 2 0 0 0 -2 0 l -7 4 A 2 2 0 0 0 3 8 v 8 a 2 2 0 0 0 1 1.729 l 7 4 a 2 2 0 0 0 2 0.001 l 1.32 -0.753 M 3.29 7 L 12 12 l 8.71 -5 M 0 0 m 7.5 4.27 l 8.997 5.148</StreamGeometry>
+  <StreamGeometry x:Key="Icon.package">M 11 21.73 a 2 2 0 0 0 2 0 l 7 -4 A 2 2 0 0 0 21 16 V 8 a 2 2 0 0 0 -1 -1.73 l -7 -4 a 2 2 0 0 0 -2 0 l -7 4 A 2 2 0 0 0 3 8 v 8 a 2 2 0 0 0 1 1.73 z M 12 22 V 12 M 3.29 7 L 12 12 L 20.71 7 M 0 0 m 7.5 4.27 l 9 5.15</StreamGeometry>
   <StreamGeometry x:Key="Icon.palette">M 12 22 a 1 1 0 0 1 0 -20 a 10 9 0 0 1 10 9 a 5 5 0 0 1 -5 5 h -2.25 a 1.75 1.75 0 0 0 -1.4 2.8 l 0.3 0.4 a 1.75 1.75 0 0 1 -1.4 2.8 z M 13 6.5 A 0.5 0.5 0 1 0 14 6.5 A 0.5 0.5 0 1 0 13 6.5 Z M 17 10.5 A 0.5 0.5 0 1 0 18 10.5 A 0.5 0.5 0 1 0 17 10.5 Z M 6 12.5 A 0.5 0.5 0 1 0 7 12.5 A 0.5 0.5 0 1 0 6 12.5 Z M 8 7.5 A 0.5 0.5 0 1 0 9 7.5 A 0.5 0.5 0 1 0 8 7.5 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.panel-left">M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z M 9 3 v 18</StreamGeometry>
   <StreamGeometry x:Key="Icon.panel-right">M 5 3 H 19 A 2 2 0 0 1 21 5 V 19 A 2 2 0 0 1 19 21 H 5 A 2 2 0 0 1 3 19 V 5 A 2 2 0 0 1 5 3 Z M 15 3 v 18</StreamGeometry>
@@ -149,6 +153,7 @@
   <StreamGeometry x:Key="Icon.umbrella">M 12 13 v 7 a 2 2 0 0 0 4 0 M 12 2 v 2 M 20.992 13 a 1 1 0 0 0 0.97 -1.274 a 10.284 10.284 0 0 0 -19.923 0 A 1 1 0 0 0 3 13 z</StreamGeometry>
   <StreamGeometry x:Key="Icon.undo-2">M 9 14 L 4 9 l 5 -5 M 4 9 h 10.5 a 5.5 5.5 0 0 1 5.5 5.5 a 5.5 5.5 0 0 1 -5.5 5.5 H 11</StreamGeometry>
   <StreamGeometry x:Key="Icon.upload">M 12 3 v 12 M 0 0 m 17 8 l -5 -5 l -5 5 M 21 15 v 4 a 2 2 0 0 1 -2 2 H 5 a 2 2 0 0 1 -2 -2 v -4</StreamGeometry>
+  <StreamGeometry x:Key="Icon.user-check">M 0 0 m 16 11 l 2 2 l 4 -4 M 16 21 v -2 a 4 4 0 0 0 -4 -4 H 6 a 4 4 0 0 0 -4 4 v 2 M 5 7 A 4 4 0 1 0 13 7 A 4 4 0 1 0 5 7 Z</StreamGeometry>
   <StreamGeometry x:Key="Icon.user-plus">M 16 21 v -2 a 4 4 0 0 0 -4 -4 H 6 a 4 4 0 0 0 -4 4 v 2 M 5 7 A 4 4 0 1 0 13 7 A 4 4 0 1 0 5 7 Z M 19 8 L 19 14 M 22 11 L 16 11</StreamGeometry>
   <StreamGeometry x:Key="Icon.user-round">M 7 8 A 5 5 0 1 0 17 8 A 5 5 0 1 0 7 8 Z M 20 21 a 8 8 0 0 0 -16 0</StreamGeometry>
   <StreamGeometry x:Key="Icon.user">M 19 21 v -2 a 4 4 0 0 0 -4 -4 H 9 a 4 4 0 0 0 -4 4 v 2 M 8 7 A 4 4 0 1 0 16 7 A 4 4 0 1 0 8 7 Z</StreamGeometry>

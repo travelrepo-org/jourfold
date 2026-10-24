@@ -13,7 +13,7 @@ dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
 dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 ```
 
-This writes the thirteen images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
+This writes the fourteen images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
 
 - `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
@@ -43,6 +43,10 @@ The map before online maps are enabled. Places and routes come from the trip's o
 Costs per currency with budgets:
 
 ![Costs page with totals for euros and yen, budget progress and the list of expenses](screenshots/costs.png)
+
+A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
+
+![Packing view for Japan with the list chip, filters for all, mine and unassigned, items grouped into documents, electronics, clothes and food, and chips for Alex and Sam with check marks where they have packed](screenshots/packing.png)
 
 A booking with its confirmation e-mail attached, and the drop area for more:
 

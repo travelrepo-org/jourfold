@@ -173,6 +173,25 @@ public static class SampleTrip
         Task("Rent pocket Wi-Fi", "open", -7, alex);
         Task("Book kaiseki dinner", "completed", -21, sam);
 
+        // A packing list: shared items, things everyone brings, and one nobody has taken yet.
+        {
+            var list = PackingLists.CreateList("Packing for Japan"); var items = new List<Entity>();
+            void Pack(string title, string? group, Entity[] people, bool everyone = false, Entity[]? packed = null, string? quantity = null)
+            {
+                Entity item; (item, list) = PackingLists.AddItem(list, title, group, quantity, people.Select(p => p.Id).ToArray(), everyone);
+                foreach (var person in packed ?? []) item = PackingLists.SetPacked(new TripSnapshot(manifest, items.Append(alex).Append(sam).Append(item).DistinctBy(e => e.Id).ToDictionary(e => e.Id)), item, person.Id, true);
+                items.Add(item);
+            }
+            Pack("Passport", "Documents", [], everyone: true, packed: [alex]);
+            Pack("Printed JR Pass exchange orders", "Documents", [sam], packed: [sam]);
+            Pack("Plug adapter type A", "Electronics", [alex], quantity: "2");
+            Pack("Power bank", "Electronics", [alex, sam]);
+            Pack("Rain jacket", "Clothes", [], everyone: true);
+            Pack("Comfortable walking shoes", "Clothes", [], everyone: true, packed: [alex, sam]);
+            Pack("Snacks for the Shinkansen", "Food", []);
+            foreach (var item in items) Add(item);
+            Add(list);
+        }
         var restaurants = Add(Entity.Create("collection", "Food to try"));
         restaurants.Data["items"] = new JsonArray(omoide.Id.ToString(), tsukiji.Id.ToString(), nishiki.Id.ToString(), kaiseki.Id.ToString());
 

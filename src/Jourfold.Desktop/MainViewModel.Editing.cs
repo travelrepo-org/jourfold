@@ -75,11 +75,9 @@ public partial class MainViewModel
         var person = TripSummaries.PersonForGitEmail(Workspace.State.Trip, email)?.Copy() ?? Entity.Create("person", name);
         person.Data["identities"] ??= new JsonObject(); person.Data["identities"]!["git"] ??= new JsonArray(new JsonObject { ["name"] = name, ["email"] = email });
         var manifest = Workspace.State.Trip.Manifest.Copy(); var participants = manifest.Data["participants"] as JsonArray ?? []; if (manifest.Data["participants"] is null) manifest.Data["participants"] = participants; if (!participants.Any(p => p?.ToString() == person.Id.ToString())) participants.Add(person.Id.ToString());
-        await Workspace.ApplyAsync([new(person.Id, person), new(manifest.Id, manifest)]); await Workspace.Git.SetIdentityAsync(name, email); Selected = Workspace.State.Trip.Find(person.Id);
+        await Workspace.ApplyAsync([new(person.Id, person), new(manifest.Id, manifest)]); await Workspace.Git.SetIdentityAsync(name, email); RememberMe(person); Selected = Workspace.State.Trip.Find(person.Id);
     });
 
-    /// <summary>The trip-local person that represents the local user, if mapped.</summary>
-    public Entity? Me => Trip is { } trip && Store.Get("identity.email") is { } email ? TripSummaries.PersonForGitEmail(trip, email) : null;
 
     [RelayCommand] private Task Undo() => RunEditAsync(async () => { if (Workspace?.CanUndo == true) { await Workspace.UndoAsync(); Interaction.Toast(Strings["Undone"]); } });
     [RelayCommand] private Task Redo() => RunEditAsync(async () => { if (Workspace?.CanRedo == true) await Workspace.RedoAsync(); });

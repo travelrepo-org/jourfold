@@ -26,7 +26,7 @@ public static class Editors
 
     public static Control Text(MainWindow w, Guid id, string path, string label, string? value, bool multiline = false, string? watermark = null)
     {
-        var box = new TextBox { Text = value ?? "", AcceptsReturn = multiline, TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap, MinHeight = multiline ? 110 : 34, Tag = path, Watermark = watermark };
+        var box = new TextBox { Text = value ?? "", AcceptsReturn = multiline, TextWrapping = multiline ? TextWrapping.Wrap : TextWrapping.NoWrap, MinHeight = multiline ? 110 : 34, Tag = path, PlaceholderText = watermark };
         AutomationProperties.SetName(box, label);
         var original = value ?? "";
         async Task Commit() { var next = box.Text ?? ""; if (next.Trim() == original.Trim()) return; original = next; await w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, next.Trim().Length == 0 ? null : JsonValue.Create(multiline ? next : next.Trim()))); }
@@ -66,7 +66,7 @@ public static class Editors
     /// </summary>
     public static Control TimeOfDay(MainWindow w, Guid id, string path, string label, string? value, Func<Entity, Entity>? after = null)
     {
-        var box = new TextBox { Text = value ?? "", Watermark = "15:00", Width = 76, Tag = path, HorizontalContentAlignment = HorizontalAlignment.Center };
+        var box = new TextBox { Text = value ?? "", PlaceholderText = "15:00", Width = 76, Tag = path, HorizontalContentAlignment = HorizontalAlignment.Center };
         AutomationProperties.SetName(box, label); var original = value ?? "";
         async Task Commit()
         {
@@ -113,7 +113,7 @@ public static class Editors
 
     public static Control Date(MainWindow w, Guid id, string path, string label, string? value)
     {
-        var picker = new CalendarDatePicker { SelectedDate = DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null, HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, Watermark = w.Model.Strings["ChooseDate"] };
+        var picker = new CalendarDatePicker { SelectedDate = DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null, HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, PlaceholderText = w.Model.Strings["ChooseDate"] };
         AutomationProperties.SetName(picker, label);
         picker.SelectedDateChanged += (_, _) =>
         {
@@ -133,7 +133,7 @@ public static class Editors
 
     public static Control Number(MainWindow w, Guid id, string path, string label, double? value, string? suffix = null, Func<double, JsonNode>? convert = null, double increment = 1)
     {
-        var box = new NumericUpDown { Value = value is null ? null : (decimal)value, Increment = (decimal)increment, FormatString = "0.##", HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, ShowButtonSpinner = false, Watermark = suffix };
+        var box = new NumericUpDown { Value = value is null ? null : (decimal)value, Increment = (decimal)increment, FormatString = "0.##", HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, ShowButtonSpinner = false, PlaceholderText = suffix };
         AutomationProperties.SetName(box, label);
         box.LostFocus += (_, _) =>
         {
@@ -152,8 +152,8 @@ public static class Editors
     {
         var s = w.Model.Strings; var saved = value;
         static string Format(double? v) => v?.ToString("0.######", CultureInfo.InvariantCulture) ?? "";
-        var latitude = new TextBox { Text = Format(value?.Lat), Watermark = "-37.0093", Tag = "latitude" }; AutomationProperties.SetName(latitude, s["Latitude"]);
-        var longitude = new TextBox { Text = Format(value?.Lon), Watermark = "174.7841", Tag = "longitude" }; AutomationProperties.SetName(longitude, s["Longitude"]);
+        var latitude = new TextBox { Text = Format(value?.Lat), PlaceholderText = "-37.0093", Tag = "latitude" }; AutomationProperties.SetName(latitude, s["Latitude"]);
+        var longitude = new TextBox { Text = Format(value?.Lon), PlaceholderText = "174.7841", Tag = "longitude" }; AutomationProperties.SetName(longitude, s["Longitude"]);
         var problem = Ui.Text("", "caption").Res(TextBlock.ForegroundProperty, "Danger").Also(t => { t.IsVisible = false; t.TextWrapping = TextWrapping.Wrap; });
         void Show(string? message) { problem.Text = message ?? ""; problem.IsVisible = message is not null; }
         void Commit()
@@ -252,7 +252,7 @@ public static class Editors
     public static Flyout Picker(MainWindow w, string? type, IReadOnlyCollection<Guid> selected, bool multi, Func<Entity?, Task> picked, bool allowCreate, bool allowClear)
     {
         var m = w.Model; var s = m.Strings; var flyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
-        var search = new TextBox { Watermark = s["SearchOrCreate"], Width = 300 }; AutomationProperties.SetName(search, s["SearchOrCreate"]);
+        var search = new TextBox { PlaceholderText = s["SearchOrCreate"], Width = 300 }; AutomationProperties.SetName(search, s["SearchOrCreate"]);
         var results = Ui.V(2); var online = Ui.V(2);
         var panel = Ui.V(8, search, new ScrollViewer { Content = Ui.V(4, results, online), MaxHeight = 320 });
         flyout.Content = panel;

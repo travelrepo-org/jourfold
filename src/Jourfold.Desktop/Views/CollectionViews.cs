@@ -122,7 +122,7 @@ public static class CollectionViews
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         // Packing items have their own view.
         var tasks = trip.Entities.Values.Where(e => e.Type == "task" && !PackingLists.IsItem(e)).ToArray();
-        var input = new TextBox { Watermark = s["AddTaskPlaceholder"] }; Avalonia.Automation.AutomationProperties.SetName(input, s["AddTaskPlaceholder"]);
+        var input = new TextBox { PlaceholderText = s["AddTaskPlaceholder"] }; Avalonia.Automation.AutomationProperties.SetName(input, s["AddTaskPlaceholder"]);
         input.KeyDown += async (_, e) =>
         {
             if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text)) return;

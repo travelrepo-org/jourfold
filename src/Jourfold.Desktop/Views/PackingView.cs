@@ -55,7 +55,7 @@ public static class PackingView
         var who = me is null ? Ui.Button(s["WhoAmITitle"], "user", "link").Also(b => b.Click += async (_, _) => await m.ChooseMeCommand.ExecuteAsync(null)) : null;
         panel.Children.Add(Ui.Columns("Auto,*,Auto", ViewToolbar.Segmented(segments, filter, v => m.PackingFilter = v), new Border(), who));
 
-        var input = new TextBox { Watermark = s["AddPackingItemPlaceholder"] }; AutomationProperties.SetName(input, s["AddPackingItem"]);
+        var input = new TextBox { PlaceholderText = s["AddPackingItemPlaceholder"] }; AutomationProperties.SetName(input, s["AddPackingItem"]);
         input.KeyDown += async (_, e) =>
         {
             if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text)) return;

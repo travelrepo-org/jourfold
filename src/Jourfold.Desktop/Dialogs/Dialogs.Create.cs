@@ -18,15 +18,15 @@ public sealed partial class Dialogs
     public async Task<TripDraft?> NewTripAsync(NewTripDefaults defaults)
     {
         var s = S; var step = 0;
-        var title = new TextBox { Watermark = s["TripTitleExample"], FontSize = 16, MinHeight = 42, Tag = "title" }; AutomationProperties.SetName(title, s["TripTitle"]);
-        var start = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, Watermark = s["OptionalShort"], Tag = "start" }; AutomationProperties.SetName(start, s["Start"]);
-        var end = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, Watermark = s["OptionalShort"], Tag = "end" }; AutomationProperties.SetName(end, s["End"]);
+        var title = new TextBox { PlaceholderText = s["TripTitleExample"], FontSize = 16, MinHeight = 42, Tag = "title" }; AutomationProperties.SetName(title, s["TripTitle"]);
+        var start = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "start" }; AutomationProperties.SetName(start, s["Start"]);
+        var end = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "end" }; AutomationProperties.SetName(end, s["End"]);
         start.SelectedDateChanged += (_, _) => { if (start.SelectedDate is { } d && (end.SelectedDate is null || end.SelectedDate < d)) end.SelectedDate = d.AddDays(3); };
         var timezone = new SearchChoice(FieldOptions.Timezones, defaults.Timezone, s["Timezone"]);
         var language = new SearchChoice(FieldOptions.Languages, defaults.Language, s["Language"]);
-        var me = new TextBox { Text = defaults.MyName ?? "", Watermark = s["YourName"], Tag = "me" }; AutomationProperties.SetName(me, s["YourName"]);
+        var me = new TextBox { Text = defaults.MyName ?? "", PlaceholderText = s["YourName"], Tag = "me" }; AutomationProperties.SetName(me, s["YourName"]);
         var people = new ObservableCollection<string>(); var peopleList = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
-        var person = new TextBox { Watermark = s["CompanionName"], Tag = "person" }; AutomationProperties.SetName(person, s["CompanionName"]);
+        var person = new TextBox { PlaceholderText = s["CompanionName"], Tag = "person" }; AutomationProperties.SetName(person, s["CompanionName"]);
         var addPerson = Ui.Button(s["AddPerson"], "user-plus");
         void FillPeople()
         {
@@ -45,7 +45,7 @@ public sealed partial class Dialogs
         title.TextChanged += (_, _) => UpdateFolder(); UpdateFolder();
         var change = Ui.Button(s["ChangeFolder"], "folder-open", "ghost", "compact");
         change.Click += async (_, _) => { if (await FolderAsync(s["ChooseLocation"]) is { } picked) { chosenFolder = Directory.Exists(picked) && Directory.EnumerateFileSystemEntries(picked).Any() ? Path.Combine(picked, MainViewModel.FolderName(title.Text ?? s["NewTrip"])) : picked; UpdateFolder(); } };
-        var remote = new TextBox { Watermark = s["RemoteUrlOptional"], Tag = "remote" }; AutomationProperties.SetName(remote, s["RemoteUrl"]);
+        var remote = new TextBox { PlaceholderText = s["RemoteUrlOptional"], Tag = "remote" }; AutomationProperties.SetName(remote, s["RemoteUrl"]);
         // Sharing: keep the trip local (default), publish it to a new private GitHub repository, or connect an existing one.
         var share = "local"; var suggested = MainViewModel.RepositoryName(s["NewTrip"]);
         var repository = new TextBox { Text = suggested, Tag = "repository" }; AutomationProperties.SetName(repository, s["RepositoryName"]);
@@ -189,10 +189,10 @@ public sealed partial class Dialogs
         time.SelectedTimeChanged += (_, _) => UpdateTravelTime(); arrivalDate.SelectedDateChanged += (_, _) => UpdateTravelTime(); arrivalTime.SelectedTimeChanged += (_, _) => UpdateTravelTime();
         UpdateTravelTime();
         var nights = new NumericUpDown { Value = 1, Minimum = 1, Maximum = 60, Increment = 1, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(nights, s["Nights"]);
-        var amount = new NumericUpDown { Value = null, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, Watermark = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
+        var amount = new NumericUpDown { Value = null, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
         var currency = new SearchChoice(Editors.Currencies, request.Currency, s["Currency"]) { Width = 130 };
-        var body = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, Watermark = s["NoteWatermark"] }; AutomationProperties.SetName(body, s["Body"]);
-        var reference = new TextBox { Watermark = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
+        var body = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, PlaceholderText = s["NoteWatermark"] }; AutomationProperties.SetName(body, s["Body"]);
+        var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
         var peopleIds = request.Person is { } p ? new HashSet<Guid> { p } : new HashSet<Guid>();
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
@@ -217,7 +217,7 @@ public sealed partial class Dialogs
         void Layout()
         {
             fields.Children.Clear(); foreach (var editor in editors) Ui.Detach(editor);
-            title.Watermark = s["placeholder." + kind];
+            title.PlaceholderText = s["placeholder." + kind];
             fields.Children.Add(Row(kind is "person" ? s["Name"] : s["Title"], title));
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             if (kind == "transport") { fields.Children.Add(Row(s["TransportMode"], modes)); fields.Children.Add(Ui.Columns("*,Auto,*", Row(s["From"], from), Ui.Icon("arrow-right", 16, "Text.Subtle").Margin(8, 22, 8, 0), Row(s["To"], to))); }
@@ -302,7 +302,7 @@ public sealed partial class Dialogs
         {
             this.trip = trip;
             places = trip.Entities.Values.Where(e => e.Type == "place").GroupBy(e => e.Title, StringComparer.CurrentCultureIgnoreCase).ToDictionary(g => g.Key, g => g.First().Id, StringComparer.CurrentCultureIgnoreCase);
-            box = new AutoCompleteBox { ItemsSource = places.Keys.Order().ToArray(), FilterMode = AutoCompleteFilterMode.Contains, MinimumPrefixLength = 0, Watermark = s["PlaceWatermark"], HorizontalAlignment = HorizontalAlignment.Stretch };
+            box = new AutoCompleteBox { ItemsSource = places.Keys.Order().ToArray(), FilterMode = AutoCompleteFilterMode.Contains, MinimumPrefixLength = 0, PlaceholderText = s["PlaceWatermark"], HorizontalAlignment = HorizontalAlignment.Stretch };
             box.TextChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
             AutomationProperties.SetName(box, label); Content = box;
         }

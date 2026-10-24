@@ -4,7 +4,7 @@
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia.Headless" Version="11.3.13" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
     <ProjectReference Include="../../src/Jourfold.Desktop/Jourfold.Desktop.csproj" />
   </ItemGroup>
 </Project>

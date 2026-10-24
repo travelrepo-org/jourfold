@@ -2,6 +2,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Jourfold.Application;
 using Jourfold.Desktop;
 using TravelRepo.Core;
@@ -71,16 +72,16 @@ public sealed class CoordinateTests : IDisposable
             TextBox Box(string tag) => Probe.Tagged<TextBox>(Probe.Named<StackPanel>(w, "Inspector"), tag);
 
             // Half a location is not saved and says why, in German number style too.
-            Box("latitude").Text = "-37,0093"; Box("latitude").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(InputElement.LostFocusEvent)); Probe.Layout();
+            Box("latitude").Text = "-37,0093"; Box("latitude").RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent)); Probe.Layout();
             Assert.Null(w.Model.Workspace.State.Trip.Find(place.Id)!.Data["location"]);
             Assert.Contains(Probe.All<TextBlock>(inspector), t => t.Text == w.Model.Strings["CoordinatesNeedBoth"] && t.IsVisible);
-            Box("longitude").Text = "174,7841"; Box("longitude").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(InputElement.LostFocusEvent));
+            Box("longitude").Text = "174,7841"; Box("longitude").RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
             await Probe.Until(() => w.Model.Workspace.State.Trip.Find(place.Id)!.Data["location"] is not null);
             var saved = w.Model.Workspace.State.Trip.Find(place.Id)!.Data["location"]!;
             Assert.Equal(-37.0093, (double)saved["latitude"]!, 6); Assert.Equal(174.7841, (double)saved["longitude"]!, 6);
 
             // Clearing both removes the location; pasting a pair into an empty field fills both.
-            Box("latitude").Text = ""; Box("longitude").Text = ""; Box("longitude").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(InputElement.LostFocusEvent));
+            Box("latitude").Text = ""; Box("longitude").Text = ""; Box("longitude").RaiseEvent(new FocusChangedEventArgs(InputElement.LostFocusEvent));
             await Probe.Until(() => w.Model.Workspace.State.Trip.Find(place.Id)!.Data["location"] is null);
             await w.Clipboard!.SetTextAsync("-37.009313240995525, 174.78415367054876");
             Box("longitude").Paste();

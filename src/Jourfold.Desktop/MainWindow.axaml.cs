@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         poll.Tick += async (_, _) => { if (FocusManager?.GetFocusedElement() is not TextBox && DialogLayer.Children.Count == 0) await Model.PollAsync(); };
         poll.Start();
         Closed += (_, _) => { poll.Stop(); if (Model.Workspace is not null) OpenWindows.Remove(Model.Workspace.Repository.Root); Model.Dispose(); };
-        if (PlatformSettings is { } platform) platform.ColorValuesChanged += (_, _) => Dispatcher.UIThread.Post(Render);
+        if (this.GetPlatformSettings() is { } platform) platform.ColorValuesChanged += (_, _) => Dispatcher.UIThread.Post(Render);
         SizeChanged += (_, _) => UpdateScale();
         KeyDown += OnKeyDown;
         DragDrop.SetAllowDrop(this, true);
@@ -102,7 +102,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => { renderQueued = false; Render(); }, DispatcherPriority.Render);
     }
 
-    public bool HighContrast => Model.Store.Get("highcontrast") == "true" || PlatformSettings?.GetColorValues().ContrastPreference == Avalonia.Platform.ColorContrastPreference.High;
+    public bool HighContrast => Model.Store.Get("highcontrast") == "true" || this.GetPlatformSettings()?.GetColorValues().ContrastPreference == Avalonia.Platform.ColorContrastPreference.High;
 
     private void ApplyTheme()
     {

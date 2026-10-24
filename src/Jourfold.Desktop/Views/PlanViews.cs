@@ -124,7 +124,7 @@ public static class InboxView
             var chip = Ui.Button(label, null, "chip"); if (filter == key) chip.Classes.Add("selected");
             chip.Click += (_, _) => { filter = key; w.RenderMain(); }; chips.Children.Add(chip);
         }
-        var capture = new TextBox { Watermark = s["CaptureIdea"] }; AutomationProperties.SetName(capture, s["CaptureIdea"]);
+        var capture = new TextBox { PlaceholderText = s["CaptureIdea"] }; AutomationProperties.SetName(capture, s["CaptureIdea"]);
         capture.KeyDown += async (_, e) => { if (e.Key == Key.Enter && !string.IsNullOrWhiteSpace(capture.Text)) { var text = capture.Text; capture.Text = ""; e.Handled = true; await m.CaptureIdeaAsync(text); } };
         var list = Ui.V(6);
         var items = m.InboxItems.Where(e => filter switch { "Ideas" => e.Type == "schedule_item", "Notes" => e.Type == "note", "Files" => e.Type == "document", _ => true }).ToArray();

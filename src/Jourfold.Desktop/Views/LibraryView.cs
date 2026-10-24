@@ -23,7 +23,7 @@ public static class LibraryView
     {
         var m = w.Model; var s = m.Strings;
         var logo = new Image { Source = SidebarView.Brand(w), Height = 30, HorizontalAlignment = HorizontalAlignment.Left }; AutomationProperties.SetName(logo, "Jourfold");
-        var searchBox = new TextBox { Watermark = s["SearchTrips"], Width = 320, Text = query }.Classed("search"); AutomationProperties.SetName(searchBox, s["SearchTrips"]);
+        var searchBox = new TextBox { PlaceholderText = s["SearchTrips"], Width = 320, Text = query }.Classed("search"); AutomationProperties.SetName(searchBox, s["SearchTrips"]);
         var search = new Panel { Children = { searchBox, Ui.Icon("search", 15, "Text.Subtle").Also(i => { i.HorizontalAlignment = HorizontalAlignment.Left; i.Margin = new Thickness(11, 0, 0, 0); }) } };
         var settings = Ui.IconButton("settings", s["Settings"]); settings.Command = m.SettingsCommand;
         var open = Ui.Button(s["Open"], "folder-open"); open.Flyout = OpenMenu(m);

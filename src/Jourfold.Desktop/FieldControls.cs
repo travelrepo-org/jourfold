@@ -56,7 +56,7 @@ public sealed class SearchChoice : UserControl
         choices = options; Input.ItemsSource = options; Input.FilterMode = AutoCompleteFilterMode.Contains; Input.MinimumPrefixLength = 0;
         Input.ValueMemberBinding = new Binding(nameof(Choice.Label));
         Input.SelectedItem = options.FirstOrDefault(c => c.Id == selected); Input.Text = (Input.SelectedItem as Choice)?.Label;
-        Input.Watermark = label; Input.HorizontalAlignment = HorizontalAlignment.Stretch;
+        Input.PlaceholderText = label; Input.HorizontalAlignment = HorizontalAlignment.Stretch;
         var browse = new Button { Content = new Icon("chevron-down", 14), Padding = new Thickness(9, 4) }; browse.Classes.Add("icon"); ToolTip.SetTip(browse, label); AutomationProperties.SetName(browse, label);
         browse.Click += (_, _) => { Input.Text = ""; Input.Focus(); Input.IsDropDownOpen = true; };
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 4 }; grid.Children.Add(Input); Grid.SetColumn(browse, 1); grid.Children.Add(browse); Content = grid;
@@ -105,7 +105,7 @@ public sealed class FormControl : StackPanel
         };
         Editor.Tag = field.Key; Editor.HorizontalAlignment = HorizontalAlignment.Stretch;
         AutomationProperties.SetName(Editor, field.Label); Children.Add(Editor);
-        if (field.Hint is { Length: > 0 } hint) { if (Editor is TextBox box && box.Watermark is null) box.Watermark = hint; else Children.Add(new TextBlock { Text = hint, Classes = { "caption" }, TextWrapping = Avalonia.Media.TextWrapping.Wrap }); }
+        if (field.Hint is { Length: > 0 } hint) { if (Editor is TextBox box && box.PlaceholderText is null) box.PlaceholderText = hint; else Children.Add(new TextBlock { Text = hint, Classes = { "caption" }, TextWrapping = Avalonia.Media.TextWrapping.Wrap }); }
     }
     private static decimal? Minutes(string value)
     {

@@ -124,7 +124,7 @@ public partial class MainViewModel
         {
             try
             {
-                using var bitmap = new Avalonia.Media.Imaging.Bitmap(new MemoryStream(bytes)); using var png = new MemoryStream(); bitmap.Save(png);
+                using var bitmap = new Avalonia.Media.Imaging.Bitmap(new MemoryStream(bytes)); using var png = new MemoryStream(); bitmap.Save(png, Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
                 return new(attachment.Label, attachment.Name, Image: png.ToArray());
             }
             catch (Exception ex) when (ex is not OutOfMemoryException) { return new(attachment.Label, attachment.Name); }

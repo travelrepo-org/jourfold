@@ -2,6 +2,29 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.6.0 “Oceanic Osprey” – 2026-10-24
+
+### Highlights
+
+- Packing lists with groups, who brings what and who has already packed it. Everyone ticks off their own items, and things nobody has taken yet stand out.
+- Jourfold knows who you are in each trip, from your GitHub login or e-mail address. When that is not clear, it asks once.
+- Export the trip plan the way you need it, for everyone or one person, for the whole trip or chosen days, detailed or compact, as PDF, web page, calendar file or text.
+- The new button next to Share gets you the trip PDF, the packing lists, a calendar file or the plan as text in one step, and invites people.
+
+### Changes
+
+- The packing page holds several lists. Quick add understands @name, @all and #group, and the filters show all items, your own or those nobody brings yet.
+- Packing lists can be exported as PDF, text or CSV, for everyone in one file or as one file per person in a folder.
+- The trip PDF shows each day on a time line in the app's colours, with check-in, check-out and the nights of each stay. Every page names the time zone, and times in another zone show their own.
+- The trip PDF can include a map and attach PDFs, images and e-mails as appendix pages. The map uses street map tiles only when online maps are on.
+- The export dialog remembers your last choices for each trip, and Copy as text puts the plan on the clipboard.
+- Connected AI assistants can read and edit packing lists and get the plan or the packing lists as text.
+- In the sample trip you are the organizer, and it now has a packing list.
+
+### Fixes
+
+- Choosing "This is me" no longer changes who you are in your other trips.
+
 ## 0.5.0 “Polar Pelican” – 2026-10-20
 
 ### Highlights

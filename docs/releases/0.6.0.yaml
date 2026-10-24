@@ -1,0 +1,35 @@
+# Release notes for Jourfold 0.6.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.6.0
+date: 2026-10-24
+highlights:
+  - icon: backpack
+    en: Packing lists with groups, who brings what and who has already packed it. Everyone ticks off their own items, and things nobody has taken yet stand out.
+    de: Packlisten mit Gruppen, wer was mitbringt und wer es schon eingepackt hat. Alle haken ihre eigenen Sachen ab, und was noch niemand übernommen hat, fällt auf.
+  - icon: user
+    en: Jourfold knows who you are in each trip, from your GitHub login or e-mail address. When that is not clear, it asks once.
+    de: Jourfold weiß in jeder Reise, wer Sie sind, anhand Ihres GitHub-Logins oder Ihrer E-Mail-Adresse. Ist das nicht eindeutig, fragt es einmal nach.
+  - icon: file
+    en: Export the trip plan the way you need it, for everyone or one person, for the whole trip or chosen days, detailed or compact, as PDF, web page, calendar file or text.
+    de: Exportieren Sie den Reiseplan so, wie Sie ihn brauchen, für alle oder eine Person, für die ganze Reise oder ausgewählte Tage, ausführlich oder kompakt, als PDF, Webseite, Kalenderdatei oder Text.
+  - icon: share
+    en: The new button next to Share gets you the trip PDF, the packing lists, a calendar file or the plan as text in one step, and invites people.
+    de: Der neue Button neben „Teilen“ liefert mit einem Klick das Reise-PDF, die Packlisten, eine Kalenderdatei oder den Plan als Text und lädt Leute ein.
+changes:
+  - en: "The packing page holds several lists. Quick add understands @name, @all and #group, and the filters show all items, your own or those nobody brings yet."
+    de: "Die Packlisten-Seite enthält mehrere Listen. Die Schnelleingabe versteht @Name, @all und #Gruppe, und die Filter zeigen alle Sachen, Ihre eigenen oder die, die noch niemand mitbringt."
+  - en: Packing lists can be exported as PDF, text or CSV, for everyone in one file or as one file per person in a folder.
+    de: Packlisten lassen sich als PDF, Text oder CSV exportieren, für alle in einer Datei oder als eine Datei pro Person in einem Ordner.
+  - en: The trip PDF shows each day on a time line in the app's colours, with check-in, check-out and the nights of each stay. Every page names the time zone, and times in another zone show their own.
+    de: Das Reise-PDF zeigt jeden Tag auf einer Zeitleiste in den Farben der App, mit Check-in, Check-out und den Nächten jeder Unterkunft. Jede Seite nennt die Zeitzone, und Zeiten in einer anderen Zone zeigen ihre eigene.
+  - en: The trip PDF can include a map and attach PDFs, images and e-mails as appendix pages. The map uses street map tiles only when online maps are on.
+    de: Das Reise-PDF kann eine Karte enthalten und PDFs, Bilder und E-Mails als Anhangseiten anfügen. Die Karte nutzt Straßenkartenkacheln nur, wenn Online-Karten eingeschaltet sind.
+  - en: The export dialog remembers your last choices for each trip, and Copy as text puts the plan on the clipboard.
+    de: Der Export-Dialog merkt sich Ihre letzten Einstellungen pro Reise, und „Als Text kopieren“ legt den Plan in die Zwischenablage.
+  - en: Connected AI assistants can read and edit packing lists and get the plan or the packing lists as text.
+    de: Verbundene KI-Assistenten können Packlisten lesen und bearbeiten und den Plan oder die Packlisten als Text abrufen.
+  - en: In the sample trip you are the organizer, and it now has a packing list.
+    de: In der Beispielreise sind Sie die organisierende Person, und sie hat jetzt eine Packliste.
+fixes:
+  - en: 'Choosing "This is me" no longer changes who you are in your other trips.'
+    de: „Das bin ich“ ändert nicht mehr, wer Sie in Ihren anderen Reisen sind.

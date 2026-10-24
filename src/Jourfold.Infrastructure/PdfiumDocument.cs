@@ -61,8 +61,8 @@ public sealed class PdfiumDocument : IDisposable
         }
     }
 
-    /// <summary>Renders a page at <paramref name="scale"/> pixels per point on white.</summary>
-    public PdfPageImage Render(int index, double scale)
+    /// <summary>Renders a page at <paramref name="scale"/> pixels per point on white. <paramref name="print"/> leaves out LCD text smoothing, which only suits screens.</summary>
+    public PdfPageImage Render(int index, double scale, bool print = false)
     {
         lock (Gate)
         {
@@ -75,7 +75,7 @@ public sealed class PdfiumDocument : IDisposable
                 try
                 {
                     Native.FPDFBitmap_FillRect(bitmap, 0, 0, width, height, 0xFFFFFFFF);
-                    Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, RenderAnnotations | RenderLcdText);
+                    Native.FPDF_RenderPageBitmap(bitmap, page, 0, 0, width, height, 0, RenderAnnotations | (print ? 0 : RenderLcdText));
                     var stride = Native.FPDFBitmap_GetStride(bitmap); var pixels = new byte[stride * height];
                     Marshal.Copy(Native.FPDFBitmap_GetBuffer(bitmap), pixels, 0, pixels.Length);
                     return new(width, height, stride, pixels);

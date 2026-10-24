@@ -55,6 +55,10 @@ public sealed class TestInteraction : IInteraction
     public Task<string?> ChooseAsync(string title, IReadOnlyList<Choice> choices) => Task.FromResult(Next(choices.FirstOrDefault()?.Id));
     public Task<bool> ConfirmAsync(string message) => Task.FromResult(true);
     public Task<bool> ConfirmAsync(string title, string message, string confirm, bool danger = false) => Task.FromResult(true);
+    /// <summary>Answers the export dialog; without it the dialog's initial choices are taken.</summary>
+    public Func<ExportSetup, ExportChoice?>? Export { get; set; }
+    public List<ExportSetup> ExportSetups { get; } = [];
+    public Task<ExportChoice?> ExportAsync(ExportSetup setup) { ExportSetups.Add(setup); return Task.FromResult(Export is { } answer ? answer(setup) : setup.Initial); }
     public Task<string?> FolderAsync(string? title = null) => Task.FromResult(Next());
     public Task<string?> FileAsync(bool save = false, string? extension = null, string? suggestedName = null) => Task.FromResult(Next());
     public Task ShowAsync(string title, string message) { Errors.Add(message); return Task.CompletedTask; }

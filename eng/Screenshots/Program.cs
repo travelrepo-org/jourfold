@@ -167,6 +167,13 @@ try
                 m.View = "History"; await Settle(800); await Capture("history");
                 Jourfold.Infrastructure.PdfExport.Write(m.Workspace.State.Trip, Path.Combine(output, "itinerary.pdf"), Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf"), m.ExportLabels(), CultureInfo.CurrentCulture);
                 File.WriteAllText(Path.Combine(output, "itinerary.html"), TripExport.Html(m.Workspace.State.Trip, m.ExportLabels(), CultureInfo.CurrentCulture));
+                // Exports with every part, and packing lists; the dialog for the plan and, from the remembered choice, for packing lists.
+                var font = Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf");
+                await Jourfold.Infrastructure.PdfExport.WriteAsync(TripExport.Document(m.Workspace.State.Trip, new ExportOptions { Parts = ExportParts.All & ~ExportParts.Attachments }, m.ExportLabels(), CultureInfo.CurrentCulture), Path.Combine(output, "itinerary-full.pdf"), new(font));
+                await Jourfold.Infrastructure.PdfExport.WriteAsync(PackingExport.Document(m.Workspace.State.Trip, null, m.ExportLabels()), Path.Combine(output, "packing-lists.pdf"), new(font));
+                await Dialog(() => m.ExportCommand.ExecuteAsync(null), "export", m.Strings["Cancel"]);
+                m.Store.Set("export:" + m.Workspace.Repository.Root, "{\"kind\":\"packing\",\"format\":\"pdf\",\"people\":[" + string.Join(",", m.Workspace.State.Trip.Entities.Values.Where(e => e.Type == "person").Take(2).Select(p => "\"" + p.Id + "\"")) + "]}");
+                await Dialog(() => m.ExportCommand.ExecuteAsync(null), "export-packing", m.Strings["Cancel"]);
                 m.Selected = null; m.CloseTrip(); await Settle();
                 await Dialog(() => m.NewTripCommand.ExecuteAsync(null), "new-trip", m.Strings["Cancel"]);
                 // The last wizard step with publishing to GitHub chosen (synthetic account name).

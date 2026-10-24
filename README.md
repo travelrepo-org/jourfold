@@ -14,7 +14,7 @@ A desktop travel planner for Windows and Linux, built with Avalonia on the open 
 - **Pack together.** Packing lists say who brings what: one person, a few people together, or everyone their own. Each person ticks off what they have packed, and a filter shows what nobody has taken yet.
 - **Try alternatives.** Variants let you plan a cheaper or slower version, compare it day by day and merge the parts you like. Conflicts are resolved in plain language.
 - **Record versions and share.** Create a version with a suggested description of what changed. Publish privately to GitHub or any Git server; Jourfold syncs in the background and merges compatible changes automatically.
-- **Export** a day-by-day PDF, a calendar file or a printable web page.
+- **Export** the plan as a PDF with an overview map and the attached confirmations, a printable web page, text or a calendar file, for everyone or one person and the days you choose. Packing lists go out as a PDF, text or CSV, also as one file per person.
 - **Plan with an AI assistant.** Assistants that support MCP, including local ones, can read and change a trip through Jourfold. Their changes are checked like your own and appear in the open trip within seconds. See [connecting a local AI assistant](docs/ai-assistants.md).
 
 No account is needed and nothing leaves your computer unless you share a trip or turn on online maps or weather. Weather requests contain only coordinates rounded to about a kilometre. There are no analytics.

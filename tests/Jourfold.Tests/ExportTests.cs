@@ -143,6 +143,33 @@ public sealed class ExportTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheShareMenuExportsAtOnceWithTheLastChoices()
+    {
+        var (m, interaction, store, ana, _) = await Open();
+        using var _ = m; using var __ = store;
+        var walk = Entity.Create("schedule_item", "Harbour walk");
+        walk.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-06-05T09:00:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-06-05T10:30:00", "Europe/Berlin").ToJson() };
+        await m.Workspace!.ApplyAsync([new(walk.Id, walk)]);
+
+        // A choice made in the dialog is remembered...
+        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { Detail = ExportDetail.Compact } };
+        interaction.Answers.Enqueue(Path.Combine(root, "plan.txt"));
+        await m.ExportCommand.ExecuteAsync(null);
+        var remembered = store.Get("export:" + m.Workspace.Repository.Root);
+
+        // ...and quick exports use it without asking, and without changing it.
+        var pdf = Path.Combine(root, "quick.pdf");
+        interaction.Answers.Enqueue(pdf);
+        await m.ShareExportCommand.ExecuteAsync("pdf");
+        Assert.Single(interaction.ExportSetups);
+        var text = Text(pdf);
+        Assert.Contains("Harbour walk", text); Assert.Contains("Time zone: Berlin (CEST, UTC+2)", text); Assert.Contains("1 / 1", text);
+        await m.ShareExportCommand.ExecuteAsync("copy");
+        Assert.Contains("09:00–10:30  Harbour walk", interaction.Copied.Last());
+        Assert.Equal(remembered, store.Get("export:" + m.Workspace.Repository.Root));
+    }
+
+    [AvaloniaFact]
     public async Task DamagedPdfsAreAppendedAsPageImages()
     {
         if (!PdfiumDocument.IsAvailable) return;

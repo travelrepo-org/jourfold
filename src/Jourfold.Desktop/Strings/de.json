@@ -1339,5 +1339,19 @@
   "ExportBreakfast.included": "inklusive",
   "ExportBreakfast.available": "buchbar",
   "ExportBreakfast.none": "keins",
-  "ExportPackingPdfHint": "Eine Liste zum Ausdrucken und Abhaken"
+  "ExportPackingPdfHint": "Eine Liste zum Ausdrucken und Abhaken",
+  "ShareMenu": "Teilen und exportieren",
+  "ShareMenuTip": "Reise exportieren oder Personen einladen",
+  "SharePlanPdf": "Reiseplan als PDF …",
+  "SharePackingLists": "Packlisten …",
+  "ShareCalendar": "Kalenderdatei (.ics) …",
+  "ShareCopyText": "Plan als Text kopieren",
+  "ShareMoreOptions": "Weitere Export-Optionen …",
+  "ExportTimeline": "Zeitleiste neben jedem Tag",
+  "ExportCheckInAt": "Check-in · {0}",
+  "ExportCheckOutAt": "Check-out · {0}",
+  "ExportNightAt": "Nacht: {0}",
+  "ExportNightOf": "Nacht {0} von {1}",
+  "ExportTimeZone": "Zeitzone: {0}",
+  "MenuEllipsis": "{0} …"
 }

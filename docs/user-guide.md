@@ -125,17 +125,20 @@ Assistants without MCP can edit the trip folder directly. **Save agent guide** s
 
 ## Exporting
 
-The menu next to **Add** has **Export**. Choose **Trip plan** or **Packing lists**, then the format. **Copy as text** puts the same content on the clipboard, ready to paste into a message or an e-mail.
+The share button next to **Share** (the box with an arrow) exports the trip plan as a PDF or calendar file, or copies it as text, at once with your last export choices. It also opens packing lists, all export options and inviting people. **Export** in the menus opens the same options. Choose **Trip plan** or **Packing lists**, then the format. **Copy as text** puts the same content on the clipboard, ready to paste into a message or an e-mail.
 
 A trip plan can be a PDF, a web page for printing, a calendar file for other calendar apps, or plain text. You choose:
 
 - **For**: everyone, or one person. One person's plan leaves out what only others do; things nobody is assigned to stay in.
 - **Days**: the whole trip or a few days. Plans without a time are only included for the whole trip.
 - **Contents**: schedule, stays, bookings, contacts, costs, tasks, notes and packing lists. In one person's plan, costs show what that person paid.
+- **Timeline beside each day** (PDF): each day's plans on a small time line, so you see how long things take and what overlaps.
 - **Map overview** (PDF): the places and routes of the export. With the street map turned on, the PDF uses its map images; otherwise it draws the places on a plain grid. A long flight from home runs off the edge of the map, so the trip itself stays readable.
 - **Attach confirmations** (PDF): PDFs, images and e-mails attached to the plans and bookings are added at the end as A1, A2 and so on, and each entry says which ones belong to it. Files that cannot go into a PDF are listed by name.
 - **Detail**: detailed adds people, status, notes, house rules and contacts; compact keeps times, places and booking references.
 - **Paper** and **Language**. The language changes only the labels; trip content is never translated.
+
+In the plan, a stay shows its check-in and check-out on the days they happen, and each day ends with where you sleep and which night of the stay it is, also when the stay is saved as one entry per night. The stays section lists each stay once with its details. Times are in the trip's time zone, which the PDF names at the top of every page. When a plan starts or ends in another zone, such as a flight, both times show their local time with the zone, for example "13:20 CEST – 08:35 JST".
 
 Packing lists can be a PDF to tick off, plain text with check boxes, or a CSV file for Excel, LibreOffice Calc or Numbers. Export everyone's list in one file, one file per chosen person (Jourfold asks for a folder and names the files after each person), or only what nobody brings yet. With several lists you choose which ones. Jourfold remembers your last choices for each trip.
 

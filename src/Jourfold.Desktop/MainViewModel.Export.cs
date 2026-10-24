@@ -22,15 +22,28 @@ public partial class MainViewModel
     private static string FontFile => Path.Combine(AppContext.BaseDirectory, "fonts", "PlusJakartaSans-Regular.ttf");
 
     [RelayCommand]
-    private Task Export() => RunAsync(async () =>
+    private Task Export() => ExportWith(null, true);
+
+    /// <summary>
+    /// The share menu's quick exports: <c>pdf</c>, <c>ics</c> and <c>copy</c> export the plan at once with the last
+    /// choices for this trip; <c>packing</c> opens the dialog on packing lists. Quick exports do not change the
+    /// remembered choices.
+    /// </summary>
+    [RelayCommand]
+    private Task ShareExport(string action) => action == "packing"
+        ? ExportWith(c => c with { Kind = "packing", Format = c.Kind == "packing" ? c.Format : "pdf" }, true)
+        : ExportWith(c => c with { Kind = "plan", Format = action }, false);
+
+    private Task ExportWith(Func<ExportChoice, ExportChoice>? preset, bool ask) => RunAsync(async () =>
     {
         if (Workspace is not { } w) return;
         var trip = w.State.Trip;
         var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
-        var choice = await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, InitialExport(trip)));
+        var initial = InitialExport(trip); if (preset is not null) initial = preset(initial);
+        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial)) : initial;
         if (choice is null) return;
-        RememberExport(choice);
+        if (ask) RememberExport(choice);
         var strings = choice.Language == Strings.Language ? Strings : new Localization(choice.Language);
         var labels = ExportLabels(strings); var culture = ExportCulture(choice.Language);
         if (choice.Kind == "packing") await ExportPackingAsync(trip, choice, labels, culture, strings);
@@ -149,7 +162,8 @@ public partial class MainViewModel
                 Parts = json["parts"]?.ToString() is { } parts ? ExportOptions.ParseParts(parts) : fallback.Options.Parts,
                 Detail = json["detail"]?.ToString() == "compact" ? ExportDetail.Compact : ExportDetail.Detailed,
                 Paper = json["paper"]?.ToString() == "letter" ? PaperSize.Letter : json["paper"]?.ToString() == "a4" ? PaperSize.A4 : fallback.Options.Paper,
-                Person = Person(json["person"])
+                Person = Person(json["person"]),
+                Timeline = json["timeline"]?.GetValue<bool>() != false
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
@@ -170,6 +184,7 @@ public partial class MainViewModel
             ["detail"] = choice.Options.Compact ? "compact" : "detailed",
             ["paper"] = choice.Options.Paper == PaperSize.Letter ? "letter" : "a4",
             ["person"] = choice.Options.Person?.ToString(),
+            ["timeline"] = choice.Options.Timeline,
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),
@@ -234,6 +249,11 @@ public partial class MainViewModel
             Packed = s["ExportPacked"],
             Done = s["ExportDone"],
             OtherItems = s["ExportOtherItems"],
+            CheckInAt = s["ExportCheckInAt"],
+            CheckOutAt = s["ExportCheckOutAt"],
+            NightAt = s["ExportNightAt"],
+            NightOf = s["ExportNightOf"],
+            TimeZone = s["ExportTimeZone"],
             DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => s[k]),
             Statuses = ScheduleCategories.Statuses.Concat(["pending", "open", "in_progress"]).Distinct().ToDictionary(k => k, k => s[k]),
             Access = new[] { "reception", "self", "host" }.ToDictionary(k => k, k => s["ExportAccess." + k]),

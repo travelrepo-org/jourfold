@@ -1339,5 +1339,19 @@
   "ExportBreakfast.included": "included",
   "ExportBreakfast.available": "available",
   "ExportBreakfast.none": "none",
-  "ExportPackingPdfHint": "A list to print and tick off"
+  "ExportPackingPdfHint": "A list to print and tick off",
+  "ShareMenu": "Share and export",
+  "ShareMenuTip": "Export the trip or invite people",
+  "SharePlanPdf": "Trip plan as PDF…",
+  "SharePackingLists": "Packing lists…",
+  "ShareCalendar": "Calendar file (.ics)…",
+  "ShareCopyText": "Copy plan as text",
+  "ShareMoreOptions": "More export options…",
+  "ExportTimeline": "Timeline beside each day",
+  "ExportCheckInAt": "Check-in · {0}",
+  "ExportCheckOutAt": "Check-out · {0}",
+  "ExportNightAt": "Night: {0}",
+  "ExportNightOf": "night {0} of {1}",
+  "ExportTimeZone": "Time zone: {0}",
+  "MenuEllipsis": "{0}…"
 }

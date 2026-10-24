@@ -19,7 +19,7 @@ public sealed partial class Dialogs
     {
         var s = S; var initial = setup.Initial;
         var kind = initial.Kind; var format = initial.Format == "copy" ? "pdf" : initial.Format;
-        var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person;
+        var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person; var timeline = initial.Options.Timeline;
         LocalDate? from = initial.Options.From ?? setup.Start, to = initial.Options.To ?? setup.End;
         var language = initial.Language;
         var lists = initial.Lists.ToHashSet(); var people = initial.People.ToHashSet();
@@ -74,7 +74,7 @@ public sealed partial class Dialogs
                         if (part != ExportParts.Packing || setup.Lists.Count > 0) contents.Children.Add(Check(s[key], (parts & part) == part, on => parts = on ? parts | part : parts & ~part));
                     options.Children.Add(Row(s["ExportContents"], contents));
                     if (format == "pdf")
-                        options.Children.Add(Row("", Ui.Flow(4, Check(s["ExportMap"], (parts & ExportParts.Map) != 0, on => parts = on ? parts | ExportParts.Map : parts & ~ExportParts.Map),
+                        options.Children.Add(Row("", Ui.Flow(4, Check(s["ExportTimeline"], timeline, on => timeline = on), Check(s["ExportMap"], (parts & ExportParts.Map) != 0, on => parts = on ? parts | ExportParts.Map : parts & ~ExportParts.Map),
                             Check(s["ExportAttachments"], (parts & ExportParts.Attachments) != 0, on => parts = on ? parts | ExportParts.Attachments : parts & ~ExportParts.Attachments))));
                     options.Children.Add(Row(s["ExportDetail"], ViewToolbar.Segmented([("detailed", s["ExportDetailed"], null), ("compact", s["Compact"], null)], detail == ExportDetail.Compact ? "compact" : "detailed", v => { detail = v == "compact" ? ExportDetail.Compact : ExportDetail.Detailed; Render(); })));
                     if (format == "pdf") options.Children.Add(Paper());
@@ -130,7 +130,8 @@ public sealed partial class Dialogs
                 To = to == setup.End ? null : to,
                 Person = person,
                 Detail = detail,
-                Paper = paper
+                Paper = paper,
+                Timeline = timeline
             };
             return new(kind, chosenFormat, options, language, setup.Lists.Where(l => lists.Contains(l.Collection.Id)).Select(l => l.Collection.Id).ToArray(),
                 packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned");

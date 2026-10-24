@@ -122,7 +122,26 @@ public static class PdfExport
         private double Bottom => paper.Height - 52;
         private XGraphics? g;
         private double y;
-        private int pageNumber;
+        private readonly List<PdfPage> pages = [];
+
+        /// <summary>The app's colours for each kind of plan, light theme: background, text and bar.</summary>
+        private static readonly Dictionary<string, (XColor Bg, XColor Fg, XColor Bar)> Tones = new()
+        {
+            ["activity"] = (Hex(0xE2F3F1), Hex(0x0A5654), Hex(0x14968F)),
+            ["transport"] = (Hex(0xE5EEFB), Hex(0x1B4C8A), Hex(0x3B7DD8)),
+            ["accommodation"] = (Hex(0xEEE9FA), Hex(0x4C3796), Hex(0x7C5CD6)),
+            ["food"] = (Hex(0xFDEEE1), Hex(0x844210), Hex(0xE2843A)),
+            ["sightseeing"] = (Hex(0xE3F3E8), Hex(0x1C653C), Hex(0x36A464)),
+            ["culture"] = (Hex(0xF8E7F0), Hex(0x842B58), Hex(0xC9558E)),
+            ["nature"] = (Hex(0xEBF3DE), Hex(0x455F18), Hex(0x7DA83A)),
+            ["shopping"] = (Hex(0xFBE9E9), Hex(0x872D2D), Hex(0xD9605F)),
+            ["nightlife"] = (Hex(0xE8E8F8), Hex(0x383A8A), Hex(0x6366D1)),
+            ["meeting"] = (Hex(0xE9EEF2), Hex(0x324657), Hex(0x6B8396)),
+            ["free_time"] = (Hex(0xEEF1F2), Hex(0x43515C), Hex(0x9AA7B1)),
+            ["other"] = (Hex(0xEEF1F2), Hex(0x43515C), Hex(0x9AA7B1)),
+        };
+        private static XColor Hex(int rgb) => XColor.FromArgb((rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF);
+        private static (XColor Bg, XColor Fg, XColor Bar) Tone(string? tone) => Tones.GetValueOrDefault(tone ?? "other", Tones["other"]);
 
         private static XFont F(double size, bool strong = false) => new("Plus Jakarta Sans", size, strong ? XFontStyleEx.Bold : XFontStyleEx.Regular);
         private static XSolidBrush B(XColor color) => new(color);
@@ -131,8 +150,19 @@ public static class PdfExport
 
         private void NewPage()
         {
-            g?.Dispose(); g = XGraphics.FromPdfPage(AddPage()); pageNumber++; y = Top;
-            g.DrawString(document.Title + " · " + pageNumber.ToString(CultureInfo.InvariantCulture), F(8), B(Muted), new XRect(Left, paper.Height - 30, Width, 12), XStringFormats.TopRight);
+            g?.Dispose(); var page = AddPage(); pages.Add(page); g = XGraphics.FromPdfPage(page); y = Top;
+            // From the second page on, a quiet header says which time zone the times are in.
+            if (pages.Count > 1 && document.ZoneNote is { } note) g.DrawString(note, F(7.5), B(Muted), new XRect(Left, 30, Width, 10), XStringFormats.TopRight);
+        }
+
+        /// <summary>Page numbers out of the total, drawn once every page of the plan exists.</summary>
+        private void Footers()
+        {
+            for (var i = 0; i < pages.Count; i++)
+            {
+                using var pg = XGraphics.FromPdfPage(pages[i], XGraphicsPdfPageOptions.Append);
+                pg.DrawString(document.Title + " · " + (i + 1).ToString(CultureInfo.InvariantCulture) + " / " + pages.Count.ToString(CultureInfo.InvariantCulture), F(8), B(Muted), new XRect(Left, paper.Height - 30, Width, 12), XStringFormats.TopRight);
+            }
         }
 
         private void Need(double height) { if (g is null || y + height > Bottom) NewPage(); }
@@ -176,61 +206,148 @@ public static class PdfExport
             if (document.Map is { } map) { Heading(null, document.Labels.Map); await MapAsync(map, ct); }
             foreach (var section in document.Sections)
             {
-                Heading(section.Overline is { } o && section.Part != ExportParts.Packing ? o : null, section.Title);
-                foreach (var row in section.Rows) Row(section, row);
+                var timeline = document.Options.Timeline ? section.Timeline : null;
+                var timelineHeight = timeline is null ? 0 : TimelineHeight(timeline);
+                Heading(section.Overline is { } o && section.Part != ExportParts.Packing ? o : null, section.Title, timelineHeight);
+                var x = Left; var timelineBottom = 0d; var timelinePage = pages.Count;
+                if (timeline is not null) { DrawTimeline(timeline, y + 2); timelineBottom = y + 2 + timelineHeight; x = Left + TimelineWidth + 14; }
+                foreach (var row in section.Rows) Row(section, row, x);
+                // A day's time line stays beside its rows; the next section starts below whichever is longer.
+                if (timeline is not null && pages.Count == timelinePage && y < timelineBottom) y = timelineBottom + 6;
             }
             g?.Dispose(); g = null;
+            Footers();
             Appendices();
         }
 
-        private void Heading(string? overline, string title)
+        private void Heading(string? overline, string title, double keepWith = 0)
         {
-            Need(70); y += 14;
+            Need(Math.Max(70, keepWith + 50)); y += 14;
             if (overline is { Length: > 0 }) { g!.DrawString(overline.ToUpper(CultureInfo.CurrentCulture), F(8.5, true), B(Accent), new XPoint(Left, y + 9)); y += 13; }
             Lines(Wrap(title, F(13.5, true), Width), F(13.5, true), Ink, Left);
             g!.DrawLine(new XPen(Accent, 1.2), Left, y + 2, Left + Width, y + 2); y += 10;
         }
 
-        private void Row(ExportSection section, ExportRow row)
+        private void Row(ExportSection section, ExportRow row, double x)
         {
+            var width = Left + Width - x;
             if (row.Kind == ExportRowKind.Heading)
             {
-                Need(34); y += 6; Lines(Wrap(row.Title, F(10, true), Width), F(10, true), Accent, Left); y += 2; return;
+                Need(34); y += 6; Lines(Wrap(row.Title, F(10, true), width), F(10, true), Accent, x); y += 2; return;
             }
-            var summary = string.Join(" · ", new[] { row.Summary, row.Status }.Where(s => !string.IsNullOrEmpty(s)));
+            if (row.Kind == ExportRowKind.Night)
+            {
+                // Where the travellers sleep: a quiet band in the colour of stays, like the night band in the app.
+                var tone = Tone(row.Tone);
+                var text = row.Summary is { Length: > 0 } n ? row.Title + "  ·  " + n : row.Title;
+                var lines = Wrap(text, F(8.5), width - 16);
+                var band = Height(lines.Count, F(8.5)) + 7;
+                Need(band + 6); y += 2;
+                g!.DrawRoundedRectangle(B(tone.Bg), new XRect(x, y, width, band), new XSize(5, 5));
+                g.DrawRectangle(B(tone.Bar), new XRect(x, y + 2, 2.5, band - 4));
+                y += 3.5; Lines(lines, F(8.5), tone.Fg, x + 10); y += 6; return;
+            }
+            var summary = row.Summary ?? "";
             if (section.Part == ExportParts.Attachments && appendices.FirstOrDefault(a => a.Source.Label == row.Lead) is { Included: false })
                 summary = string.Join(" · ", new[] { summary, settings.NotIncluded }.Where(s => s.Length > 0));
             var attachments = row.AttachmentLabels.Count > 0 ? TripExport.AttachmentNote(document, row) : null;
             if (row.Kind == ExportRowKind.Check)
             {
                 const double indent = 17;
-                var title = Wrap(row.Lead.Length > 0 ? row.Title + "  (" + row.Lead + ")" : row.Title, F(10.5, true), Width - indent);
-                var sub = summary.Length > 0 ? Wrap(summary, F(9), Width - indent) : [];
+                var title = Wrap(row.Lead.Length > 0 ? row.Title + "  (" + row.Lead + ")" : row.Title, F(10.5, true), width - indent);
+                var sub = summary.Length > 0 ? Wrap(summary, F(9), width - indent) : [];
                 Need(Height(title.Count, F(10.5, true)) + Height(sub.Count, F(9)) + 6);
-                var box = new XRect(Left, y + 2.2, 9.5, 9.5);
+                var box = new XRect(x, y + 2.2, 9.5, 9.5);
                 g!.DrawRectangle(new XPen(row.Checked ? Accent : Muted, 0.9), row.Checked ? B(Accent) : XBrushes.White, box);
                 if (row.Checked) g.DrawLines(new XPen(XColors.White, 1.4), [new XPoint(box.Left + 2, box.Top + 5), new XPoint(box.Left + 4, box.Top + 7.3), new XPoint(box.Left + 7.6, box.Top + 2.4)]);
-                Lines(title, F(10.5, true), row.Checked ? Muted : Ink, Left + indent);
-                Lines(sub, F(9), Muted, Left + indent);
+                Lines(title, F(10.5, true), row.Checked ? Muted : Ink, x + indent);
+                Lines(sub, F(9), Muted, x + indent);
                 y += 5; return;
             }
-            const double lead = 120;
-            var leadLines = Wrap(row.Lead, F(9.5), lead - 8);
-            var titleLines = Wrap(row.Title, F(11, true), Width - lead);
-            var summaryLines = summary.Length > 0 ? Wrap(summary, F(9), Width - lead) : [];
-            var detailLines = row.DetailLines.SelectMany(d => Wrap(d, F(9), Width - lead)).ToList();
-            var attachmentLines = attachments is null ? [] : Wrap(attachments, F(8.5, true), Width - lead);
+            var lead = x > Left ? 104 : 120;
+            // The status sits as a small tag at the end of the title line.
+            var pill = string.IsNullOrEmpty(row.Status) ? null : row.Status;
+            var pillWidth = pill is null ? 0 : g!.MeasureString(pill, F(7.5)).Width + 10;
+            var leadLines = Wrap(row.Lead, F(9.5), lead - 10);
+            // Times with two zones break after the dash, so each end stays on its own line.
+            if (leadLines.Count > 1 && row.Lead.Split(" – ") is [var from, var until]) leadLines = [.. Wrap(from + " –", F(9.5), lead - 10), .. Wrap(until, F(9.5), lead - 10)];
+            var titleLines = Wrap(row.Title, F(11, true), width - lead - (pill is null ? 0 : pillWidth + 8));
+            var summaryLines = summary.Length > 0 ? Wrap(summary, F(9), width - lead) : [];
+            var detailLines = row.DetailLines.SelectMany(d => Wrap(d, F(9), width - lead)).ToList();
+            var attachmentLines = attachments is null ? [] : Wrap(attachments, F(8.5, true), width - lead);
             var height = Math.Max(Height(leadLines.Count, F(9.5)), Height(titleLines.Count, F(11, true)) + Height(summaryLines.Count + detailLines.Count, F(9)) + Height(attachmentLines.Count, F(8.5, true)));
             // Rows taller than a page are split; shorter ones move to the next page as a whole.
             Need(Math.Min(height, 160) + 12);
             var top = y;
-            Lines(leadLines, F(9.5), Muted, Left); var leadBottom = y; y = top;
-            Lines(titleLines, F(11, true), Ink, Left + lead);
-            Lines(summaryLines, F(9), Muted, Left + lead);
-            foreach (var line in detailLines) { Need(14); Lines([line], F(9), Muted, Left + lead); }
-            Lines(attachmentLines, F(8.5, true), Accent, Left + lead);
+            Lines(leadLines, F(9.5), Muted, x); var leadBottom = y; y = top;
+            if (row.Tone is not null) g!.DrawRoundedRectangle(B(Tone(row.Tone).Bar), new XRect(x + lead - 8, top + 2, 2.5, Height(titleLines.Count, F(11, true)) - 2), new XSize(1.2, 1.2));
+            if (pill is not null)
+            {
+                var box = new XRect(x + width - pillWidth, top + 1.5, pillWidth, 11.5);
+                g!.DrawRoundedRectangle(B(Hex(0xEEF2F2)), box, new XSize(6, 6));
+                g.DrawString(pill, F(7.5), B(Muted), box, XStringFormats.Center);
+            }
+            Lines(titleLines, F(11, true), Ink, x + lead);
+            Lines(summaryLines, F(9), Muted, x + lead);
+            foreach (var line in detailLines) { Need(14); Lines([line], F(9), Muted, x + lead); }
+            Lines(attachmentLines, F(8.5, true), Accent, x + lead);
             y = Math.Max(Math.Max(y, leadBottom), top + 18) + 5;
-            g!.DrawLine(new XPen(Rule, 0.6), Left, y, Left + Width, y); y += 6;
+            g!.DrawLine(new XPen(Rule, 0.6), x, y, Left + Width, y); y += 6;
+        }
+
+        private const double TimelineWidth = 66;
+
+        private static (int First, int Last) Hours(ExportTimeline timeline)
+        {
+            var first = timeline.Blocks.Count == 0 ? 8 : Math.Min(8, timeline.Blocks.Min(b => b.Start) / 60);
+            var last = timeline.Blocks.Count == 0 ? 20 : Math.Max(20, (timeline.Blocks.Max(b => b.End) + 59) / 60);
+            return (first, Math.Min(24, last));
+        }
+
+        private static double HourHeight(ExportTimeline timeline) { var (first, last) = Hours(timeline); return Math.Clamp(150.0 / (last - first), 6.5, 10); }
+
+        private static double TimelineHeight(ExportTimeline timeline) { var (first, last) = Hours(timeline); return (last - first) * HourHeight(timeline) + (timeline.Nights.Count > 0 ? 16 : 0); }
+
+        /// <summary>A day's plans on a vertical time line, in the trip's time zone, with the night's stay at the bottom.</summary>
+        private void DrawTimeline(ExportTimeline timeline, double top)
+        {
+            var (first, last) = Hours(timeline); var hour = HourHeight(timeline);
+            const double axis = 16; var area = new XRect(Left + axis, top, TimelineWidth - axis, (last - first) * hour);
+            g!.DrawRoundedRectangle(B(Hex(0xF7F9F9)), area, new XSize(3, 3));
+            for (var h = first; h <= last; h++)
+            {
+                var hy = top + (h - first) * hour;
+                g.DrawLine(new XPen(Rule, h % 2 == 0 ? 0.5 : 0.3), area.Left, hy, area.Right, hy);
+                if (h % 2 == 0 && h < last) g.DrawString(h.ToString("00", CultureInfo.InvariantCulture), F(6), B(Muted), new XPoint(Left, hy + 5));
+            }
+            foreach (var block in timeline.Blocks)
+            {
+                var tone = Tone(block.Tone);
+                var laneWidth = area.Width / Math.Max(1, block.Lanes);
+                var rect = new XRect(area.Left + block.Lane * laneWidth + 0.6, top + (block.Start / 60.0 - first) * hour + 0.4, laneWidth - 1.2, Math.Max(2.5, (block.End - block.Start) / 60.0 * hour - 0.8));
+                g.DrawRoundedRectangle(B(tone.Bg), rect, new XSize(2, 2));
+                g.DrawRectangle(B(tone.Bar), new XRect(rect.Left, rect.Top, 1.6, rect.Height));
+                if (rect.Height >= 8 && rect.Width >= 16) Fitted(block.Title, F(5.8), tone.Fg, rect.Left + 3, rect.Top + 6.4, rect.Width - 4);
+            }
+            if (timeline.Nights.Count > 0)
+            {
+                var tone = Tone("accommodation");
+                var band = new XRect(area.Left, area.Bottom + 3, area.Width, 11);
+                g.DrawRoundedRectangle(B(tone.Bg), band, new XSize(3, 3));
+                Fitted(string.Join(", ", timeline.Nights), F(5.8), tone.Fg, band.Left + 3, band.Top + 7.6, band.Width - 5);
+            }
+        }
+
+        /// <summary>Draws text cut to fit <paramref name="max"/> points, ending with an ellipsis when cut.</summary>
+        private void Fitted(string text, XFont font, XColor color, double x, double baseline, double max)
+        {
+            var shown = text;
+            if (g!.MeasureString(shown, font).Width > max)
+            {
+                while (shown.Length > 1 && g.MeasureString(shown + "…", font).Width > max) shown = shown[..^1];
+                shown = shown.TrimEnd() + "…";
+            }
+            g.DrawString(shown, font, B(color), new XPoint(x, baseline));
         }
 
         private async Task MapAsync(ExportMap map, CancellationToken ct)

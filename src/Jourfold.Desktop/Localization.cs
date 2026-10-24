@@ -44,6 +44,17 @@ public sealed record ReportReview(string Text, bool ByMail);
 /// <param name="GitHubRepository">When set, the trip is published to a new private GitHub repository with this name.</param>
 public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
 public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName, bool GitHubConnected = false, string? GitHubLogin = null);
+/// <summary>What the export dialog offers for the open trip, and the choices it starts with.</summary>
+public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IReadOnlyList<PackingList> Lists, LocalDate? Start, LocalDate? End, bool OnlineMaps, ExportChoice Initial);
+/// <summary>The choices made in the export dialog.</summary>
+/// <param name="Kind"><c>plan</c> or <c>packing</c>.</param>
+/// <param name="Format"><c>pdf</c>, <c>html</c>, <c>ics</c>, <c>txt</c>, <c>csv</c>, or <c>copy</c> for text on the clipboard.</param>
+/// <param name="Options">Parts, dates, person, detail and paper of a trip plan; packing lists use only the paper size.</param>
+/// <param name="Language">Language of the export's labels. Trip content is never translated.</param>
+/// <param name="Lists">Packing lists to export.</param>
+/// <param name="People">Packing lists for these people, one file each; empty for one list with everybody.</param>
+/// <param name="UnassignedOnly">Only the packing items nobody brings yet.</param>
+public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);
 public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency);
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
@@ -83,6 +94,8 @@ public interface IInteraction
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
     /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
+    /// <summary>Asks what to export and how. Null when cancelled.</summary>
+    Task<ExportChoice?> ExportAsync(ExportSetup setup);
     /// <summary>Asks which person of the trip the local user is. Null when cancelled.</summary>
     Task<WhoAmIAnswer?> WhoAmIAsync(WhoAmIRequest request);
     /// <summary>Shows a problem report to review and edit before it is copied or opened in the mail program. Null when cancelled.</summary>

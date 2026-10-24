@@ -78,13 +78,8 @@ public sealed class MapView : UserControl
     /// <summary>How map labels are shown: <c>auto</c> (only when they fit), <c>always</c> or <c>off</c>. A local setting.</summary>
     public static string LabelMode(MainViewModel vm) => vm.Store.Get("map.labels") switch { "always" => "always", "off" => "off", _ => "auto" };
 
-    public static (double Lat, double Lon)? Coordinates(Entity place)
-    {
-        var location = place.Data["location"];
-        if (location?["latitude"] is not JsonValue lat || location["longitude"] is not JsonValue lon) return null;
-        if (!double.TryParse(lat.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var a) || !double.TryParse(lon.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var b)) return null;
-        return a is >= -85 and <= 85 && b is >= -180 and <= 180 ? (a, b) : null;
-    }
+    /// <summary>A place's position, within the latitudes the Web Mercator map can show.</summary>
+    public static (double Lat, double Lon)? Coordinates(Entity place) => Places.Location(place) is { Latitude: >= -85 and <= 85 } p ? (p.Latitude, p.Longitude) : null;
 
     private void Fit(Size? size = null)
     {

@@ -189,11 +189,13 @@ public static class HeaderView
 
 
         var share = Ui.Button(m.SharingLabel, m.ShareKey == "Invite" ? "user-plus" : "share-2"); share.Command = m.ShareCommand;
+        // Framed like the buttons beside it, with the icon in the accent colour, so exporting is easy to find.
+        var send = new Button { Content = Ui.Icon("share", 16, "Accent"), Padding = new Thickness(9, 7) }.Named(s["ShareMenu"]); send.Flyout = ShareMenu(w); ToolTip.SetTip(send, s["ShareMenuTip"]);
         var version = Ui.Button(s["Version"], "save"); version.Command = m.CreateVersionCommand; ToolTip.SetTip(version, s["VersionTip"]);
         if (m.HasUncommitted) version.Classes.Add("soft");
         var add = Ui.Button(s["Add"], "plus", "primary"); add.Command = m.QuickAddCommand; ToolTip.SetTip(add, s["QuickAdd"] + " (Ctrl+N)");
         var more = Ui.IconButton("ellipsis", s["More"]); more.Flyout = MoreMenu(w);
-        var right = Ui.H(8, avatars, Reminders(w), share, version, add, more);
+        var right = Ui.H(8, avatars, Reminders(w), share, send, version, add, more);
         left.ClipToBounds = true; title.MaxWidth = 420;
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), RowDefinitions = new RowDefinitions("Auto,Auto") };
         grid.Children.Add(left); grid.Children.Add(right.Margin(12, 0, 0, 0).Col(1));
@@ -286,6 +288,21 @@ public static class HeaderView
         var review = Ui.Button(s["Review"], null, "compact"); review.Command = m.ReviewMergeCommand;
         var cancel = Ui.Button(s["Cancel"], null, "compact", "ghost"); cancel.Command = m.CancelMergeCommand;
         return new Border { Padding = new Thickness(20, 8), Child = Ui.Columns("Auto,*,Auto", Ui.Icon("git-merge", 18, "Info"), Ui.Text(m.Notice).Margin(12, 0), Ui.H(6, review, cancel)) }.Res(Border.BackgroundProperty, "Info.Soft");
+    }
+
+    /// <summary>The share menu: quick exports with the last choices for this trip, all export options, and inviting people.</summary>
+    private static MenuFlyout ShareMenu(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var menu = new MenuFlyout { Placement = PlacementMode.BottomEdgeAlignedRight };
+        MenuItem Item(string text, string icon, Action action) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16) }; item.Click += (_, _) => action(); return item; }
+        menu.Items.Add(Item(s["SharePlanPdf"], "file-text", () => m.ShareExportCommand.Execute("pdf")));
+        if (m.Trip is { } trip && trip.Entities.Values.Any(PackingLists.IsList)) menu.Items.Add(Item(s["SharePackingLists"], "backpack", () => m.ShareExportCommand.Execute("packing")));
+        menu.Items.Add(Item(s["ShareCalendar"], "calendar", () => m.ShareExportCommand.Execute("ics")));
+        menu.Items.Add(Item(s["ShareCopyText"], "copy", () => m.ShareExportCommand.Execute("copy")));
+        menu.Items.Add(Item(s["ShareMoreOptions"], "sliders-horizontal", () => m.ExportCommand.Execute(null)));
+        menu.Items.Add(new Separator());
+        menu.Items.Add(Item(string.Format(s["MenuEllipsis"], m.SharingLabel), m.ShareKey == "Invite" ? "user-plus" : "users", () => m.ShareCommand.Execute(null)));
+        return menu;
     }
 }
 

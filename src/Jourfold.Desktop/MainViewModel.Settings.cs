@@ -203,6 +203,7 @@ public partial class MainViewModel
         "Bookings" => "ticket",
         "Costs" => "wallet",
         "Tasks" => "list-checks",
+        "Packing" => "backpack",
         "Files" => "folder",
         "People" => "users",
         "Places" => "map-pin",

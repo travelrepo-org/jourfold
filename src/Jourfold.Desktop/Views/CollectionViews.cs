@@ -120,7 +120,8 @@ public static class CollectionViews
     private static Control Tasks(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var tasks = trip.Entities.Values.Where(e => e.Type == "task").ToArray();
+        // Packing items have their own view.
+        var tasks = trip.Entities.Values.Where(e => e.Type == "task" && !PackingLists.IsItem(e)).ToArray();
         var input = new TextBox { Watermark = s["AddTaskPlaceholder"] }; Avalonia.Automation.AutomationProperties.SetName(input, s["AddTaskPlaceholder"]);
         input.KeyDown += async (_, e) =>
         {
@@ -247,7 +248,7 @@ public static class CollectionViews
     private static Control Collections(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var collections = trip.Entities.Values.Where(e => e.Type == "collection").OrderBy(c => c.Title, StringComparer.CurrentCulture).ToArray();
+        var collections = trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(c => c.Title, StringComparer.CurrentCulture).ToArray();
         if (collections.Length == 0) return Page(w, s["Collections"], s["CollectionsHint"], Ui.Card(Ui.EmptyState("layers", s["NoCollectionsTitle"], s["NoCollectionsBody"], AddButton(w, s["AddCollection"], "collection")), 0));
         var grid = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var c in collections)

@@ -182,6 +182,13 @@ public static class InspectorView
             case "note": body.Children.Add(Field(s["Body"], Editors.Text(w, e.Id, "body", s["Body"], e.Data["body"]?.ToString(), multiline: true, watermark: s["NoteWatermark"]))); if (e.Data["body"]?.ToString() is { Length: > 0 } text) body.Children.Add(Ui.Section(s["Preview"], Ui.Card(new MarkdownView(text), 14))); break;
             case "place": PlaceDetails(w, e, body); break;
             case "booking": BookingDetails(w, e, body); break;
+            case "task" when PackingLists.IsItem(e): PackingDetails(w, e, body); break;
+            case "collection" when PackingLists.IsList(e):
+                var packingList = PackingLists.Resolve(trip, e);
+                body.Children.Add(Ui.Text(string.Format(s["PackingListProgress"], e.Title, packingList.DoneCount, packingList.Items.Count), "muted"));
+                var openList = Ui.Button(s["OpenPackingList"], "backpack", "soft"); openList.Click += (_, _) => { m.ShowPackingList(e.Id); m.Navigate("Packing"); };
+                body.Children.Add(openList.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left));
+                break;
             case "task":
                 body.Children.Add(Field(s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ["open", "in_progress", "completed", "cancelled"])));
                 body.Children.Add(Field(s["Due"], Editors.Date(w, e.Id, "due/date", s["Due"], e.Data["due"]?["date"]?.ToString())));
@@ -416,6 +423,30 @@ public static class InspectorView
         return new Border { Child = grid, Padding = new Thickness(4, 8), CornerRadius = new CornerRadius(8) }.Res(Border.BackgroundProperty, "Bg.Subtle");
     }
 
+    /// <summary>A packing item: its group and quantity, who brings it, and who has packed it.</summary>
+    private static void PackingDetails(MainWindow w, Entity e, StackPanel body)
+    {
+        var m = w.Model; var s = m.Strings; var item = PackingLists.Item(m.Trip!, e);
+        body.Children.Add(Ui.Columns("*,*", Field(s["PackingGroup"], Editors.Text(w, e.Id, "components/packing/group", s["PackingGroup"], item.Group)), Field(s["Quantity"], Editors.Text(w, e.Id, "components/packing/quantity", s["Quantity"], item.Quantity)).Margin(10, 0, 0, 0)));
+        var who = item.Everyone ? s["Everyone"] : item.Unassigned ? s["Unassigned"] : string.Join(", ", item.Assignees.Select(a => a.Title));
+        body.Children.Add(Field(s["WhoBringsIt"], Editors.ValueButton(who, "users", s["WhoBringsIt"], () => m.AssignPackingItemAsync(e.Id))));
+        if (item.Assignees.Count > 0)
+        {
+            var packed = Ui.V(4);
+            foreach (var person in item.Assignees)
+            {
+                var check = new CheckBox { IsChecked = item.IsPackedBy(person.Id), Content = Ui.H(8, Ui.Avatar(person.Title, 22), Ui.Text(person.Title)) };
+                AutomationProperties.SetName(check, string.Format(s["PackedBy"], person.Title));
+                check.IsCheckedChanged += async (_, _) => await m.TogglePackedAsync(e.Id, person.Id);
+                packed.Children.Add(check);
+            }
+            body.Children.Add(Field(item.Everyone ? s["EveryoneBringsOwn"] : s["SharedItem"], packed));
+        }
+        // The lists this item is on.
+        var lists = PackingLists.All(m.Trip!).Where(l => l.Items.Any(i => i.Task.Id == e.Id)).ToArray();
+        if (lists.Length > 0) body.Children.Add(Field(s["Packing"], Ui.V(4, lists.Select(l => (Control)Link(w, l.Collection)).ToArray())));
+    }
+
     private static Control ListText(MainWindow w, Entity e, string path, string label)
     {
         var current = EditorModel.Get(e, path) as JsonArray;
@@ -616,7 +647,9 @@ public static class InspectorView
         body.Children.Add(Field(s["GitIdentities"], Editors.ValueButton(Identities("git", "email") is { Length: > 0 } git ? git : s["AddEmail"], "mail", s["GitIdentities"], () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Kind == "identities"))))));
         body.Children.Add(Field("GitHub", Editors.ValueButton(Identities("github", "username") is { Length: > 0 } gh ? "@" + gh : s["AddGitHubUser"], "cloud", "GitHub", () => m.RunEditAsync(() => EditorModel.ComplexAsync(m, e.Id, fields.Single(f => f.Kind == "github"))))));
         body.Children.Add(Field(s["Avatar"], Editors.Reference(w, e.Id, "avatar/document", s["Avatar"], "document", allowCreate: false)));
-        if (!me && m.Me is null) { var mine = Ui.Button(s["ThisIsMe"], "user", "soft"); mine.Click += async (_, _) => { m.Store.Set("identity.name", e.Title); if (Identities("git", "email") is { Length: > 0 } email) m.Store.Set("identity.email", email.Split(',')[0].Trim()); await m.AddIdentityCommand.ExecuteAsync(null); }; body.Children.Add(mine); }
+        // "Me" is remembered on this computer only; the question also offers to save the identity on the person.
+        var choose = Ui.Button(me ? s["NotMe"] : s["ThisIsMe"], "user", me ? "link" : "soft"); choose.Click += async (_, _) => await m.ChooseMeCommand.ExecuteAsync(me ? null : e);
+        body.Children.Add(choose.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left));
     }
 
     private static Control Generic(MainWindow w, Entity e, EditorField field)

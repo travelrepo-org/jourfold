@@ -178,6 +178,7 @@ public partial class MainWindow : Window
             "Map" => new MapView(this),
             "History" => HistoryView.Build(this),
             "Variants" => VariantsView.Build(this),
+            "Packing" => PackingView.Build(this),
             _ => CollectionViews.Build(this)
         };
         content.Tag = key;

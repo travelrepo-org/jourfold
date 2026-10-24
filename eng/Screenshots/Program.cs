@@ -98,6 +98,7 @@ try
             m.View = "List"; await Capture("list");
             m.View = "Map"; m.Selected = null; await Capture("map");
             m.View = "Costs"; await Capture("costs");
+            m.View = "Packing"; m.PackingFilter = "all"; m.Selected = null; await Settle(300); await Capture("packing");
             // A booking confirmation e-mail with its ticket, attached to a booking and shown in the document window.
             {
                 var booking = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "booking" && e.Title.Contains("Ryokan", StringComparison.Ordinal));

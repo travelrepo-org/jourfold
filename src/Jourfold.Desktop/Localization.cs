@@ -83,6 +83,8 @@ public interface IInteraction
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
     /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
+    /// <summary>Asks which person of the trip the local user is. Null when cancelled.</summary>
+    Task<WhoAmIAnswer?> WhoAmIAsync(WhoAmIRequest request);
     /// <summary>Shows a problem report to review and edit before it is copied or opened in the mail program. Null when cancelled.</summary>
     Task<ReportReview?> ReviewReportAsync(string text);
     /// <summary>Explains a failure, offers fixes and lets the person copy the technical details. Returns the chosen action ID.</summary>

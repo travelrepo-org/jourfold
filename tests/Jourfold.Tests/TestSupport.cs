@@ -73,7 +73,9 @@ public sealed class TestInteraction : IInteraction
     /// <summary>Answers deletion prompts; without it the suggested unused entities are deleted too.</summary>
     public Func<DeletionPrompt, IReadOnlyList<Guid>?>? Deletion { get; set; }
     public Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt) { DeletionPrompts.Add(prompt); return Task.FromResult(Deletion is { } answer ? answer(prompt) : prompt.Preselected); }
-    public Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm) => Task.FromResult<IReadOnlyList<string>?>(selected);
+    /// <summary>Answers check-box lists; without it the preselected options are confirmed.</summary>
+    public Func<IReadOnlyList<Choice>, IReadOnlyList<string>, IReadOnlyList<string>?>? Pick { get; set; }
+    public Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm) => Task.FromResult(Pick is { } answer ? answer(choices, selected) : selected);
     public List<Problem> Problems { get; } = [];
     public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
@@ -81,6 +83,10 @@ public sealed class TestInteraction : IInteraction
     public Task ReleaseNotesAsync(IReadOnlyList<ReleaseNote> releases, bool highlightsOnly) { ReleaseNotesShown.Add((releases, highlightsOnly)); return Task.CompletedTask; }
     public List<Entity> Viewed { get; } = [];
     public void ViewDocument(Entity document) => Viewed.Add(document);
+    public List<WhoAmIRequest> WhoAmIRequests { get; } = [];
+    /// <summary>Answers "Who are you in this trip?"; without it the question is cancelled.</summary>
+    public Func<WhoAmIRequest, WhoAmIAnswer?>? WhoAmI { get; set; }
+    public Task<WhoAmIAnswer?> WhoAmIAsync(WhoAmIRequest request) { WhoAmIRequests.Add(request); return Task.FromResult(WhoAmI?.Invoke(request)); }
     public List<string> Opened { get; } = [];
     public void Open(string path) => Opened.Add(path);
     public List<string> Copied { get; } = [];

@@ -43,7 +43,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public bool IsSample => Trip is { } trip && SampleTrip.IsSample(trip);
 
     /// <summary>Primary navigation keys. "List" and "Map" are alternative presentations of the plan.</summary>
-    public IReadOnlyList<string> Navigation { get; } = ["Plan", "Map", "List", "Bookings", "Costs", "Tasks", "Files", "People", "Places", "Collections", "History", "Variants"];
+    public IReadOnlyList<string> Navigation { get; } = ["Plan", "Map", "List", "Bookings", "Costs", "Tasks", "Packing", "Files", "People", "Places", "Collections", "History", "Variants"];
     public ObservableCollection<Entity> Items { get; } = new();
     public ObservableCollection<Entity> InboxItems { get; } = new();
     public ObservableCollection<RecentTrip> Recent { get; } = new();

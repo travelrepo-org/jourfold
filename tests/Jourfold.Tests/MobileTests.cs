@@ -1,0 +1,80 @@
+using System.Text.Json.Nodes;
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
+using Jourfold.Mobile;
+using NodaTime;
+using TravelRepo.Core;
+using TravelRepo.Git;
+using Xunit;
+namespace Jourfold.Tests;
+
+public sealed class MobileTests : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-mobile-" + Guid.NewGuid());
+    public void Dispose() => TestFiles.Delete(root);
+
+    private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"], Berlin = DateTimeZoneProviders.Tzdb["Europe/Berlin"];
+    private static readonly Localization English = new("en");
+
+    private static AgendaEntry Line(string start, string end, string zone = "Asia/Tokyo", string? endZone = null)
+    {
+        var item = Entity.Create("schedule_item", "Item");
+        item.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime(start, zone).ToJson(), ["end"] = new ZonedTime(end, endZone ?? zone).ToJson() };
+        var manifest = Entity.CreateTrip("Trip", "en", "Asia/Tokyo");
+        return TripAgenda.Build(new TripSnapshot(manifest, new Dictionary<Guid, Entity> { [item.Id] = item })).Days.SelectMany(d => d.Entries).Single();
+    }
+
+    [Fact]
+    public void PlanShowsLocalTimeAndTheTodayViewShowsThePhonesTime()
+    {
+        var temple = Line("2027-05-16T11:00:00", "2027-05-16T13:00:00");
+
+        // In Tokyo both read the same, and nothing else is added.
+        Assert.Equal(new ClockText("11:00", "13:00"), TimeText.Local(temple, Tokyo, English));
+        Assert.Equal(new ClockText("11:00", "13:00"), TimeText.OnPhone(temple, Tokyo, English));
+
+        // Planning from Berlin: the plan stays in Tokyo time, the phone's time is added quietly.
+        Assert.Equal(new ClockText("11:00", "13:00", Other: "04:00 CEST"), TimeText.Local(temple, Berlin, English));
+        // On the road with a phone still in Berlin time, Today leads with the phone's clock.
+        Assert.Equal(new ClockText("04:00", "06:00", Other: "11:00 JST"), TimeText.OnPhone(temple, Berlin, English));
+    }
+
+    [Fact]
+    public void AnotherCalendarDayIsNamedAndAJourneyNamesBothZones()
+    {
+        var breakfast = Line("2027-05-16T06:00:00", "2027-05-16T07:00:00");
+        Assert.Equal("Sat 23:00 CEST", TimeText.Local(breakfast, Berlin, English).Other);
+
+        var flight = Line("2027-05-14T13:20:00", "2027-05-15T08:35:00", "Europe/Berlin", "Asia/Tokyo");
+        var time = TimeText.Local(flight, Tokyo, English);
+        Assert.Equal("13:20", time.Start); Assert.Equal("CEST", time.Zone); Assert.Equal("08:35 JST +1", time.Arrival); Assert.Null(time.Other);
+    }
+
+    [AvaloniaFact]
+    public async Task TheSampleTripOpensOnTodayAndEveryPlaceRenders()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            Assert.Equal(MobileTab.Today, session.Tab);
+            Assert.Contains("Sunday 16 May · Day 3", Texts());
+            Assert.Contains("Senso-ji and Asakusa", Texts());
+            Assert.Contains("Now", Texts());
+            foreach (var tab in Enum.GetValues<MobileTab>()) { session.ShowTab(tab); Assert.NotEmpty(Texts()); }
+            session.ShowTab(MobileTab.Plan); session.ShowDate(new LocalDate(2027, 5, 17));
+            var nikko = session.Agenda.Find(new LocalDate(2027, 5, 17))!.Entries.Single(e => e.IsGroup);
+            Assert.DoesNotContain("Kegon Falls", Texts());
+            session.ToggleGroup(nikko.Item.Id);
+            Assert.Contains("Kegon Falls", Texts());
+            Assert.Contains("Ideas", Texts());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
+}

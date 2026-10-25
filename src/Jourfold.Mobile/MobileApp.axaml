@@ -1,0 +1,16 @@
+<Application xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="Jourfold.Mobile.MobileApp" RequestedThemeVariant="Default" Name="Jourfold">
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceInclude Source="avares://Jourfold.UI/Theme/Tokens.axaml"/>
+        <ResourceInclude Source="avares://Jourfold.UI/Theme/Icons.axaml"/>
+        <ResourceInclude Source="avares://Jourfold.UI/Theme/Brand.axaml"/>
+      </ResourceDictionary.MergedDictionaries>
+      <x:Double x:Key="ControlContentThemeFontSize">15</x:Double>
+    </ResourceDictionary>
+  </Application.Resources>
+  <Application.Styles>
+    <StyleInclude Source="avares://Jourfold.UI/Theme/Fluent.axaml"/>
+    <StyleInclude Source="avares://Jourfold.Mobile/Theme/MobileControls.axaml"/>
+  </Application.Styles>
+</Application>

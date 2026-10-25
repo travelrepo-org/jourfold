@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-android</TargetFramework>
+    <SupportedOSPlatformVersion>29</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <ApplicationId>dev.jourfold.app</ApplicationId>
+    <ApplicationTitle>Jourfold</ApplicationTitle>
+    <!-- 0.6.0 becomes 600; a Play upload needs a higher number for every release. -->
+    <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
+    <VersionMajor>$([System.Version]::Parse('$(Version)').Major)</VersionMajor>
+    <VersionMinor>$([System.Version]::Parse('$(Version)').Minor)</VersionMinor>
+    <VersionPatch>$([System.Version]::Parse('$(Version)').Build)</VersionPatch>
+    <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(VersionMajor), 10000)), $([MSBuild]::Multiply($(VersionMinor), 100)))), $(VersionPatch)))</ApplicationVersion>
+    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
+    <!-- libgit2 for Android is built by eng/build-libgit2-android.sh in the TravelRepo repository. -->
+    <Libgit2Android>$(MSBuildThisFileDirectory)../../artifacts/libgit2-android</Libgit2Android>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <!-- Precompiling everything starts the app a third faster on old phones (measured on a Pixel 2). -->
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Jourfold.Mobile/Jourfold.Mobile.csproj"/>
+    <ProjectReference Include="../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj" Condition="Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>
+    <PackageReference Include="TravelRepo.Git.LibGit2" Version="$(TravelRepoVersion)" Condition="!Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>
+    <PackageReference Include="Avalonia.Android" Version="12.1.4"/>
+    <PackageReference Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.2.0.2"/>
+    <!-- The package ships glibc builds for Linux, which Android would pick up by RID fallback. -->
+    <PackageReference Include="LibGit2Sharp.NativeBinaries" Version="2.0.324" ExcludeAssets="native;build;buildTransitive"/>
+    <AndroidNativeLibrary Include="$(Libgit2Android)/arm64-v8a/libgit2-5853918.so" Abi="arm64-v8a" Condition="Exists('$(Libgit2Android)/arm64-v8a/libgit2-5853918.so')"/>
+    <AndroidNativeLibrary Include="$(Libgit2Android)/x86_64/libgit2-5853918.so" Abi="x86_64" Condition="Exists('$(Libgit2Android)/x86_64/libgit2-5853918.so')"/>
+  </ItemGroup>
+  <ItemGroup><Using Include="Jourfold.UI"/></ItemGroup>
+</Project>

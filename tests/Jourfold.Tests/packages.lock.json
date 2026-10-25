@@ -599,10 +599,19 @@
           "bblanchon.PDFium.Win32": "[157.0.8100, )"
         }
       },
+      "jourfold.mobile": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.UI": "[0.6.0, )"
+        }
+      },
       "jourfold.ui": {
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
           "Jourfold.Application": "[0.6.0, )"
         }
       },

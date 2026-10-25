@@ -62,6 +62,8 @@ public partial class MainWindow : Window
         if (OperatingSystem.IsWindows())
         {
             ExtendClientAreaToDecorationsHint = true; ExtendClientAreaTitleBarHeightHint = 34; TitleBar.IsVisible = true;
+            // Ask Windows 11 for rounded corners, which it may not choose for a window that draws its own title bar. Older Windows ignores this.
+            Win32Properties.SetWindowCornerPreference(this, Win32Properties.WindowCornerPreference.Round);
             TitleBar.PointerPressed += (_, e) => { if (e.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; else BeginMoveDrag(e); };
         }
         Render();

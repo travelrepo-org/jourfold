@@ -31,7 +31,7 @@ Jourfold includes the following open-source software. License files from each pa
 ## Fonts, icons and maps
 
 - Plus Jakarta Sans and Outfit: SIL Open Font License 1.1. Upstream commits, hashes and official URLs are in `assets/fonts/manifest.json`, and the license files are distributed beside the fonts. Font files are bundled; no font service is contacted. The logo uses converted Outfit outlines and does not need Outfit at runtime.
-- Lucide icons (lucide-static 1.51.0): ISC License, https://lucide.dev. The license is in `licenses/lucide/LICENSE`. Icon outlines are converted into `src/Jourfold.Desktop/Theme/Icons.axaml`.
+- Lucide icons (lucide-static 1.51.0): ISC License, https://lucide.dev. The license is in `licenses/lucide/LICENSE`. Icon outlines are converted into `src/Jourfold.UI/Theme/Icons.axaml`.
 - Map images and address search come from OpenStreetMap when the user turns on online maps. Map data © OpenStreetMap contributors, available under the Open Database License, https://www.openstreetmap.org/copyright. No OpenStreetMap data is bundled.
 - Weather comes from the service the user chooses after turning weather on: Open-Meteo (https://open-meteo.com, data CC BY 4.0), MET Norway (https://api.met.no, data CC BY 4.0), the US National Weather Service (https://www.weather.gov, public domain) or Visual Crossing (https://www.visualcrossing.com, with the user's own key). The source and licence are shown next to the weather. No weather data is bundled.
 

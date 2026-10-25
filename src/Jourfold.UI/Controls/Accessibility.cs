@@ -3,7 +3,7 @@ using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 
-namespace Jourfold.Desktop;
+namespace Jourfold.UI;
 
 /// <summary>
 /// A button for one option of a choice, such as a status, a category or a view. The "selected" class shows the

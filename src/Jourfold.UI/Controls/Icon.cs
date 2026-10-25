@@ -4,7 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
 
-namespace Jourfold.Desktop;
+namespace Jourfold.UI;
 
 /// <summary>
 /// Strokes a Lucide icon geometry (24 x 24 grid) with the inherited foreground. Icons are decorative;

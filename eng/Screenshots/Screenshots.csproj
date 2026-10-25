@@ -7,4 +7,4 @@
     <PackageReference Include="Avalonia.Headless" Version="12.1.4" />
     <ProjectReference Include="../../src/Jourfold.Desktop/Jourfold.Desktop.csproj" />
   </ItemGroup>
-</Project>
+<ItemGroup><Using Include="Jourfold.UI"/></ItemGroup></Project>

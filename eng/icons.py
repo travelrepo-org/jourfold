@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert pinned Lucide SVG icons into an Avalonia resource dictionary.
 
-Usage: python3 eng/icons.py <directory-with-lucide-svgs> src/Jourfold.Desktop/Theme/Icons.axaml
+Usage: python3 eng/icons.py <directory-with-lucide-svgs> src/Jourfold.UI/Theme/Icons.axaml
 
 Lucide icons are stroke drawings on a 24x24 grid. Every element is converted to
 path data so the Icon control can stroke one geometry with the current foreground.

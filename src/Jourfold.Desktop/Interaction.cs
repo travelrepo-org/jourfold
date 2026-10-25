@@ -8,29 +8,6 @@ using TravelRepo.Merge;
 
 namespace Jourfold.Desktop;
 
-/// <summary>UI strings. English is the source language; German is complete. Missing keys fall back to the key.</summary>
-public sealed class Localization
-{
-    private readonly Dictionary<string, string> strings;
-    public string Language { get; }
-    public Localization(string language)
-    {
-        Language = language == "de" ? "de" : "en";
-        using var stream = typeof(Localization).Assembly.GetManifestResourceStream("Jourfold.Desktop.Strings." + Language + ".json")!; strings = JsonSerializer.Deserialize<Dictionary<string, string>>(stream)!;
-    }
-    public string this[string key] => strings.GetValueOrDefault(key) ?? key;
-    /// <summary>Translate a canonical value such as a status when a label exists; otherwise show it unchanged.</summary>
-    public string Optional(string value) => strings.GetValueOrDefault(value) ?? value;
-    public string Diagnostic(string code) => strings.GetValueOrDefault("diagnostic." + code) ?? this["ValidationIssue"] + " (" + code + ")";
-    public string Error(Exception exception, bool advanced = false) =>
-        exception is DomainException { Code: "schema.invalid" } schema ? Diagnostic(schema.Code) + SchemaDetails(schema.Message)
-        : advanced ? exception.Message : exception is DomainException domain ? Diagnostic(domain.Code) : exception is HttpRequestException ? this["NetworkError"] : this["OperationFailed"];
-
-    /// <summary>The failed rules of a schema validation result as short lines, for example "location: Required properties [longitude] are not present".</summary>
-    private static string SchemaDetails(string json) => TravelRepo.Serialization.SchemaValidation.Explain(json, 5) is { Count: > 0 } lines ? "\n\n" + string.Join("\n", lines) : "";
-    public IReadOnlyDictionary<string, string> All => strings;
-}
-
 /// <param name="Dependents">Entities deleted with the target because they cannot exist without it, such as comments.</param>
 /// <param name="Affected">Entities that lose their link to the target.</param>
 /// <param name="Unused">Places, files, notes and bookings that nothing uses after the deletion.</param>

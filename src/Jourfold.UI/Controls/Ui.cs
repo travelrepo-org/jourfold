@@ -5,7 +5,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-namespace Jourfold.Desktop;
+namespace Jourfold.UI;
 
 /// <summary>
 /// Small factory kit for code-built views. Every color comes from a theme token so Light, Dark and
@@ -48,10 +48,10 @@ public static class Ui
         ToolTip.SetTip(block, text);
         return block.Classed(classes);
     }
-    public static Desktop.Icon Icon(string kind, double size = 16, string? brush = null)
+    public static UI.Icon Icon(string kind, double size = 16, string? brush = null)
     {
-        var icon = new Desktop.Icon(kind, size) { VerticalAlignment = VerticalAlignment.Center };
-        return brush is null ? icon : icon.Res(Desktop.Icon.ForegroundProperty, brush);
+        var icon = new UI.Icon(kind, size) { VerticalAlignment = VerticalAlignment.Center };
+        return brush is null ? icon : icon.Res(UI.Icon.ForegroundProperty, brush);
     }
     public static StackPanel V(double spacing, params Control?[] children)
     {
@@ -100,7 +100,7 @@ public static class Ui
 
     public static Border Pill(string text, string? icon, string background, string foreground)
     {
-        var content = H(5, icon is null ? null : Icon(icon, 12).Res(Desktop.Icon.ForegroundProperty, foreground), Text(text, "caption").Res(TextBlock.ForegroundProperty, foreground));
+        var content = H(5, icon is null ? null : Icon(icon, 12).Res(UI.Icon.ForegroundProperty, foreground), Text(text, "caption").Res(TextBlock.ForegroundProperty, foreground));
         if (content.Children.LastOrDefault() is TextBlock t) { t.FontWeight = FontWeight.SemiBold; t.FontSize = 11.5; t.TextWrapping = TextWrapping.NoWrap; }
         return new Border { Child = content, VerticalAlignment = VerticalAlignment.Center, HorizontalAlignment = HorizontalAlignment.Left }.Classed("pill").Res(Border.BackgroundProperty, background);
     }

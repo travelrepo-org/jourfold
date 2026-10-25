@@ -2,7 +2,7 @@ using System.Globalization;
 using NodaTime;
 using TravelRepo.Core;
 
-namespace Jourfold.Desktop;
+namespace Jourfold.UI;
 
 /// <summary>Icon and color-token choices for domain concepts. Classification itself comes from TravelRepo.</summary>
 public static class Visuals

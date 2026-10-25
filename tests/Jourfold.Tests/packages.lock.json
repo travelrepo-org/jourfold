@@ -573,6 +573,7 @@
           "CommunityToolkit.Mvvm": "[8.4.0, )",
           "Jourfold.Application": "[0.6.0, )",
           "Jourfold.Infrastructure": "[0.6.0, )",
+          "Jourfold.UI": "[0.6.0, )",
           "Markdig": "[1.4.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
           "Tmds.DBus.Protocol": "[0.94.1, )",
@@ -596,6 +597,13 @@
           "Tmds.DBus.Protocol": "[0.94.1, )",
           "bblanchon.PDFium.Linux": "[157.0.8100, )",
           "bblanchon.PDFium.Win32": "[157.0.8100, )"
+        }
+      },
+      "jourfold.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Jourfold.Application": "[0.6.0, )"
         }
       },
       "travelrepo.core": {

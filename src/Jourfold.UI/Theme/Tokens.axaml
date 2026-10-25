@@ -15,8 +15,8 @@
   <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
   <x:Double x:Key="TabItemMinHeight">36</x:Double>
   <FontWeight x:Key="TabItemHeaderThemeFontWeight">SemiBold</FontWeight>
-  <FontFamily x:Key="Font.Ui">avares://Jourfold.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
-  <FontFamily x:Key="ContentControlThemeFontFamily">avares://Jourfold.Desktop/Assets/Fonts#Plus Jakarta Sans</FontFamily>
+  <FontFamily x:Key="Font.Ui">avares://Jourfold.UI/Assets/Fonts#Plus Jakarta Sans</FontFamily>
+  <FontFamily x:Key="ContentControlThemeFontFamily">avares://Jourfold.UI/Assets/Fonts#Plus Jakarta Sans</FontFamily>
 
   <ResourceDictionary.ThemeDictionaries>
     <ResourceDictionary x:Key="Light">

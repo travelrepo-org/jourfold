@@ -89,8 +89,8 @@ public sealed partial class Dialogs
         {
             var index = i; var conflict = conflicts[i];
             var options = Ui.V(6); var edit = new TextBox { Text = conflict.CurrentRaw, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, IsVisible = false, MinHeight = 60 }; AutomationProperties.SetName(edit, s["EditResult"]);
-            var buttons = new List<Button>();
-            void Select(Button chosen, ConflictAnswer answer) { foreach (var b in buttons) b.Classes.Set("selected", b == chosen); answers[index] = answer; edit.IsVisible = answer.Action == "EditResult"; Update(); }
+            var buttons = new List<ChoiceButton>();
+            void Select(ChoiceButton chosen, ConflictAnswer answer) { foreach (var b in buttons) b.IsSelected = b == chosen; answers[index] = answer; edit.IsVisible = answer.Action == "EditResult"; Update(); }
             foreach (var action in conflict.Actions)
             {
                 var (icon, label, detail) = action switch
@@ -100,7 +100,7 @@ public sealed partial class Dialogs
                     "KeepBoth" => ("copy", s["KeepBoth"], s["KeepBothHint"]),
                     _ => ("pencil", s["EditResult"], s["EditResultHint"])
                 };
-                var button = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(icon, 16, "Accent"), Ui.V(1, Ui.Text(label, "strong"), Ui.Text(detail, "caption")).Margin(10, 0, 0, 0)), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(12, 8) }.Classed("tile").Named(label);
+                var button = new ChoiceButton { Content = Ui.Columns("Auto,*", Ui.Icon(icon, 16, "Accent"), Ui.V(1, Ui.Text(label, "strong"), Ui.Text(detail, "caption")).Margin(10, 0, 0, 0)), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(12, 8) }.Classed("tile").Named(label);
                 button.Click += (_, _) => Select(button, new ConflictAnswer(action, action == "EditResult" ? edit.Text : null));
                 buttons.Add(button); options.Children.Add(button);
             }

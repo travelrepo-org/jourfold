@@ -258,7 +258,7 @@ public static class InspectorView
             var modes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
             foreach (var mode in ScheduleCategories.TransportTypes)
             {
-                var chip = Ui.Button(s[mode], Visuals.TransportIcon(mode), "chip"); if (transport["type"]?.ToString() == mode) chip.Classes.Add("selected");
+                var chip = Ui.Choice(s[mode], Visuals.TransportIcon(mode), transport["type"]?.ToString() == mode, "chip");
                 chip.Click += (_, _) => _ = m.UpdateAsync(e.Id, x => x.Data["components"]!["transport"]!["type"] = mode); modes.Children.Add(chip);
             }
             var route = Ui.V(10, modes,
@@ -289,7 +289,7 @@ public static class InspectorView
             var currentCategory = inherited.Value?.ToString();
             foreach (var category in ScheduleCategories.Standard.Where(c => c is not ("transport" or "accommodation" or "other")))
             {
-                var chip = Ui.Button(s["category." + category], Visuals.CategoryIcon(category), "chip"); if ((currentCategory ?? "activity") == category) chip.Classes.Add("selected");
+                var chip = Ui.Choice(s["category." + category], Visuals.CategoryIcon(category), (currentCategory ?? "activity") == category, "chip");
                 chip.Click += (_, _) => _ = m.UpdateAsync(e.Id, x => { if (category == "activity") x.Data.Remove("category"); else x.Data["category"] = category; });
                 categories.Children.Add(chip);
             }
@@ -349,7 +349,7 @@ public static class InspectorView
         var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         void Chip(string label, string icon, bool? value)
         {
-            var chip = Ui.Button(label, icon, "chip"); if (stated == value) chip.Classes.Add("selected");
+            var chip = Ui.Choice(label, icon, stated == value, "chip");
             chip.Click += (_, _) => _ = m.SetOutdoorAsync(e.Id, value); chips.Children.Add(chip);
         }
         Chip(s["OutdoorAuto"], "sparkles", null); Chip(s["exposure.Outdoor"], "trees", true); Chip(s["exposure.Indoor"], "house", false);

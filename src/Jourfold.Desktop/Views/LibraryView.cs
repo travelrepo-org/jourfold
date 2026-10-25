@@ -72,7 +72,7 @@ public static class LibraryView
         var m = w.Model; var s = m.Strings;
         var art = SidebarView.GeneratedCover("Jourfold", 520, 200, 16);
         var mark = new Image { Source = (IImage)w.FindResource("Brand.Mark")!, Width = 72, Height = 72, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        var hero = new Panel { Children = { art, new Border { Width = 112, Height = 112, CornerRadius = new CornerRadius(28), Child = mark, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface") }, HorizontalAlignment = HorizontalAlignment.Center };
+        var hero = new Panel { Children = { art, new Decoration { Width = 112, Height = 112, CornerRadius = new CornerRadius(28), Child = mark, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface") }, HorizontalAlignment = HorizontalAlignment.Center };
         var create = Ui.Button(s["CreateFirstTrip"], "plus", "primary"); create.Command = m.NewTripCommand;
         var sample = Ui.Button(s["ExploreSample"], "sparkles", "soft"); sample.Command = m.OpenSampleCommand;
         var open = Ui.Button(s["OpenTripFolder"], "folder-open", "ghost"); open.Command = m.OpenTripCommand;

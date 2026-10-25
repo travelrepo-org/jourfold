@@ -47,7 +47,7 @@ public sealed partial class Dialogs
             foreach (var part in new[] { "morning", "afternoon", "evening", "night" })
             {
                 var range = ScheduleQueries.DayPartRange(part);
-                var chip = Ui.Button(s[part], part switch { "morning" => "sun", "night" => "moon", _ => "clock" }, "chip"); if (part == dayPart) chip.Classes.Add("selected");
+                var chip = Ui.Choice(s[part], part switch { "morning" => "sun", "night" => "moon", _ => "clock" }, part == dayPart, "chip");
                 ToolTip.SetTip(chip, Formats.Time(range.Start) + " – " + Formats.Time(range.End));
                 chip.Click += (_, _) => { dayPart = part; FillParts(); }; dayParts.Children.Add(chip);
             }

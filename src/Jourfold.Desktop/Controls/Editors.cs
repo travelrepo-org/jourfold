@@ -52,7 +52,7 @@ public static class Editors
         foreach (var option in options)
         {
             var (icon, _, _) = Visuals.Status(option);
-            var chip = Ui.Button(s[option], option == value ? icon : null, "chip"); if (option == value) chip.Classes.Add("selected");
+            var chip = Ui.Choice(s[option], option == value ? icon : null, option == value, "chip");
             chip.Click += (_, _) => { if (option != value) _ = w.Model.UpdateAsync(id, e => e.Data["status"] = option); };
             panel.Children.Add(chip);
         }
@@ -95,7 +95,7 @@ public static class Editors
         var panel = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var (option, icon, text) in options)
         {
-            var chip = Ui.Button(text, icon, "chip"); if (option == value) chip.Classes.Add("selected");
+            var chip = Ui.Choice(text, icon, option == value, "chip");
             chip.Click += (_, _) => _ = w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, option == value ? null : JsonValue.Create(option)));
             panel.Children.Add(chip);
         }
@@ -155,7 +155,7 @@ public static class Editors
         var latitude = new TextBox { Text = Format(value?.Lat), PlaceholderText = "-37.0093", Tag = "latitude" }; AutomationProperties.SetName(latitude, s["Latitude"]);
         var longitude = new TextBox { Text = Format(value?.Lon), PlaceholderText = "174.7841", Tag = "longitude" }; AutomationProperties.SetName(longitude, s["Longitude"]);
         var problem = Ui.Text("", "caption").Res(TextBlock.ForegroundProperty, "Danger").Also(t => { t.IsVisible = false; t.TextWrapping = TextWrapping.Wrap; });
-        void Show(string? message) { problem.Text = message ?? ""; problem.IsVisible = message is not null; }
+        void Show(string? message) { problem.Text = message ?? ""; problem.IsVisible = message is not null; AutomationProperties.SetHelpText(latitude, message); AutomationProperties.SetHelpText(longitude, message); }
         void Commit()
         {
             var latText = latitude.Text?.Trim() ?? ""; var lonText = longitude.Text?.Trim() ?? "";

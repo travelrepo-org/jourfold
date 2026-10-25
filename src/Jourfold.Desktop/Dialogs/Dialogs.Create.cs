@@ -133,7 +133,7 @@ public sealed partial class Dialogs
         var length = new NumericUpDown { Tag = "length", Value = (decimal)(request.Length?.TotalMinutes ?? 60), Minimum = 5, Increment = 15, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(length, s["DurationMinutes"]);
         var unscheduled = new CheckBox { Content = s["JustAnIdea"], IsChecked = false };
         var mode = "flight"; var modes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
-        void FillModes() { modes.Children.Clear(); foreach (var t in ScheduleCategories.TransportTypes) { var chip = Ui.Button(s[t], Visuals.TransportIcon(t), "chip"); if (t == mode) chip.Classes.Add("selected"); chip.Click += (_, _) => { mode = t; FillModes(); Layout(); }; modes.Children.Add(chip); } }
+        void FillModes() { modes.Children.Clear(); foreach (var t in ScheduleCategories.TransportTypes) { var chip = Ui.Choice(s[t], Visuals.TransportIcon(t), t == mode, "chip"); chip.Click += (_, _) => { mode = t; FillModes(); Layout(); }; modes.Children.Add(chip); } }
         var place = PlaceBox(trip, s["Place"]); var from = PlaceBox(trip, s["From"]); var to = PlaceBox(trip, s["To"]);
         // Transport: departure and arrival in local time at each end, as on a ticket. The timezones follow the chosen
         // places (when they have one) until the person picks a timezone, and the arrival date follows the departure date.
@@ -197,8 +197,8 @@ public sealed partial class Dialogs
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
-            var chip = Ui.Button(person.Title, null, "chip"); chip.Content = Ui.H(6, Ui.Avatar(person.Title, 18), Ui.Text(person.Title)); if (peopleIds.Contains(person.Id)) chip.Classes.Add("selected");
-            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.Classes.Set("selected", peopleIds.Contains(person.Id)); };
+            var chip = Ui.Choice(person.Title, null, peopleIds.Contains(person.Id), "chip"); chip.Content = Ui.H(6, Ui.Avatar(person.Title, 18), Ui.Text(person.Title));
+            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); };
             people.Children.Add(chip);
         }
 
@@ -238,8 +238,8 @@ public sealed partial class Dialogs
             typeGrid.Children.Clear();
             foreach (var (k, icon, color) in QuickKinds)
             {
-                var tile = new Button { Width = 96, Height = 74, Content = Ui.V(6, Ui.Tile(icon, color, 30).Also(t => t.HorizontalAlignment = HorizontalAlignment.Center), Ui.Text(s["quick." + k]).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; t.TextAlignment = TextAlignment.Center; })) }.Classed("tile").Named(s["quick." + k]);
-                if (k == kind) tile.Classes.Add("selected");
+                var tile = new ChoiceButton { Width = 96, Height = 74, Content = Ui.V(6, Ui.Tile(icon, color, 30).Also(t => t.HorizontalAlignment = HorizontalAlignment.Center), Ui.Text(s["quick." + k]).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; t.TextAlignment = TextAlignment.Center; })) }.Classed("tile").Named(s["quick." + k]);
+                tile.IsSelected = k == kind;
                 tile.Click += (_, _) => { kind = k; Layout(); title.Focus(); };
                 typeGrid.Children.Add(tile);
             }

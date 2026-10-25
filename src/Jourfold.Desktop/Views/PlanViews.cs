@@ -121,7 +121,7 @@ public static class InboxView
         var chips = Ui.H(4);
         foreach (var (key, label) in new[] { ("All", s["All"]), ("Ideas", s["Ideas"]), ("Notes", s["Notes"]), ("Files", s["Files"]) })
         {
-            var chip = Ui.Button(label, null, "chip"); if (filter == key) chip.Classes.Add("selected");
+            var chip = Ui.Choice(label, null, filter == key, "chip");
             chip.Click += (_, _) => { filter = key; w.RenderMain(); }; chips.Children.Add(chip);
         }
         var capture = new TextBox { PlaceholderText = s["CaptureIdea"] }; AutomationProperties.SetName(capture, s["CaptureIdea"]);

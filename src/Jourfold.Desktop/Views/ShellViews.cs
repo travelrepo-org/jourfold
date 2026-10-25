@@ -80,8 +80,7 @@ public static class SidebarView
         var badge = count is { } n ? new Border { Child = Ui.Text(n.ToString(System.Globalization.CultureInfo.CurrentCulture)), Classes = { "badge" } } : null;
         if (badge is not null && subtle) { badge.Res(Border.BackgroundProperty, selected ? "Accent" : "Bg.Muted"); ((TextBlock)badge.Child!).Res(TextBlock.ForegroundProperty, selected ? "Text.OnAccent" : "Text.Muted"); }
         var content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 17), Ui.Line(label).Margin(10, 0, 6, 0), badge);
-        var button = new Button { Content = content }.Classed("nav");
-        if (selected) button.Classes.Add("selected");
+        var button = new ChoiceButton { Content = content, IsSelected = selected }.Classed("nav");
         AutomationProperties.SetName(button, count is { } c ? label + ", " + c : label);
         return button;
     }
@@ -117,7 +116,7 @@ public static class SidebarView
         var hills = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse("M0,70 C25,52 45,60 60,66 C75,72 85,58 100,50 L100,100 L0,100 Z"), Fill = new SolidColorBrush(Colors.White, 0.16), Stretch = Stretch.Fill, VerticalAlignment = VerticalAlignment.Bottom, Height = height * 0.55 };
         var hills2 = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse("M0,80 C20,70 40,86 65,74 C80,67 90,76 100,72 L100,100 L0,100 Z"), Fill = new SolidColorBrush(Colors.White, 0.14), Stretch = Stretch.Fill, VerticalAlignment = VerticalAlignment.Bottom, Height = height * 0.4 };
         var initials = new TextBlock { Text = Ui.Initials(title), Foreground = Brushes.White, FontWeight = FontWeight.Bold, FontSize = Math.Max(11, Math.Min(width, height) * 0.32), HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center, Opacity = width > 120 ? 0 : 0.95 };
-        return new Border { Width = width, Height = height, CornerRadius = new CornerRadius(radius), ClipToBounds = true, Background = brush, Child = new Panel { Children = { hills, hills2, initials } } };
+        return new Decoration { Width = width, Height = height, CornerRadius = new CornerRadius(radius), ClipToBounds = true, Background = brush, Child = new Panel { Children = { hills, hills2, initials } } };
     }
 
     private static MenuFlyout TripMenu(MainWindow w)
@@ -333,7 +332,7 @@ public static class ViewToolbar
                 left.Children.Add(Ui.H(2, previousPage, previous, picker, next, nextPage)); left.Children.Add(today);
                 var zoomOut = Ui.IconButton("zoom-out", s["ZoomOut"], "small"); zoomOut.IsEnabled = m.Zoom > .5; zoomOut.Click += (_, _) => m.SetZoom(m.Zoom - .25);
                 var zoomIn = Ui.IconButton("zoom-in", s["ZoomIn"], "small"); zoomIn.IsEnabled = m.Zoom < 2; zoomIn.Click += (_, _) => m.SetZoom(m.Zoom + .25);
-                var lanes = Ui.Button(s["ByPerson"], "users", "chip"); if (m.Lanes) lanes.Classes.Add("selected"); lanes.Click += (_, _) => m.SetLanes(!m.Lanes); ToolTip.SetTip(lanes, s["ByPersonTip"]);
+                var lanes = Ui.Choice(s["ByPerson"], "users", m.Lanes, "chip"); lanes.Click += (_, _) => m.SetLanes(!m.Lanes); ToolTip.SetTip(lanes, s["ByPersonTip"]);
                 var zone = ZoneSwitch(w);
                 // Offered when stays were entered one item per night; merging makes each one stay over its nights.
                 var mergeable = m.StayMergeCandidates.Count;
@@ -378,7 +377,7 @@ public static class ViewToolbar
         var panel = new WrapPanel { Orientation = Orientation.Horizontal, ItemSpacing = 2, LineSpacing = 2 };
         foreach (var (key, label, icon) in items)
         {
-            var button = Ui.Button(label, icon, "segment"); if (key == selected) button.Classes.Add("selected");
+            var button = Ui.Choice(label, icon, key == selected, "segment");
             button.Click += (_, _) => select(key); panel.Children.Add(button);
         }
         return new Border { Child = panel }.Classed("segments");

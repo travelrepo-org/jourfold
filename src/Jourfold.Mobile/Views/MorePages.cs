@@ -55,15 +55,14 @@ public static class MorePages
         return open ? Ui.V(0, button, details().Margin(16, 0, 16, 16)) : button;
     }
 
-    /// <summary>A field that keeps what was typed when the page is drawn again, and the keyboard focus with it.</summary>
+    /// <summary>
+    /// A field that keeps what was typed when the page is drawn again, for example after tapping Sync now. The shell
+    /// does not redraw while a field has the focus, so this is only about the text.
+    /// </summary>
     public static TextBox Draft(MobileSession s, string key, TextBox box)
     {
         if (s.Drafts.TryGetValue(key, out var text)) box.Text = text;
         box.TextChanged += (_, _) => s.Drafts[key] = box.Text;
-        box.GotFocus += (_, _) => s.Drafts["focus"] = key;
-        box.LostFocus += (_, _) => { if (s.Drafts.GetValueOrDefault("focus") == key) s.Drafts.Remove("focus"); };
-        if (s.Drafts.GetValueOrDefault("focus") == key)
-            box.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => { box.Focus(); box.CaretIndex = box.Text?.Length ?? 0; }, Avalonia.Threading.DispatcherPriority.Background);
         return box;
     }
 

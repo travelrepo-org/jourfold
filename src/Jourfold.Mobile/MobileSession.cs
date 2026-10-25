@@ -37,7 +37,7 @@ public sealed partial class MobileSession : IDisposable
     private readonly HashSet<Guid> expanded = [];
 
     public MobileSettings Settings { get; }
-    /// <summary>Text typed into fields on pages that are drawn again after each change, by field, so none of it is lost.</summary>
+    /// <summary>Text typed into fields on pages, by field, so it survives the page being drawn again.</summary>
     public Dictionary<string, string?> Drafts { get; } = [];
     /// <summary>A page under More, such as "bookings" or "sync"; null for More itself.</summary>
     public string? Page { get; private set; }
@@ -221,6 +221,7 @@ public sealed partial class MobileSession : IDisposable
             if (string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) { HasChanges = false; return; }
             await workspace.Git.CreateVersionAsync(Strings["AutoVersion"], "auto-version", ct);
             LastVersion = DateTimeOffset.Now; HasChanges = false;
+            if (Page == "sync") History = await workspace.Git.HistoryAsync(ct);
         }
         catch (DomainException) { HasChanges = true; }
         finally { saving.Release(); Changed?.Invoke(); }

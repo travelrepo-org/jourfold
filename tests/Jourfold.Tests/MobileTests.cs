@@ -162,6 +162,40 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ThePageWaitsWithRedrawingWhileSomeoneTypes()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            TextBox Field() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBox>().Single(t => t.PlaceholderText == "Describe this version"); }
+            session.ShowPage("sync"); await session.RefreshVersionsAsync();
+            var field = Field();
+            field.Focus(); field.Text = "Before the Kyoto days";
+
+            // A change in the background, such as a finished sync, does not replace the field being typed in.
+            var wifi = session.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+            await session.SetTaskDoneAsync(wifi.Id, true); await session.SaveChangesAsync();
+            Assert.Same(field, Field());
+            Assert.True(field.IsFocused);
+
+            // Leaving the field draws what waited; the text is kept.
+            Probe.Button(window, "Create version").Focus();
+            Probe.Layout();
+            Assert.NotSame(field, Field());
+            Assert.Equal("Before the Kyoto days", Field().Text);
+            Assert.Contains("Changes made on the phone", window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+
+            // Going somewhere else is drawn at once, even with a field focused.
+            Field().Focus(); session.ShowPage(null); Probe.Layout();
+            Assert.Contains("Sync and versions", window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task SigningInToGitHubShowsTheCodeAndRemembersTheAccount()
     {
         var github = new FakeGitHub();

@@ -29,13 +29,21 @@ public sealed class AppShell : UserControl
     private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
     private Border? bottomBar;
+    // Redrawing replaces every control on the page, so a text field being typed in would lose its focus and the
+    // keyboard would close. While someone types, redraws that only refresh data wait until the field is left.
+    private bool pending, acting, keyboard;
+    private object? drawnAt;
 
     public AppShell(MobileSession session)
     {
         Session = session; Classes.Add("shell");
         Content = root; root.Res(Border.BackgroundProperty, "Bg.App");
         root.Child = new Panel { Children = { main, overlays } };
-        session.Changed += () => Dispatcher.UIThread.Post(Render);
+        session.Changed += () => Dispatcher.UIThread.Post(RequestRender);
+        // A tap on a button on the page is the user acting, so what follows is shown right away.
+        AddHandler(Button.ClickEvent, (_, _) => acting = true, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(GotFocusEvent, (_, e) => { if (e.Source is TextBox) acting = false; }, RoutingStrategies.Bubble, handledEventsToo: true);
+        AddHandler(LostFocusEvent, (_, _) => Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background), RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += (_, e) => { if (Classify(e.NewSize.Width) != Breakpoint) Render(); };
         Render();
     }
@@ -64,9 +72,15 @@ public sealed class AppShell : UserControl
         if (top.InputPane is { } pane)
             pane.StateChanged += (_, args) =>
             {
-                main.Margin = new Thickness(0, 0, 0, args.NewState == Avalonia.Controls.Platform.InputPaneState.Open ? Math.Max(0, args.EndRect.Height - safeArea.Bottom) : 0);
+                // The bottom bar steps aside while typing, as on other Android apps.
+                keyboard = args.NewState == Avalonia.Controls.Platform.InputPaneState.Open;
+                if (bottomBar is not null) bottomBar.IsVisible = !keyboard;
+                // With the bottom bar the page reaches the screen's edge; without it the safe area is already left free.
+                var edge = bottomBar is not null ? 0 : safeArea.Bottom;
+                main.Margin = new Thickness(0, 0, 0, keyboard ? Math.Max(0, args.EndRect.Height - edge) : 0);
                 if (args.NewState == Avalonia.Controls.Platform.InputPaneState.Open)
                     Dispatcher.UIThread.Post(() => (top.FocusManager?.GetFocusedElement() as Control)?.BringIntoView(), DispatcherPriority.Background);
+                else Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background);
             };
         if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
     }
@@ -100,8 +114,24 @@ public sealed class AppShell : UserControl
         if (bottomBar is not null) bottomBar.Padding = new Thickness(0, 0, 0, safeArea.Bottom);
     }
 
+    /// <summary>Where the user is. When it changes, the page is drawn at once, even while someone types.</summary>
+    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking);
+
+    /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
+    private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);
+
+    private void RequestRender()
+    {
+        if (!acting && Equals(Location(), drawnAt) && Typing()) { pending = true; return; }
+        Render();
+    }
+
+    /// <summary>Draws what waited while someone typed.</summary>
+    private void Catch() { if (pending && !Typing()) Render(); }
+
     private void Render()
     {
+        pending = false; acting = false; drawnAt = Location();
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
         bottomBar = null;
         Inset();
@@ -206,7 +236,7 @@ public sealed class AppShell : UserControl
         grid.Children.Add(Plus().Margin(8, 4).Col(2));
         grid.Children.Add(Place(Places[2].Tab, Places[2].Icon, Places[2].Label).Col(3));
         grid.Children.Add(Place(Places[3].Tab, Places[3].Icon, Places[3].Label).Col(4));
-        return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom) }.Classed("bar");
+        return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
     }
 
     /// <summary>The rail on tablets: the plus on top, then the four places.</summary>

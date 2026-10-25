@@ -11,6 +11,12 @@ public sealed record TripCard(string Path, TripSnapshot Trip, TravelRepository R
 /// <summary>The four places of the phone's bottom bar.</summary>
 public enum MobileTab { Today, Plan, Map, More }
 
+/// <summary>What is open over the page: an item's details, Quick Add, or the editor for an item.</summary>
+public enum Overlay { None, Details, QuickAdd, Editor }
+
+/// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
+public sealed record Question(string Text, string Action, Func<Task> Run);
+
 /// <summary>
 /// What the phone app shows and where the user is: the trips on this device, the open trip with its day plan, the tab,
 /// the day and the selected item. Views read it and render; every change raises <see cref="Changed"/>.
@@ -52,7 +58,7 @@ public sealed class MobileSession : IDisposable
                 var repository = new TravelRepository(folder, Path.Combine(Host.RecoveryRoot, Path.GetFileName(folder)));
                 var trip = (await repository.ReadAsync(ct)).Trip;
                 var (start, end) = TripQueries.EffectiveDates(trip);
-                cards.Add(new(folder, trip, repository, start, end, trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray(), TripSummaries.PlaceNames(trip)));
+                cards.Add(new(folder, trip, repository, start, end, trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray(), TripSummaries.Destinations(trip) is { Count: > 0 } towns ? towns : TripSummaries.PlaceNames(trip)));
             }
             catch (DomainException) { }
         }
@@ -87,7 +93,7 @@ public sealed class MobileSession : IDisposable
     {
         if (Workspace is null) return;
         Workspace.Changed -= OnWorkspaceChanged; Workspace.Dispose(); Workspace = null;
-        Agenda = new([], []); Changed?.Invoke();
+        Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
 
     private void OnWorkspaceChanged(object? sender, EventArgs e)
@@ -107,6 +113,74 @@ public sealed class MobileSession : IDisposable
         var days = Agenda.Days; var index = days.ToList().FindIndex(d => d.Date == SelectedDate);
         var next = index + direction;
         if (next >= 0 && next < days.Count) ShowDate(days[next].Date);
+    }
+
+    public Overlay Showing { get; private set; }
+    public Guid? OverlayItem { get; private set; }
+    public Question? Asking { get; private set; }
+
+    /// <summary>The agenda line of an item: a day's line, a step of a group or an unscheduled item.</summary>
+    public AgendaEntry? Entry(Guid id) => Agenda.Days.SelectMany(d => d.Entries).SelectMany(e => e.Steps.Prepend(e)).Concat(Agenda.Unscheduled)
+        .FirstOrDefault(e => e.Item.Id == id && e.Role == AgendaRole.Item);
+
+    public void ShowDetails(Guid id) { Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
+    public void ShowQuickAdd() { Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
+    public void ShowEditor(Guid id) { Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
+    public void CloseOverlay() { if (Showing == Overlay.None && Asking is null) return; Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke(); }
+    public void Confirm(string text, string action, Func<Task> run) { Asking = new(text, action, run); Changed?.Invoke(); }
+    public async Task AnswerAsync(bool yes)
+    {
+        var question = Asking; Asking = null; Changed?.Invoke();
+        if (yes && question is not null) await question.Run();
+    }
+
+    /// <summary>Adds what Quick Add collected, with the same rules as the desktop; an idea stays tentative.</summary>
+    public async Task AddAsync(QuickAddDraft draft, bool idea, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var (main, edits) = QuickAdd.Build(draft, workspace.State.Trip);
+        if (idea && main.Type == "schedule_item") main.Data["status"] = "idea";
+        await workspace.ApplyAsync(edits, ct);
+        Showing = Overlay.None; OverlayItem = null;
+        if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
+        Changed?.Invoke();
+    }
+
+    private async Task UpdateAsync(Guid id, Action<Entity> change, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var copy = workspace.State.Trip.Find(id)?.Copy() ?? throw new DomainException("entity.missing", "Item not found.");
+        change(copy); await workspace.EditAsync(copy, ct);
+    }
+
+    public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);
+    public Task SetTaskDoneAsync(Guid id, bool done, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = done ? "done" : "open", ct);
+
+    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        Showing = Overlay.None; OverlayItem = null; SelectedItem = null;
+        await (Workspace ?? throw new InvalidOperationException("No trip is open.")).DeleteAsync(id, ct);
+    }
+
+    /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>
+    public async Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var entry = Entry(id);
+        await UpdateAsync(id, e =>
+        {
+            e.Data[e.Data.ContainsKey("name") && !e.Data.ContainsKey("title") ? "name" : "title"] = title.Trim();
+            if (string.IsNullOrWhiteSpace(body)) e.Data.Remove("body"); else e.Data["body"] = body.Trim();
+            if (day is { } date && start is null)
+                e.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "all_day", ["date"] = date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) };
+        }, ct);
+        if (day is { } d && start is { } t)
+        {
+            var zone = entry?.Zone ?? ScheduleQueries.TripZone(workspace.State.Trip).Id;
+            var previous = entry is { Start: { } a, End: { } b } && b > a ? b - a : Duration.FromHours(1);
+            await workspace.ScheduleAsync(id, new ZonedTime(d.At(t).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zone), length ?? previous, ct);
+        }
+        Showing = Overlay.Details; Changed?.Invoke();
     }
 
     public void Dispose() => Close();

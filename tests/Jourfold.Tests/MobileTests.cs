@@ -76,5 +76,39 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task QuickAddDetailsStatusEditAndDeleteWorkOnThePhone()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowQuickAdd(); Assert.Contains("Only an idea", Texts());
+            await session.AddAsync(new Jourfold.Application.QuickAddDraft("food", "Ramen near Shinjuku station") { Date = new LocalDate(2027, 5, 16), Start = new LocalTime(20, 0), Length = Duration.FromHours(1) }, idea: true);
+            Assert.Equal(Overlay.None, session.Showing);
+            var ramen = session.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.Single(e => e.Item.Title == "Ramen near Shinjuku station");
+            Assert.True(ramen.IsIdea);
+
+            session.ShowDetails(ramen.Item.Id);
+            Assert.Contains("Status", Texts());
+            await session.SetStatusAsync(ramen.Item.Id, "planned");
+            Assert.Equal("planned", session.Entry(ramen.Item.Id)!.Status);
+            await session.SaveEditAsync(ramen.Item.Id, "Ramen in Shinjuku", "Ichiran, ticket machine at the door", new LocalDate(2027, 5, 16), new LocalTime(20, 30), null);
+            var edited = session.Entry(ramen.Item.Id)!;
+            Assert.Equal("Ramen in Shinjuku", edited.Item.Title);
+            Assert.Equal(new LocalDateTime(2027, 5, 16, 20, 30).InZoneStrictly(Tokyo).ToInstant(), edited.Start);
+            Assert.Equal(Duration.FromHours(1), edited.End - edited.Start);
+
+            session.Confirm("Delete?", "Delete", () => session.DeleteAsync(ramen.Item.Id));
+            Assert.Contains("Delete?", Texts());
+            await session.AnswerAsync(true);
+            Assert.Null(session.Entry(ramen.Item.Id));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 }

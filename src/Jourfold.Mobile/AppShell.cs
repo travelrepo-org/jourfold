@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using Jourfold.Mobile.Controls;
 using Jourfold.Mobile.Views;
 
 namespace Jourfold.Mobile;
@@ -21,6 +22,10 @@ public sealed class AppShell : UserControl
     public MobileSession Session { get; }
     public WidthClass Breakpoint { get; private set; }
     private readonly Border root = new();
+    private readonly Border main = new();
+    private readonly Panel overlays = new();
+    private Sheet? sheet;
+    private (Overlay Kind, Guid? Item) sheetFor;
     private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
 
@@ -28,6 +33,7 @@ public sealed class AppShell : UserControl
     {
         Session = session; Classes.Add("shell");
         Content = root; root.Res(Border.BackgroundProperty, "Bg.App");
+        root.Child = new Panel { Children = { main, overlays } };
         session.Changed += () => Dispatcher.UIThread.Post(Render);
         SizeChanged += (_, e) => { if (Classify(e.NewSize.Width) != Breakpoint) Render(); };
         Render();
@@ -62,6 +68,7 @@ public sealed class AppShell : UserControl
     /// <summary>The system back gesture: first back to Today, then back to the trip list, then out of the app.</summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
+        if (Session.Asking is not null || Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.Workspace is null) return;
         if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today); else Session.Close();
         e.Handled = true;
@@ -75,7 +82,7 @@ public sealed class AppShell : UserControl
         safeArea = insets is { DisplaysEdgeToEdge: true } ? insets.SafeAreaPadding : default;
         var bar = Session.Workspace is not null && Breakpoint == WidthClass.Phone;
         root.Padding = new Thickness(safeArea.Left, safeArea.Top, safeArea.Right, bar ? 0 : safeArea.Bottom);
-        if (Session.Workspace is null) { root.Child = TripListView.Build(Session); return; }
+        if (Session.Workspace is null) { main.Child = TripListView.Build(Session); Overlays(docked: false); return; }
         var page = Session.Tab switch
         {
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
@@ -83,13 +90,67 @@ public sealed class AppShell : UserControl
             MobileTab.Map => MapView.Build(Session, Breakpoint),
             _ => MoreView.Build(Session, Breakpoint)
         };
+        // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
+        var docked = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details && Session.OverlayItem is { } shown && Session.Trip?.Find(shown) is not null;
         if (Breakpoint == WidthClass.Phone)
         {
             var grid = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
             grid.Children.Add(page); grid.Children.Add(BottomBar().Row(1));
-            root.Child = grid;
+            main.Child = grid;
         }
-        else root.Child = Ui.Columns("Auto,*", Rail(), page);
+        else main.Child = docked ? Ui.Columns("Auto,*,400", Rail(), page, DetailColumn()) : Ui.Columns("Auto,*", Rail(), page);
+        Overlays(docked);
+    }
+
+    /// <summary>The details as a fixed column on wide screens: no handle, a close button instead.</summary>
+    private Control DetailColumn()
+    {
+        var item = Session.Trip!.Find(Session.OverlayItem!.Value)!;
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
+        layout.Children.Add(DetailView.Header(Session, item, Session.CloseOverlay).Margin(0, 12, 0, 0));
+        layout.Children.Add(new ScrollViewer { Content = DetailView.Body(Session, item) }.Row(1));
+        return new Border { Child = layout, BorderThickness = new Thickness(1, 0, 0, 0) }.Classed("bar");
+    }
+
+    /// <summary>
+    /// Keeps the sheet in step with the session: the details are drawn again after every change, at the same detent;
+    /// Quick Add and the editor stay as they are, so typed text is not lost.
+    /// </summary>
+    private void Overlays(bool docked)
+    {
+        var want = docked ? Overlay.None : Session.Showing;
+        var item = Session.OverlayItem is { } id ? Session.Trip?.Find(id) : null;
+        if (want != Overlay.None && want != Overlay.QuickAdd && item is null) want = Overlay.None;
+        var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor;
+        if (!keep)
+        {
+            var detent = sheet is not null && sheetFor == (want, Session.OverlayItem) ? sheet.Detent : 1;
+            if (sheet is not null) { sheet.Closed -= OnSheetClosed; overlays.Children.Remove(sheet); sheet = null; }
+            var side = Breakpoint != WidthClass.Phone;
+            sheet = want switch
+            {
+                Overlay.Details => new Sheet(DetailView.Header(Session, item!, Session.CloseOverlay), DetailView.Body(Session, item!), [0.4, 0.62, 0.94], detent, side, item!.Title),
+                Overlay.QuickAdd or Overlay.Editor => new QuickAddView(Session, want == Overlay.Editor ? item : null) is var form
+                    ? new Sheet(form.Header, form.View, [0.94], 0, side, Session.Strings[want == Overlay.Editor ? "Edit" : "QuickAdd"]) : null,
+                _ => null
+            };
+            sheetFor = (want, Session.OverlayItem);
+            if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); }
+        }
+        // A question sits above everything else.
+        foreach (var old in overlays.Children.OfType<Border>().Where(b => b.Classes.Contains("question")).ToArray()) overlays.Children.Remove(old);
+        if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+    }
+
+    private void OnSheetClosed() { sheet = null; sheetFor = (Overlay.None, null); Session.CloseOverlay(); }
+
+    private Control Question(Question question)
+    {
+        var no = Ui.Button(Session.Strings["Cancel"], null, "ghost"); no.Click += async (_, _) => await Session.AnswerAsync(false);
+        var yes = Ui.Button(question.Action, null, "primary"); yes.Click += async (_, _) => await Session.AnswerAsync(true);
+        var card = Ui.Card(Ui.V(16, Ui.Text(question.Text, "title"), Ui.Columns("*,Auto,Auto", null, no.Col(1), yes.Col(2).Margin(8, 0, 0, 0))), 20)
+            .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
+        return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }
 
     private static readonly (MobileTab Tab, string Icon, string Label)[] Places =
@@ -109,6 +170,7 @@ public sealed class AppShell : UserControl
         var label = Session.Strings["QuickAdd"];
         var plus = new Button { Content = Ui.Icon("plus", 26).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("plus");
         AutomationProperties.SetName(plus, label); ToolTip.SetTip(plus, label);
+        plus.Click += (_, _) => Session.ShowQuickAdd();
         return plus;
     }
 

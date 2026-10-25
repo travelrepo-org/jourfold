@@ -48,6 +48,15 @@ try
         var teamLab = s.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.First(e => e.Item.Title.StartsWith("teamLab", StringComparison.Ordinal));
         s.Select(teamLab.Item.Id);
         await Capture("plan-selected");
+        s.ShowDetails(teamLab.Item.Id);
+        await Capture("detail-teamlab");
+        var shinkansen = s.Agenda.Find(new LocalDate(2027, 5, 18))!.Entries.First(e => e.Item.Title.StartsWith("Shinkansen", StringComparison.Ordinal));
+        s.ShowDate(new LocalDate(2027, 5, 18)); s.ShowDetails(shinkansen.Item.Id);
+        await Capture("detail-transport");
+        await Capture("tablet-detail", 1194, 834);
+        s.CloseOverlay(); s.ShowDate(new LocalDate(2027, 5, 16)); s.ShowQuickAdd();
+        await Capture("quick-add");
+        s.CloseOverlay();
         s.ShowDate(new LocalDate(2027, 5, 17));
         foreach (var group in s.Agenda.Find(new LocalDate(2027, 5, 17))!.Entries.Where(e => e.IsGroup)) s.ToggleGroup(group.Item.Id);
         await Capture("plan-nested");

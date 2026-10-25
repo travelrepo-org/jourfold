@@ -33,7 +33,7 @@ public static class PlanView
                 : selected ? Context(s, entry) : null;
             var time = TimeText.Local(entry, s.PhoneZone, s.Strings);
             var card = Lines.Card(s, entry, selected ? LineState.Expanded : LineState.Normal,
-                entry.IsGroup ? () => s.ToggleGroup(entry.Item.Id) : () => s.Select(entry.Item.Id), extra, open, time);
+                entry.IsGroup ? () => s.ToggleGroup(entry.Item.Id) : () => s.ShowDetails(entry.Item.Id), extra, open, time);
             // The phone's time appears with the selected item only; the list stays in local time.
             list.Children.Add(Ui.Columns("64,*", Lines.TimeColumn(time, LineState.Normal, showOther: false), card));
         }
@@ -87,7 +87,7 @@ public static class PlanView
         foreach (var idea in s.Agenda.Unscheduled)
         {
             var length = ScheduleQueries.PlannedDuration(idea.Item) is { } d ? Formats.Duration(d, s.Strings) : null;
-            list.Children.Add(Lines.Card(s, idea, LineState.Normal, () => s.Select(idea.Item.Id), length is null ? null : Ui.Text(length, "caption")));
+            list.Children.Add(Lines.Card(s, idea, LineState.Normal, () => s.ShowDetails(idea.Item.Id), length is null ? null : Ui.Text(length, "caption")));
         }
         return list;
     }

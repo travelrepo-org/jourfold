@@ -1381,5 +1381,14 @@
   "CountPeople": "{0} people",
   "NoCostsYet": "No costs yet",
   "NoPlacesThisDay": "No places with a location on this day.",
-  "ArrivesAt": "arrives {0}"
+  "ArrivesAt": "arrives {0}",
+  "QuickAddTitleHint": "What do you want to add?",
+  "PlaceOptional": "Place (optional)",
+  "OnlyAnIdea": "Only an idea",
+  "DayLabel": "Day",
+  "EnterTitle": "Enter a title.",
+  "EnterAmount": "Enter an amount, for example 12.50.",
+  "OpenTasks": "Open tasks",
+  "SeatsAre": "Seats {0}",
+  "DeleteItemQuestion": "Delete “{0}”? It can be restored from the versions."
 }

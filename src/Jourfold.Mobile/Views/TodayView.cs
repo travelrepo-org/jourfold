@@ -35,7 +35,7 @@ public static class TodayView
             var past = (line.End ?? line.Start) is { } end && end <= now;
             var state = past ? LineState.Past : ReferenceEquals(line, current) ? LineState.Expanded : LineState.Normal;
             var time = TimeText.OnPhone(line, phone, s.Strings);
-            rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state), Views.Lines.Card(s, line, state, null, time: time)));
+            rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state), Views.Lines.Card(s, line, state, () => s.ShowDetails(line.Item.Id), time: time)));
         }
         if (!nowShown) rail.Children.Add(NowLine(s, now, phone));
         page.Children.Add(rail.Margin(16, 0));

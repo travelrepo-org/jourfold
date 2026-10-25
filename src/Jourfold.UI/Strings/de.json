@@ -1381,5 +1381,14 @@
   "CountPeople": "{0} Personen",
   "NoCostsYet": "Noch keine Kosten",
   "NoPlacesThisDay": "An diesem Tag gibt es keine Orte mit Position.",
-  "ArrivesAt": "Ankunft {0}"
+  "ArrivesAt": "Ankunft {0}",
+  "QuickAddTitleHint": "Was möchten Sie hinzufügen?",
+  "PlaceOptional": "Ort (optional)",
+  "OnlyAnIdea": "Nur eine Idee",
+  "DayLabel": "Tag",
+  "EnterTitle": "Bitte einen Titel eingeben.",
+  "EnterAmount": "Bitte einen Betrag eingeben, zum Beispiel 12,50.",
+  "OpenTasks": "Offene Aufgaben",
+  "SeatsAre": "Plätze {0}",
+  "DeleteItemQuestion": "„{0}“ löschen? Es lässt sich aus den Versionen wiederherstellen."
 }

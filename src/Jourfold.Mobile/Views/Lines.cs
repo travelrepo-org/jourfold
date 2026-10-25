@@ -118,7 +118,8 @@ public static class Lines
     /// <summary>The time column next to a card: the main time, and below it the other zone's time, quieter.</summary>
     public static Control TimeColumn(ClockText time, LineState state, bool showOther = true)
     {
-        var column = Ui.V(1, Ui.Text(time.Start, "time"),
+        // Words such as "Afternoon" or "All day" are set smaller so they fit the narrow column.
+        var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Ui.Text(time.Start, "small", "strong"),
             time.End is { } end ? Ui.Text(end, "small", "muted") : null,
             time.Zone is { } zone ? Ui.Text(zone, "small", "muted") : null,
             showOther && time.Other is { } other ? Ui.Text(other, "small", "subtle").Margin(0, 2, 0, 0) : null);

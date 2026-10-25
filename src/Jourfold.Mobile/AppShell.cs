@@ -65,12 +65,14 @@ public sealed class AppShell : UserControl
         base.OnDetachedFromVisualTree(e);
     }
 
-    /// <summary>The system back gesture: first back to Today, then back to the trip list, then out of the app.</summary>
+    /// <summary>The system back gesture: out of a page under More, then back to Today, then back to the trip list, then out of the app.</summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
         if (Session.Asking is not null || Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.Workspace is null) return;
-        if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today); else Session.Close();
+        if (Session.Page is not null) Session.ShowPage(null);
+        else if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today);
+        else Session.Close();
         e.Handled = true;
     }
 
@@ -88,7 +90,7 @@ public sealed class AppShell : UserControl
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
             MobileTab.Plan => PlanView.Build(Session, Breakpoint),
             MobileTab.Map => MapView.Build(Session, Breakpoint),
-            _ => MoreView.Build(Session, Breakpoint)
+            _ => MorePages.Build(Session, Breakpoint)
         };
         // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
         var docked = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details && Session.OverlayItem is { } shown && Session.Trip?.Find(shown) is not null;

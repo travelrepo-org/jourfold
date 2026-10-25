@@ -22,6 +22,8 @@ public sealed class MobileApp : Avalonia.Application
         Control Shell() => new AppShell(session);
         if (ApplicationLifetime is IActivityApplicationLifetime activity) activity.MainViewFactory = Shell;
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single) single.MainView = Shell();
+        // Leaving the app turns open changes into a version right away; the system may stop the app at any time after.
+        if (TryGetFeature(typeof(IActivatableLifetime)) is IActivatableLifetime activatable) activatable.Deactivated += (_, _) => _ = session.SaveChangesAsync();
         base.OnFrameworkInitializationCompleted();
     }
 }

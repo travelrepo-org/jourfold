@@ -97,7 +97,7 @@ public static class DetailView
     public static IEnumerable<Entity> Linked(TripSnapshot trip, Entity item, string type) =>
         TripSummaries.ReferencesTo(trip, item.Id).Where(e => e.Type == type).OrderBy(e => e.Title, StringComparer.CurrentCulture);
 
-    private static Control Row(string icon, string text, string? detail) =>
+    public static Control Row(string icon, string text, string? detail) =>
         Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, Ui.Text(text), detail is null ? null : Ui.Text(detail, "caption")));
 
     private static Control Section(string title, Control content) => Ui.V(6, Ui.Text(title, "overline"), content);

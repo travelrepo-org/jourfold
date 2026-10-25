@@ -110,5 +110,56 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task ThePagesUnderMoreRenderAndChangesBecomeVersions()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await session.SaveSettingsAsync("Sam Taylor", "sam@example.invalid");
+        await session.OpenAsync(path);
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowPage("bookings");
+            Assert.Contains("Reserved", Texts()); Assert.Contains("Ref. GR-1187", Texts());
+            var ryokan = session.Trip!.Entities.Values.Single(e => e.Type == "booking" && e.Data["reference"]?.ToString() == "GR-1187");
+            Assert.DoesNotContain("GR-1187", Texts());
+            session.ToggleGroup(ryokan.Id);
+            Assert.Contains("GR-1187", Texts());
+
+            session.ShowPage("costs");
+            Assert.Contains("JPY 35,600.00 left", Texts());
+            Assert.Contains("Estimated", Texts());
+
+            session.ShowPage("tasks");
+            Assert.Contains("Overdue", Texts());
+            var wifi = session.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+            await session.SetTaskDoneAsync(wifi.Id, true);
+            Assert.Equal("completed", session.Trip!.Find(wifi.Id)!.Data["status"]!.ToString());
+            Assert.True(session.HasChanges);
+
+            // Leaving the app keeps the change as a version under the name set on this phone.
+            await session.SaveChangesAsync();
+            Assert.False(session.HasChanges);
+            await session.RefreshVersionsAsync();
+            Assert.Equal("Changes made on the phone", session.History[0].Message.Split('\n')[0]);
+            Assert.Equal("Sam Taylor", session.History[0].Author);
+
+            await session.SetTaskDoneAsync(wifi.Id, false);
+            await session.CreateVersionAsync("Wi-Fi still to rent");
+            session.ShowPage("sync");
+            await session.RefreshVersionsAsync();
+            Assert.Contains("Wi-Fi still to rent", Texts());
+            Assert.Contains("All changes saved on this phone", Texts());
+
+            session.ShowPage("travellers"); Assert.Contains("Alex", Texts());
+            session.ShowPage("settings"); Assert.Contains("About Jourfold", Texts());
+            Assert.Equal("Sam Taylor", MobileSettings.Load(Path.Combine(root, "settings.json")).Name);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 }

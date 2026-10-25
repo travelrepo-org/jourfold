@@ -21,14 +21,14 @@ public static class MoreView
         var people = trip.Entities.Values.Count(e => e.Type == "person");
         var page = Ui.V(18, Lines.TripHeader(s),
             Group(str["TripTools"],
-                Row("ticket", str["Bookings"], string.Format(CultureInfo.CurrentCulture, str["CountBookings"], bookings)),
-                Row("square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], openTasks)),
-                Row("wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),
+                Row(s, "bookings", "ticket", str["Bookings"], string.Format(CultureInfo.CurrentCulture, str["CountBookings"], bookings)),
+                Row(s, "tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], openTasks)),
+                Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),
             Group(str["TripTogether"],
-                Row("users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),
-                Row("refresh-cw", str["SyncAndVersions"], str["SavedOnPhone"])),
+                Row(s, "travellers", "users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),
+                Row(s, "sync", "refresh-cw", str["SyncAndVersions"], s.HasChanges ? str["ChangesNotInVersion"] : str["SavedOnPhone"])),
             Group(str["App"],
-                Row("settings", str["Settings"], null)));
+                Row(s, "settings", "settings", str["Settings"], null)));
         page.Margin = new Thickness(0, 0, 0, 24);
         return Ui.Scroll(page);
     }
@@ -40,7 +40,13 @@ public static class MoreView
         return Ui.V(8, Ui.Text(title, "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
     }
 
-    private static Control Row(string icon, string title, string? detail) =>
-        Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.V(1, Ui.Text(title, "strong"), detail is null ? null : Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle"))
-            .Also(g => { g.MinHeight = 56; g.Margin = new Thickness(16, 8); });
+    private static Control Row(MobileSession s, string page, string icon, string title, string? detail)
+    {
+        var content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.V(1, Ui.Text(title, "strong"), detail is null ? null : Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle"))
+            .Also(g => g.MinHeight = 40);
+        var row = new Button { Content = content }.Classed("row");
+        Avalonia.Automation.AutomationProperties.SetName(row, title);
+        row.Click += (_, _) => s.ShowPage(page);
+        return row;
+    }
 }

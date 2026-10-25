@@ -65,11 +65,13 @@ public sealed class QuickAddView
     {
         var entry = s.Entry(item.Id);
         title.Text = item.Title; body.Text = item.Data["body"]?.ToString();
-        kind = item.Type == "note" ? "note" : item.Type == "expense" ? "expense" : "activity";
+        // Only plan items have a day and a time; bookings, tasks and notes edit their title and text.
+        kind = item.Type switch { "schedule_item" => "activity", "expense" => "expense", _ => "note" };
         day = entry?.Day ?? day;
         var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(entry?.Zone ?? "") ?? ScheduleQueries.TripZone(s.Trip!);
         if (entry is { IsTimed: true, Start: { } a }) { start.SelectedTime = a.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); if (entry.End is { } b) end.SelectedTime = b.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); }
         idea.IsChecked = item.Data["status"]?.ToString() == "idea";
+        if (TripSummaries.Money(item.Data["amount"]) is { } money) { amount.Text = money.Amount.ToString(CultureInfo.InvariantCulture); currency = money.Currency; }
     }
 
     private bool Scheduled => kind is "activity" or "food" or "transport" or "accommodation" or "idea";
@@ -90,7 +92,7 @@ public sealed class QuickAddView
         }
         form.Children.Add(title);
         if (kind == "note") { form.Children.Add(body); return; }
-        if (Scheduled || kind == "expense") form.Children.Add(Field(kind == "expense" ? str["Date"] : str["DayLabel"], Days()));
+        if (Scheduled) form.Children.Add(Field(str["DayLabel"], Days()));
         if (Scheduled)
         {
             form.Children.Add(Field(kind == "accommodation" ? str["CheckIn"] : str["StartTime"], start));
@@ -101,7 +103,8 @@ public sealed class QuickAddView
         if (kind == "expense")
         {
             var currencies = Ui.Flow(8);
-            foreach (var c in TripSummaries.Costs(s.Trip!).Select(t => t.Currency).Append("EUR").Distinct())
+            // An expense keeps its currency once it exists.
+            foreach (var c in editing is not null ? [currency] : TripSummaries.Costs(s.Trip!).Select(t => t.Currency).Append("EUR").Distinct())
             {
                 var chip = Ui.Choice(c, null, c == currency, "chip"); var chosen = c;
                 chip.Click += (_, _) => { currency = chosen; Render(); };
@@ -139,16 +142,16 @@ public sealed class QuickAddView
             var placeText = place.Text?.Trim();
             var placeChoice = string.IsNullOrEmpty(placeText) ? null
                 : s.Trip!.Entities.Values.FirstOrDefault(p => p.Type == "place" && string.Equals(p.Title, placeText, StringComparison.CurrentCultureIgnoreCase)) is { } known ? PlaceChoice.Existing(known.Id) : PlaceChoice.Create(placeText);
-            if (editing is not null) { await s.SaveEditAsync(editing.Id, title.Text!, body.Text, day, from, length); return; }
             decimal? money = null;
             if (kind == "expense")
             {
                 if (!decimal.TryParse(amount.Text?.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)) throw new DomainException("mobile.amount", s.Strings["EnterAmount"]);
                 money = value;
             }
+            if (editing is not null) { await s.SaveEditAsync(editing.Id, title.Text!, body.Text, Scheduled ? day : null, Scheduled ? from : null, length, money); return; }
             var draft = new QuickAddDraft(kind == "idea" ? "activity" : kind, title.Text!)
             {
-                Date = kind == "note" ? null : day,
+                Date = Scheduled ? day : null,
                 Start = from,
                 Length = length,
                 Place = kind == "transport" ? null : placeChoice,

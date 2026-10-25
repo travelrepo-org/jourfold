@@ -19,6 +19,14 @@ Today follows the phone's clock and adds the item's local time when its zone dif
 the item's local time and add the phone's time when the phone is in another zone. A journey across zones always names
 both zones. `TimeText` implements these rules and `MobileTests` checks them.
 
+## Versions on the phone
+
+Every change is saved to the trip folder right away. Once the trip has been quiet for two minutes, or when the app
+goes to the background or the trip is closed, the open changes become a version on their own. Sync and versions also
+lets the user create a version with their own description and shows the recent ones. The name and email under
+Settings are used for versions made on the phone; they are kept in `settings.json` in the app's private folder,
+never in a trip. The phone app does not use Git words such as commit or branch.
+
 ## Building for Android
 
 Needs the .NET `android` workload, the Android SDK with an NDK (r28 or later) and CMake, and TravelRepo checked out

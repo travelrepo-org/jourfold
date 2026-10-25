@@ -14,6 +14,8 @@ public sealed class MobileSettings
     public string? Email { get; set; }
     /// <summary>The public client ID of the GitHub App used to sign in.</summary>
     public string? GitHubClientId { get; set; }
+    /// <summary>The GitHub account of the last sign-in, shown while offline. The token itself is not kept here.</summary>
+    public string? GitHubLogin { get; set; }
     /// <summary>When each trip folder last synced, by folder name.</summary>
     public Dictionary<string, DateTimeOffset> LastSync { get; set; } = [];
 

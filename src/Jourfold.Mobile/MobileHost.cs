@@ -1,5 +1,6 @@
 using NodaTime;
 using TravelRepo.Git;
+using TravelRepo.Providers;
 
 namespace Jourfold.Mobile;
 
@@ -12,7 +13,10 @@ namespace Jourfold.Mobile;
 /// <param name="Clock">The current time.</param>
 /// <param name="PhoneZone">The device's time zone, read again each time because it changes when travelling.</param>
 /// <param name="Language">"en" or "de".</param>
-public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language)
+/// <param name="Secrets">The device's secure storage for the GitHub sign-in. Git reads it through <see cref="Jourfold.Application.GitHubCredentialBroker"/>.</param>
+/// <param name="Http">How the app reaches GitHub; tests pass a fake.</param>
+/// <param name="GitHubClientId">The GitHub App this build signs in with, if one is built in. Settings can name another.</param>
+public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null)
 {
     public string TripsRoot => Path.Combine(DataRoot, "trips");
     public string RecoveryRoot => Path.Combine(DataRoot, "recovery");

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Jourfold.Application;
 using Jourfold.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using TravelRepo.Git;

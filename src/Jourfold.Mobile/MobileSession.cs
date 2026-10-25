@@ -21,7 +21,7 @@ public sealed record Question(string Text, string Action, Func<Task> Run);
 /// What the phone app shows and where the user is: the trips on this device, the open trip with its day plan, the tab,
 /// the day and the selected item. Views read it and render; every change raises <see cref="Changed"/>.
 /// </summary>
-public sealed class MobileSession : IDisposable
+public sealed partial class MobileSession : IDisposable
 {
     public MobileHost Host { get; }
     public Localization Strings { get; }
@@ -37,6 +37,8 @@ public sealed class MobileSession : IDisposable
     private readonly HashSet<Guid> expanded = [];
 
     public MobileSettings Settings { get; }
+    /// <summary>Text typed into fields on pages that are drawn again after each change, by field, so none of it is lost.</summary>
+    public Dictionary<string, string?> Drafts { get; } = [];
     /// <summary>A page under More, such as "bookings" or "sync"; null for More itself.</summary>
     public string? Page { get; private set; }
     public IReadOnlyList<TravelRepo.Git.VersionEntry> History { get; private set; } = [];
@@ -47,6 +49,7 @@ public sealed class MobileSession : IDisposable
     public static readonly TimeSpan QuietTime = TimeSpan.FromMinutes(2);
     private readonly SynchronizationContext? context = SynchronizationContext.Current;
     private Timer? quiet;
+    private readonly SemaphoreSlim saving = new(1, 1);
 
     public MobileSession(MobileHost host)
     {
@@ -99,7 +102,12 @@ public sealed class MobileSession : IDisposable
         Agenda = TripAgenda.Build(workspace.State.Trip);
         Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false;
         SelectedDate = Agenda.Find(PhoneToday) is not null ? PhoneToday : Agenda.Days.FirstOrDefault()?.Date ?? PhoneToday;
+        await RefreshRemoteAsync(ct);
+        // Changes left from the last time, for example when Android stopped the app, become a version soon.
+        if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) NoteChange();
         Changed?.Invoke();
+        // Others may have changed the trip since it was last open here.
+        if (GitHubLogin is not null && Remote is not null) _ = SyncAsync(quiet: true, CancellationToken.None);
     }
 
     /// <summary>Back to the trip list. Open changes are saved as a version first.</summary>
@@ -113,7 +121,7 @@ public sealed class MobileSession : IDisposable
 
     private void Reset()
     {
-        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null;
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; Drafts.Remove("version");
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
 
@@ -136,11 +144,12 @@ public sealed class MobileSession : IDisposable
 
     public void ShowTab(MobileTab tab) { Tab = tab; Page = null; Changed?.Invoke(); }
 
-    /// <summary>Opens a page under More; the history is read when the sync page opens.</summary>
+    /// <summary>Opens a page under More. The sync page appears once its versions are read, so it is drawn only once.</summary>
     public void ShowPage(string? page)
     {
-        Tab = MobileTab.More; Page = page; Changed?.Invoke();
-        if (page == "sync") _ = RefreshVersionsAsync();
+        Tab = MobileTab.More; Page = page;
+        if (page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true);
+        else Changed?.Invoke();
     }
 
     /// <summary>Saves name and email; versions made from now on carry them.</summary>
@@ -153,13 +162,17 @@ public sealed class MobileSession : IDisposable
         Changed?.Invoke();
     }
 
-    public async Task RefreshVersionsAsync(CancellationToken ct = default)
+    /// <summary>Reads the versions and whether there are open changes; the page is drawn again only if they differ.</summary>
+    public async Task RefreshVersionsAsync(CancellationToken ct = default) => await RefreshVersionsAsync(false, ct);
+
+    private async Task RefreshVersionsAsync(bool force, CancellationToken ct = default)
     {
         if (Workspace is not { } workspace) return;
+        var before = (History.FirstOrDefault()?.Commit, HasChanges);
         History = await workspace.Git.HistoryAsync(ct);
         if (History.Count > 0 && DateTimeOffset.TryParse(History[0].Timestamp, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var last)) LastVersion = last;
         HasChanges = !string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct));
-        Changed?.Invoke();
+        if (force || before != (History.FirstOrDefault()?.Commit, HasChanges)) Changed?.Invoke();
     }
 
     /// <summary>Saves the trip's current state as a version with the user's own message.</summary>
@@ -168,8 +181,9 @@ public sealed class MobileSession : IDisposable
         if (Workspace is not { } workspace) return;
         quiet?.Dispose(); quiet = null;
         await workspace.Git.CreateVersionAsync(message.Trim(), "user-version", ct);
+        Drafts.Remove("version");
         LastVersion = DateTimeOffset.Now;
-        await RefreshVersionsAsync(ct);
+        await RefreshVersionsAsync(force: true, ct);
     }
 
     /// <summary>
@@ -180,16 +194,28 @@ public sealed class MobileSession : IDisposable
     {
         HasChanges = true;
         quiet?.Dispose();
-        quiet = new Timer(_ => Post(() => _ = SaveChangesAsync()), null, QuietTime, Timeout.InfiniteTimeSpan);
+        quiet = new Timer(_ => Post(() => _ = AutoSaveAsync()), null, QuietTime, Timeout.InfiniteTimeSpan);
     }
 
     private void Post(Action action) { if (context is null) action(); else context.Post(_ => action(), null); }
+
+    /// <summary>
+    /// Turns open changes into a version and, when signed in, syncs the trip. The platform app calls it when the app
+    /// goes to the background.
+    /// </summary>
+    public async Task AutoSaveAsync(CancellationToken ct = default)
+    {
+        await SaveChangesAsync(ct);
+        if (GitHubLogin is not null) await SyncAsync(quiet: true, ct);
+    }
 
     /// <summary>Turns open changes into a version. Nothing happens when there are none.</summary>
     public async Task SaveChangesAsync(CancellationToken ct = default)
     {
         quiet?.Dispose(); quiet = null;
         if (Workspace is not { } workspace) return;
+        // The timer, leaving the app and sync can ask at the same moment; one version is enough.
+        await saving.WaitAsync(ct);
         try
         {
             if (string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) { HasChanges = false; return; }
@@ -197,8 +223,9 @@ public sealed class MobileSession : IDisposable
             LastVersion = DateTimeOffset.Now; HasChanges = false;
         }
         catch (DomainException) { HasChanges = true; }
-        Changed?.Invoke();
+        finally { saving.Release(); Changed?.Invoke(); }
     }
+
     public void ShowDate(LocalDate date) { SelectedDate = date; SelectedItem = null; Changed?.Invoke(); }
     public void Select(Guid? item) { SelectedItem = SelectedItem == item ? null : item; Changed?.Invoke(); }
     public void ToggleGroup(Guid group) { if (!expanded.Remove(group)) expanded.Add(group); Changed?.Invoke(); }

@@ -55,7 +55,7 @@ public sealed class MobileTests : IDisposable
     public async Task TheSampleTripOpensOnTodayAndEveryPlaceRenders()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         try
@@ -80,7 +80,7 @@ public sealed class MobileTests : IDisposable
     public async Task QuickAddDetailsStatusEditAndDeleteWorkOnThePhone()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         try
@@ -114,7 +114,7 @@ public sealed class MobileTests : IDisposable
     public async Task ThePagesUnderMoreRenderAndChangesBecomeVersions()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en"));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
         var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
         await session.SaveSettingsAsync("Sam Taylor", "sam@example.invalid");
         await session.OpenAsync(path);
@@ -159,6 +159,94 @@ public sealed class MobileTests : IDisposable
             Assert.Equal("Sam Taylor", MobileSettings.Load(Path.Combine(root, "settings.json")).Name);
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task SigningInToGitHubShowsTheCodeAndRemembersTheAccount()
+    {
+        var github = new FakeGitHub();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets(), github));
+        await session.SignInAsync();
+        Assert.Equal("Enter the client ID of your GitHub App first.", session.SignInProblem);
+
+        var signIn = session.SignInAsync("Iv23-test");
+        while (session.SignInCode is null && !signIn.IsCompleted) await Task.Delay(20);
+        Assert.Equal("WDJB-MJHT", session.SignInCode?.UserCode);
+        await signIn;
+        Assert.Null(session.SignInProblem);
+        Assert.Equal("sam-travels", session.GitHubLogin);
+        Assert.Equal("Sam Taylor", session.Settings.Name);
+        Assert.Equal("Iv23-test", MobileSettings.Load(Path.Combine(root, "settings.json")).GitHubClientId);
+
+        // A new start reads the sign-in without going online.
+        var again = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", session.Host.Secrets, github));
+        await again.LoadGitHubAsync();
+        Assert.Equal("sam-travels", again.GitHubLogin);
+        await again.SignOutAsync();
+        Assert.Null(again.GitHubLogin);
+    }
+
+    [AvaloniaFact]
+    public async Task TwoPhonesSyncAndCombineTheirChanges()
+    {
+        var git = new GitCliBackend();
+        var shared = Path.Combine(root, "shared.git"); Directory.CreateDirectory(shared);
+        Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
+        var secrets = new MemorySecrets(); await secrets.WriteAsync("github.user-token", "token");
+        MobileSession Phone(string name)
+        {
+            var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
+            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex" }""");
+            return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets));
+        }
+        var alex = Phone("alex"); var sam = Phone("sam");
+        await alex.LoadGitHubAsync(); await sam.LoadGitHubAsync();
+        var path = await alex.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await alex.OpenAsync(path);
+        await alex.Workspace!.Git.AddRemoteAsync("origin", shared);
+        await alex.OpenAsync(path);
+        Assert.Equal("origin", alex.Remote);
+        // Opening a shared trip syncs it in the background.
+        while (alex.Syncing) await Task.Delay(20);
+        Assert.Null(alex.SyncProblem); Assert.NotNull(alex.LastSync);
+
+        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        Assert.Equal("Spring in Japan", sam.Trip!.Manifest.Title);
+        while (sam.Syncing) await Task.Delay(20);
+
+        var wifi = alex.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+        var passport = sam.Trip!.Entities.Values.Single(e => e.Title == "Check passport validity");
+        await alex.SetTaskDoneAsync(wifi.Id, true); await alex.AutoSaveAsync();
+        await sam.SetTaskDoneAsync(passport.Id, false); await sam.AutoSaveAsync();
+        Assert.Null(sam.SyncProblem);
+        Assert.Equal("completed", sam.Trip!.Find(wifi.Id)!.Data["status"]!.ToString());
+        await alex.SyncAsync(quiet: false);
+        Assert.Equal("open", alex.Trip!.Find(passport.Id)!.Data["status"]!.ToString());
+        alex.Dispose(); sam.Dispose();
+    }
+
+    private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore
+    {
+        private readonly Dictionary<string, string> values = [];
+        public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult(values.GetValueOrDefault(key));
+        public Task WriteAsync(string key, string value, CancellationToken ct = default) { values[key] = value; return Task.CompletedTask; }
+        public Task DeleteAsync(string key, CancellationToken ct = default) { values.Remove(key); return Task.CompletedTask; }
+    }
+
+    /// <summary>GitHub's device sign-in, answered at once.</summary>
+    private sealed class FakeGitHub : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var body = request.RequestUri!.AbsolutePath switch
+            {
+                "/login/device/code" => """{ "device_code": "device", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device", "expires_in": 900, "interval": 0 }""",
+                "/login/oauth/access_token" => """{ "access_token": "token" }""",
+                "/user" => """{ "login": "sam-travels", "name": "Sam Taylor" }""",
+                _ => throw new InvalidOperationException(request.RequestUri.ToString())
+            };
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
     }
 
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }

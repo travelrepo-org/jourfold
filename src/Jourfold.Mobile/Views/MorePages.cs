@@ -55,6 +55,18 @@ public static class MorePages
         return open ? Ui.V(0, button, details().Margin(16, 0, 16, 16)) : button;
     }
 
+    /// <summary>A field that keeps what was typed when the page is drawn again, and the keyboard focus with it.</summary>
+    private static TextBox Draft(MobileSession s, string key, TextBox box)
+    {
+        if (s.Drafts.TryGetValue(key, out var text)) box.Text = text;
+        box.TextChanged += (_, _) => s.Drafts[key] = box.Text;
+        box.GotFocus += (_, _) => s.Drafts["focus"] = key;
+        box.LostFocus += (_, _) => { if (s.Drafts.GetValueOrDefault("focus") == key) s.Drafts.Remove("focus"); };
+        if (s.Drafts.GetValueOrDefault("focus") == key)
+            box.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => { box.Focus(); box.CaretIndex = box.Text?.Length ?? 0; }, Avalonia.Threading.DispatcherPriority.Background);
+        return box;
+    }
+
     private static Control Empty(string icon, string title, string body) => Ui.Card(Ui.EmptyState(icon, title, body), 0).Margin(16, 0);
 
     private static string Day(LocalDate date, MobileSession s) => date.ToString("ddd d MMM", CultureInfo.GetCultureInfo(s.Strings.Language));
@@ -255,7 +267,7 @@ public static class MorePages
             ? Ui.Columns("Auto,*", Ui.Icon("pencil", 22, "Text.Muted").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"), Ui.Text(str["ChangesBecomeVersion"], "caption")))
             : Ui.Columns("Auto,*", Ui.Icon("circle-check", 22, "Success").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["AllSavedOnPhone"], "strong"),
                 s.LastVersion is { } last ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["LastVersionAt"], Formats.Relative(last, str)), "caption") : null));
-        var message = new TextBox { PlaceholderText = str["VersionMessage"] };
+        var message = Draft(s, "version", new TextBox { PlaceholderText = str["VersionMessage"] });
         AutomationProperties.SetName(message, str["VersionMessage"]);
         var create = Ui.Button(str["CreateVersion"], "bookmark", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
         var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
@@ -276,8 +288,10 @@ public static class MorePages
         }).ToArray();
         return Frame(s, str["SyncAndVersions"],
             Ui.Card(state, 16).Margin(16, 0),
+            GitHubView.TripState(s).Margin(16, 0),
             Ui.V(8, Ui.Text(str["CreateVersion"], "overline").Margin(20, 0), Ui.Card(Ui.V(10, Ui.Text(str["CreateVersionHint"], "caption"), message, problem, create), 14).Margin(16, 0)),
-            versions.Length == 0 ? null : Group(str["RecentVersions"], versions));
+            versions.Length == 0 ? null : Group(str["RecentVersions"], versions),
+            Ui.V(8, Ui.Text("GitHub", "overline").Margin(20, 0), GitHubView.Account(s).Margin(16, 0)));
     }
 
     // Settings
@@ -285,10 +299,10 @@ public static class MorePages
     private static Control Settings(MobileSession s)
     {
         var str = s.Strings;
-        var name = new TextBox { Text = s.Settings.Name, PlaceholderText = str["YourName"] }; AutomationProperties.SetName(name, str["Name"]);
-        var email = new TextBox { Text = s.Settings.Email, PlaceholderText = "name@example.com" }; AutomationProperties.SetName(email, str["Email"]);
+        var name = Draft(s, "name", new TextBox { Text = s.Settings.Name, PlaceholderText = str["YourName"] }); AutomationProperties.SetName(name, str["Name"]);
+        var email = Draft(s, "email", new TextBox { Text = s.Settings.Email, PlaceholderText = "name@example.com" }); AutomationProperties.SetName(email, str["Email"]);
         var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
-        save.Click += async (_, _) => await s.SaveSettingsAsync(name.Text, email.Text);
+        save.Click += async (_, _) => { s.Drafts.Remove("name"); s.Drafts.Remove("email"); await s.SaveSettingsAsync(name.Text, email.Text); };
         var version = typeof(MorePages).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
             .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "";
         long size = 0;

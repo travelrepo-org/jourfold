@@ -58,9 +58,3 @@ public sealed class OsSecretStore : ISecretStore
         try { var c = Marshal.PtrToStructure<Credential>(ptr); return Marshal.PtrToStringUni(c.CredentialBlob, (int)c.CredentialBlobSize / 2); } finally { CredFree(ptr); }
     }
 }
-
-public sealed class GitHubCredentialBroker(ISecretStore store) : TravelRepo.Git.ICredentialBroker
-{
-    public async Task<TravelRepo.Git.GitCredential?> GetAsync(Uri origin, CancellationToken ct = default)
-    { if (origin.Host != "github.com") return null; var token = await store.ReadAsync("github.user-token", ct); return token is null ? null : new("x-access-token", token); }
-}

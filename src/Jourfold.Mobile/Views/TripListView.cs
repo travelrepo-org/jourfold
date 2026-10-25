@@ -12,6 +12,7 @@ public static class TripListView
 {
     public static Control Build(MobileSession s)
     {
+        if (s.RemoteTrips is { } remote) return GitHubView.RemoteTrips(s, remote);
         var logo = new Image { Height = 30, HorizontalAlignment = HorizontalAlignment.Left, Stretch = Stretch.Uniform };
         logo.Bind(Image.SourceProperty, logo.GetResourceObservable(Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark ? "Brand.Lockup.Dark" : "Brand.Lockup.Light"));
         var page = Ui.V(14, logo.Margin(20, 16, 20, 4), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
@@ -19,7 +20,22 @@ public static class TripListView
         if (s.Trips.Count == 0) page.Children.Add(Ui.Text(s.Strings["NoTripsYet"], "muted").Margin(20, 0));
         var sample = Ui.Button(s.Strings["ExploreSample"], "sparkles", s.Trips.Count == 0 ? "primary" : "soft");
         sample.Click += async (_, _) => { sample.IsEnabled = false; await s.OpenAsync(await s.CreateSampleAsync()); };
-        page.Children.Add(sample.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch).Margin(16, 8, 16, 24));
+        page.Children.Add(sample.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch).Margin(16, 8, 16, 8));
+        // A trip someone shares on GitHub comes to the phone from here.
+        page.Children.Add(Ui.Text(s.Strings["SharedTrips"], "overline").Margin(20, 8, 20, 0));
+        if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
+        else
+        {
+            var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
+            var find = Ui.Button(s.Strings["GetTripFromGitHub"], "download");
+            find.Click += async (_, _) =>
+            {
+                find.IsEnabled = false;
+                try { await s.FindRemoteTripsAsync(); }
+                catch (Exception ex) when (ex is TravelRepo.Core.DomainException or HttpRequestException) { problem.Text = s.Strings.Error(ex); problem.IsVisible = true; find.IsEnabled = true; }
+            };
+            page.Children.Add(Ui.V(8, find.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch), problem).Margin(16, 0, 16, 24));
+        }
         return Ui.Scroll(page);
     }
 

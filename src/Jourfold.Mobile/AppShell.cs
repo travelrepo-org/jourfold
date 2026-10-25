@@ -56,7 +56,7 @@ public sealed class AppShell : UserControl
             top.ScalingChanged += (_, _) => Render();
         }
         top.BackRequested += OnBack;
-        if (Session.Trips.Count == 0 && Session.Workspace is null) _ = Session.LoadTripsAsync();
+        if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -69,7 +69,7 @@ public sealed class AppShell : UserControl
     private void OnBack(object? sender, RoutedEventArgs e)
     {
         if (Session.Asking is not null || Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
-        if (Session.Workspace is null) return;
+        if (Session.Workspace is null) { if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; } return; }
         if (Session.Page is not null) Session.ShowPage(null);
         else if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today);
         else Session.Close();

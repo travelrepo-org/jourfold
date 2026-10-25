@@ -20,7 +20,7 @@ Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
 Directory.CreateDirectory(temporary); File.WriteAllText(Path.Combine(temporary, "gitconfig"), "");
 var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
 var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(tokyo).ToInstant();
-MobileApp.Host = new MobileHost(temporary, new GitCliBackend(), new FixedClock(now), () => tokyo, language);
+MobileApp.Host = new MobileHost(temporary, new GitCliBackend(), new FixedClock(now), () => tokyo, language, new NoSecrets());
 
 try
 {
@@ -99,3 +99,11 @@ public sealed class MobileScreenshotApp
 }
 
 sealed class FixedClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
+
+/// <summary>Screenshots never sign in.</summary>
+sealed class NoSecrets : TravelRepo.Providers.ISecretStore
+{
+    public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult<string?>(null);
+    public Task WriteAsync(string key, string value, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+}

@@ -31,8 +31,7 @@ public static class GitHubView
         TextBox? client = null;
         if (s.ClientId is null)
         {
-            client = new TextBox { PlaceholderText = "Iv23…", Text = s.Drafts.GetValueOrDefault("client") };
-            var box = client; box.TextChanged += (_, _) => s.Drafts["client"] = box.Text;
+            client = MorePages.Draft(s, "client", new TextBox { PlaceholderText = "Iv23…" });
             AutomationProperties.SetName(client, str["GitHubClient"]);
             body.Children.Add(Ui.Field(str["GitHubClient"], client));
             body.Children.Add(Ui.Text(str["GitHubClientHint"], "caption"));

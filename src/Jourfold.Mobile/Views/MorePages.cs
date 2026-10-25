@@ -56,7 +56,7 @@ public static class MorePages
     }
 
     /// <summary>A field that keeps what was typed when the page is drawn again, and the keyboard focus with it.</summary>
-    private static TextBox Draft(MobileSession s, string key, TextBox box)
+    public static TextBox Draft(MobileSession s, string key, TextBox box)
     {
         if (s.Drafts.TryGetValue(key, out var text)) box.Text = text;
         box.TextChanged += (_, _) => s.Drafts[key] = box.Text;

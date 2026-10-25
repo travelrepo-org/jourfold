@@ -28,6 +28,7 @@ public sealed class AppShell : UserControl
     private (Overlay Kind, Guid? Item) sheetFor;
     private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
+    private Border? bottomBar;
 
     public AppShell(MobileSession session)
     {
@@ -52,10 +53,21 @@ public sealed class AppShell : UserControl
             // Read again on every render: Avalonia reports the first values before it knows the screen's scaling
             // (in pixels, not dp) and does not report the corrected ones.
             this.insets = insets;
-            insets.SafeAreaChanged += (_, _) => Render();
-            top.ScalingChanged += (_, _) => Render();
+            // Only the padding changes. Drawing the page again would take the focus from a text field, and Android
+            // reports changed insets each time the keyboard opens, which would close it right away.
+            insets.SafeAreaChanged += (_, _) => Inset();
+            top.ScalingChanged += (_, _) => Inset();
         }
         top.BackRequested += OnBack;
+        // Pages end above the on-screen keyboard and scroll the field being typed in into view. Sheets keep clear of
+        // the keyboard themselves.
+        if (top.InputPane is { } pane)
+            pane.StateChanged += (_, args) =>
+            {
+                main.Margin = new Thickness(0, 0, 0, args.NewState == Avalonia.Controls.Platform.InputPaneState.Open ? Math.Max(0, args.EndRect.Height - safeArea.Bottom) : 0);
+                if (args.NewState == Avalonia.Controls.Platform.InputPaneState.Open)
+                    Dispatcher.UIThread.Post(() => (top.FocusManager?.GetFocusedElement() as Control)?.BringIntoView(), DispatcherPriority.Background);
+            };
         if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
     }
 
@@ -76,14 +88,23 @@ public sealed class AppShell : UserControl
         e.Handled = true;
     }
 
-    private void Render()
+    /// <summary>
+    /// Keeps the content inside the safe area. The bottom bar reaches the screen's edge and keeps its buttons above the
+    /// gesture bar.
+    /// </summary>
+    private void Inset()
     {
-        Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
-        // The bottom bar reaches the screen's edge and keeps its buttons above the gesture bar; everything else stays
-        // inside the safe area.
         safeArea = insets is { DisplaysEdgeToEdge: true } ? insets.SafeAreaPadding : default;
         var bar = Session.Workspace is not null && Breakpoint == WidthClass.Phone;
         root.Padding = new Thickness(safeArea.Left, safeArea.Top, safeArea.Right, bar ? 0 : safeArea.Bottom);
+        if (bottomBar is not null) bottomBar.Padding = new Thickness(0, 0, 0, safeArea.Bottom);
+    }
+
+    private void Render()
+    {
+        Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
+        bottomBar = null;
+        Inset();
         if (Session.Workspace is null) { main.Child = TripListView.Build(Session); Overlays(docked: false); return; }
         var page = Session.Tab switch
         {
@@ -185,7 +206,7 @@ public sealed class AppShell : UserControl
         grid.Children.Add(Plus().Margin(8, 4).Col(2));
         grid.Children.Add(Place(Places[2].Tab, Places[2].Icon, Places[2].Label).Col(3));
         grid.Children.Add(Place(Places[3].Tab, Places[3].Icon, Places[3].Label).Col(4));
-        return new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom) }.Classed("bar");
+        return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom) }.Classed("bar");
     }
 
     /// <summary>The rail on tablets: the plus on top, then the four places.</summary>

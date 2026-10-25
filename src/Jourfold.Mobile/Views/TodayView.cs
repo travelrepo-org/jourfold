@@ -24,7 +24,7 @@ public static class TodayView
         var current = lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start <= now && (l.End ?? l.Start) > now)
             ?? lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start > now);
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
-            Ui.Text(Zone(phone, now), "caption")).Margin(16, 0));
+            Ui.Text(TimeText.PhoneHeading(phone, s.Strings), "caption")).Margin(16, 0));
         if (current is not null) page.Children.Add(NextCard(s, current, now, phone).Margin(16, 0));
 
         var rail = Ui.V(10);
@@ -34,7 +34,7 @@ public static class TodayView
             if (!nowShown && line.Start is { } at && at > now) { rail.Children.Add(NowLine(s, now, phone)); nowShown = true; }
             var past = (line.End ?? line.Start) is { } end && end <= now;
             var state = past ? LineState.Past : ReferenceEquals(line, current) ? LineState.Expanded : LineState.Normal;
-            var time = TimeText.OnPhone(line, phone, s.Strings);
+            var time = TimeText.OnPhone(line, phone, s.Strings, s.Trip);
             rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state), Views.Lines.Card(s, line, state, () => s.ShowDetails(line.Item.Id), time: time)));
         }
         if (!nowShown) rail.Children.Add(NowLine(s, now, phone));
@@ -49,17 +49,16 @@ public static class TodayView
     {
         var from = phone.AtStartOfDay(today).ToInstant(); var to = phone.AtStartOfDay(today.PlusDays(1)).ToInstant();
         bool Touches(AgendaEntry e) => e.Start is { } a ? a < to && (e.End ?? a) >= from : e.Day == today;
-        var all = s.Agenda.Days.SelectMany(d => d.Entries).SelectMany(e => e.IsGroup ? e.Steps : [e]).Where(Touches);
+        // Today reads spans itself, so an item from yesterday that is still running shows once, with its own times.
+        var all = s.Agenda.Days.SelectMany(d => d.Entries).Where(e => e.Role != AgendaRole.Continued).SelectMany(e => e.IsGroup ? e.Steps : [e]).Where(Touches);
         return all.DistinctBy(e => (e.Item.Id, e.Role)).OrderBy(e => e.Precision == TimePrecision.AllDay ? 0 : e.Start is null ? 2 : 1).ThenBy(e => e.Start).ToList();
     }
-
-    private static string Zone(DateTimeZone zone, Instant now) => Formats.ZoneName(zone.Id) + " (" + TravelRepo.Repository.ExportTimes.Abbreviation(zone, now) + ")";
 
     /// <summary>The next item, or the one happening now, with when it starts and a way to get there.</summary>
     private static Control NextCard(MobileSession s, AgendaEntry e, Instant now, DateTimeZone phone)
     {
         var happening = e.Start <= now;
-        var time = TimeText.OnPhone(e, phone, s.Strings);
+        var time = TimeText.OnPhone(e, phone, s.Strings, s.Trip);
         var when = happening ? string.Format(CultureInfo.CurrentCulture, s.Strings["UntilTime"], e.End is { } end ? end.InZone(phone).TimeOfDay.ToString("HH:mm", CultureInfo.InvariantCulture) : "") : TimeText.Until(now, e.Start!.Value, s.Strings);
         var place = Views.Lines.Where(s.Trip!, e.Item);
         var navigate = Navigation.Button(s, e.Item);

@@ -33,10 +33,10 @@ public static class DetailView
         var page = Ui.V(14);
 
         // Glance
-        if (entry is not null && TimeText.Local(entry, s.PhoneZone, str) is { Start.Length: > 0 } time)
+        if (entry is not null && TimeText.Local(entry, s.PhoneZone, str, s.Trip) is { Start.Length: > 0 } time)
         {
             var day = entry.Day is { } d ? d.ToString("ddd d MMM", CultureInfo.GetCultureInfo(str.Language)) + " · " : "";
-            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), time.Other is { } other ? string.Format(CultureInfo.CurrentCulture, str["OnYourPhone"], other) : null));
+            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), time.Other));
         }
         if (Lines.Where(trip, item) is { Length: > 0 } where)
             page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString()));
@@ -67,7 +67,7 @@ public static class DetailView
         foreach (var cost in costs)
             if (TripSummaries.Money(cost.Data["amount"]) is { } money) page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), cost.Title));
         var files = TripReferences.From(item).Concat(booking is null ? [] : TripReferences.From(booking)).Select(r => trip.Find(r.Target)).OfType<Entity>().Where(e => e.Type == "document").DistinctBy(e => e.Id).ToArray();
-        if (files.Length > 0) page.Children.Add(Section(str["Files"], Ui.V(4, files.Select(f => (Control)Row("file", f.Title, null)).ToArray())));
+        if (files.Length > 0) page.Children.Add(Section(str["Files"], Ui.V(0, files.Select(f => FileRow(s, f)).ToArray())));
         if (item.Type == "schedule_item") page.Children.Add(Section(str["Status"], StatusChooser(s, item)));
         var edit = Ui.Button(str["Edit"], "pencil"); edit.Click += (_, _) => s.ShowEditor(item.Id);
         var delete = Ui.Button(str["Delete"], "trash-2", "ghost").Also(b => b.Res(Button.ForegroundProperty, "Danger"));
@@ -99,6 +99,17 @@ public static class DetailView
 
     public static Control Row(string icon, string text, string? detail) =>
         Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, Ui.Text(text), detail is null ? null : Ui.Text(detail, "caption")));
+
+    /// <summary>A file of the item, such as the booking e-mail or a ticket, which opens in the viewer.</summary>
+    private static Control FileRow(MobileSession s, Entity file)
+    {
+        var media = file.Data["media_type"]?.ToString() ?? "";
+        var icon = TravelRepo.Documents.Mail.IsMail(media) ? "mail" : media == "application/pdf" ? "file-text" : media.StartsWith("image/", StringComparison.Ordinal) ? "image" : "file";
+        var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.Text(file.Title), Ui.Icon("chevron-right", 18, "Text.Subtle")) }.Classed("row");
+        Avalonia.Automation.AutomationProperties.SetName(row, file.Title);
+        row.Click += (_, _) => s.ShowDocument(file);
+        return row;
+    }
 
     private static Control Section(string title, Control content) => Ui.V(6, Ui.Text(title, "overline"), content);
 

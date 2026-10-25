@@ -21,7 +21,9 @@ public sealed class Sheet : Grid
     private readonly double[] detents;
     private readonly bool side;
     private int detent;
+    // Where a drag started and how tall the sheet was then; the height follows the finger from there.
     private double? dragFrom, dragHeight;
+    private double dragStartHeight;
     private double keyboard;
 
     /// <summary>Raised when the sheet closes, by dragging down, tapping outside, the back gesture or <see cref="Close"/>.</summary>
@@ -36,7 +38,8 @@ public sealed class Sheet : Grid
         scrim = new Border { Background = new SolidColorBrush(Colors.Black, side ? 0.18 : 0.32) };
         scrim.PointerPressed += (_, e) => { Close(); e.Handled = true; };
         var scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        var top = side ? header : Ui.V(0, Handle(), header);
+        // The whole header takes the drag, not only the handle, so it needs a background to be hit everywhere.
+        var top = new Border { Child = side ? header : Ui.V(0, Handle(), header), Background = Brushes.Transparent };
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         layout.Children.Add(top); layout.Children.Add(scroll.Row(1));
         panel = new Border
@@ -54,7 +57,37 @@ public sealed class Sheet : Grid
         Children.Add(scrim); Children.Add(panel);
         // Dragging works on the handle and the header, so the content can still scroll.
         top.PointerPressed += OnPressed; top.PointerMoved += OnMoved; top.PointerReleased += OnReleased;
+        if (!side) FollowContent(scroll);
         SizeChanged += (_, _) => Place();
+    }
+
+    /// <summary>
+    /// Below the top detent, dragging the content up raises the sheet; at the top of the content, dragging down lowers
+    /// it. Otherwise the content scrolls.
+    /// </summary>
+    private void FollowContent(ScrollViewer scroll)
+    {
+        double? from = null; var dragging = false;
+        scroll.AddHandler(PointerPressedEvent, (_, e) => { from = e.GetPosition(this).Y; dragging = false; }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(PointerMovedEvent, (_, e) =>
+        {
+            if (from is not { } start) return;
+            var y = e.GetPosition(this).Y;
+            if (!dragging)
+            {
+                var up = y - start < -12 && detent < detents.Length - 1; var down = y - start > 12 && scroll.Offset.Y <= 0.5;
+                if (!up && !down) return;
+                dragging = true; dragFrom = y; dragHeight = dragStartHeight = panel.Bounds.Height; panel.Transitions?.Clear(); e.Pointer.Capture(scroll);
+            }
+            OnMoved(scroll, e); e.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            from = null;
+            if (!dragging) return;
+            dragging = false; OnReleased(scroll, e); e.Handled = true;
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(PointerCaptureLostEvent, (_, _) => { if (dragging && dragFrom is not null) { dragging = false; from = null; Settle(dragHeight ?? panel.Bounds.Height); } }, Avalonia.Interactivity.RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     private Control Handle()
@@ -88,21 +121,27 @@ public sealed class Sheet : Grid
     private void OnPressed(object? sender, PointerPressedEventArgs e)
     {
         if (side) return;
-        dragFrom = e.GetPosition(this).Y; dragHeight = panel.Bounds.Height; panel.Transitions?.Clear(); e.Pointer.Capture(sender as IInputElement);
+        dragFrom = e.GetPosition(this).Y; dragHeight = dragStartHeight = panel.Bounds.Height; panel.Transitions?.Clear(); e.Pointer.Capture(sender as IInputElement);
     }
 
     private void OnMoved(object? sender, PointerEventArgs e)
     {
         if (dragFrom is not { } from || side) return;
-        dragHeight = Math.Clamp(panel.Bounds.Height + (from - e.GetPosition(this).Y), 40, Bounds.Height * detents[^1]);
-        dragFrom = e.GetPosition(this).Y; Place();
+        dragHeight = Math.Clamp(dragStartHeight + (from - e.GetPosition(this).Y), 40, Bounds.Height * detents[^1]);
+        Place();
     }
 
     private void OnReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (dragFrom is null || side) return;
         e.Pointer.Capture(null);
-        var height = dragHeight ?? panel.Bounds.Height; dragFrom = null; dragHeight = null;
+        Settle(dragHeight ?? panel.Bounds.Height);
+    }
+
+    /// <summary>Lets go of a drag: the nearest detent, or closed when well below the lowest.</summary>
+    private void Settle(double height)
+    {
+        dragFrom = null; dragHeight = null;
         panel.Transitions = [new DoubleTransition { Property = HeightProperty, Duration = TimeSpan.FromMilliseconds(180), Easing = new Avalonia.Animation.Easings.CubicEaseOut() }];
         var share = height / Math.Max(1, Bounds.Height);
         // Well below the lowest detent closes; otherwise the nearest detent wins.

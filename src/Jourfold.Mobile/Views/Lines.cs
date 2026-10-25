@@ -64,6 +64,7 @@ public static class Lines
     /// One item as a card with a coloured bar for its kind. Ideas get a lighter fill and a dashed outline; done items
     /// are muted; cancelled ones are struck through. Groups show their step count and unfold inline.
     /// </summary>
+    /// <remarks>A long press opens the item's menu (<see cref="Menus.Item"/>).</remarks>
     public static Control Card(MobileSession s, AgendaEntry e, LineState state, Action? onTap, Control? extra = null, bool expandedGroup = false, ClockText? time = null)
     {
         var trip = s.Trip!; var key = Visuals.KindKey(e.Kind);
@@ -71,12 +72,18 @@ public static class Lines
         var title = Ui.Text(e.Item.Title, "title").Also(t => { if (e.Status == "cancelled") t.TextDecorations = TextDecorations.Strikethrough; });
         var place = Where(trip, e.Item);
         var reference = BookingReference(trip, e.Item);
-        var role = e.Role switch { AgendaRole.CheckIn => s.Strings["CheckIn"], AgendaRole.CheckOut => s.Strings["CheckOut"], _ => "" };
+        var role = e.Role switch
+        {
+            AgendaRole.CheckIn => s.Strings["CheckIn"],
+            AgendaRole.CheckOut => s.Strings["CheckOut"],
+            AgendaRole.Continued => !TimeText.EndsOnItsDay(e) ? s.Strings["ContinuesLine"] : e.Kind == ScheduleKind.Transport ? s.Strings["ArrivalLine"] : s.Strings["EndsLine"],
+            _ => ""
+        };
         var arrival = time?.Arrival is { } arrives ? string.Format(CultureInfo.CurrentCulture, s.Strings["ArrivesAt"], arrives) : "";
         var details = string.Join(" · ", new[] { role, place, arrival, e.IsGroup ? string.Format(CultureInfo.CurrentCulture, s.Strings["StepsCount"], e.Steps.Count) : "", reference ?? "" }.Where(t => t.Length > 0));
         var header = Ui.Columns("Auto,*,Auto",
             Ui.Icon(icon, 18, "Kind." + key + ".Fg").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 10, 0),
-            Ui.V(2, title, details.Length > 0 ? Ui.Text(details, "caption") : null),
+            Ui.V(2, title, details.Length > 0 ? Ui.Text(details, "caption") : null, time?.Other is { } other ? Ui.Text(other, "caption", "subtle") : null),
             e.IsGroup ? Ui.Icon(expandedGroup ? "chevron-up" : "chevron-down", 18, "Text.Muted").Margin(8, 0, 0, 0) : StatusChip(e.Status, s)?.Also(c => { c.VerticalAlignment = VerticalAlignment.Top; c.Margin = new Thickness(8, 0, 0, 0); }));
         var body = Ui.V(8, header, extra);
         var idea = e.IsIdea;
@@ -92,6 +99,7 @@ public static class Lines
         if (onTap is null) return visual;
         var button = new Button { Content = visual }.Classed("card");
         AutomationProperties.SetName(button, e.Item.Title + (details.Length > 0 ? ", " + details : ""));
+        Menus.OnHold(button, () => s.ShowMenu(Menus.Item(s, e.Item)));
         button.Click += (_, _) => onTap();
         return button;
     }
@@ -115,14 +123,13 @@ public static class Lines
         return new Border { Child = list, BorderThickness = new Thickness(2, 0, 0, 0), Padding = new Thickness(10, 2, 0, 2) }.Res(Border.BorderBrushProperty, "Line.Strong");
     }
 
-    /// <summary>The time column next to a card: the main time, and below it the other zone's time, quieter.</summary>
-    public static Control TimeColumn(ClockText time, LineState state, bool showOther = true)
+    /// <summary>The time column next to a card: the main time, its end and, for a journey across zones, its place.</summary>
+    public static Control TimeColumn(ClockText time, LineState state)
     {
         // Words such as "Afternoon" or "All day" are set smaller so they fit the narrow column.
         var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Ui.Text(time.Start, "small", "strong"),
             time.End is { } end ? Ui.Text(end, "small", "muted") : null,
-            time.Zone is { } zone ? Ui.Text(zone, "small", "muted") : null,
-            showOther && time.Other is { } other ? Ui.Text(other, "small", "subtle").Margin(0, 2, 0, 0) : null);
+            time.Zone is { } zone ? Ui.Text(zone, "small", "muted").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis) : null);
         if (state == LineState.Past) column.Opacity = 0.55;
         column.VerticalAlignment = VerticalAlignment.Top; column.Margin = new Thickness(0, 10, 8, 0);
         return column;

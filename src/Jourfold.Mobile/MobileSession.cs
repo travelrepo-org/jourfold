@@ -17,6 +17,15 @@ public enum Overlay { None, Details, QuickAdd, Editor }
 /// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
 public sealed record Question(string Text, string Action, Func<Task> Run);
 
+/// <summary>One entry of a long-press menu. It gets the window, for the clipboard and for handing links to other apps.</summary>
+public sealed record MenuAction(string Label, string Icon, Func<Avalonia.Controls.TopLevel?, Task> Run, bool Danger = false);
+
+/// <summary>A file shown in the viewer: a document of the trip or an attachment of an e-mail.</summary>
+public sealed record ShownFile(string Name, string MediaType, byte[] Bytes);
+
+/// <summary>The menu a long press opens, with what it is for as its title.</summary>
+public sealed record ActionMenu(string Title, string? Detail, IReadOnlyList<MenuAction> Actions);
+
 /// <summary>
 /// What the phone app shows and where the user is: the trips on this device, the open trip with its day plan, the tab,
 /// the day and the selected item. Views read it and render; every change raises <see cref="Changed"/>.
@@ -50,6 +59,7 @@ public sealed partial class MobileSession : IDisposable
     private readonly SynchronizationContext? context = SynchronizationContext.Current;
     private Timer? quiet;
     private readonly SemaphoreSlim saving = new(1, 1);
+    private Task closing = Task.CompletedTask;
 
     public MobileSession(MobileHost host)
     {
@@ -115,13 +125,14 @@ public sealed partial class MobileSession : IDisposable
     {
         if (Workspace is null) return;
         var workspace = Workspace; workspace.Changed -= OnWorkspaceChanged; Workspace = null;
-        if (HasChanges) _ = SaveAndDisposeAsync(workspace); else workspace.Dispose();
+        if (HasChanges) closing = SaveAndDisposeAsync(workspace); else workspace.Dispose();
         Reset();
     }
 
     private void Reset()
     {
         quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; Drafts.Remove("version");
+        viewing.Clear(); FileProblem = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
 
@@ -242,6 +253,11 @@ public sealed partial class MobileSession : IDisposable
     public Overlay Showing { get; private set; }
     public Guid? OverlayItem { get; private set; }
     public Question? Asking { get; private set; }
+    /// <summary>The long-press menu that is open, if any.</summary>
+    public ActionMenu? Menu { get; private set; }
+    /// <summary>The files open in the viewer, the one shown last; an attachment opened from an e-mail goes on top.</summary>
+    public IReadOnlyList<ShownFile> Viewing => viewing;
+    private readonly List<ShownFile> viewing = [];
 
     /// <summary>The agenda line of an item: a day's line, a step of a group or an unscheduled item.</summary>
     public AgendaEntry? Entry(Guid id) => Agenda.Days.SelectMany(d => d.Entries).SelectMany(e => e.Steps.Prepend(e)).Concat(Agenda.Unscheduled)
@@ -250,7 +266,61 @@ public sealed partial class MobileSession : IDisposable
     public void ShowDetails(Guid id) { Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
     public void ShowQuickAdd() { Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
     public void ShowEditor(Guid id) { Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
-    public void CloseOverlay() { if (Showing == Overlay.None && Asking is null) return; Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke(); }
+    /// <summary>Closes what is on top: a question or menu first, otherwise the sheet.</summary>
+    public void CloseOverlay()
+    {
+        if (Asking is not null || Menu is not null) { Asking = null; Menu = null; }
+        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; }
+        else return;
+        Changed?.Invoke();
+    }
+    public void ShowMenu(ActionMenu menu) { Menu = menu; Changed?.Invoke(); }
+
+    /// <summary>Opens a document of the trip in the viewer. Its file is read from the trip folder.</summary>
+    public void ShowDocument(Entity document)
+    {
+        if (Workspace is not { } workspace) return;
+        byte[] bytes;
+        try { bytes = File.ReadAllBytes(workspace.Repository.DocumentPath(document)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DomainException)
+        {
+            // The viewer still opens, to say what is missing where the file would be.
+            viewing.Add(new(document.Title, "application/octet-stream", [])); FileProblem = Strings["FileMissing"]; Changed?.Invoke(); return;
+        }
+        ShowFile(new(document.Title, document.Data["media_type"]?.ToString() ?? "application/octet-stream", bytes));
+    }
+
+    public void ShowFile(ShownFile file) { viewing.Add(file); FileProblem = null; Changed?.Invoke(); }
+
+    /// <summary>One step back in the viewer: to the e-mail an attachment came from, or out of the viewer.</summary>
+    public void CloseFile() { if (viewing.Count > 0) viewing.RemoveAt(viewing.Count - 1); FileProblem = null; Changed?.Invoke(); }
+
+    /// <summary>A short message about something that did not work, shown until the next step.</summary>
+    public string? FileProblem { get; private set; }
+
+    /// <summary>
+    /// Hands a file to another app on the phone, such as a PDF viewer. The copy it gets is the only one outside the
+    /// trip folder and is replaced by the next.
+    /// </summary>
+    public async Task<bool> OpenElsewhereAsync(ShownFile file)
+    {
+        if (Host.OpenFile is not { } open) return false;
+        if (Directory.Exists(Host.SharedRoot)) Directory.Delete(Host.SharedRoot, recursive: true);
+        Directory.CreateDirectory(Host.SharedRoot);
+        var name = TravelRepo.Documents.Mail.SafeName(Path.HasExtension(file.Name) ? file.Name : file.Name + TravelRepo.Documents.MediaTypes.Extension(file.MediaType));
+        var path = Path.Combine(Host.SharedRoot, name);
+        await File.WriteAllBytesAsync(path, file.Bytes);
+        if (await open(path, file.MediaType)) return true;
+        FileProblem = Strings["NoAppForFile"]; Changed?.Invoke();
+        return false;
+    }
+
+    /// <summary>Closes the menu and runs the chosen entry; an entry may open another menu, such as the days to move to.</summary>
+    public async Task ChooseAsync(MenuAction action, Avalonia.Controls.TopLevel? top)
+    {
+        Menu = null; Changed?.Invoke();
+        await action.Run(top);
+    }
     public void Confirm(string text, string action, Func<Task> run) { Asking = new(text, action, run); Changed?.Invoke(); }
     public async Task AnswerAsync(bool yes)
     {
@@ -279,6 +349,65 @@ public sealed partial class MobileSession : IDisposable
 
     public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);
     public Task SetTaskDoneAsync(Guid id, bool done, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = done ? "completed" : "open", ct);
+
+    /// <summary>Adds a copy of an item and what it contains, named as a copy, on the same day.</summary>
+    public async Task DuplicateAsync(Guid id, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var copies = TripCommands.DuplicateSubtree(workspace.State.Trip, id);
+        var root = copies[0]; root.Data[root.Data.ContainsKey("name") && !root.Data.ContainsKey("title") ? "name" : "title"] = string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["CopyOf"], root.Title);
+        await workspace.ApplyAsync(copies.Select(c => new EntityEdit(c.Id, c)).ToArray(), ct); NoteChange();
+    }
+
+    /// <summary>Moves an item to another day at the same local time; an item without a time keeps its kind of day.</summary>
+    public async Task MoveToDayAsync(Guid id, LocalDate day, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var entry = Entry(id);
+        if (entry is { IsTimed: true, Start: { } start, Zone: { } zoneId } && DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId) is { } zone)
+        {
+            var length = entry.End is { } end && end > start ? end - start : Duration.FromHours(1);
+            NoteChange();
+            await workspace.ScheduleAsync(id, new ZonedTime(day.At(start.InZone(zone).TimeOfDay).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zoneId), length, ct);
+        }
+        else await UpdateAsync(id, e =>
+        {
+            var date = day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            if (e.Data["time"] is System.Text.Json.Nodes.JsonObject time && time.ContainsKey("date")) time["date"] = date;
+            else e.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "all_day", ["date"] = date };
+        }, ct);
+        if (Agenda.Find(day) is not null) SelectedDate = day;
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// Removes a trip from this phone. A trip shared on GitHub stays there and can be fetched again; one that was only
+    /// here is gone, which the question before says.
+    /// </summary>
+    public async Task DeleteTripAsync(string path, CancellationToken ct = default)
+    {
+        if (Workspace is { } open && Path.GetFullPath(open.Repository.Root) == Path.GetFullPath(path)) Close();
+        // A trip that was just left may still be saving its last version.
+        await closing;
+        await Task.Run(() =>
+        {
+            foreach (var folder in new[] { path, Path.Combine(Host.RecoveryRoot, Path.GetFileName(path)) }.Where(Directory.Exists))
+            {
+                // Git keeps its object files read-only; they have to be writable to be deleted.
+                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
+                Directory.Delete(folder, recursive: true);
+            }
+        }, ct);
+        if (Settings.LastSync.Remove(Path.GetFileName(path))) Settings.Save();
+        await LoadTripsAsync(ct);
+    }
+
+    /// <summary>Whether a trip folder has a copy on GitHub or elsewhere to come back from.</summary>
+    public async Task<bool> IsSharedAsync(string path, CancellationToken ct = default)
+    {
+        try { return (await new TravelRepo.Git.GitRepository(new TravelRepository(path), Host.Git).RemotesAsync(ct)).Count > 0; }
+        catch (DomainException) { return false; }
+    }
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {

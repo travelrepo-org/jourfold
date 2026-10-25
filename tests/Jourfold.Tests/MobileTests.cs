@@ -22,7 +22,7 @@ public sealed class MobileTests : IDisposable
         var item = Entity.Create("schedule_item", "Item");
         item.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime(start, zone).ToJson(), ["end"] = new ZonedTime(end, endZone ?? zone).ToJson() };
         var manifest = Entity.CreateTrip("Trip", "en", "Asia/Tokyo");
-        return TripAgenda.Build(new TripSnapshot(manifest, new Dictionary<Guid, Entity> { [item.Id] = item })).Days.SelectMany(d => d.Entries).Single();
+        return TripAgenda.Build(new TripSnapshot(manifest, new Dictionary<Guid, Entity> { [item.Id] = item })).Days.SelectMany(d => d.Entries).Single(e => e.Role == AgendaRole.Item);
     }
 
     [Fact]
@@ -35,20 +35,20 @@ public sealed class MobileTests : IDisposable
         Assert.Equal(new ClockText("11:00", "13:00"), TimeText.OnPhone(temple, Tokyo, English));
 
         // Planning from Berlin: the plan stays in Tokyo time, the phone's time is added quietly.
-        Assert.Equal(new ClockText("11:00", "13:00", Other: "04:00 CEST"), TimeText.Local(temple, Berlin, English));
+        Assert.Equal(new ClockText("11:00", "13:00", Other: "Berlin: 04:00"), TimeText.Local(temple, Berlin, English));
         // On the road with a phone still in Berlin time, Today leads with the phone's clock.
-        Assert.Equal(new ClockText("04:00", "06:00", Other: "11:00 JST"), TimeText.OnPhone(temple, Berlin, English));
+        Assert.Equal(new ClockText("04:00", "06:00", Other: "Tokyo: 11:00"), TimeText.OnPhone(temple, Berlin, English));
     }
 
     [Fact]
     public void AnotherCalendarDayIsNamedAndAJourneyNamesBothZones()
     {
         var breakfast = Line("2027-05-16T06:00:00", "2027-05-16T07:00:00");
-        Assert.Equal("Sat 23:00 CEST", TimeText.Local(breakfast, Berlin, English).Other);
+        Assert.Equal("Berlin: 23:00 (Sat)", TimeText.Local(breakfast, Berlin, English).Other);
 
         var flight = Line("2027-05-14T13:20:00", "2027-05-15T08:35:00", "Europe/Berlin", "Asia/Tokyo");
         var time = TimeText.Local(flight, Tokyo, English);
-        Assert.Equal("13:20", time.Start); Assert.Equal("CEST", time.Zone); Assert.Equal("08:35 JST +1", time.Arrival); Assert.Null(time.Other);
+        Assert.Equal("13:20", time.Start); Assert.Equal("Berlin", time.Zone); Assert.Equal("08:35 Tokyo +1", time.Arrival); Assert.Null(time.Other);
     }
 
     [AvaloniaFact]
@@ -268,6 +268,148 @@ public sealed class MobileTests : IDisposable
     }
 
     /// <summary>GitHub's device sign-in, answered at once.</summary>
+    [AvaloniaFact]
+    public async Task ANightFlightShowsOnTheDayItLandsAndThePlanNamesItsTimes()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            // The sample's flight leaves Frankfurt on the first day and lands in Tokyo the next morning.
+            var flight = session.Agenda.Find(new LocalDate(2027, 5, 15))!.Entries.Single(e => e.Role == AgendaRole.Continued);
+            Assert.Equal(ScheduleKind.Transport, flight.Kind);
+            session.ShowTab(MobileTab.Plan); session.ShowDate(new LocalDate(2027, 5, 15));
+            Assert.Contains(Texts(), t => t.StartsWith("Arrival", StringComparison.Ordinal));
+            Assert.Contains("Day 2 · Local time Tokyo", Texts());
+            // The stay's check-in says how many nights; the night line is not repeated under it.
+            Assert.Contains("3 nights", Texts());
+            Assert.DoesNotContain(Texts(), t => t.Contains("Night 1 of", StringComparison.Ordinal));
+            Assert.Contains(Texts(), t => t.StartsWith("Berlin: ", StringComparison.Ordinal));
+            // Today follows the phone and shows the flight once, with its own times.
+            session.ShowTab(MobileTab.Today);
+            Assert.Contains("Times as on your phone (Berlin)", Texts());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheLongPressMenusMoveCopyAndRemove()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await session.OpenAsync(path);
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            var senso = session.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.Single(e => e.Item.Title == "Senso-ji and Asakusa");
+            var menu = Jourfold.Mobile.Views.Menus.Item(session, senso.Item);
+            Assert.Equal(["Details", "Edit", "Change status", "Navigate", "Duplicate", "Move to another day", "Delete"], menu.Actions.Select(a => a.Label));
+            session.ShowMenu(menu); Probe.Layout();
+            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "Move to another day");
+
+            // Moving keeps the local time; the plan follows to the new day.
+            await session.ChooseAsync(menu.Actions.Single(a => a.Label == "Move to another day"), null);
+            var days = session.Menu!;
+            await session.ChooseAsync(days.Actions.First(a => a.Label.StartsWith("Tue 18 May", StringComparison.Ordinal)), null);
+            var moved = session.Entry(senso.Item.Id)!;
+            Assert.Equal(new LocalDateTime(2027, 5, 18, 11, 0).InZoneStrictly(Tokyo).ToInstant(), moved.Start);
+            Assert.Equal(senso.End - senso.Start, moved.End - moved.Start);
+            Assert.Equal(new LocalDate(2027, 5, 18), session.SelectedDate);
+
+            await session.DuplicateAsync(senso.Item.Id);
+            Assert.Contains(session.Agenda.Find(new LocalDate(2027, 5, 18))!.Entries, e => e.Item.Title == "Senso-ji and Asakusa (copy)");
+
+            // A trip only on this phone says it will be gone; removing it deletes the folder, Git files included.
+            session.Close();
+            await session.LoadTripsAsync();
+            var trip = Jourfold.Mobile.Views.Menus.Trip(session, session.Trips.Single());
+            await session.ChooseAsync(trip.Actions.Single(a => a.Danger), null);
+            Assert.Contains("only on this phone", session.Asking!.Text);
+            await session.AnswerAsync(true);
+            Assert.False(Directory.Exists(path));
+            Assert.Empty(session.Trips);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ABookingEmailOpensOnThePhoneWithItsAttachments()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var mail = Path.Combine(root, "booking.eml");
+        await File.WriteAllTextAsync(mail, """
+            From: teamLab Tickets <tickets@example.invalid>
+            To: Alex <alex@example.invalid>
+            Subject: Your tickets for teamLab Planets
+            Date: Mon, 3 May 2027 09:12:00 +0900
+            MIME-Version: 1.0
+            Content-Type: multipart/mixed; boundary="b"
+
+            --b
+            Content-Type: text/plain; charset=utf-8
+
+            Booking TLP-55120, Sunday 16 May, entry 15:30.
+            --b
+            Content-Type: application/pdf; name="tickets.pdf"
+            Content-Disposition: attachment; filename="tickets.pdf"
+            Content-Transfer-Encoding: base64
+
+            JVBERi0xLjQK
+            --b--
+            """.Replace("\n", "\r\n"));
+        var document = await session.Workspace!.ImportDocumentAsync(mail, "message/rfc822");
+        var planets = session.Trip!.Entities.Values.Single(e => e.Type == "schedule_item" && e.Title == "teamLab Planets");
+        var copy = planets.Copy(); copy.Data["documents"] = new JsonArray(document.Id.ToString()); await session.Workspace.EditAsync(copy);
+        string? opened = null;
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowDetails(planets.Id);
+            Probe.Layout();
+            Probe.Click(window, document.Title);
+            Assert.Contains("Your tickets for teamLab Planets", Texts());
+            Assert.Contains(Texts(), t => t.Contains("TLP-55120", StringComparison.Ordinal));
+            Assert.Contains("tickets.pdf", Texts());
+
+            // A PDF goes to another app, as a copy in the shared folder.
+            var host = session.Host with { OpenFile = (p, media) => { opened = p + " " + media; return Task.FromResult(true); } };
+            var phone = new MobileSession(host);
+            Assert.True(await phone.OpenElsewhereAsync(new ShownFile("tickets.pdf", "application/pdf", [1, 2, 3])));
+            Assert.Equal(Path.Combine(root, "shared", "tickets.pdf") + " application/pdf", opened);
+
+            session.CloseFile();
+            Assert.Empty(session.Viewing);
+            Assert.Equal(Overlay.Details, session.Showing);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ASignInGoesOnAfterTheAppWasStoppedInTheBrowser()
+    {
+        var github = new FakeGitHub(); var secrets = new MemorySecrets();
+        var first = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, github));
+        var signIn = first.SignInAsync("Iv23-test");
+        while (first.SignInCode is null) await Task.Delay(20);
+        // Android ends the app while the code is entered in the browser; the next start waits for GitHub again.
+        first.CancelSignIn(); await signIn;
+        await secrets.WriteAsync("github.pending-sign-in", System.Text.Json.JsonSerializer.Serialize(new { Code = new TravelRepo.Providers.DeviceAuthorization("device", "WDJB-MJHT", "https://github.com/login/device", 900, 0), Expires = DateTimeOffset.UtcNow.AddMinutes(10) }));
+        var again = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, github));
+        var load = again.LoadGitHubAsync();
+        while (again.SignInCode is null && !load.IsCompleted) await Task.Delay(20);
+        Assert.Equal("WDJB-MJHT", again.SignInCode?.UserCode);
+        await load;
+        Assert.Equal("sam-travels", again.GitHubLogin);
+        Assert.Null(await secrets.ReadAsync("github.pending-sign-in"));
+    }
+
     private sealed class FakeGitHub : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)

@@ -52,6 +52,7 @@ public static class TripListView
         var card = new Border { Child = content, ClipToBounds = true }.Classed("card");
         var button = new Button { Content = card }.Classed("card");
         AutomationProperties.SetName(button, trip.Trip.Manifest.Title + (dates.Length > 0 ? ", " + dates : ""));
+        Menus.OnHold(button, () => s.ShowMenu(Menus.Trip(s, trip)));
         button.Click += async (_, _) => await s.OpenAsync(trip.Path);
         return button;
     }

@@ -35,11 +35,27 @@ public sealed partial class MobileSession
 
     private GitHubProvider GitHub() => new(http ??= Host.Http is null ? new HttpClient() : new HttpClient(Host.Http, disposeHandler: false), Host.Secrets, ClientId ?? "");
 
-    /// <summary>Reads the stored sign-in without going online; the account name comes from the last sign-in.</summary>
+    // The code of a sign-in that is waiting for GitHub, kept with the secrets so it is not in a readable file. If
+    // Android ends the app while the user is in the browser, the sign-in goes on when the app starts again.
+    private const string PendingKey = "github.pending-sign-in";
+    private sealed record PendingSignIn(DeviceAuthorization Code, DateTimeOffset Expires);
+
+    /// <summary>
+    /// Reads the stored sign-in without going online; the account name comes from the last sign-in. A sign-in that was
+    /// still waiting when the app last ended goes on waiting.
+    /// </summary>
     public async Task LoadGitHubAsync(CancellationToken ct = default)
     {
-        GitHubLogin = await GitHub().IsConnectedAsync(ct) ? Settings.GitHubLogin ?? "GitHub" : null;
+        var provider = GitHub();
+        GitHubLogin = await provider.IsConnectedAsync(ct) ? Settings.GitHubLogin ?? "GitHub" : null;
         Changed?.Invoke();
+        if (GitHubLogin is null && SignInCode is null && await Host.Secrets.ReadAsync(PendingKey, ct) is { } text)
+        {
+            PendingSignIn? pending = null;
+            try { pending = System.Text.Json.JsonSerializer.Deserialize<PendingSignIn>(text); } catch (System.Text.Json.JsonException) { }
+            if (pending is not null && pending.Expires > DateTimeOffset.UtcNow && ClientId is not null) await WaitForSignInAsync(provider, pending.Code, ct);
+            else await Host.Secrets.DeleteAsync(PendingKey, ct);
+        }
     }
 
     /// <summary>
@@ -52,21 +68,42 @@ public sealed partial class MobileSession
         SignInProblem = null;
         if (ClientId is null) { SignInProblem = Strings["GitHubClientNeeded"]; Changed?.Invoke(); return; }
         var provider = GitHub();
+        DeviceAuthorization code;
+        try { code = await provider.BeginAsync(ct); }
+        catch (HttpRequestException) { SignInProblem = Strings["SyncOffline"]; Changed?.Invoke(); return; }
+        catch (DomainException ex) { SignInProblem = Problem(ex); Changed?.Invoke(); return; }
+        await Host.Secrets.WriteAsync(PendingKey, System.Text.Json.JsonSerializer.Serialize(new PendingSignIn(code, DateTimeOffset.UtcNow.AddSeconds(code.ExpiresIn))), ct);
+        await WaitForSignInAsync(provider, code, ct);
+    }
+
+    /// <summary>
+    /// Shows the code and waits for GitHub. Polling survives the phone sleeping or changing networks while the user is
+    /// in the browser; only a refusal, the code expiring or <see cref="CancelSignIn"/> end it.
+    /// </summary>
+    private async Task WaitForSignInAsync(GitHubProvider provider, DeviceAuthorization code, CancellationToken ct)
+    {
         signIn?.Dispose(); signIn = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var token = signIn.Token;
+        SignInCode = code; Changed?.Invoke();
         try
         {
-            SignInCode = await provider.BeginAsync(signIn.Token); Changed?.Invoke();
-            await provider.CompleteAsync(SignInCode, signIn.Token);
-            var account = await provider.AccountAsync(signIn.Token);
-            GitHubLogin = account?.Login ?? "GitHub"; Settings.GitHubLogin = account?.Login;
-            // The account's name is a good start for the name versions are saved under.
-            if (Settings.Name is null && account?.Name is { Length: > 0 } name) Settings.Name = name;
-            Settings.Save();
+            await provider.CompleteAsync(code, token);
+            await Host.Secrets.DeleteAsync(PendingKey, CancellationToken.None);
+            GitHubLogin = "GitHub";
+            // The account's name is shown and is a good start for the name versions are saved under. Without a
+            // network right now, the sign-in still counts; the name comes with the next sign-in.
+            try
+            {
+                var account = await provider.AccountAsync(token);
+                GitHubLogin = account?.Login ?? "GitHub"; Settings.GitHubLogin = account?.Login;
+                if (Settings.Name is null && account?.Name is { Length: > 0 } name) Settings.Name = name;
+                Settings.Save();
+            }
+            catch (Exception ex) when (GitHubProvider.IsTransient(ex, token)) { }
         }
-        catch (OperationCanceledException) when (signIn.IsCancellationRequested && !ct.IsCancellationRequested) { }
-        catch (HttpRequestException) { SignInProblem = Strings["SyncOffline"]; }
-        catch (DomainException ex) { SignInProblem = Problem(ex); }
-        finally { SignInCode = null; signIn.Dispose(); signIn = null; Changed?.Invoke(); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested && !ct.IsCancellationRequested) { await Host.Secrets.DeleteAsync(PendingKey, CancellationToken.None); }
+        catch (DomainException ex) { SignInProblem = Problem(ex); await Host.Secrets.DeleteAsync(PendingKey, CancellationToken.None); }
+        finally { if (SignInCode == code) { SignInCode = null; signIn?.Dispose(); signIn = null; } Changed?.Invoke(); }
     }
 
     public void CancelSignIn() => signIn?.Cancel();

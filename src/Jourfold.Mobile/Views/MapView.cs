@@ -25,7 +25,7 @@ public static class MapView
             number++;
             var badge = new Border { Width = 30, Height = 30, CornerRadius = new CornerRadius(15), Child = Ui.Text(number.ToString(CultureInfo.InvariantCulture), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.Foreground = Avalonia.Media.Brushes.White; }) }
                 .Res(Border.BackgroundProperty, "Kind." + Visuals.KindKey(entry.Kind) + ".Bar");
-            var time = TimeText.Local(entry, s.PhoneZone, s.Strings).Primary;
+            var time = TimeText.Local(entry, s.PhoneZone, s.Strings, s.Trip).Primary;
             page.Children.Add(Ui.Card(Ui.Columns("Auto,*,Auto", badge.Margin(0, 0, 12, 0), Ui.V(1, Ui.Text(entry.Item.Title, "strong"), Ui.Text(string.Join(" · ", new[] { time, Lines.Where(s.Trip!, entry.Item) }.Where(t => t.Length > 0)), "caption")), Navigation.Button(s, entry.Item)), 12).Margin(16, 0));
         }
         if (number == 0) page.Children.Add(Ui.Text(s.Strings["NoPlacesThisDay"], "muted").Margin(16, 8));

@@ -58,6 +58,8 @@ public sealed class AppShell : UserControl
         if (top.InsetsManager is { } insets)
         {
             insets.DisplayEdgeToEdgePreference = true;
+            // Avalonia would pad the whole view by the safe area too, which doubles the space at the top and bottom.
+            TopLevel.SetAutoSafeAreaPadding(top, false); TopLevel.SetAutoSafeAreaPadding(this, false);
             // Read again on every render: Avalonia reports the first values before it knows the screen's scaling
             // (in pixels, not dp) and does not report the corrected ones.
             this.insets = insets;
@@ -94,7 +96,9 @@ public sealed class AppShell : UserControl
     /// <summary>The system back gesture: out of a page under More, then back to Today, then back to the trip list, then out of the app.</summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
-        if (Session.Asking is not null || Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
+        if (Session.Asking is not null || Session.Menu is not null) { Session.CloseOverlay(); e.Handled = true; return; }
+        if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
+        if (Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.Workspace is null) { if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; } return; }
         if (Session.Page is not null) Session.ShowPage(null);
         else if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today);
@@ -115,7 +119,7 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>Where the user is. When it changes, the page is drawn at once, even while someone types.</summary>
-    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking);
+    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking, Session.Menu, Session.Viewing.Count, Session.FileProblem);
 
     /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
     private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);
@@ -177,7 +181,8 @@ public sealed class AppShell : UserControl
         var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor;
         if (!keep)
         {
-            var detent = sheet is not null && sheetFor == (want, Session.OverlayItem) ? sheet.Detent : 1;
+            // Details open at the glance detent: time, place, reference and Navigate. Dragging up shows more.
+            var detent = sheet is not null && sheetFor == (want, Session.OverlayItem) ? sheet.Detent : 0;
             if (sheet is not null) { sheet.Closed -= OnSheetClosed; overlays.Children.Remove(sheet); sheet = null; }
             var side = Breakpoint != WidthClass.Phone;
             sheet = want switch
@@ -190,9 +195,40 @@ public sealed class AppShell : UserControl
             sheetFor = (want, Session.OverlayItem);
             if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); }
         }
-        // A question sits above everything else.
-        foreach (var old in overlays.Children.OfType<Border>().Where(b => b.Classes.Contains("question")).ToArray()) overlays.Children.Remove(old);
+        // A long-press menu sits above the page and the sheet, a question above everything else.
+        foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);
+        // A file opened from the details covers the whole screen; back returns to the details.
+        if (Session.Viewing.Count > 0) overlays.Children.Add(FileView.Build(Session, Session.Viewing[^1]).Classed("viewer"));
+        if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
         if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+    }
+
+    /// <summary>A long-press menu: a list of actions from the bottom on phones, a card in the middle on wider screens.</summary>
+    private Control Menu(ActionMenu menu)
+    {
+        var list = Ui.V(0, Ui.V(2, Ui.Text(menu.Title, "title"), menu.Detail is { } detail ? Ui.Text(detail, "caption") : null).Margin(20, 16, 20, 8));
+        foreach (var action in menu.Actions)
+        {
+            var row = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(action.Icon, 20, action.Danger ? "Danger" : "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(action.Label).Also(t => { if (action.Danger) t.Res(TextBlock.ForegroundProperty, "Danger"); })) }.Classed("row");
+            AutomationProperties.SetName(row, action.Label);
+            row.Click += async (_, _) => await Session.ChooseAsync(action, TopLevel.GetTopLevel(this));
+            list.Children.Add(row);
+        }
+        var phone = Breakpoint == WidthClass.Phone;
+        var panel = new Border
+        {
+            Child = new ScrollViewer { Content = list },
+            CornerRadius = phone ? new CornerRadius(20, 20, 0, 0) : new CornerRadius(16),
+            Padding = new Thickness(0, 0, 0, phone ? 12 + safeArea.Bottom : 12),
+            MaxHeight = Math.Max(240, Bounds.Height * 0.8), MaxWidth = phone ? double.PositiveInfinity : 420,
+            VerticalAlignment = phone ? VerticalAlignment.Bottom : VerticalAlignment.Center,
+            Margin = phone ? default : new Thickness(24),
+            BoxShadow = BoxShadows.Parse("0 -2 16 0 #26000000")
+        }.Res(Border.BackgroundProperty, "Bg.Surface");
+        AutomationProperties.SetName(panel, menu.Title);
+        var scrim = new Border { Background = new SolidColorBrush(Colors.Black, 0.32) };
+        scrim.PointerPressed += (_, e) => { Session.CloseOverlay(); e.Handled = true; };
+        return new Panel { Children = { scrim, panel } }.Classed("menu");
     }
 
     private void OnSheetClosed() { sheet = null; sheetFor = (Overlay.None, null); Session.CloseOverlay(); }

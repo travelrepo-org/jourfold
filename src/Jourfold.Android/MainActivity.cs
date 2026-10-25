@@ -1,4 +1,5 @@
 using Android.App;
+using Android.Content;
 using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
@@ -24,8 +25,18 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         var clientId = typeof(JourfoldApplication).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubClientId")?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
-            () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: clientId);
+            () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: clientId, OpenFile: OpenFile);
         base.OnCreate();
+    }
+
+    /// <summary>Offers a file to the apps that can show its media type, through the app's FileProvider.</summary>
+    private Task<bool> OpenFile(string path, string mediaType)
+    {
+        var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(this, PackageName + ".files", new Java.IO.File(path));
+        var view = new Intent(Intent.ActionView).SetDataAndType(uri, mediaType).AddFlags(ActivityFlags.GrantReadUriPermission);
+        if (view.ResolveActivity(PackageManager!) is null) return Task.FromResult(false);
+        StartActivity(Intent.CreateChooser(view, (string?)null)!.AddFlags(ActivityFlags.NewTask | ActivityFlags.GrantReadUriPermission));
+        return Task.FromResult(true);
     }
 }
 

@@ -16,8 +16,33 @@ a Mac to build on.
 ## How times read
 
 Today follows the phone's clock and adds the item's local time when its zone differs. Plan, details and bookings show
-the item's local time and add the phone's time when the phone is in another zone. A journey across zones always names
-both zones. `TimeText` implements these rules and `MobileTests` checks them.
+the item's local time and add the phone's time when the phone is in another zone. Each day says which clock its times
+follow ("Times as on your phone (Berlin)", "Local time Tokyo"), and a second time names its place instead of a zone
+abbreviation ("Berlin: 01:30 (Wed)"). A journey across zones always names both places. `TimeText` implements these
+rules and `MobileTests` checks them.
+
+An item that runs past midnight, such as a night flight, appears again on the days after it starts: on the day it
+ends as its arrival or end, on the days between as running all day. TravelRepo's `TripAgenda` marks these lines as
+`AgendaRole.Continued`; Today reads spans itself and shows such an item once.
+
+## Plan, details and long press
+
+The date strip stays at the top while the day scrolls. A sideways swipe moves the day with the finger and slides the
+next one in; the strip scrolls on its own. A tap on an item opens its details at the smallest step (time, place,
+booking reference, Navigate); the whole header drags the sheet, and dragging the content up or, at its top, down
+moves the sheet too. Only the item happening now or next on the phone's today shows extra context in the plan. A
+stay's check-in says how many nights it has; the night line under the day appears only on the other nights.
+
+A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,
+move to another day and delete. A long press on a trip in the trip list removes it from the phone after a question
+that says whether it is still on GitHub. Everything in these menus can also be reached without the gesture.
+
+## Files
+
+Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date, attachments and their text,
+read by TravelRepo's `Mail` without a network; the original HTML layout is still desktop only. Images show as they
+are. PDFs and other files go to an app on the phone that can show them: on Android through a `FileProvider` that only
+exposes a copy in the app's `shared` folder, replaced by the next file.
 
 ## Versions on the phone
 
@@ -28,10 +53,14 @@ lets the user create a version with their own description and shows the recent o
 Settings are used for versions made on the phone; they are kept in `settings.json` in the app's private folder,
 never in a trip. The phone app does not use Git words such as commit or branch.
 
+Removing a trip from the phone deletes its folder. A trip that is only on the phone is gone after that; the question
+before says so.
+
 ## GitHub on the phone
 
 Signing in uses GitHub's device flow, like the desktop: the app shows a code, opens GitHub, and waits until the user
-has entered it. The token is kept by the platform's secure storage (on Android encrypted with a key in the Android
+has entered it. While the user is in the browser, Android may freeze or stop the app: requests lost that way do not
+end the sign-in, and the waiting code is kept in secure storage so the next start goes on waiting. The token is kept by the platform's secure storage (on Android encrypted with a key in the Android
 Keystore) and handed to the built-in Git for github.com only. A build can name the GitHub App to sign in with,
 `-p:JourfoldGitHubClientId=<client ID>`; without one, the user enters the client ID once, as on the desktop.
 

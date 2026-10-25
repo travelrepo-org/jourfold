@@ -21,6 +21,7 @@ public sealed class AppShell : UserControl
     public MobileSession Session { get; }
     public WidthClass Breakpoint { get; private set; }
     private readonly Border root = new();
+    private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
 
     public AppShell(MobileSession session)
@@ -42,8 +43,11 @@ public sealed class AppShell : UserControl
         if (top.InsetsManager is { } insets)
         {
             insets.DisplayEdgeToEdgePreference = true;
-            void Apply() { safeArea = insets.SafeAreaPadding; Render(); }
-            insets.SafeAreaChanged += (_, _) => Apply(); Apply();
+            // Read again on every render: Avalonia reports the first values before it knows the screen's scaling
+            // (in pixels, not dp) and does not report the corrected ones.
+            this.insets = insets;
+            insets.SafeAreaChanged += (_, _) => Render();
+            top.ScalingChanged += (_, _) => Render();
         }
         top.BackRequested += OnBack;
         if (Session.Trips.Count == 0 && Session.Workspace is null) _ = Session.LoadTripsAsync();
@@ -68,6 +72,7 @@ public sealed class AppShell : UserControl
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
         // The bottom bar reaches the screen's edge and keeps its buttons above the gesture bar; everything else stays
         // inside the safe area.
+        safeArea = insets is { DisplaysEdgeToEdge: true } ? insets.SafeAreaPadding : default;
         var bar = Session.Workspace is not null && Breakpoint == WidthClass.Phone;
         root.Padding = new Thickness(safeArea.Left, safeArea.Top, safeArea.Right, bar ? 0 : safeArea.Bottom);
         if (Session.Workspace is null) { root.Child = TripListView.Build(Session); return; }

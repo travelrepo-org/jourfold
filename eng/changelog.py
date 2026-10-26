@@ -98,7 +98,7 @@ def release_body(release, repository, existing):
     own = existing.split(MARKER)[0].rstrip()
     install = [
         '## Install', '',
-        'Linux:', '', '```sh', f'curl -fsSL https://github.com/{repository}/releases/latest/download/install.sh | bash', '```', '',
+        'Linux and macOS (Terminal):', '', '```sh', f'curl -fsSL https://github.com/{repository}/releases/latest/download/install.sh | bash', '```', '',
         'Windows (PowerShell):', '', '```powershell', f'irm https://github.com/{repository}/releases/latest/download/install.ps1 | iex', '```', '',
         'The packages and `SHA256SUMS` are attached below.', '',
     ]

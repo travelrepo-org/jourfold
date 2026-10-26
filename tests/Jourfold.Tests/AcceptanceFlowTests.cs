@@ -171,7 +171,7 @@ public sealed class AcceptanceFlowTests : IDisposable
     public async Task AutosaveKeepsKeyboardFocusInInspector()
     {
         var path = await Create(); var repo = new TravelRepository(path); var item = Entity.Create("schedule_item", "Original"); await repo.ApplyAsync(await repo.ReadAsync(), [new(item.Id, item)]);
-        var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(item.Id); Dispatcher.UIThread.RunJobs();
+        var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(item.Id); Dispatcher.UIThread.RunJobs(); Probe.ShowDetails(window);
         var title = Probe.Tagged<TextBox>(window.FindControl<Border>("InspectorHost")!, "title"); var tags = Probe.Tagged<TextBox>(window.FindControl<Border>("InspectorHost")!, "tags");
         title.Focus(); title.Text = "Keyboard edit"; tags.Focus();
         await Probe.Until(() => window.Model.Workspace.State.Trip.Find(item.Id)!.Title == "Keyboard edit");

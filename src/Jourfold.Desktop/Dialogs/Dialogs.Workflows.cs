@@ -16,7 +16,7 @@ public sealed partial class Dialogs
     public async Task<PaletteChoice?> PaletteAsync(MainViewModel model)
     {
         var s = S; DialogSheet? sheet = null;
-        var query = new TextBox { Watermark = s["PaletteWatermark"], FontSize = 15, MinHeight = 44 }.Classed("search"); AutomationProperties.SetName(query, s["SearchTitle"]);
+        var query = new TextBox { PlaceholderText = s["PaletteWatermark"], FontSize = 15, MinHeight = 44 }.Classed("search"); AutomationProperties.SetName(query, s["SearchTitle"]);
         var results = Ui.V(2); var buttons = new List<(Button Button, PaletteChoice Choice)>(); var index = 0;
         void Highlight() { for (var i = 0; i < buttons.Count; i++) buttons[i].Button.Classes.Set("selected", i == index); if (index < buttons.Count) buttons[index].Button.BringIntoView(); }
         void Fill()
@@ -89,8 +89,8 @@ public sealed partial class Dialogs
         {
             var index = i; var conflict = conflicts[i];
             var options = Ui.V(6); var edit = new TextBox { Text = conflict.CurrentRaw, AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, IsVisible = false, MinHeight = 60 }; AutomationProperties.SetName(edit, s["EditResult"]);
-            var buttons = new List<Button>();
-            void Select(Button chosen, ConflictAnswer answer) { foreach (var b in buttons) b.Classes.Set("selected", b == chosen); answers[index] = answer; edit.IsVisible = answer.Action == "EditResult"; Update(); }
+            var buttons = new List<ChoiceButton>();
+            void Select(ChoiceButton chosen, ConflictAnswer answer) { foreach (var b in buttons) b.IsSelected = b == chosen; answers[index] = answer; edit.IsVisible = answer.Action == "EditResult"; Update(); }
             foreach (var action in conflict.Actions)
             {
                 var (icon, label, detail) = action switch
@@ -100,7 +100,7 @@ public sealed partial class Dialogs
                     "KeepBoth" => ("copy", s["KeepBoth"], s["KeepBothHint"]),
                     _ => ("pencil", s["EditResult"], s["EditResultHint"])
                 };
-                var button = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(icon, 16, "Accent"), Ui.V(1, Ui.Text(label, "strong"), Ui.Text(detail, "caption")).Margin(10, 0, 0, 0)), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(12, 8) }.Classed("tile").Named(label);
+                var button = new ChoiceButton { Content = Ui.Columns("Auto,*", Ui.Icon(icon, 16, "Accent"), Ui.V(1, Ui.Text(label, "strong"), Ui.Text(detail, "caption")).Margin(10, 0, 0, 0)), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Padding = new Thickness(12, 8) }.Classed("tile").Named(label);
                 button.Click += (_, _) => Select(button, new ConflictAnswer(action, action == "EditResult" ? edit.Text : null));
                 buttons.Add(button); options.Children.Add(button);
             }
@@ -125,7 +125,7 @@ public sealed partial class Dialogs
             var name = new TextBox { Text = MainViewModel.RepositoryName(model.TripTitle) }; AutomationProperties.SetName(name, s["RepositoryName"]);
             var publish = Ui.Button(s["PublishPrivately"], "lock", "primary"); publish.Click += async (_, _) => { if (string.IsNullOrWhiteSpace(name.Text)) return; sheet?.Close(); await model.PublishToGitHubAsync(name.Text); };
             body.Children.Add(Ui.Card(Ui.V(10, Ui.Columns("Auto,*", Ui.Tile("cloud", "Transport", 36), Ui.V(2, Ui.Text(s["PublishToGitHub"], "h3"), Ui.Text(model.GitHubConnected ? (model.GitHubLogin is { } login ? string.Format(s["PublishToGitHubAs"], login) : s["PublishToGitHubConnected"]) : s["PublishToGitHubHint"], "caption")).Margin(12, 0, 0, 0)), Ui.V(6, Ui.Text(s["RepositoryName"], "label"), name), Ui.H(6, Ui.Icon("lock", 13, "Success"), Ui.Text(s["PrivateByDefault"], "caption")), publish), 16));
-            var url = new TextBox { Watermark = s["RemoteUrlHint"] }; AutomationProperties.SetName(url, s["RemoteUrl"]);
+            var url = new TextBox { PlaceholderText = s["RemoteUrlHint"] }; AutomationProperties.SetName(url, s["RemoteUrl"]);
             var connect = Ui.Button(s["ConnectAndUpload"], "upload"); connect.Click += async (_, _) => { if (string.IsNullOrWhiteSpace(url.Text)) return; sheet?.Close(); await model.AddRemoteAsync("origin", url.Text); };
             body.Children.Add(Ui.Card(Ui.V(10, Ui.Columns("Auto,*", Ui.Tile("git-branch", "Meeting", 36), Ui.V(2, Ui.Text(s["UseOwnGit"], "h3"), Ui.Text(s["UseOwnGitHint"], "caption")).Margin(12, 0, 0, 0)), url, connect), 16));
             var export = Ui.Button(s["Export"], "download", "ghost"); export.Click += (_, _) => { sheet?.Close(); model.ExportCommand.Execute(null); };
@@ -137,7 +137,7 @@ public sealed partial class Dialogs
             if (model.HasPrivacyWarning) body.Children.Add(new Border { Padding = new Thickness(12), CornerRadius = new CornerRadius(10), Child = Ui.Columns("Auto,*", Ui.Icon("triangle-alert", 16, "Warning"), Ui.Text(model.PrivacyWarning).Margin(10, 0, 0, 0)) }.Res(Border.BackgroundProperty, "Warning.Soft"));
             if (github is not null)
             {
-                var user = new TextBox { Watermark = s["GitHubUsername"] }; AutomationProperties.SetName(user, s["GitHubUsername"]);
+                var user = new TextBox { PlaceholderText = s["GitHubUsername"] }; AutomationProperties.SetName(user, s["GitHubUsername"]);
                 var invite = Ui.Button(s["SendInvite"], "user-plus", "primary"); invite.Click += async (_, _) => { if (string.IsNullOrWhiteSpace(user.Text)) return; var name = user.Text; user.Text = ""; await model.InviteAsync(name); };
                 body.Children.Add(Ui.Card(Ui.V(10, Ui.Columns("Auto,*", Ui.Tile("user-plus", "Transport", 36), Ui.V(2, Ui.Text(s["InviteTitle"], "h3"), Ui.Text(string.Format(s["InviteHint"], MainViewModel.GitHubName(github)), "caption")).Margin(12, 0, 0, 0)), Ui.Columns("*,Auto", user, invite.Margin(8, 0, 0, 0))), 16));
             }

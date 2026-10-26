@@ -30,7 +30,7 @@ Later builds have different hashes; use the accompanying `artifacts/release-arti
 
 ## 2. Prepare CachyOS GNOME
 
-Git 2.34 or newer must be on PATH. Jourfold's current Avalonia 11 build uses X11; a GNOME Wayland session runs it through XWayland. GNOME Keyring provides credential storage, accessed through `secret-tool` from Arch's `libsecret` package. See the [Avalonia Linux guide](https://docs.avaloniaui.net/docs/platform-specific-guides/linux) and [Arch libsecret file list](https://archlinux.org/packages/core/x86_64/libsecret/files/).
+Git 2.34 or newer must be on PATH. Jourfold's current Avalonia 12 build uses X11; a GNOME Wayland session runs it through XWayland. GNOME Keyring provides credential storage, accessed through `secret-tool` from Arch's `libsecret` package. See the [Avalonia Linux guide](https://docs.avaloniaui.net/docs/platform-specific-guides/linux) and [Arch libsecret file list](https://archlinux.org/packages/core/x86_64/libsecret/files/).
 
 On an up-to-date CachyOS installation, install any missing packages:
 

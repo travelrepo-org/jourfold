@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Interactivity;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Jourfold.Application;
@@ -43,7 +44,7 @@ try
     var aachen = Entity.CreateTrip("Weekend in Aachen", "en", "Europe/Berlin"); aachen.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = "2027-09-17", ["end"] = "2027-09-19" };
     await second.InitializeAsync(aachen); await new GitRepository(second, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid");
 
-    using var session = HeadlessUnitTestSession.StartNew(typeof(ScreenshotApplication));
+    var session = HeadlessUnitTestSession.StartNew(typeof(ScreenshotApplication));
     await session.Dispatch(async () =>
     {
         var window = new MainWindow { Width = 1440, Height = 900 };
@@ -58,7 +59,7 @@ try
             m.Store.Set("weather.online", "true");
             if (language == "de") m.SetPreference("Language", "de");
             async Task Settle(int ms = 150) { using (window.CaptureRenderedFrame()) { } for (var i = 0; i < 4; i++) { await Task.Delay(ms / 4); Dispatcher.UIThread.RunJobs(); } }
-            async Task Capture(string name) { await Settle(); using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path); Console.WriteLine(path); }
+            async Task Capture(string name) { await Settle(); using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path, PngBitmapEncoderOptions.Default); Console.WriteLine(path); }
             void Click(string label)
             {
                 var button = window.FindControl<Grid>("DialogLayer")!.GetVisualDescendants().OfType<Button>().LastOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == label || b.Content as string == label)
@@ -120,7 +121,7 @@ try
                 m.View = "Bookings"; m.Selected = m.Workspace.State.Trip.Find(booking.Id); await Settle(300); await Capture("booking-confirmation");
                 var document = TripCommands.AttachedDocuments(m.Workspace.State.Trip, m.Workspace.State.Trip.Find(booking.Id)!).First(d => d.Data["media_type"]?.ToString() == "message/rfc822");
                 DocumentWindow.Show(window, document); var viewer = DocumentWindow.Current!; viewer.Width = 1100; viewer.Height = 820;
-                async Task CaptureViewer(string name) { for (var i = 0; i < 6; i++) { await Task.Delay(100); Dispatcher.UIThread.RunJobs(); } using var frame = viewer.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path); Console.WriteLine(path); }
+                async Task CaptureViewer(string name) { for (var i = 0; i < 6; i++) { await Task.Delay(100); Dispatcher.UIThread.RunJobs(); } using var frame = viewer.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame."); var path = Path.Combine(output, name + ".png"); frame.Save(path, PngBitmapEncoderOptions.Default); Console.WriteLine(path); }
                 await CaptureViewer("viewer-mail");
                 viewer.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith(m.Strings["OpenFile"] + ":", StringComparison.Ordinal) == true).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
                 await Task.Delay(300); Dispatcher.UIThread.RunJobs();
@@ -280,6 +281,8 @@ try
         }
         return true;
     }, CancellationToken.None);
+    // Dispatch resumes on the session's own thread, and disposing the session there would wait for itself.
+    await Task.Run(session.Dispose).ConfigureAwait(false);
 }
 finally
 {

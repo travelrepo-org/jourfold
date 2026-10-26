@@ -6,7 +6,7 @@ Jourfold includes the following open-source software. License files from each pa
 
 ## Application framework
 
-- Avalonia 11.3: MIT, https://github.com/AvaloniaUI/Avalonia
+- Avalonia 12: MIT, https://github.com/AvaloniaUI/Avalonia
 - ANGLE for Windows (Avalonia.Angle.Windows.Natives): BSD-3-Clause, https://github.com/google/angle
 - SkiaSharp and HarfBuzzSharp: MIT, https://github.com/mono/SkiaSharp
 - MicroCom.Runtime: MIT, https://github.com/kekekeks/MicroCom

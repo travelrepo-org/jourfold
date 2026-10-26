@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
@@ -35,7 +36,7 @@ public sealed partial class Dialogs(Window owner, Func<Localization> strings) : 
     public async Task<string?> ChooseAsync(string title, IReadOnlyList<Choice> choices)
     {
         DialogSheet? sheet = null;
-        var filter = new TextBox { Watermark = S["Filter"], IsVisible = choices.Count > 8 }.Classed("search"); AutomationProperties.SetName(filter, S["Filter"]);
+        var filter = new TextBox { PlaceholderText = S["Filter"], IsVisible = choices.Count > 8 }.Classed("search"); AutomationProperties.SetName(filter, S["Filter"]);
         var list = Ui.V(2);
         void Fill()
         {

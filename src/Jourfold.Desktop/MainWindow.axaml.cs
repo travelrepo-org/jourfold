@@ -48,7 +48,7 @@ public partial class MainWindow : Window
         poll.Tick += async (_, _) => { if (FocusManager?.GetFocusedElement() is not TextBox && DialogLayer.Children.Count == 0) await Model.PollAsync(); };
         poll.Start();
         Closed += (_, _) => { poll.Stop(); if (Model.Workspace is not null) OpenWindows.Remove(Model.Workspace.Repository.Root); Model.Dispose(); };
-        if (PlatformSettings is { } platform) platform.ColorValuesChanged += (_, _) => Dispatcher.UIThread.Post(Render);
+        if (this.GetPlatformSettings() is { } platform) platform.ColorValuesChanged += (_, _) => Dispatcher.UIThread.Post(Render);
         SizeChanged += (_, _) => UpdateScale();
         KeyDown += OnKeyDown;
         DragDrop.SetAllowDrop(this, true);
@@ -62,6 +62,8 @@ public partial class MainWindow : Window
         if (OperatingSystem.IsWindows())
         {
             ExtendClientAreaToDecorationsHint = true; ExtendClientAreaTitleBarHeightHint = 34; TitleBar.IsVisible = true;
+            // Ask Windows 11 for rounded corners, which it may not choose for a window that draws its own title bar. Older Windows ignores this.
+            Win32Properties.SetWindowCornerPreference(this, Win32Properties.WindowCornerPreference.Round);
             TitleBar.PointerPressed += (_, e) => { if (e.ClickCount == 2) WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized; else BeginMoveDrag(e); };
         }
         Render();
@@ -102,7 +104,7 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(() => { renderQueued = false; Render(); }, DispatcherPriority.Render);
     }
 
-    public bool HighContrast => Model.Store.Get("highcontrast") == "true" || PlatformSettings?.GetColorValues().ContrastPreference == Avalonia.Platform.ColorContrastPreference.High;
+    public bool HighContrast => Model.Store.Get("highcontrast") == "true" || this.GetPlatformSettings()?.GetColorValues().ContrastPreference == Avalonia.Platform.ColorContrastPreference.High;
 
     private void ApplyTheme()
     {

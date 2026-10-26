@@ -33,8 +33,7 @@ public static class PackingView
         var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var l in lists)
         {
-            var chip = Ui.Button(l.Collection.Title + "  " + l.DoneCount.ToString(CultureInfo.CurrentCulture) + "/" + l.Items.Count.ToString(CultureInfo.CurrentCulture), "backpack", "chip");
-            if (l.Collection.Id == list.Collection.Id) chip.Classes.Add("selected");
+            var chip = Ui.Choice(l.Collection.Title + "  " + l.DoneCount.ToString(CultureInfo.CurrentCulture) + "/" + l.Items.Count.ToString(CultureInfo.CurrentCulture), "backpack", l.Collection.Id == list.Collection.Id, "chip");
             AutomationProperties.SetName(chip, string.Format(s["PackingListProgress"], l.Collection.Title, l.DoneCount, l.Items.Count));
             chip.Click += (_, _) => m.ShowPackingList(l.Collection.Id);
             chips.Children.Add(chip);
@@ -55,7 +54,7 @@ public static class PackingView
         var who = me is null ? Ui.Button(s["WhoAmITitle"], "user", "link").Also(b => b.Click += async (_, _) => await m.ChooseMeCommand.ExecuteAsync(null)) : null;
         panel.Children.Add(Ui.Columns("Auto,*,Auto", ViewToolbar.Segmented(segments, filter, v => m.PackingFilter = v), new Border(), who));
 
-        var input = new TextBox { Watermark = s["AddPackingItemPlaceholder"] }; AutomationProperties.SetName(input, s["AddPackingItem"]);
+        var input = new TextBox { PlaceholderText = s["AddPackingItemPlaceholder"] }; AutomationProperties.SetName(input, s["AddPackingItem"]);
         input.KeyDown += async (_, e) =>
         {
             if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text)) return;
@@ -112,8 +111,7 @@ public static class PackingView
             foreach (var person in item.Assignees.Take(item.Everyone ? 6 : 12))
             {
                 var packed = item.IsPackedBy(person.Id);
-                var chip = new Button { Padding = new Thickness(3, 2, 8, 2), CornerRadius = new CornerRadius(12), Content = Ui.H(5, Ui.Avatar(person.Title, 20), Ui.Text(person.Title.Split(' ')[0], "caption"), packed ? Ui.Icon("check", 12, "Success") : null) }.Classed("chip");
-                if (packed) chip.Classes.Add("selected");
+                var chip = new ChoiceButton { IsSelected = packed, Padding = new Thickness(3, 2, 8, 2), CornerRadius = new CornerRadius(12), Content = Ui.H(5, Ui.Avatar(person.Title, 20), Ui.Text(person.Title.Split(' ')[0], "caption"), packed ? Ui.Icon("check", 12, "Success") : null) }.Classed("chip");
                 var name = string.Format(packed ? s["PackedBy"] : s["NotPackedBy"], person.Title);
                 AutomationProperties.SetName(chip, name); ToolTip.SetTip(chip, name + ". " + s["ClickToToggle"]);
                 chip.Click += async (_, _) => await m.TogglePackedAsync(task.Id, person.Id);

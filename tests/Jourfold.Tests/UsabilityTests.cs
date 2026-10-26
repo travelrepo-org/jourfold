@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
 using Avalonia;
+using Avalonia.Automation.Peers;
+using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -32,6 +34,28 @@ public sealed class UsabilityTests : IDisposable
         w.Model.Navigate("Plan"); w.Model.InboxOpen = false; w.Model.ShowDate(new LocalDate(2027, 5, 14)); Probe.Layout();
     }
     private static Control Sheet(MainWindow w) => Probe.Sheet(w);
+
+    [AvaloniaFact]
+    public void ScreenReadersHearChosenOptionsAndPeopleRatherThanDecorations()
+    {
+        var chosen = Ui.Choice("Planned", "calendar", true, "chip"); var other = Ui.Choice("Idea", null, false, "chip");
+        var avatar = Ui.Avatar("Alex Example"); var icon = Ui.Icon("check");
+        var window = new Window { Content = new StackPanel { Children = { chosen, other, avatar, icon } } }; window.Show(); Probe.Layout();
+        try
+        {
+            ToggleState State(Button b) => ControlAutomationPeer.CreatePeerForElement(b).GetProvider<IToggleProvider>()!.ToggleState;
+            Assert.Equal(ToggleState.On, State(chosen)); Assert.Equal(ToggleState.Off, State(other));
+            other.IsSelected = true; chosen.IsSelected = false;
+            Assert.Equal(ToggleState.On, State(other)); Assert.Contains("selected", other.Classes); Assert.Equal(ToggleState.Off, State(chosen));
+
+            // An avatar reads as the person, not as initials; an icon has no name and no parts of its own.
+            var person = ControlAutomationPeer.CreatePeerForElement(avatar);
+            Assert.Equal("Alex Example", person.GetName()); Assert.Equal(AutomationControlType.Image, person.GetAutomationControlType()); Assert.Empty(person.GetChildren());
+            var decoration = ControlAutomationPeer.CreatePeerForElement(icon);
+            Assert.Equal("", decoration.GetClassName()); Assert.False(decoration.IsControlElement());
+        }
+        finally { window.Close(); }
+    }
 
     [AvaloniaFact]
     public async Task WizardTakesKeyboardFocusAndEscapeCancelsWithoutANativeWindow()

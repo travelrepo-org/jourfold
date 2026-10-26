@@ -18,20 +18,20 @@ public static class DesktopNotifications
             if (OperatingSystem.IsLinux() || OperatingSystem.IsFreeBSD()) return await FreedesktopAsync(title, body).ConfigureAwait(false);
             if (OperatingSystem.IsWindows()) return Windows(title, body, window);
         }
-        catch (Exception ex) when (ex is DBusException or ConnectException or IOException or InvalidOperationException or ExternalException or ObjectDisposedException or TimeoutException) { }
+        catch (Exception ex) when (ex is DBusExceptionBase or IOException or InvalidOperationException or ExternalException or ObjectDisposedException or TimeoutException) { }
         return false;
     }
 
     private static async Task<bool> FreedesktopAsync(string title, string body)
     {
-        if (string.IsNullOrEmpty(Address.Session)) return false;
-        var connection = Connection.Session;
+        if (string.IsNullOrEmpty(DBusAddress.Session)) return false;
+        var connection = DBusConnection.Session;
         await connection.CallMethodAsync(NotifyMessage(connection, title, body)).WaitAsync(TimeSpan.FromSeconds(5)).ConfigureAwait(false);
         return true;
     }
 
     // The writer is a ref struct, so the message is built outside the async method.
-    private static MessageBuffer NotifyMessage(Connection connection, string title, string body)
+    private static MessageBuffer NotifyMessage(DBusConnection connection, string title, string body)
     {
         using var writer = connection.GetMessageWriter();
         writer.WriteMethodCallHeader(destination: "org.freedesktop.Notifications", path: "/org/freedesktop/Notifications", @interface: "org.freedesktop.Notifications", member: "Notify", signature: "susssasa{sv}i");

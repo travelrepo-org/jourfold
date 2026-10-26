@@ -258,7 +258,7 @@ public static class InspectorView
             var modes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
             foreach (var mode in ScheduleCategories.TransportTypes)
             {
-                var chip = Ui.Button(s[mode], Visuals.TransportIcon(mode), "chip"); if (transport["type"]?.ToString() == mode) chip.Classes.Add("selected");
+                var chip = Ui.Choice(s[mode], Visuals.TransportIcon(mode), transport["type"]?.ToString() == mode, "chip");
                 chip.Click += (_, _) => _ = m.UpdateAsync(e.Id, x => x.Data["components"]!["transport"]!["type"] = mode); modes.Children.Add(chip);
             }
             var route = Ui.V(10, modes,
@@ -289,7 +289,7 @@ public static class InspectorView
             var currentCategory = inherited.Value?.ToString();
             foreach (var category in ScheduleCategories.Standard.Where(c => c is not ("transport" or "accommodation" or "other")))
             {
-                var chip = Ui.Button(s["category." + category], Visuals.CategoryIcon(category), "chip"); if ((currentCategory ?? "activity") == category) chip.Classes.Add("selected");
+                var chip = Ui.Choice(s["category." + category], Visuals.CategoryIcon(category), (currentCategory ?? "activity") == category, "chip");
                 chip.Click += (_, _) => _ = m.UpdateAsync(e.Id, x => { if (category == "activity") x.Data.Remove("category"); else x.Data["category"] = category; });
                 categories.Children.Add(chip);
             }
@@ -349,7 +349,7 @@ public static class InspectorView
         var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         void Chip(string label, string icon, bool? value)
         {
-            var chip = Ui.Button(label, icon, "chip"); if (stated == value) chip.Classes.Add("selected");
+            var chip = Ui.Choice(label, icon, stated == value, "chip");
             chip.Click += (_, _) => _ = m.SetOutdoorAsync(e.Id, value); chips.Children.Add(chip);
         }
         Chip(s["OutdoorAuto"], "sparkles", null); Chip(s["exposure.Outdoor"], "trees", true); Chip(s["exposure.Indoor"], "house", false);
@@ -450,7 +450,7 @@ public static class InspectorView
     private static Control ListText(MainWindow w, Entity e, string path, string label)
     {
         var current = EditorModel.Get(e, path) as JsonArray;
-        var box = new TextBox { Text = current is null ? "" : string.Join(", ", current.Select(n => n?.ToString())), Watermark = w.Model.Strings["CommaSeparated"], Tag = path }; AutomationProperties.SetName(box, label);
+        var box = new TextBox { Text = current is null ? "" : string.Join(", ", current.Select(n => n?.ToString())), PlaceholderText = w.Model.Strings["CommaSeparated"], Tag = path }; AutomationProperties.SetName(box, label);
         var original = box.Text;
         async Task Commit() { if (box.Text == original) return; original = box.Text; var values = (box.Text ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries); await w.Model.UpdateAsync(e.Id, x => EditorModel.Set(x, path, values.Length == 0 ? null : new JsonArray(values.Select(v => (JsonNode?)JsonValue.Create(v)).ToArray()))); }
         box.LostFocus += async (_, _) => await Commit(); box.KeyDown += async (_, k) => { if (k.Key == Key.Enter) { k.Handled = true; await Commit(); } };
@@ -719,7 +719,7 @@ public static class InspectorView
             body.Children.Add(Ui.Card(content, 12));
         }
         if (entries.Count == 0) body.Children.Add(Ui.Text(s["NoNotesYet"], "muted"));
-        var noteBox = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90, Watermark = s["WriteNote"] }; AutomationProperties.SetName(noteBox, s["WriteNote"]);
+        var noteBox = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 90, PlaceholderText = s["WriteNote"] }; AutomationProperties.SetName(noteBox, s["WriteNote"]);
         var addNote = Ui.Button(s["AddNote"], "plus", "primary", "compact");
         addNote.Click += async (_, _) =>
         {
@@ -758,7 +758,7 @@ public static class InspectorView
             body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(author, 30).Also(a => a.VerticalAlignment = VerticalAlignment.Top), Ui.V(4, Ui.Columns("*,Auto", Ui.H(8, Ui.Text(author, "title"), Ui.Text(when, "caption")), remove), new MarkdownView(comment.Data["body"]?.ToString() ?? "")).Margin(10, 0, 0, 0)));
         }
         if (comments.Length == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
-        var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, Watermark = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);
+        var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, PlaceholderText = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);
         var send = Ui.Button(s["Comment"], "message-square", "primary", "compact");
         send.Click += async (_, _) => { if (!string.IsNullOrWhiteSpace(box.Text)) { var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };
         box.KeyDown += async (_, k) => { if (k.Key == Key.Enter && k.KeyModifiers == KeyModifiers.Control && !string.IsNullOrWhiteSpace(box.Text)) { k.Handled = true; var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };

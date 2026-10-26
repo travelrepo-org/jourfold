@@ -83,9 +83,12 @@ public static class Ui
     public static Border Card(Control child, double padding = 16, string cls = "card") => new Border { Child = child, Padding = new Thickness(padding) }.Classed(cls);
     public static Border Divider() => new Border().Classed("divider");
 
-    public static Button Button(string text, string? icon = null, params string[] classes)
+    public static Button Button(string text, string? icon = null, params string[] classes) => Labeled(new Button(), text, icon, classes);
+    /// <summary>One option of a choice; <paramref name="selected"/> marks the chosen one for sight and screen readers.</summary>
+    public static ChoiceButton Choice(string text, string? icon, bool selected, params string[] classes) => Labeled(new ChoiceButton { IsSelected = selected }, text, icon, classes);
+    private static T Labeled<T>(T button, string text, string? icon, string[] classes) where T : Button
     {
-        var button = new Button { Content = icon is null ? text : H(7, Icon(icon, 15), new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center }) };
+        button.Content = icon is null ? text : H(7, Icon(icon, 15), new TextBlock { Text = text, VerticalAlignment = VerticalAlignment.Center });
         AutomationProperties.SetName(button, text);
         return button.Classed(classes);
     }
@@ -122,14 +125,14 @@ public static class Ui
         if (parts.Length == 0) return "?";
         return parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant() : (parts[0][..1] + parts[^1][..1]).ToUpperInvariant();
     }
-    public static Border Avatar(string name, double size = 28, IImage? image = null)
+    public static Decoration Avatar(string name, double size = 28, IImage? image = null)
     {
         var hash = 0; foreach (var ch in name) hash = unchecked(hash * 31 + ch);
         var color = Color.Parse(AvatarColors[Math.Abs(hash % AvatarColors.Length)]);
         Control content = image is not null
             ? new Image { Source = image, Stretch = Stretch.UniformToFill }
             : new TextBlock { Text = Initials(name), Foreground = Brushes.White, FontSize = Math.Max(9, size * 0.38), FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
-        var avatar = new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = new SolidColorBrush(color), Child = content, ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center };
+        var avatar = new Decoration { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = new SolidColorBrush(color), Child = content, ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center };
         avatar.Res(Border.BorderBrushProperty, "Bg.Surface"); avatar.BorderThickness = new Thickness(size >= 24 ? 2 : 1.5);
         ToolTip.SetTip(avatar, name); AutomationProperties.SetName(avatar, name);
         return avatar;

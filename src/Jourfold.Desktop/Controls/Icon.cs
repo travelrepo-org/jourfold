@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Controls.Documents;
 using Avalonia.Media;
@@ -22,6 +23,7 @@ public sealed class Icon : Control
         Avalonia.Automation.AutomationProperties.AccessibilityViewProperty.OverrideDefaultValue<Icon>(Avalonia.Automation.AccessibilityView.Raw);
     }
     public Icon() { IsHitTestVisible = false; }
+    protected override AutomationPeer OnCreateAutomationPeer() => new DecorativePeer(this);
     public Icon(string kind, double size = 16) : this() { Kind = kind; Width = size; Height = size; }
     public string? Kind { get => GetValue(KindProperty); set => SetValue(KindProperty, value); }
     public IBrush? Foreground { get => GetValue(ForegroundProperty); set => SetValue(ForegroundProperty, value); }

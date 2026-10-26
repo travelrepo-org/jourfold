@@ -220,7 +220,8 @@ public sealed class AppShell : UserControl
             Child = new ScrollViewer { Content = list },
             CornerRadius = phone ? new CornerRadius(20, 20, 0, 0) : new CornerRadius(16),
             Padding = new Thickness(0, 0, 0, phone ? 12 + safeArea.Bottom : 12),
-            MaxHeight = Math.Max(240, Bounds.Height * 0.8), MaxWidth = phone ? double.PositiveInfinity : 420,
+            MaxHeight = Math.Max(240, Bounds.Height * 0.8),
+            MaxWidth = phone ? double.PositiveInfinity : 420,
             VerticalAlignment = phone ? VerticalAlignment.Bottom : VerticalAlignment.Center,
             Margin = phone ? default : new Thickness(24),
             BoxShadow = BoxShadows.Parse("0 -2 16 0 #26000000")

@@ -52,12 +52,12 @@ public sealed class DialogSheet(string title, Control body, double width = 560, 
             if (e.Key == Key.Escape) { Close(); e.Handled = true; }
             if (e.Key == Key.Enter && !e.Handled)
             {
-                if (e.Source is TextBox { AcceptsReturn: true } && e.KeyModifiers != KeyModifiers.Control) return;
+                if (e.Source is TextBox { AcceptsReturn: true } && e.KeyModifiers != Shortcuts.Command) return;
                 if (e.Source is Button or ListBoxItem || (e.Source as Control)?.FindAncestorOfType<AutoCompleteBox>() is { IsDropDownOpen: true }) return;
                 var button = body.GetVisualDescendants().OfType<Button>().FirstOrDefault(b => b.IsDefault && b.IsEffectivelyEnabled && b.IsEffectivelyVisible);
                 if (button is not null) { button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent)); e.Handled = true; }
             }
-            if (e.KeyModifiers.HasFlag(KeyModifiers.Control) && e.Key is Key.N or Key.K or Key.Z or Key.S) e.Handled = true;
+            if (e.KeyModifiers.HasFlag(Shortcuts.Command) && e.Key is Key.N or Key.K or Key.Z or Key.S) e.Handled = true;
         }
         owner.AddHandler(InputElement.KeyDownEvent, HandleKeys, RoutingStrategies.Tunnel);
         void OwnerClosed(object? sender, EventArgs e) => Close();

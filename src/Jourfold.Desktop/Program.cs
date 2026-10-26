@@ -6,6 +6,9 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Apps started from the Finder get a short PATH without Homebrew or MacPorts, where Git usually comes from.
+        if (OperatingSystem.IsMacOS())
+            Environment.SetEnvironmentVariable("PATH", string.Join(':', new[] { "/opt/homebrew/bin", "/usr/local/bin", "/opt/local/bin" }.Concat((Environment.GetEnvironmentVariable("PATH") ?? "/usr/bin:/bin").Split(':')).Distinct()));
         if (args is ["--install-desktop"]) { Console.WriteLine(Jourfold.Infrastructure.DesktopIntegration.InstallLinuxLauncher(AppContext.BaseDirectory)); return; }
         if (args is ["--mcp", ..]) { Environment.ExitCode = ServeAssistant(args); return; }
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);

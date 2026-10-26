@@ -63,9 +63,9 @@ public sealed class DocumentWindow : Window
         KeyDown += (_, e) =>
         {
             if (e.Key == Key.Escape && FocusManager?.GetFocusedElement() is not TextBox) { Close(); e.Handled = true; }
-            if (e.Key == Key.F && e.KeyModifiers == KeyModifiers.Control && search is not null) { search.Focus(); search.SelectAll(); e.Handled = true; }
-            if (e.KeyModifiers == KeyModifiers.Control && e.Key is Key.OemPlus or Key.Add && pdf is not null) { SetZoom(zoom * 1.25); e.Handled = true; }
-            if (e.KeyModifiers == KeyModifiers.Control && e.Key is Key.OemMinus or Key.Subtract && pdf is not null) { SetZoom(zoom / 1.25); e.Handled = true; }
+            if (e.Key == Key.F && e.KeyModifiers == Shortcuts.Command && search is not null) { search.Focus(); search.SelectAll(); e.Handled = true; }
+            if (e.KeyModifiers == Shortcuts.Command && e.Key is Key.OemPlus or Key.Add && pdf is not null) { SetZoom(zoom * 1.25); e.Handled = true; }
+            if (e.KeyModifiers == Shortcuts.Command && e.Key is Key.OemMinus or Key.Subtract && pdf is not null) { SetZoom(zoom / 1.25); e.Handled = true; }
         };
         Closing += (_, _) => { M.Store.Set("viewer.width", Width.ToString(System.Globalization.CultureInfo.InvariantCulture)); M.Store.Set("viewer.height", Height.ToString(System.Globalization.CultureInfo.InvariantCulture)); };
         Closed += (_, _) => { pdf?.Dispose(); pdf = null; if (open == this) open = null; };

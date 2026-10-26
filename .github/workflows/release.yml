@@ -1,7 +1,7 @@
 name: Release
 # Runs when a maintainer publishes a GitHub release. The release tag must be v + <Version> from
 # Directory.Build.props, and the TravelRepo release v + <TravelRepoVersion> must already exist; Jourfold is
-# built against exactly that TravelRepo tag. The workflow builds Linux and Windows packages (x64 and ARM64)
+# built against exactly that TravelRepo tag. The workflow builds Linux, Windows and macOS packages (x64 and ARM64)
 # for the tagged commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
@@ -11,7 +11,8 @@ name: Release
 # release is kept as latest while the files are built. If anything fails, the release goes back to draft; fix the
 # problem and publish it again.
 #
-# ARM64 packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
+# The macOS packages are built on an Apple silicon runner, where the Intel (x64) one is cross-compiled and not tested.
+# ARM64 Linux and Windows packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
 # repository variables LINUX_ARM64_RUNNER (for example ubuntu-24.04-arm) and WINDOWS_ARM64_RUNNER (windows-11-arm).
 on:
   release:
@@ -114,6 +115,12 @@ jobs:
           - rid: win-arm64
             arch: ARM64
             os: ${{ vars.WINDOWS_ARM64_RUNNER || 'windows-latest' }}
+          - rid: osx-arm64
+            arch: ARM64
+            os: macos-latest
+          - rid: osx-x64
+            arch: X64
+            os: macos-latest
     runs-on: ${{ matrix.os }}
     defaults:
       run:

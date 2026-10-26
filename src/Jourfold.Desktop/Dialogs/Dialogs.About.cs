@@ -40,7 +40,8 @@ public sealed partial class Dialogs
         body.Children.Add(Ui.Text(s["OpenSourceComponents"], "h3").Margin(0, 8, 0, 0));
         var notices = Ui.Button(s["ViewNotices"], "file-text", "ghost", "compact");
         notices.Click += async (_, _) => await ReadTextAsync(s["OpenSourceComponents"], MainViewModel.BundledText("Jourfold.NOTICES"), markdown: true);
-        var folder = Path.Combine(AppContext.BaseDirectory, "licenses");
+        // Next to the program, or in the bundle's Resources folder on macOS.
+        var folder = new[] { Path.Combine(AppContext.BaseDirectory, "licenses"), Path.Combine(AppContext.BaseDirectory, "..", "Resources", "licenses") }.FirstOrDefault(Directory.Exists) ?? "";
         var files = Directory.Exists(folder) ? Ui.Button(s["LicenseFiles"], "folder-open", "ghost", "compact").Also(b => b.Click += (_, _) => Open(folder)) : null;
         body.Children.Add(Ui.V(4, Ui.Text(s["OpenSourceComponentsHint"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap), Actions(notices, files)));
         body.Children.Add(new SelectableTextBlock { Text = info.Platform, TextWrapping = TextWrapping.Wrap }.Classed("caption").Margin(0, 8, 0, 0));

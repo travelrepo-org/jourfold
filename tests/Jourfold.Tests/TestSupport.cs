@@ -19,7 +19,12 @@ namespace Jourfold.Tests;
 public static class TestBuilder
 {
     public static AppBuilder BuildAvaloniaApp()
-    { Environment.SetEnvironmentVariable("JOURFOLD_DATA_HOME", Path.Combine(Path.GetTempPath(), "jourfold-headless-" + Guid.NewGuid())); return AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }); }
+    {
+        Environment.SetEnvironmentVariable("JOURFOLD_DATA_HOME", Path.Combine(Path.GetTempPath(), "jourfold-headless-" + Guid.NewGuid()));
+        // Headless rendering has no system fonts to fall back on for ⌘, so the tests read shortcuts as Ctrl everywhere.
+        Shortcuts.Mac = false;
+        return AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+    }
 }
 
 /// <summary>Scripted interaction. Prompts, choices and quick-add titles come from <see cref="Answers"/> in order.</summary>

@@ -125,16 +125,16 @@ public partial class MainViewModel
         void Command(string id, string label, string icon, string? shortcut = null) { if (Match(label)) results.Add(new("command:" + id, label, null, icon, s["Commands"], shortcut)); }
         if (HasTrip)
         {
-            Command("QuickAdd", s["QuickAdd"], "plus", "Ctrl+N");
-            Command("Version", s["Version"], "save", "Ctrl+S");
+            Command("QuickAdd", s["QuickAdd"], "plus", Shortcuts.Label("Ctrl+N"));
+            Command("Version", s["Version"], "save", Shortcuts.Label("Ctrl+S"));
             Command("NewVariant", s["NewVariant"], "git-branch");
             Command("Sync", s["SyncNow"], "refresh-cw");
             Command("Share", SharingLabel, "share-2");
             Command("Export", s["Export"], "download");
             Command("AddFile", s["AddFile"], "paperclip");
             Command("Assistant", s["ConnectAssistant"], "bot");
-            Command("Undo", s["Undo"], "undo-2", "Ctrl+Z");
-            Command("Redo", s["Redo"], "redo-2", "Ctrl+Shift+Z");
+            Command("Undo", s["Undo"], "undo-2", Shortcuts.Label("Ctrl+Z"));
+            Command("Redo", s["Redo"], "redo-2", Shortcuts.Label("Ctrl+Shift+Z"));
             Command("Library", s["AllTrips"], "layout-grid");
             foreach (var key in Navigation) if (Match(s[key])) results.Add(new("view:" + key, s[key], s["GoTo"], NavIcon(key), s["Navigation"], null));
         }
@@ -143,7 +143,7 @@ public partial class MainViewModel
             Command("NewTrip", s["NewTrip"], "plus"); Command("OpenTrip", s["OpenTrip"], "folder-open"); Command("Sample", s["ExploreSample"], "sparkles");
             foreach (var recent in Recent.Where(r => Match(r.Title)).Take(8)) results.Add(new("recent:" + recent.Path, recent.Title, recent.Path, "map", s["Recent"], null));
         }
-        Command("Settings", s["Settings"], "settings", "Ctrl+,");
+        Command("Settings", s["Settings"], "settings", Shortcuts.Label("Ctrl+,"));
         Command("Theme", s["ToggleTheme"], "moon");
         Command("About", s["About"], "info");
         if (Workspace is not null && query.Length > 0)

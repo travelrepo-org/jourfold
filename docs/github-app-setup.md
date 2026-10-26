@@ -11,7 +11,7 @@ Open https://github.com/settings/apps/new while signed into the test owner accou
 | GitHub App name | `<your name> Jourfold Dev` (choose another unique name if unavailable) |
 | Homepage URL | `https://github.com/<your-account>` |
 | Callback URL | Leave blank; device flow does not use it |
-| Expire user authorization tokens | Enabled |
+| Expire user authorization tokens | Disabled |
 | Request user authorization during installation | Disabled |
 | Enable Device Flow | Enabled |
 | Setup URL | Leave blank |
@@ -21,6 +21,8 @@ Open https://github.com/settings/apps/new while signed into the test owner accou
 | Repository permissions: Metadata | Read-only (automatic) |
 | Other repository, organization and account permissions | No access |
 | Where can this GitHub App be installed? | Only on this account |
+
+Leave token expiry off. Expiring tokens last eight hours and can only be renewed with the App's client secret, which a desktop or phone app cannot keep secret, so people would have to sign in again several times a day.
 
 Administration write is needed for the required repository-creation and collaborator-invitation tests. This development App should be installed only on disposable trip repositories.
 
@@ -32,7 +34,7 @@ Create an empty private repository, for example `jourfold-smoke`, without a READ
 
 The `travelrepo` and `jourfold` source-code repositories used by CI are separate from this trip-data fixture. The development App does not need access to those source repositories.
 
-Enter the Client ID in Jourfold's GitHub connection settings, start Connect GitHub, and complete the displayed device authorization in your browser. Tokens stay in the OS credential store when available. With expiring authorization, reconnect when authorization expires; never place a client secret in the desktop application.
+Build Jourfold with `-p:JourfoldGitHubClientId=<client ID>`, or use a build without a built-in ID and enter the Client ID when Jourfold asks for it. Then start Connect GitHub and complete the displayed device authorization in your browser. Tokens stay in the OS credential store when available. Never place a client secret in the desktop application.
 
 Publishing a new private test repository is a separate test. Confirm that the newly created repository is included in the App's installation access before diagnosing authorization failures.
 

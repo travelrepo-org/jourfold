@@ -20,5 +20,8 @@
   <ItemGroup>
     <AssemblyMetadata Include="RepositoryUrl" Value="$(RepositoryUrl)" />
     <AssemblyMetadata Include="WebsiteUrl" Value="$(WebsiteUrl)" />
+    <!-- Public client ID of the GitHub App that sign-in uses. Official releases get it from the release workflow; other
+         builds leave it out and ask for one, or pass their own with -p:JourfoldGitHubClientId=... -->
+    <AssemblyMetadata Include="GitHubClientId" Value="$(JourfoldGitHubClientId)" Condition="'$(JourfoldGitHubClientId)' != ''" />
   </ItemGroup>
 </Project>

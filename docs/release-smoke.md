@@ -14,7 +14,7 @@ Install the Debian package or extract the tar archive with Git installed. Repeat
 
 ## GitHub App
 
-Register a GitHub App and enable device flow. Set the public client ID in Jourfold Settings when connecting. Grant metadata, contents write and administration permissions appropriate to repository creation and collaborator management. Install the app for selected test repositories. Complete device authorization, discover a fixture by its `travel.yaml`, publish a disposable private test trip, verify the returned privacy state, and invite a consenting test collaborator. Verify the public warning using an intentionally public non-sensitive fixture. Remove disposable test resources after review.
+Register a GitHub App and enable device flow. A release package connects with the project's App (from the `JOURFOLD_GITHUB_CLIENT_ID` repository variable); a local build asks for the public client ID when connecting. Grant metadata, contents write and administration permissions appropriate to repository creation and collaborator management. Install the app for selected test repositories. Complete device authorization, discover a fixture by its `travel.yaml`, publish a disposable private test trip, verify the returned privacy state, and invite a consenting test collaborator. Verify the public warning using an intentionally public non-sensitive fixture. Remove disposable test resources after review.
 
 No live provider operation should use real itinerary or booking data for release testing. The automated provider tests use HTTP test doubles and never claim live-service verification.
 

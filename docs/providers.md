@@ -12,6 +12,18 @@ Inject `HttpClient` to test network boundaries. Live tests require a configured 
 
 GitHub documentation consulted: [GitHub App user tokens and device flow](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-user-access-token-for-a-github-app).
 
+### Which App a build signs in with
+
+Official releases sign in with the project's GitHub App. The release workflow passes its public client ID from the repository variable `JOURFOLD_GITHUB_CLIENT_ID`, and the build stores it in the `GitHubClientId` assembly metadata. The ID does not appear in the source code, so forks and local builds do not use the project's App by accident.
+
+A build without the ID asks for a client ID the first time someone connects to GitHub. To build with your own App, pass its client ID:
+
+```sh
+dotnet build src/Jourfold.Desktop -p:JourfoldGitHubClientId=Iv23li...
+```
+
+MSBuild also reads an environment variable of the same name. A client ID entered in the app takes precedence over a built-in one.
+
 For development validation, follow the [GitHub App registration walkthrough](github-app-setup.md).
 
 ## Online maps and address search

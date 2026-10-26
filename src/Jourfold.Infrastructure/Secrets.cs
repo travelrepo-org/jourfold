@@ -8,7 +8,11 @@ namespace Jourfold.Infrastructure;
 /// Windows Credential Manager, the macOS keychain or Linux Secret Service. Unavailable stores retain credentials in
 /// memory only.
 /// </summary>
-public sealed class OsSecretStore : ISecretStore
+/// <param name="interactive">
+/// Whether the system may ask the user, for example to unlock the macOS keychain or to allow access after an update.
+/// Only the desktop app itself passes true; tests and tools must never wait for a dialog nobody sees.
+/// </param>
+public sealed class OsSecretStore(bool interactive = false) : ISecretStore
 {
     private readonly Dictionary<string, string> session = new();
     public bool SessionOnly { get; private set; }
@@ -16,20 +20,20 @@ public sealed class OsSecretStore : ISecretStore
     {
         if (session.TryGetValue(key, out var value)) return value;
         if (OperatingSystem.IsWindows()) return WindowsRead(key);
-        if (OperatingSystem.IsMacOS()) return MacKeychain.Read(key);
+        if (OperatingSystem.IsMacOS()) return MacKeychain.Read(key, interactive);
         var result = await SecretTool(["lookup", "application", "Jourfold", "key", key], null, ct); return result.Code == 0 ? result.Text.TrimEnd('\r', '\n') : null;
     }
     public async Task WriteAsync(string key, string value, CancellationToken ct = default)
     {
         session[key] = value;
         if (OperatingSystem.IsWindows()) { SessionOnly = !WindowsWrite(key, value); return; }
-        if (OperatingSystem.IsMacOS()) { SessionOnly = !MacKeychain.Write(key, value); return; }
+        if (OperatingSystem.IsMacOS()) { SessionOnly = !MacKeychain.Write(key, value, interactive); return; }
         SessionOnly = (await SecretTool(["store", "--label=Jourfold", "application", "Jourfold", "key", key], value, ct)).Code != 0;
     }
     public async Task DeleteAsync(string key, CancellationToken ct = default)
     {
         session.Remove(key); if (OperatingSystem.IsWindows()) { CredDelete("Jourfold/" + key, 1, 0); return; }
-        if (OperatingSystem.IsMacOS()) { MacKeychain.Delete(key); return; }
+        if (OperatingSystem.IsMacOS()) { MacKeychain.Delete(key, interactive); return; }
         await SecretTool(["clear", "application", "Jourfold", "key", key], null, ct);
     }
     private static async Task<(int Code, string Text)> SecretTool(string[] args, string? input, CancellationToken ct)
@@ -79,34 +83,39 @@ internal static class MacKeychain
     [DllImport(Security)] private static extern int SecKeychainItemModifyAttributesAndData(IntPtr item, IntPtr attributes, uint length, byte[] data);
     [DllImport(Security)] private static extern int SecKeychainItemDelete(IntPtr item);
     [DllImport(Security)] private static extern int SecKeychainItemFreeContent(IntPtr attributes, IntPtr data);
+    [DllImport(Security)] private static extern int SecKeychainSetUserInteractionAllowed([MarshalAs(UnmanagedType.U1)] bool allowed);
     [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")] private static extern void CFRelease(IntPtr value);
 
     private static readonly byte[] ServiceName = Encoding.UTF8.GetBytes(Service);
 
-    /// <summary>Finds the item for a key; the caller releases <paramref name="item"/> and frees <paramref name="data"/>.</summary>
-    private static int Find(string key, out uint length, out IntPtr data, out IntPtr item)
+    /// <summary>
+    /// Finds the item for a key; the caller releases <paramref name="item"/> and frees <paramref name="data"/>. Without
+    /// interaction a locked keychain answers at once instead of showing a dialog.
+    /// </summary>
+    private static int Find(string key, bool interactive, out uint length, out IntPtr data, out IntPtr item)
     {
+        SecKeychainSetUserInteractionAllowed(interactive);
         var account = Encoding.UTF8.GetBytes(key);
         return SecKeychainFindGenericPassword(IntPtr.Zero, (uint)ServiceName.Length, ServiceName, (uint)account.Length, account, out length, out data, out item);
     }
 
-    public static string? Read(string key)
+    public static string? Read(string key, bool interactive)
     {
         try
         {
-            if (Find(key, out var length, out var data, out var item) != 0) return null;
+            if (Find(key, interactive, out var length, out var data, out var item) != 0) return null;
             try { return Marshal.PtrToStringUTF8(data, (int)length); }
             finally { SecKeychainItemFreeContent(IntPtr.Zero, data); if (item != IntPtr.Zero) CFRelease(item); }
         }
         catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException) { return null; }
     }
 
-    public static bool Write(string key, string value)
+    public static bool Write(string key, string value, bool interactive)
     {
         var secret = Encoding.UTF8.GetBytes(value);
         try
         {
-            var found = Find(key, out _, out var data, out var item);
+            var found = Find(key, interactive, out _, out var data, out var item);
             if (found == 0)
             {
                 // An existing item keeps its access rules; only the secret changes.
@@ -121,11 +130,11 @@ internal static class MacKeychain
         finally { Array.Clear(secret); }
     }
 
-    public static void Delete(string key)
+    public static void Delete(string key, bool interactive)
     {
         try
         {
-            if (Find(key, out _, out var data, out var item) != 0) return;
+            if (Find(key, interactive, out _, out var data, out var item) != 0) return;
             SecKeychainItemFreeContent(IntPtr.Zero, data);
             try { SecKeychainItemDelete(item); } finally { CFRelease(item); }
         }

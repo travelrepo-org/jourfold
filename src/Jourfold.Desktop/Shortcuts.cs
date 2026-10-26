@@ -7,14 +7,20 @@ namespace Jourfold.Desktop;
 /// </summary>
 public static class Shortcuts
 {
+    /// <summary>
+    /// Whether shortcuts follow macOS. True on a Mac; headless tests set it to false, because headless rendering has
+    /// no system fonts to draw ⌘ with.
+    /// </summary>
+    public static bool Mac { get; set; } = OperatingSystem.IsMacOS();
+
     /// <summary>The modifier of command shortcuts such as undo or quick add.</summary>
-    public static KeyModifiers Command => OperatingSystem.IsMacOS() ? KeyModifiers.Meta : KeyModifiers.Control;
+    public static KeyModifiers Command => Mac ? KeyModifiers.Meta : KeyModifiers.Control;
 
     /// <summary>
     /// A shortcut written as "Ctrl+Shift+Z" the way the platform shows it: unchanged on Windows and Linux, "⇧⌘Z" on
     /// macOS, with the modifiers in Apple's order.
     /// </summary>
-    public static string Label(string gesture) => Label(gesture, OperatingSystem.IsMacOS());
+    public static string Label(string gesture) => Label(gesture, Mac);
 
     /// <summary>The label of a shortcut on macOS or elsewhere, whatever the system the app runs on.</summary>
     public static string Label(string gesture, bool mac)
@@ -29,7 +35,7 @@ public static class Shortcuts
     /// <summary>On macOS, moves an element's Ctrl key bindings to Cmd.</summary>
     public static void Adapt(InputElement element)
     {
-        if (!OperatingSystem.IsMacOS()) return;
+        if (!Mac) return;
         foreach (var binding in element.KeyBindings)
             if (binding.Gesture is { } gesture && gesture.KeyModifiers.HasFlag(KeyModifiers.Control))
                 binding.Gesture = new KeyGesture(gesture.Key, (gesture.KeyModifiers & ~KeyModifiers.Control) | KeyModifiers.Meta);

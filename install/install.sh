@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Install or update Jourfold for the current user on Linux.
+# Install or update Jourfold for the current user on Linux or macOS.
 #
 #   curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash
 #
 # Options (append after `bash -s --` when piping):
 #   --version vX.Y.Z   install a specific release instead of the latest
 #   --uninstall        remove Jourfold; trips and settings are kept
-#   --no-desktop       do not register the application launcher
+#   --no-desktop       do not register the application launcher (Linux)
 #
 # Environment:
 #   JOURFOLD_REPO           GitHub repository (owner/name) to download from
 #   JOURFOLD_DOWNLOAD_BASE  alternative base URL for the release files (mirrors, testing)
-#   JOURFOLD_INSTALL_DIR    application directory (default: ~/.local/share/jourfold-app)
+#   JOURFOLD_INSTALL_DIR    application directory (default: ~/.local/share/jourfold-app on Linux,
+#                           ~/Applications/Jourfold.app on macOS)
 #   JOURFOLD_BIN_DIR        directory for the `jourfold` command (default: ~/.local/bin)
 #
 # Nothing is installed system-wide and sudo is never used.
@@ -28,7 +29,7 @@ usage() {
 Install or update Jourfold for the current user.
   --version vX.Y.Z   install a specific release instead of the latest
   --uninstall        remove Jourfold; trips and settings are kept
-  --no-desktop       do not register the application launcher
+  --no-desktop       do not register the application launcher (Linux)
 Environment: JOURFOLD_REPO, JOURFOLD_DOWNLOAD_BASE, JOURFOLD_INSTALL_DIR, JOURFOLD_BIN_DIR
 USAGE
 }
@@ -48,24 +49,30 @@ main() {
     esac
   done
 
-  local data="${XDG_DATA_HOME:-$HOME/.local/share}"
-  local dir="${JOURFOLD_INSTALL_DIR:-$data/jourfold-app}"
-  local bin="${JOURFOLD_BIN_DIR:-$HOME/.local/bin}"
   [ -n "${HOME:-}" ] || fail "HOME is not set."
+  local system
+  case "$(uname -s)" in
+    Linux) system=linux ;;
+    Darwin) system=osx ;;
+    *) fail "this installer is for Linux and macOS. On Windows use install.ps1." ;;
+  esac
+  local data="${XDG_DATA_HOME:-$HOME/.local/share}"
+  local dir bin="${JOURFOLD_BIN_DIR:-$HOME/.local/bin}"
+  # On macOS the application is a bundle in the user's own Applications folder, so no administrator rights are needed.
+  if [ "$system" = osx ]; then dir="${JOURFOLD_INSTALL_DIR:-$HOME/Applications/Jourfold.app}"; else dir="${JOURFOLD_INSTALL_DIR:-$data/jourfold-app}"; fi
 
   if [ "$uninstall" -eq 1 ]; then
     uninstall_app "$dir" "$bin" "$data"
     return
   fi
 
-  [ "$(uname -s)" = "Linux" ] || fail "this installer is for Linux. On Windows use install.ps1."
   case "$(uname -m)" in
-    x86_64|amd64) ARCHIVE="jourfold-linux-x64.tar.gz" ;;
-    aarch64|arm64) ARCHIVE="jourfold-linux-arm64.tar.gz" ;;
+    x86_64|amd64) ARCHIVE="jourfold-$system-x64.tar.gz" ;;
+    aarch64|arm64) ARCHIVE="jourfold-$system-arm64.tar.gz" ;;
     *) fail "Jourfold builds are available for x86-64 and ARM64; this machine is $(uname -m)." ;;
   esac
   have tar || fail "tar is required."
-  have sha256sum || fail "sha256sum is required to verify the download."
+  have sha256sum || have shasum || fail "sha256sum or shasum is required to verify the download."
   have curl || have wget || fail "curl or wget is required."
 
   local base
@@ -91,13 +98,17 @@ main() {
 
   say "Verifying the download..."
   grep -E "[[:space:]]\*?$ARCHIVE\$" "$tmp/SHA256SUMS" > "$tmp/expected" || fail "SHA256SUMS does not list $ARCHIVE."
-  (cd "$tmp" && sha256sum -c --status expected) || fail "checksum mismatch. The download is incomplete or was altered; nothing was installed."
+  if have sha256sum; then (cd "$tmp" && sha256sum -c --status expected)
+  else (cd "$tmp" && shasum -a 256 -c -s expected); fi || fail "checksum mismatch. The download is incomplete or was altered; nothing was installed."
 
   mkdir -p "$tmp/unpacked"
   tar -xzf "$tmp/$ARCHIVE" -C "$tmp/unpacked"
-  [ -x "$tmp/unpacked/jourfold/Jourfold.Desktop" ] || fail "the archive does not contain the Jourfold application."
+  # The program folder inside the archive, and inside an installed copy: the bundle's Contents/MacOS on macOS.
+  local unpacked program=""
+  if [ "$system" = osx ]; then unpacked="$tmp/unpacked/Jourfold.app"; program="/Contents/MacOS"; else unpacked="$tmp/unpacked/jourfold"; fi
+  [ -x "$unpacked$program/Jourfold.Desktop" ] || fail "the archive does not contain the Jourfold application."
   local old new summary
-  old="$(app_version "$dir")"; new="$(app_version "$tmp/unpacked/jourfold")"
+  old="$(app_version "$dir$program")"; new="$(app_version "$unpacked$program")"
   if [ ! -d "$dir" ]; then
     say "Installing Jourfold ${new:-$version} to $dir..."; summary="Jourfold ${new:-$version} is installed."
   elif [ -z "$old" ] || [ -z "$new" ]; then
@@ -112,13 +123,15 @@ main() {
   mkdir -p "$(dirname "$dir")"
   # Replace the previous version only after the new one is complete.
   rm -rf "$dir.new"
-  mv "$tmp/unpacked/jourfold" "$dir.new"
+  mv "$unpacked" "$dir.new"
   if [ -d "$dir" ]; then rm -rf "$dir.old"; mv "$dir" "$dir.old"; fi
   mv "$dir.new" "$dir"
   rm -rf "$dir.old"
 
+  if [ "$system" = osx ]; then prepare_mac_app "$dir"; desktop=0; fi
+
   mkdir -p "$bin"
-  ln -sfn "$dir/Jourfold.Desktop" "$bin/jourfold"
+  ln -sfn "$dir$program/Jourfold.Desktop" "$bin/jourfold"
 
   if [ "$desktop" -eq 1 ]; then
     "$dir/Jourfold.Desktop" --install-desktop >/dev/null || say "Note: the application launcher could not be registered. Run '$bin/jourfold --install-desktop' later."
@@ -127,9 +140,20 @@ main() {
   fi
 
   say ""
-  if [ "$desktop" -eq 1 ]; then say "$summary Start it from your application menu or run: jourfold"
+  if [ "$system" = osx ]; then say "$summary Start it from Launchpad, Spotlight or $dir."
+  elif [ "$desktop" -eq 1 ]; then say "$summary Start it from your application menu or run: jourfold"
   else say "$summary Start it with: jourfold"; fi
-  check_dependencies "$bin"
+  check_dependencies "$bin" "$system"
+}
+
+# macOS runs only signed programs on Apple silicon and checks downloaded ones with Gatekeeper. Jourfold is not
+# notarized by Apple, so the installer signs the bundle for this Mac (ad hoc, as Xcode does for local builds) and
+# removes the download mark a browser or AirDrop may have set. Registering the bundle lets trip links open in it.
+prepare_mac_app() {
+  xattr -dr com.apple.quarantine "$1" 2>/dev/null || true
+  codesign --force --deep --sign - "$1" >/dev/null 2>&1 || say "Note: the application could not be signed for this Mac; macOS may refuse to open it."
+  local register=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  [ -x "$register" ] && "$register" -f "$1" >/dev/null 2>&1 || true
 }
 
 # The version of the Jourfold application in a folder, read from the .NET dependency manifest that every release
@@ -148,6 +172,7 @@ check_dependencies() {
     *":$1:"*) ;;
     *) say "Add $1 to your PATH to use the 'jourfold' command in a terminal." ;;
   esac
+  if [ "$2" = osx ]; then check_mac_git; return; fi
   if ! have git; then
     say ""
     say "Jourfold needs Git 2.34 or newer to store trip versions. Install it with your package manager, for example:"
@@ -164,6 +189,22 @@ check_dependencies() {
   fi
   if ! have secret-tool; then
     say "Optional: install 'secret-tool' (libsecret) so a GitHub connection is remembered between sessions."
+  fi
+}
+
+# On macOS, /usr/bin/git only works once the Command Line Tools are installed; calling it before asks to install them.
+# Git from Homebrew or MacPorts works as well.
+check_mac_git() {
+  local git=""
+  for candidate in /opt/homebrew/bin/git /usr/local/bin/git /opt/local/bin/git; do
+    [ -x "$candidate" ] && { git="$candidate"; break; }
+  done
+  if [ -z "$git" ] && xcode-select -p >/dev/null 2>&1; then git=/usr/bin/git; fi
+  if [ -z "$git" ]; then
+    say ""
+    say "Jourfold needs Git to store trip versions. Install Apple's Command Line Tools with:"
+    say "  xcode-select --install"
+    say "or Git from Homebrew: brew install git"
   fi
 }
 

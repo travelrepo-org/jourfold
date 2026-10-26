@@ -155,6 +155,11 @@
         "resolved": "157.0.8100",
         "contentHash": "+VKTzJDX1aMJ2AX33qxtyLQY2d5IA1o1FwDbQeaJQnYevSFbYAFjVeQeinaPcjiEA4qUSicjhh7uGCQD4qqFyw=="
       },
+      "bblanchon.PDFium.macOS": {
+        "type": "Transitive",
+        "resolved": "157.0.8100",
+        "contentHash": "dfRqlwdZJsEAi0sgvZvpZSG19NdWTjCaePnQsWIt56TsTjz2lKb1C+NO2lzzbsg8D+BsNpcRtJNe274d0q4itg=="
+      },
       "bblanchon.PDFium.Win32": {
         "type": "Transitive",
         "resolved": "157.0.8100",
@@ -497,7 +502,8 @@
           "System.Security.Cryptography.Pkcs": "[10.0.13, )",
           "Tmds.DBus.Protocol": "[0.21.3, )",
           "bblanchon.PDFium.Linux": "[157.0.8100, )",
-          "bblanchon.PDFium.Win32": "[157.0.8100, )"
+          "bblanchon.PDFium.Win32": "[157.0.8100, )",
+          "bblanchon.PDFium.macOS": "[157.0.8100, )"
         }
       },
       "travelrepo.core": {

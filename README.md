@@ -1,6 +1,6 @@
 # Jourfold
 
-A desktop travel planner for Windows and Linux, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later. Website: [jourfold.dev](https://jourfold.dev).
+A desktop travel planner for Windows, macOS and Linux, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later. Website: [jourfold.dev](https://jourfold.dev).
 
 ![Jourfold timetable with the Inbox open and an activity selected in the inspector](docs/screenshots/planning-light.png)
 
@@ -31,7 +31,7 @@ What changed in each release is in [CHANGELOG.md](CHANGELOG.md).
 
 Once a release is published, one command installs Jourfold for your user account.
 
-Linux (x86-64 and ARM64):
+Linux (x86-64 and ARM64) and macOS 14 or newer (Apple silicon and Intel), in a terminal:
 
 ```sh
 curl -fsSL https://github.com/travelrepo-org/jourfold/releases/latest/download/install.sh | bash
@@ -43,7 +43,7 @@ Windows 10 and 11, in PowerShell:
 irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.ps1 | iex
 ```
 
-Both scripts pick the x64 or ARM64 build and verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
+The scripts pick the x64 or ARM64 build and verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
 
 ## Try it
 

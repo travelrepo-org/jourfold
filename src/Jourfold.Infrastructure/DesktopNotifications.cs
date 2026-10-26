@@ -5,7 +5,8 @@ namespace Jourfold.Infrastructure;
 
 /// <summary>
 /// Shows a notification of the operating system while Jourfold runs: through the desktop's notification service
-/// (org.freedesktop.Notifications) on Linux, and as a notification area message on Windows. Failures are silent,
+/// (org.freedesktop.Notifications) on Linux, as a notification area message on Windows and through the notification
+/// centre on macOS. Failures are silent,
 /// because a missing notification service must never interrupt planning.
 /// </summary>
 public static class DesktopNotifications
@@ -17,9 +18,24 @@ public static class DesktopNotifications
         {
             if (OperatingSystem.IsLinux() || OperatingSystem.IsFreeBSD()) return await FreedesktopAsync(title, body).ConfigureAwait(false);
             if (OperatingSystem.IsWindows()) return Windows(title, body, window);
+            if (OperatingSystem.IsMacOS()) return await MacAsync(title, body).ConfigureAwait(false);
         }
-        catch (Exception ex) when (ex is DBusException or ConnectException or IOException or InvalidOperationException or ExternalException or ObjectDisposedException or TimeoutException) { }
+        catch (Exception ex) when (ex is DBusException or ConnectException or IOException or InvalidOperationException or ExternalException or ObjectDisposedException or TimeoutException or System.ComponentModel.Win32Exception or OperationCanceledException) { }
         return false;
+    }
+
+    /// <summary>
+    /// Through AppleScript's display notification. Title and text are passed as arguments, never as script text, so
+    /// nothing in them can run as a script.
+    /// </summary>
+    private static async Task<bool> MacAsync(string title, string body)
+    {
+        var info = new System.Diagnostics.ProcessStartInfo("/usr/bin/osascript") { UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true };
+        foreach (var arg in new[] { "-e", "on run argv", "-e", "display notification (item 2 of argv) with title (item 1 of argv)", "-e", "end run", title, body }) info.ArgumentList.Add(arg);
+        using var process = System.Diagnostics.Process.Start(info)!;
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await process.WaitForExitAsync(deadline.Token).ConfigureAwait(false);
+        return process.ExitCode == 0;
     }
 
     private static async Task<bool> FreedesktopAsync(string title, string body)

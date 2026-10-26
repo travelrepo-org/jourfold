@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        Shortcuts.Adapt(this);
         MainViewModel? vm = null; var store = App.Services.GetRequiredService<LocalStore>();
         Dialogs = new Dialogs(this, () => vm?.Strings ?? new Localization("en"));
         vm = new MainViewModel(store, App.Services.GetRequiredService<IGitBackend>(), App.Services.GetRequiredService<OsSecretStore>(), Dialogs); Model = vm; DataContext = Model;
@@ -89,7 +90,7 @@ public partial class MainWindow : Window
         var typing = FocusManager?.GetFocusedElement() is TextBox or AutoCompleteBox or NumericUpDown;
         if (e.Key == Key.Escape && Model.Selected is not null && !typing) { Model.Selected = null; e.Handled = true; }
         if (e.Key == Key.Delete && Model.Selected is { Type: not "trip" } && !typing) { _ = Model.DeleteAsync(Model.Selected.Id); e.Handled = true; }
-        if (e.Key == Key.I && e.KeyModifiers == KeyModifiers.Control && Model.HasTrip) { Model.InboxOpen = !Model.InboxOpen; e.Handled = true; }
+        if (e.Key == Key.I && e.KeyModifiers == Shortcuts.Command && Model.HasTrip) { Model.InboxOpen = !Model.InboxOpen; e.Handled = true; }
         if (e.KeyModifiers == KeyModifiers.Alt && Model.HasTrip && e.Key is >= Key.D1 and <= Key.D9)
         {
             var index = e.Key - Key.D1; var keys = SidebarView.Primary; if (index < keys.Count) { Model.Navigate(keys[index]); e.Handled = true; }

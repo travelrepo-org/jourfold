@@ -235,6 +235,10 @@
     "license": "Apache-2.0",
     "project": "https://github.com/bblanchon/pdfium-binaries"
   },
+  "bblanchon.PDFium.macOS/157.0.8100": {
+    "license": "Apache-2.0",
+    "project": "https://github.com/bblanchon/pdfium-binaries"
+  },
   "xunit.abstractions/2.0.3": {
     "license": "https://raw.githubusercontent.com/xunit/xunit/master/license.txt",
     "project": "https://github.com/xunit/xunit"

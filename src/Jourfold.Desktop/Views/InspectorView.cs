@@ -761,7 +761,7 @@ public static class InspectorView
         var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, Watermark = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);
         var send = Ui.Button(s["Comment"], "message-square", "primary", "compact");
         send.Click += async (_, _) => { if (!string.IsNullOrWhiteSpace(box.Text)) { var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };
-        box.KeyDown += async (_, k) => { if (k.Key == Key.Enter && k.KeyModifiers == KeyModifiers.Control && !string.IsNullOrWhiteSpace(box.Text)) { k.Handled = true; var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };
+        box.KeyDown += async (_, k) => { if (k.Key == Key.Enter && k.KeyModifiers == Shortcuts.Command && !string.IsNullOrWhiteSpace(box.Text)) { k.Handled = true; var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };
         var who = m.Me?.Title;
         body.Children.Add(Ui.V(8, box, Ui.Columns("*,Auto", Ui.Text(who is null ? s["CommentAsHint"] : string.Format(s["CommentingAs"], who), "caption"), send)));
     }

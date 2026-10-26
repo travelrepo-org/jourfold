@@ -254,7 +254,7 @@ public partial class MainViewModel
     [RelayCommand] private Task ConnectGitHub() => RunAsync(ConnectGitHubCoreAsync);
     private async Task ConnectGitHubCoreAsync()
     {
-        if (Store.Get("github.client") is null)
+        if (GitHubClient is null)
         {
             var values = await Interaction.FormAsync(Strings["ConnectGitHub"], [new("client", Strings["GitHubClient"], Required: true, Hint: Strings["GitHubClientHint"])]); if (values is null) throw new OperationCanceledException();
             Store.Set("github.client", values["client"]);

@@ -50,7 +50,7 @@ public partial class MainViewModel
             lines.AddRange(Workspace.State.Diagnostics.Select(d => d.Code + ": " + d.Message));
             lines.Add(Strings["Extensions"] + ": " + string.Join(", ", extensions));
         }
-        lines.Add("GitHub: " + (Store.Get("github.client") is null ? Strings["NotConfigured"] : Strings["Configured"]));
+        lines.Add("GitHub: " + (GitHubClient is null ? Strings["NotConfigured"] : Strings["Configured"]));
         var plugins = PluginCatalog.Known(Store);
         lines.Add(Strings["Plugins"] + ": " + (plugins.Count == 0 ? Strings["NotConfigured"] : string.Join(", ", plugins.Select(p => p.Manifest.Id + " " + p.Manifest.Version))));
         return string.Join('\n', lines.Where(l => l.Length > 0));

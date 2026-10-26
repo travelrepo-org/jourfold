@@ -94,11 +94,11 @@ The [user guide](user-guide.md) explains variants, people, files and the remaini
 
 The VM's authorization is not transferred with the archive. Jourfold performs its own browser device authorization on each machine; a `gh auth login` session is not required.
 
-1. Choose **Settings → Sharing → Connect GitHub** and enter the public Client ID for your development GitHub App. This is the Client ID, not a secret or private key.
+1. Choose **Settings → Sharing → Connect GitHub**. A release build connects with the project's App. A build of your own asks for the public Client ID of your development GitHub App. This is the Client ID, not a secret or private key.
 2. Enter Jourfold's displayed code on GitHub's device page, approve access, then dismiss the code dialog in Jourfold so it completes authorization.
 3. In the library choose **Open → Find trips on GitHub** and select the private smoke trip that the App can access. Jourfold copies it into your trips folder.
 4. Change a synthetic activity, create a version, then use **Sync**. Verify the new version from the VM or GitHub. Jourfold can also sync committed versions in the background; use only the disposable fixture for this test.
-5. Restart Jourfold and repeat discovery or sync to check credential persistence. A session-only credential notice means the secure store was unavailable. Expired App authorization requires reconnecting.
+5. Restart Jourfold and repeat discovery or sync to check credential persistence. A session-only credential notice means the secure store was unavailable.
 
 For the existing development setup, use the already installed App and smoke repository. There is no need to create another App or invite a collaborator to test your own account on a second PC. The [App setup guide](github-app-setup.md) covers new installations and permissions. The source-code repositories and their CI credentials are separate from this trip-data test.
 

@@ -3,7 +3,9 @@
 
 The version comes from Directory.Build.props (see eng/version.py). ARM64 packages can be built on x64 machines.
 macOS packages are a Jourfold.app bundle in a .tar.gz; they can be built on Linux too, but are only signed (ad hoc)
-when built on a Mac. install.sh signs the bundle again on the Mac it installs to.
+when built on a Mac. install.sh signs the bundle again on the Mac it installs to. Contents/MacOS holds the programs and
+what they load; notices and licenses go to Contents/Resources, because codesign takes folders with a dot in their name
+(licenses/harfbuzzsharp.nativeassets.win32) inside Contents/MacOS for bundles of their own.
 """
 from pathlib import Path
 import argparse,subprocess,shutil,urllib.request,hashlib,zipfile,tarfile,sys,plistlib,re
@@ -27,9 +29,11 @@ out.mkdir(parents=True)
 for project,folder in [('Desktop',out),('PluginHost',out/'PluginHost')]:
  subprocess.run([a.dotnet,'publish',str(root/'src'/('Jourfold.'+project)), '-c','Release','-p:NuGetLockFilePath=obj/packages.publish.lock.json','-r',a.rid,'--self-contained','true','-o',str(folder)],check=True)
 subprocess.run([a.dotnet,'publish',str(root/'samples/Jourfold.ExamplePlugin'),'-c','Release','-p:NuGetLockFilePath=obj/packages.publish.lock.json','-o',str(out/'Examples/Walking')],check=True)
+notices=app/'Contents'/'Resources' if mac else out
+notices.mkdir(parents=True,exist_ok=True)
 for file in ['LICENSE','THIRD_PARTY_NOTICES.md']:
- shutil.copy2(root/file,out/file)
-if (root/'licenses').exists():shutil.copytree(root/'licenses',out/'licenses',dirs_exist_ok=True)
+ shutil.copy2(root/file,notices/file)
+if (root/'licenses').exists():shutil.copytree(root/'licenses',notices/'licenses',dirs_exist_ok=True)
 if windows:
  name,sha=MINGIT[a.rid]
  archive=root/'artifacts'/name
@@ -38,8 +42,7 @@ if windows:
  with zipfile.ZipFile(archive) as z:z.extractall(out/'git')
  shutil.make_archive(str(root/'artifacts'/('jourfold-'+a.rid)),'zip',out)
 elif mac:
- resources=app/'Contents'/'Resources';resources.mkdir()
- shutil.copy2(root/'assets/branding/jourfold.icns',resources/'jourfold.icns')
+ shutil.copy2(root/'assets/branding/jourfold.icns',notices/'jourfold.icns')
  short=re.match(r'\d+\.\d+\.\d+',version).group(0)
  (app/'Contents'/'Info.plist').write_bytes(plistlib.dumps({
   'CFBundleName':'Jourfold','CFBundleDisplayName':'Jourfold','CFBundleIdentifier':'dev.jourfold.desktop',
@@ -50,7 +53,11 @@ elif mac:
   # Trip links (jourfold://open?...) open in the app.
   'CFBundleURLTypes':[{'CFBundleURLName':'Jourfold trip link','CFBundleURLSchemes':['jourfold']}]}))
  if sys.platform=='darwin' and shutil.which('codesign'):
-  subprocess.run(['codesign','--force','--deep','--sign','-',str(app)],check=True)
+  # Each program and library first, then the bundle; --deep would treat data folders as bundles.
+  for file in sorted(p for p in out.rglob('*') if p.is_file() and p.read_bytes()[:4] in (b'\xcf\xfa\xed\xfe',b'\xce\xfa\xed\xfe',b'\xca\xfe\xba\xbe')):
+   subprocess.run(['codesign','--force','--sign','-',str(file)],check=True,stdout=subprocess.DEVNULL)
+  subprocess.run(['codesign','--force','--sign','-',str(app)],check=True)
+  subprocess.run(['codesign','--verify','--strict','--verbose=2',str(app)],check=True)
  with tarfile.open(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz'),'w:gz') as tar:tar.add(app,arcname='Jourfold.app')
 else:
  with tarfile.open(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz'),'w:gz') as tar:tar.add(out,arcname='jourfold')
@@ -68,5 +75,5 @@ else:
 assert (out/('Jourfold.Desktop.exe' if windows else 'Jourfold.Desktop')).exists()
 assert (out/'fonts/PlusJakartaSans-Regular.ttf').exists()
 assert (out/'fonts/PlusJakartaSans-OFL.txt').exists()
-if mac:assert (app/'Contents/Info.plist').exists() and (app/'Contents/Resources/jourfold.icns').exists()
+if mac:assert (app/'Contents/Info.plist').exists() and (app/'Contents/Resources/jourfold.icns').exists() and (app/'Contents/Resources/licenses').is_dir()
 print(package)

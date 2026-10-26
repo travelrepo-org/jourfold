@@ -35,7 +35,7 @@ public static class SidebarView
 
         var tripButton = new Button { Content = TripBadge(w), HorizontalAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(10, 0, 10, 10) }.Classed("row").Named(s["TripMenu"]);
         tripButton.Flyout = TripMenu(w); DockPanel.SetDock(tripButton, Dock.Top); root.Children.Add(tripButton);
-        var search = new Button { Margin = new Thickness(10, 0, 10, 8), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, FontWeight = FontWeight.Normal, Content = Ui.Columns("Auto,*,Auto", Ui.Icon("search", 15, "Text.Subtle"), Ui.Line(s["SearchPlaceholder"], "subtle").Margin(8, 0), new Border { Child = Ui.Text("Ctrl K", "caption").Also(t => t.FontSize = 11), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Bg.Subtle")) }.Named(s["SearchTitle"]);
+        var search = new Button { Margin = new Thickness(10, 0, 10, 8), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, FontWeight = FontWeight.Normal, Content = Ui.Columns("Auto,*,Auto", Ui.Icon("search", 15, "Text.Subtle"), Ui.Line(s["SearchPlaceholder"], "subtle").Margin(8, 0), new Border { Child = Ui.Text(Shortcuts.Label("Ctrl+K").Replace("+", " ", StringComparison.Ordinal), "caption").Also(t => t.FontSize = 11), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Bg.Subtle")) }.Named(s["SearchTitle"]);
         search.Res(Button.BackgroundProperty, "Bg.Surface"); search.Command = m.SearchCommand; DockPanel.SetDock(search, Dock.Top); root.Children.Add(search);
 
         var footer = Ui.V(2); footer.Margin = new Thickness(10, 6, 10, 12); DockPanel.SetDock(footer, Dock.Bottom);
@@ -192,7 +192,7 @@ public static class HeaderView
         var send = new Button { Content = Ui.Icon("share", 16, "Accent"), Padding = new Thickness(9, 7) }.Named(s["ShareMenu"]); send.Flyout = ShareMenu(w); ToolTip.SetTip(send, s["ShareMenuTip"]);
         var version = Ui.Button(s["Version"], "save"); version.Command = m.CreateVersionCommand; ToolTip.SetTip(version, s["VersionTip"]);
         if (m.HasUncommitted) version.Classes.Add("soft");
-        var add = Ui.Button(s["Add"], "plus", "primary"); add.Command = m.QuickAddCommand; ToolTip.SetTip(add, s["QuickAdd"] + " (Ctrl+N)");
+        var add = Ui.Button(s["Add"], "plus", "primary"); add.Command = m.QuickAddCommand; ToolTip.SetTip(add, s["QuickAdd"] + " (" + Shortcuts.Label("Ctrl+N") + ")");
         var more = Ui.IconButton("ellipsis", s["More"]); more.Flyout = MoreMenu(w);
         var right = Ui.H(8, avatars, Reminders(w), share, send, version, add, more);
         left.ClipToBounds = true; title.MaxWidth = 420;
@@ -261,8 +261,8 @@ public static class HeaderView
     {
         var m = w.Model; var s = m.Strings; var menu = new MenuFlyout();
         void Item(string text, string icon, Action action, string? gesture = null, bool enabled = true) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16), IsEnabled = enabled, InputGesture = gesture is null ? null : Avalonia.Input.KeyGesture.Parse(gesture) }; item.Click += (_, _) => action(); menu.Items.Add(item); }
-        Item(s["Undo"], "undo-2", () => m.UndoCommand.Execute(null), "Ctrl+Z", m.Workspace?.CanUndo == true);
-        Item(s["Redo"], "redo-2", () => m.RedoCommand.Execute(null), "Ctrl+Shift+Z", m.Workspace?.CanRedo == true);
+        Item(s["Undo"], "undo-2", () => m.UndoCommand.Execute(null), Shortcuts.Label("Ctrl+Z"), m.Workspace?.CanUndo == true);
+        Item(s["Redo"], "redo-2", () => m.RedoCommand.Execute(null), Shortcuts.Label("Ctrl+Shift+Z"), m.Workspace?.CanRedo == true);
         menu.Items.Add(new Separator());
         Item(s["SyncNow"], "refresh-cw", () => m.SyncCommand.Execute(null), "F5");
         Item(s["AddFile"], "paperclip", () => m.AddFileCommand.Execute(null));

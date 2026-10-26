@@ -2,6 +2,20 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.7.0 “Keen Kudu” – 2026-10-26
+
+### Highlights
+
+- Jourfold runs on macOS. The same one-line install command as on Linux installs it on Apple silicon and Intel Macs with macOS 14 or newer.
+- Screen readers on Linux now read Jourfold, including which status, category, view or filter is chosen and who the people in a trip are.
+
+### Changes
+
+- On a Mac, shortcuts use Cmd, GitHub sign-ins are kept in the keychain, reminders appear in the notification centre and trip links open in Jourfold.
+- Jourfold draws only when something changes, which saves power while it is open.
+- Windows 11 shows the Jourfold window with rounded corners.
+- When a coordinate needs both values, screen readers read that with the field.
+
 ## 0.6.0 “Oceanic Osprey” – 2026-10-24
 
 ### Highlights

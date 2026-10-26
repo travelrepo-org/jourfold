@@ -36,7 +36,7 @@ The `travelrepo` and `jourfold` source-code repositories used by CI are separate
 
 Build Jourfold with `-p:JourfoldGitHubClientId=<client ID>`, or use a build without a built-in ID and enter the Client ID when Jourfold asks for it. Then start Connect GitHub and complete the displayed device authorization in your browser. Tokens stay in the OS credential store when available. Never place a client secret in the desktop application.
 
-Publishing a new private test repository is a separate test. Confirm that the newly created repository is included in the App's installation access before diagnosing authorization failures.
+Publishing a new private test repository is a separate test. A repository that Jourfold creates through the App is added to the App's installation automatically, also when the installation covers only selected repositories, so pushing, syncing and discovery work without changing the installation (checked on 2026-10-26).
 
 ## Live test scope
 

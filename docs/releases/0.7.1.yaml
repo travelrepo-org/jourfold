@@ -1,0 +1,8 @@
+# Release notes for Jourfold 0.7.1. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.7.1
+date: 2026-10-26
+highlights:
+  - icon: share
+    en: Connecting to GitHub no longer needs a GitHub App of your own. Jourfold signs in with its own App, and you choose on GitHub which repositories it may use.
+    de: Für die Verbindung mit GitHub brauchen Sie keine eigene GitHub App mehr. Jourfold meldet sich mit seiner eigenen App an, und Sie legen auf GitHub fest, welche Repositories sie nutzen darf.

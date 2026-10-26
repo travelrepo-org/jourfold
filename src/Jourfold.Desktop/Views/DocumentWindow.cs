@@ -143,7 +143,7 @@ public sealed class DocumentWindow : Window
         var zoomOut = Ui.IconButton("zoom-out", S["ZoomOut"], "small"); zoomOut.Click += (_, _) => SetZoom(zoom / 1.25);
         var zoomIn = Ui.IconButton("zoom-in", S["ZoomIn"], "small"); zoomIn.Click += (_, _) => SetZoom(zoom * 1.25);
         var fit = Ui.Button(S["FitWidth"], null, "compact"); fit.Click += (_, _) => SetZoom(1);
-        search = new TextBox { Watermark = S["SearchInDocument"], Width = 200 }.Classed("search"); AutomationProperties.SetName(search, S["SearchInDocument"]);
+        search = new TextBox { PlaceholderText = S["SearchInDocument"], Width = 200 }.Classed("search"); AutomationProperties.SetName(search, S["SearchInDocument"]);
         matchLabel = new TextBlock { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MinWidth = 60 }; matchLabel.Res(TextBlock.ForegroundProperty, "Text.Muted");
         var previous = Ui.IconButton("chevron-up", S["PreviousMatch"], "small"); previous.Click += (_, _) => Step(-1);
         var next = Ui.IconButton("chevron-down", S["NextMatch"], "small"); next.Click += (_, _) => Step(1);

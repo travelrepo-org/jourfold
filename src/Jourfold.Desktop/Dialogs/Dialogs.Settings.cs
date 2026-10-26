@@ -79,7 +79,7 @@ public sealed partial class Dialogs
             Control MapServers()
             {
                 var store = model.Store; var current = Jourfold.Infrastructure.MapProviders.Current(store);
-                TextBox Box(string key, string label, string watermark) { var box = new TextBox { Text = store.Get(key) ?? "", Watermark = watermark, Tag = key }; AutomationProperties.SetName(box, label); return box; }
+                TextBox Box(string key, string label, string watermark) { var box = new TextBox { Text = store.Get(key) ?? "", PlaceholderText = watermark, Tag = key }; AutomationProperties.SetName(box, label); return box; }
                 var defaults = Jourfold.Infrastructure.MapProvider.OpenStreetMap;
                 var tiles = Box(Jourfold.Infrastructure.MapProviders.TilesKey, s["MapTilesServer"], defaults.TilesUrl);
                 var attribution = Box(Jourfold.Infrastructure.MapProviders.AttributionKey, s["MapAttribution"], defaults.Attribution);
@@ -118,8 +118,8 @@ public sealed partial class Dialogs
                     break;
                 case "LocalIdentity":
                     page.Children.Add(Ui.Text(s["IdentityHint"], "muted").Margin(0, 0, 0, 12));
-                    var name = new TextBox { Text = model.Store.Get("identity.name") ?? "", Watermark = s["YourName"] }; AutomationProperties.SetName(name, s["YourName"]);
-                    var email = new TextBox { Text = model.Store.Get("identity.email") ?? "", Watermark = s["EmailHint"] }; AutomationProperties.SetName(email, s["Email"]);
+                    var name = new TextBox { Text = model.Store.Get("identity.name") ?? "", PlaceholderText = s["YourName"] }; AutomationProperties.SetName(name, s["YourName"]);
+                    var email = new TextBox { Text = model.Store.Get("identity.email") ?? "", PlaceholderText = s["EmailHint"] }; AutomationProperties.SetName(email, s["Email"]);
                     var save = Ui.Button(s["Save"], "check", "primary"); save.Click += async (_, _) => await model.SaveIdentityAsync(name.Text ?? "", email.Text ?? "");
                     page.Children.Add(Ui.V(12, Ui.Field(s["YourName"], name), Ui.Field(s["EmailOptional"], email), save.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)));
                     break;
@@ -142,7 +142,7 @@ public sealed partial class Dialogs
                         {
                             var secret = TravelRepo.Providers.Weather.VisualCrossing.KeyName;
                             if (weatherKey is null) _ = model.HasWeatherKeyAsync(secret).ContinueWith(t => Dispatcher.UIThread.Post(() => { weatherKey = t.Result; if (settingsPage == "Weather") Render(); }), TaskScheduler.Default);
-                            var key = new TextBox { PasswordChar = '•', Watermark = weatherKey == true ? s["WeatherKeyStored"] : s["WeatherKey"], Width = 260 }; AutomationProperties.SetName(key, s["WeatherKey"]);
+                            var key = new TextBox { PasswordChar = '•', PlaceholderText = weatherKey == true ? s["WeatherKeyStored"] : s["WeatherKey"], Width = 260 }; AutomationProperties.SetName(key, s["WeatherKey"]);
                             var saveKey = Ui.Button(s["Save"], "check", "primary"); saveKey.Click += async (_, _) => { if (string.IsNullOrWhiteSpace(key.Text)) return; await model.SetWeatherKeyAsync(secret, key.Text); weatherKey = true; Toast(s["WeatherKeySaved"]); Render(); };
                             var removeKey = Ui.Button(s["Remove"], "trash-2", "ghost"); removeKey.IsEnabled = weatherKey == true; removeKey.Click += async (_, _) => { await model.SetWeatherKeyAsync(secret, null); weatherKey = false; Render(); };
                             Row(s["WeatherKey"], weatherKey == true ? s["WeatherKeyStored"] : s["WeatherKeyHint"], Ui.H(6, key, saveKey, removeKey));

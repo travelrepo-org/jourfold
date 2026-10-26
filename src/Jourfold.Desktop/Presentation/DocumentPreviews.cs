@@ -76,7 +76,7 @@ public static class DocumentPreviews
             using var pdf = PdfiumDocument.Open(bytes); if (pdf.PageCount == 0) return null;
             var (pageWidth, _) = pdf.PageSize(0);
             var bitmap = ToBitmap(pdf.Render(0, width / Math.Max(1, pageWidth)), 1);
-            Directory.CreateDirectory(Path.GetDirectoryName(cache)!); bitmap.Save(cache);
+            Directory.CreateDirectory(Path.GetDirectoryName(cache)!); bitmap.Save(cache, PngBitmapEncoderOptions.Default);
             return bitmap;
         }
         catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException) { return null; }

@@ -53,12 +53,19 @@ elif mac:
   # Trip links (jourfold://open?...) open in the app.
   'CFBundleURLTypes':[{'CFBundleURLName':'Jourfold trip link','CFBundleURLSchemes':['jourfold']}]}))
  if sys.platform=='darwin' and shutil.which('codesign'):
-  # Each program and library first, then the bundle; --deep would treat data folders as bundles.
-  for file in sorted(p for p in out.rglob('*') if p.is_file() and p.read_bytes()[:4] in (b'\xcf\xfa\xed\xfe',b'\xce\xfa\xed\xfe',b'\xca\xfe\xba\xbe')):
-   subprocess.run(['codesign','--force','--sign','-',str(file)],check=True,stdout=subprocess.DEVNULL)
+  # Every file next to the executable first (codesign keeps the signature of files that are not programs, such as
+  # the .NET assemblies, in extended attributes), then the bundle with its executable. --deep would take data
+  # folders for bundles.
+  files=[str(p) for p in out.rglob('*') if p.is_file() and p!=out/'Jourfold.Desktop']
+  for i in range(0,len(files),200):
+   signed=subprocess.run(['codesign','--force','--sign','-',*files[i:i+200]],capture_output=True,text=True)
+   if signed.returncode!=0:raise SystemExit(signed.stderr)
   subprocess.run(['codesign','--force','--sign','-',str(app)],check=True)
   subprocess.run(['codesign','--verify','--strict','--verbose=2',str(app)],check=True)
- with tarfile.open(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz'),'w:gz') as tar:tar.add(app,arcname='Jourfold.app')
+  # The system tar keeps those extended attributes; Python's tarfile would drop them.
+  subprocess.run(['tar','-czf',str(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz')),'-C',str(package),'Jourfold.app'],check=True)
+ else:
+  with tarfile.open(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz'),'w:gz') as tar:tar.add(app,arcname='Jourfold.app')
 else:
  with tarfile.open(root/'artifacts'/('jourfold-'+a.rid+'.tar.gz'),'w:gz') as tar:tar.add(out,arcname='jourfold')
  if shutil.which('dpkg-deb'):

@@ -151,10 +151,10 @@ main() {
 # removes the download mark a browser or AirDrop may have set. Registering the bundle lets trip links open in it.
 prepare_mac_app() {
   xattr -dr com.apple.quarantine "$1" 2>/dev/null || true
-  # Each program and library first, then the bundle. codesign --deep would take data folders for bundles.
-  find "$1/Contents/MacOS" -type f -print0 | while IFS= read -r -d '' file; do
-    case "$(file -b "$file")" in *Mach-O*) codesign --force --sign - "$file" >/dev/null 2>&1 || true ;; esac
-  done
+  # Every file next to the executable first, then the bundle with its executable. codesign keeps the signature of
+  # files that are not programs, such as the .NET assemblies, in extended attributes; --deep would take data folders
+  # for bundles.
+  find "$1/Contents/MacOS" -type f ! -path "$1/Contents/MacOS/Jourfold.Desktop" -exec codesign --force --sign - {} + >/dev/null 2>&1 || true
   { codesign --force --sign - "$1" && codesign --verify --strict "$1"; } >/dev/null 2>&1 \
     || say "Note: the application could not be signed for this Mac; macOS may refuse to open it."
   local register=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister

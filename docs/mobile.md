@@ -114,7 +114,7 @@ A8:31:A2:52:AB:E3:D2:56:BC:E5:CC:0C:6F:00:4A:C3:00:57:D2:B9:29:D9:F8:26:37:C9:35
 To sign on a computer that holds the key instead, build the APK without signing and sign it there:
 
 ```sh
-JourfoldGitHubClientId=<client ID> dotnet publish src/Jourfold.Android -c Release -o artifacts/android \
+JourfoldGitHubClientId=<client ID> JourfoldGitHubAppSlug=<slug> dotnet publish src/Jourfold.Android -c Release -o artifacts/android \
   -p:AndroidBuildNumber=<n> -p:ApplicationDisplayVersion=<version>-preview.<n>
 # artifacts/android/dev.jourfold.app.apk is not signed yet
 zipalign -P 16 -f 4 dev.jourfold.app.apk aligned.apk

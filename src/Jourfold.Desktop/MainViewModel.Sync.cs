@@ -279,7 +279,15 @@ public partial class MainViewModel
     private Task DiscoverGitHub() => RunAsync(async () =>
     {
         if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
-        var repos = await GitHub().DiscoverAsync();
+        // Signing in does not install the App; until the user chooses repositories for it, it sees none.
+        var github = GitHub();
+        if (!await github.HasRepositoryAccessAsync())
+        {
+            if (github.RepositoryAccessUri is not { } uri) await Interaction.ShowAsync(Strings["DiscoverGitHub"], Strings["NoRepositoryAccessOwnApp"]);
+            else if (await Interaction.ConfirmAsync(Strings["DiscoverGitHub"], Strings["NoRepositoryAccess"], Strings["ChooseRepositories"])) Interaction.Open(uri.AbsoluteUri);
+            return;
+        }
+        var repos = await github.DiscoverAsync();
         if (repos.Count == 0) { await Interaction.ShowAsync(Strings["DiscoverGitHub"], Strings["NoGitHubTrips"]); return; }
         var choice = await Interaction.ChooseAsync(Strings["DiscoverGitHub"], repos.Select(r => new Choice(r.FullName, r.FullName, r.IsPrivate ? "lock" : "globe", r.IsPrivate ? Strings["Private"] : Strings["Public"])).ToArray()); if (choice is null) return; var repo = repos.Single(r => r.FullName == choice);
         if (!repo.IsPrivate && !await Interaction.ConfirmAsync(Strings["PublicWarning"])) return;

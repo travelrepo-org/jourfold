@@ -27,13 +27,26 @@ public sealed partial class MobileSession
     public string? SignInProblem { get; private set; }
     /// <summary>Trips on GitHub that can be brought to this phone; null until the user asks for them.</summary>
     public IReadOnlyList<RemoteRepository>? RemoteTrips { get; private set; }
+    /// <summary>How far the search for trips on GitHub has come, while it runs.</summary>
+    public DiscoveryProgress? Searching { get; private set; }
+    /// <summary>Why the last search for trips failed, in words for the user.</summary>
+    public string? SearchProblem { get; private set; }
+    /// <summary>
+    /// Signed in, but the GitHub App may not use any repository yet: signing in does not install it. The user chooses
+    /// repositories at <see cref="RepositoryAccessUri"/>.
+    /// </summary>
+    public bool NeedsRepositoryAccess { get; private set; }
+    /// <summary>The page on GitHub where the user chooses the repositories the App may use; null for an App of their own.</summary>
+    public Uri? RepositoryAccessUri => GitHub().RepositoryAccessUri;
 
     /// <summary>The GitHub App to sign in with: the one named in settings, otherwise the one built into the app.</summary>
     public string? ClientId => Settings.GitHubClientId is { Length: > 0 } id ? id : Host.GitHubClientId is { Length: > 0 } built ? built : null;
 
     public DateTimeOffset? LastSync => Workspace is { } w && Settings.LastSync.TryGetValue(Path.GetFileName(w.Repository.Root), out var at) ? at : null;
 
-    private GitHubProvider GitHub() => new(http ??= Host.Http is null ? new HttpClient() : new HttpClient(Host.Http, disposeHandler: false), Host.Secrets, ClientId ?? "");
+    // The built-in App's name only goes with the built-in App.
+    private GitHubProvider GitHub() => new(http ??= Host.Http is null ? new HttpClient() : new HttpClient(Host.Http, disposeHandler: false), Host.Secrets, ClientId ?? "",
+        Settings.GitHubClientId is { Length: > 0 } ? null : Host.GitHubAppSlug);
 
     // The code of a sign-in that is waiting for GitHub, kept with the secrets so it is not in a readable file. If
     // Android ends the app while the user is in the browser, the sign-in goes on when the app starts again.
@@ -100,6 +113,9 @@ public sealed partial class MobileSession
                 Settings.Save();
             }
             catch (Exception ex) when (GitHubProvider.IsTransient(ex, token)) { }
+            // A first sign-in leaves the App without repositories; say so right away instead of after a search.
+            try { NeedsRepositoryAccess = !await provider.HasRepositoryAccessAsync(token); }
+            catch (Exception ex) when (GitHubProvider.IsTransient(ex, token)) { }
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested && !ct.IsCancellationRequested) { await Host.Secrets.DeleteAsync(PendingKey, CancellationToken.None); }
         catch (DomainException ex) { SignInProblem = Problem(ex); await Host.Secrets.DeleteAsync(PendingKey, CancellationToken.None); }
@@ -115,7 +131,7 @@ public sealed partial class MobileSession
     public async Task SignOutAsync(CancellationToken ct = default)
     {
         await GitHub().SignOutAsync(ct);
-        GitHubLogin = null; Settings.GitHubLogin = null; Settings.Save(); RemoteTrips = null; Changed?.Invoke();
+        GitHubLogin = null; Settings.GitHubLogin = null; Settings.Save(); RemoteTrips = null; NeedsRepositoryAccess = false; SearchProblem = null; Changed?.Invoke();
     }
 
     private async Task RefreshRemoteAsync(CancellationToken ct)
@@ -174,10 +190,32 @@ public sealed partial class MobileSession
         }
     }
 
-    /// <summary>Lists the trips on GitHub this account can open.</summary>
+    /// <summary>
+    /// Lists the trips on GitHub this account can open, with <see cref="Searching"/> telling how many repositories
+    /// have been checked. Finds out first whether the App may use any repository at all.
+    /// </summary>
     public async Task FindRemoteTripsAsync(CancellationToken ct = default)
     {
-        RemoteTrips = await GitHub().DiscoverAsync(ct); Changed?.Invoke();
+        Searching = new(0, 0); SearchProblem = null; Changed?.Invoke();
+        try
+        {
+            var provider = GitHub();
+            NeedsRepositoryAccess = !await provider.HasRepositoryAccessAsync(ct);
+            if (NeedsRepositoryAccess) return;
+            var shown = -1;
+            var progress = new Progress<DiscoveryProgress>(p =>
+            {
+                // Checks finish out of order; a late report must not move the bar back.
+                if (Searching is not { } now || (p.Total == now.Total && p.Checked < now.Checked)) return;
+                Searching = p;
+                // Drawing once per percent keeps thousands of repositories from redrawing the page thousands of times.
+                var percent = p.Total == 0 ? -1 : p.Checked * 100 / p.Total;
+                if (percent != shown) { shown = percent; Changed?.Invoke(); }
+            });
+            RemoteTrips = await provider.DiscoverAsync(progress, ct);
+        }
+        catch (Exception ex) when (ex is DomainException or HttpRequestException) { SearchProblem = ex is HttpRequestException ? Strings["SyncOffline"] : Problem(ex); }
+        finally { Searching = null; Changed?.Invoke(); }
     }
 
     public void CloseRemoteTrips() { RemoteTrips = null; Changed?.Invoke(); }

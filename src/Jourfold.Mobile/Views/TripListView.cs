@@ -24,18 +24,7 @@ public static class TripListView
         // A trip someone shares on GitHub comes to the phone from here.
         page.Children.Add(Ui.Text(s.Strings["SharedTrips"], "overline").Margin(20, 8, 20, 0));
         if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
-        else
-        {
-            var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
-            var find = Ui.Button(s.Strings["GetTripFromGitHub"], "download");
-            find.Click += async (_, _) =>
-            {
-                find.IsEnabled = false;
-                try { await s.FindRemoteTripsAsync(); }
-                catch (Exception ex) when (ex is TravelRepo.Core.DomainException or HttpRequestException) { problem.Text = s.Strings.Error(ex); problem.IsVisible = true; find.IsEnabled = true; }
-            };
-            page.Children.Add(Ui.V(8, find.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch), problem).Margin(16, 0, 16, 24));
-        }
+        else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
         return Ui.Scroll(page);
     }
 

@@ -43,6 +43,40 @@ public static class GitHubView
         return Ui.Card(body, 14);
     }
 
+    /// <summary>
+    /// Getting a trip from GitHub: the button, the search with how many repositories have been checked, or, while the
+    /// App may not use any repository, the way to choose some on GitHub.
+    /// </summary>
+    public static Control FindTrips(MobileSession s)
+    {
+        var str = s.Strings;
+        if (s.Searching is { } progress)
+        {
+            var bar = new ProgressBar { Minimum = 0, Maximum = Math.Max(1, progress.Total), Value = progress.Checked, IsIndeterminate = progress.Total == 0, Height = 6, MinHeight = 6 };
+            var text = progress.Total == 0 ? str["ListingRepositories"] : string.Format(CultureInfo.CurrentCulture, str["CheckingRepositories"], progress.Checked, progress.Total);
+            AutomationProperties.SetName(bar, text);
+            return Ui.Card(Ui.V(10, Ui.Text(str["GetTripFromGitHub"], "strong"), bar, Ui.Text(text, "caption")), 14);
+        }
+        var find = Ui.Button(str[s.NeedsRepositoryAccess ? "SearchAgain" : "GetTripFromGitHub"], s.NeedsRepositoryAccess ? "refresh-cw" : "download", s.NeedsRepositoryAccess ? ["soft"] : [])
+            .Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        find.Click += (_, _) => { find.IsEnabled = false; _ = s.FindRemoteTripsAsync(); };
+        var problem = s.SearchProblem is { } p ? Ui.Text(p, "caption").Also(t => t.Res(TextBlock.ForegroundProperty, "Danger")) : null;
+        if (!s.NeedsRepositoryAccess) return Ui.V(8, find, problem);
+        var uri = s.RepositoryAccessUri;
+        var body = Ui.V(10, Ui.Columns("Auto,*", Ui.Icon("lock", 22, "Text.Muted").Margin(0, 0, 14, 0), Ui.Text(str[uri is null ? "NoRepositoryAccessOwnApp" : "NoRepositoryAccess"], "caption")));
+        if (uri is not null) body.Children.Add(AccessButton(s, uri, "primary"));
+        body.Children.Add(find); if (problem is not null) body.Children.Add(problem);
+        return Ui.Card(body, 14);
+    }
+
+    /// <summary>Opens the page on GitHub where the user chooses the repositories the App may use.</summary>
+    private static Button AccessButton(MobileSession s, Uri uri, string style)
+    {
+        var button = Ui.Button(s.Strings["ChooseRepositories"], "external-link", style).Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        button.Click += async (_, _) => { if (TopLevel.GetTopLevel(button)?.Launcher is { } launcher) await launcher.LaunchUriAsync(uri); };
+        return button;
+    }
+
     /// <summary>The code to type on GitHub. Opening GitHub copies it, so it only needs pasting there.</summary>
     private static Control Code(MobileSession s, DeviceAuthorization code)
     {
@@ -117,6 +151,9 @@ public static class GitHubView
         }
         if (trips.Count > 0) page.Children.Add(new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
         page.Children.Add(problem.Margin(20, 0));
+        // A trip in a repository the App was not given does not show up; the way to add it is on GitHub.
+        if (s.RepositoryAccessUri is { } uri)
+            page.Children.Add(Ui.V(8, Ui.Text(str["TripMissing"], "caption"), AccessButton(s, uri, "ghost")).Margin(20, 0));
         page.Children.Add(Ui.Text(str["PublicTripsWarning"], "caption").Margin(20, 0, 20, 24));
         return Ui.Scroll(page);
     }

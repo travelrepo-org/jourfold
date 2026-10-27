@@ -154,6 +154,7 @@ jobs:
       - run: python eng/package.py --rid ${{ matrix.rid }}
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
+          JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
       - if: runner.os == 'Windows'
         shell: pwsh
         run: |

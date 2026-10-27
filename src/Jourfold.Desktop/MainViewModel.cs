@@ -224,7 +224,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// so a developer can sign in with several accounts through the same App.</summary>
     public string? OwnGitHubClient => Store.Get("github.client") is { Length: > 0 } id ? id : null;
     private string? GitHubClient => OwnGitHubClient ?? BuiltInGitHubClient;
-    private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, GitHubClient ?? "");
+    /// <summary>The built-in App's name in its GitHub address, for the page where users choose its repositories. Tests set it.</summary>
+    public static string? BuiltInGitHubAppSlug { get; set; } = typeof(MainViewModel).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubAppSlug")?.Value;
+    private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, GitHubClient ?? "", OwnGitHubClient is null ? BuiltInGitHubAppSlug : null);
 
     public void Dispose() { Workspace?.Dispose(); mergeCancellation?.Cancel(); githubHttp.Dispose(); weatherHttp.Dispose(); }
 }

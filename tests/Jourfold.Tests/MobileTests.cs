@@ -1,8 +1,11 @@
 using System.Text.Json.Nodes;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Jourfold.Mobile;
+using Jourfold.Mobile.Views;
+using Jourfold.UI;
 using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Git;
@@ -410,18 +413,55 @@ public sealed class MobileTests : IDisposable
         Assert.Null(await secrets.ReadAsync("github.pending-sign-in"));
     }
 
+    [AvaloniaFact]
+    public async Task ASignInWithoutRepositoriesLeadsToChoosingThemOnGitHub()
+    {
+        var github = new FakeGitHub { Installed = false };
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets(), github, GitHubClientId: "Iv23-built", GitHubAppSlug: "jourfold"));
+        await session.SignInAsync();
+        // Signing in does not install the App, so it sees no repository yet.
+        Assert.True(session.NeedsRepositoryAccess);
+        Assert.Equal("https://github.com/apps/jourfold/installations/new", session.RepositoryAccessUri?.AbsoluteUri);
+        Assert.True(Offers(GitHubView.FindTrips(session), "Choose repositories on GitHub"));
+
+        github.Installed = true;
+        var progress = new List<TravelRepo.Providers.DiscoveryProgress>();
+        session.Changed += () => { if (session.Searching is { } p) progress.Add(p); };
+        await session.FindRemoteTripsAsync();
+        Assert.False(session.NeedsRepositoryAccess);
+        Assert.Null(session.Searching);
+        Assert.Equal(["sam-travels/kyoto"], session.RemoteTrips!.Select(t => t.FullName));
+        Assert.Contains(progress, p => p.Total == 2);
+        // A trip in a repository the App was not given can be added from the list.
+        Assert.True(Offers(GitHubView.RemoteTrips(session, session.RemoteTrips!), "Choose repositories on GitHub"));
+
+        static bool Offers(Control page, string button)
+        {
+            var window = new Window { Width = 412, Height = 915, Content = page }; window.Show();
+            try { return Ui.FindDescendant<Button>(page, b => AutomationProperties.GetName(b) == button) is not null; }
+            finally { window.Close(); }
+        }
+    }
+
     private sealed class FakeGitHub : HttpMessageHandler
     {
+        public bool Installed { get; set; } = true;
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(Entity.CreateTrip("Kyoto"))));
+            static string Repo(string name) => $$"""{ "full_name": "sam-travels/{{name}}", "clone_url": "https://github.com/sam-travels/{{name}}.git", "html_url": "https://github.com/sam-travels/{{name}}", "private": true, "size": 4 }""";
             var body = request.RequestUri!.AbsolutePath switch
             {
                 "/login/device/code" => """{ "device_code": "device", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device", "expires_in": 900, "interval": 0 }""",
                 "/login/oauth/access_token" => """{ "access_token": "token" }""",
                 "/user" => """{ "login": "sam-travels", "name": "Sam Taylor" }""",
+                "/user/installations" => Installed ? """{ "total_count": 1, "installations": [{ "id": 7 }] }""" : """{ "total_count": 0, "installations": [] }""",
+                "/user/installations/7/repositories" => "{ \"total_count\": 2, \"repositories\": [" + Repo("kyoto") + ", " + Repo("dotfiles") + "] }",
+                "/repos/sam-travels/kyoto/contents/travel.yaml" => "{ \"content\": \"" + trip + "\" }",
+                "/repos/sam-travels/dotfiles/contents/travel.yaml" => null,
                 _ => throw new InvalidOperationException(request.RequestUri.ToString())
             };
-            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+            return Task.FromResult(body is null ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound) : new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
         }
     }
 

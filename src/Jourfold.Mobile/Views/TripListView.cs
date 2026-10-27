@@ -17,7 +17,7 @@ public static class TripListView
         logo.Bind(Image.SourceProperty, logo.GetResourceObservable(Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark ? "Brand.Lockup.Dark" : "Brand.Lockup.Light"));
         var page = Ui.V(14, logo.Margin(20, 16, 20, 4), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
         foreach (var trip in s.Trips) page.Children.Add(Card(s, trip).Margin(16, 0));
-        if (s.Trips.Count == 0) page.Children.Add(Ui.Text(s.Strings["NoTripsYet"], "muted").Margin(20, 0));
+        if (s.Trips.Count == 0) page.Children.Add(Welcome(s).Margin(16, 0));
         var sample = Ui.Button(s.Strings["ExploreSample"], "sparkles", s.Trips.Count == 0 ? "primary" : "soft");
         sample.Click += async (_, _) => { sample.IsEnabled = false; await s.OpenAsync(await s.CreateSampleAsync()); };
         page.Children.Add(sample.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch).Margin(16, 8, 16, 8));
@@ -26,6 +26,19 @@ public static class TripListView
         if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
         else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
         return Ui.Scroll(page);
+    }
+
+    /// <summary>Before the first trip: the mark on a generated cover and what the app is for, like the desktop's welcome.</summary>
+    private static Control Welcome(MobileSession s)
+    {
+        var mark = new Image { Width = 64, Height = 64, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+        mark.Bind(Image.SourceProperty, mark.GetResourceObservable("Brand.Mark"));
+        var tile = new Border { Width = 100, Height = 100, CornerRadius = new CornerRadius(26), Child = mark, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }
+            .Res(Border.BackgroundProperty, "Bg.Surface");
+        var art = Covers.Generated("Jourfold", double.NaN, 180, 16).Also(c => c.HorizontalAlignment = HorizontalAlignment.Stretch);
+        return Ui.V(14, new Panel { Children = { art, tile } },
+            Ui.Text(s.Strings["WelcomeTitle"], "h2").Also(t => { t.TextAlignment = TextAlignment.Center; t.TextWrapping = TextWrapping.Wrap; }),
+            Ui.Text(s.Strings["WelcomePhoneBody"], "muted").Also(t => { t.TextAlignment = TextAlignment.Center; t.TextWrapping = TextWrapping.Wrap; }).Margin(8, 0));
     }
 
     private static Control Card(MobileSession s, TripCard trip)

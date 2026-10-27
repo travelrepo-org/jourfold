@@ -28,7 +28,6 @@ try
     await session.Dispatch(async () =>
     {
         var s = MobileApp.Session!;
-        await s.CreateSampleAsync(new LocalDate(2027, 5, 14));
         async Task Capture(string name, double width = 412, double height = 915, ThemeVariant? theme = null)
         {
             Avalonia.Application.Current!.RequestedThemeVariant = theme ?? ThemeVariant.Light;
@@ -39,6 +38,8 @@ try
             var path = Path.Combine(output, name + ".png"); frame.Save(path, PngBitmapEncoderOptions.Default); Console.WriteLine(path);
             window.Close();
         }
+        await Capture("welcome");
+        await s.CreateSampleAsync(new LocalDate(2027, 5, 14));
         await Capture("trips");
         await s.OpenAsync(s.Trips[0].Path);
         await Capture("today");
@@ -82,6 +83,9 @@ try
         await Capture("settings");
         s.ShowTab(MobileTab.Plan);
         await Capture("tablet-plan", 1194, 834);
+        // A trip that has not started yet: how it begins.
+        s.Close(); await s.OpenAsync(await s.CreateSampleAsync(new LocalDate(2027, 6, 4)));
+        await Capture("today-before");
         return true;
     }, CancellationToken.None);
     // Dispatch resumes on the session's own thread, and disposing the session there would wait for itself.

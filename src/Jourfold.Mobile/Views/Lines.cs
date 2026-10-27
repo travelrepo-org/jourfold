@@ -135,5 +135,7 @@ public static class Lines
         return column;
     }
 
-    public static string DayTitle(LocalDate date, MobileSession s) => date.ToString("dddd d MMMM", CultureInfo.GetCultureInfo(s.Strings.Language));
+    public static string DayTitle(LocalDate date, MobileSession s) => date.ToString(s.Strings["DayTitleFormat"], CultureInfo.GetCultureInfo(s.Strings.Language));
+    /// <summary>A day in short, such as "Sun 16 May" or "So., 16. Mai".</summary>
+    public static string DayShort(LocalDate date, Localization s) => date.ToString(s["DayShortFormat"], CultureInfo.GetCultureInfo(s.Language));
 }

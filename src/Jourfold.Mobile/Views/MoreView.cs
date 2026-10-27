@@ -16,7 +16,7 @@ public static class MoreView
     {
         var trip = s.Trip!; var str = s.Strings;
         var bookings = trip.Entities.Values.Count(e => e.Type == "booking");
-        var openTasks = trip.Entities.Values.Count(e => e.Type == "task" && e.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled") && !PackingLists.IsItem(e));
+        var openTasks = OpenTasks(trip);
         var currencies = TripSummaries.Costs(trip).Select(c => c.Currency).ToArray();
         var people = trip.Entities.Values.Count(e => e.Type == "person");
         var page = Ui.V(18, Lines.TripHeader(s),
@@ -49,4 +49,7 @@ public static class MoreView
         row.Click += (_, _) => s.ShowPage(page);
         return row;
     }
+
+    /// <summary>Tasks not done or cancelled yet; packing items count on their lists, not here.</summary>
+    public static int OpenTasks(TripSnapshot trip) => trip.Entities.Values.Count(e => e.Type == "task" && e.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled") && !PackingLists.IsItem(e));
 }

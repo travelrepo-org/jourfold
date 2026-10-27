@@ -35,7 +35,7 @@ public static class DetailView
         // Glance
         if (entry is not null && TimeText.Local(entry, s.PhoneZone, str, s.Trip) is { Start.Length: > 0 } time)
         {
-            var day = entry.Day is { } d ? d.ToString("ddd d MMM", CultureInfo.GetCultureInfo(str.Language)) + " · " : "";
+            var day = entry.Day is { } d ? Lines.DayShort(d, str) + " · " : "";
             page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), time.Other));
         }
         if (Lines.Where(trip, item) is { Length: > 0 } where)

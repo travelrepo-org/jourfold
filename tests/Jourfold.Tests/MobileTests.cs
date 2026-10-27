@@ -55,6 +55,41 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task BeforeTheTripTodayShowsHowItStarts()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            // Without a trip the list welcomes instead of staying empty.
+            await Probe.Until(() => Texts().Contains("Plan trips together, at your own pace"));
+            await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 6, 4)));
+            var texts = Texts().ToList();
+            Assert.Contains("The trip starts in 19 days.", texts);
+            Assert.Contains(texts, t => t.StartsWith("Getting there · Friday 4 June · 13:20", StringComparison.Ordinal));
+            Assert.Contains(texts, t => t.StartsWith("First stay · Saturday 5 June", StringComparison.Ordinal));
+            Assert.Contains(texts, t => t.StartsWith("First activity · Saturday 5 June", StringComparison.Ordinal));
+            Assert.Contains("Flight to Tokyo", texts); Assert.Contains("Hotel Gracery Shinjuku", texts);
+            Assert.Contains("Open tasks before the trip: 2", texts);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ASignInThatGitHubNoLongerAcceptsEndsQuietly()
+    {
+        var github = new FakeGitHub { Revoked = true }; var secrets = new MemorySecrets();
+        await secrets.WriteAsync("github.user-token", "token");
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, github, GitHubClientId: "Iv23-built"));
+        await session.LoadGitHubAsync();
+        await Probe.Until(() => session.GitHubLogin is null);
+        Assert.Equal("GitHub no longer accepts the sign-in, for example because Jourfold was removed from your GitHub account. Sign in again.", session.SignInProblem);
+        Assert.Null(await secrets.ReadAsync("github.user-token"));
+    }
+
+    [AvaloniaFact]
     public async Task TheSampleTripOpensOnTodayAndEveryPlaceRenders()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
@@ -234,7 +269,8 @@ public sealed class MobileTests : IDisposable
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
             File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex" }""");
-            return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets));
+            // Loading the sign-in asks GitHub whether it still counts; the fake says it does.
+            return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         }
         var alex = Phone("alex"); var sam = Phone("sam");
         await alex.LoadGitHubAsync(); await sam.LoadGitHubAsync();
@@ -446,8 +482,11 @@ public sealed class MobileTests : IDisposable
     private sealed class FakeGitHub : HttpMessageHandler
     {
         public bool Installed { get; set; } = true;
+        /// <summary>The user removed Jourfold from their account: every request with the token is refused.</summary>
+        public bool Revoked { get; set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
+            if (Revoked && request.Headers.Authorization is not null) return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.Unauthorized));
             var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(Entity.CreateTrip("Kyoto"))));
             static string Repo(string name) => $$"""{ "full_name": "sam-travels/{{name}}", "clone_url": "https://github.com/sam-travels/{{name}}.git", "html_url": "https://github.com/sam-travels/{{name}}", "private": true, "size": 4 }""";
             var body = request.RequestUri!.AbsolutePath switch

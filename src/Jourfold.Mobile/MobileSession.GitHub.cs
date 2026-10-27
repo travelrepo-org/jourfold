@@ -62,6 +62,7 @@ public sealed partial class MobileSession
         var provider = GitHub();
         GitHubLogin = await provider.IsConnectedAsync(ct) ? Settings.GitHubLogin ?? "GitHub" : null;
         Changed?.Invoke();
+        if (GitHubLogin is not null) _ = CheckSignInAsync(provider, ct);
         if (GitHubLogin is null && SignInCode is null && await Host.Secrets.ReadAsync(PendingKey, ct) is { } text)
         {
             PendingSignIn? pending = null;
@@ -123,6 +124,25 @@ public sealed partial class MobileSession
     }
 
     public void CancelSignIn() => signIn?.Cancel();
+
+    /// <summary>
+    /// Asks GitHub in the background whether the stored sign-in still counts. Removing Jourfold from the GitHub
+    /// account ends it; the phone then shows the sign-in again instead of failing later. Without a network nothing changes.
+    /// </summary>
+    private async Task CheckSignInAsync(GitHubProvider provider, CancellationToken ct)
+    {
+        try { if (await provider.IsConnectedAsync(ct) && await provider.AccountAsync(ct) is null) await SignInEndedAsync(); }
+        catch (Exception ex) when (GitHubProvider.IsTransient(ex, ct) || ex is DomainException) { }
+    }
+
+    /// <summary>GitHub no longer accepts the sign-in: forget it and say why.</summary>
+    private async Task SignInEndedAsync()
+    {
+        await GitHub().SignOutAsync();
+        GitHubLogin = null; Settings.GitHubLogin = null; Settings.Save();
+        RemoteTrips = null; NeedsRepositoryAccess = false; SearchProblem = null;
+        SignInProblem = Strings["GitHubSignInEnded"]; Changed?.Invoke();
+    }
 
     /// <summary>GitHub's answers carry their HTTP status in the code; they all read the same to the user.</summary>
     private string Problem(Exception ex) => ex is DomainException { Code: var code } && code.StartsWith("github.http.", StringComparison.Ordinal) ? Strings["GitHubRequestFailed"] : Strings.Error(ex);
@@ -214,6 +234,7 @@ public sealed partial class MobileSession
             });
             RemoteTrips = await provider.DiscoverAsync(progress, ct);
         }
+        catch (DomainException ex) when (ex.Code == "github.http.401") { await SignInEndedAsync(); }
         catch (Exception ex) when (ex is DomainException or HttpRequestException) { SearchProblem = ex is HttpRequestException ? Strings["SyncOffline"] : Problem(ex); }
         finally { Searching = null; Changed?.Invoke(); }
     }

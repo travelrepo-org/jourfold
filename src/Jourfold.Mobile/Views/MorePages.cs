@@ -68,7 +68,7 @@ public static class MorePages
 
     private static Control Empty(string icon, string title, string body) => Ui.Card(Ui.EmptyState(icon, title, body), 0).Margin(16, 0);
 
-    private static string Day(LocalDate date, MobileSession s) => date.ToString("ddd d MMM", CultureInfo.GetCultureInfo(s.Strings.Language));
+    private static string Day(LocalDate date, MobileSession s) => Lines.DayShort(date, s.Strings);
 
     /// <summary>The first plan item a booking or expense belongs to, with its start where it happens.</summary>
     private static (Entity Item, ZonedDateTime? Start)? FirstItem(TripSnapshot trip, Entity entity)

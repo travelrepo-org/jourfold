@@ -84,13 +84,52 @@ public static class TodayView
             .Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
     }
 
-    /// <summary>Before or after the trip: how long until it starts, or that it is over.</summary>
+    /// <summary>
+    /// Before or after the trip: how long until it starts, or that it is over. Before it, the first journey, the
+    /// first stay and the first activity show how the trip begins, and open tasks are one tap away.
+    /// </summary>
     private static Control OutsideTrip(MobileSession s, LocalDate today)
     {
         var first = s.Agenda.Days.FirstOrDefault()?.Date; var last = s.Agenda.Days.LastOrDefault()?.Date;
-        var text = first is { } f && today < f ? string.Format(CultureInfo.CurrentCulture, s.Strings["TripStartsIn"], Period.DaysBetween(today, f))
+        var before = first is { } f && today < f;
+        var text = before ? string.Format(CultureInfo.CurrentCulture, s.Strings["TripStartsIn"], Period.DaysBetween(today, first!.Value))
             : last is not null ? s.Strings["TripIsOver"] : s.Strings["NoDatesYet"];
         var plan = Ui.Button(s.Strings["OpenPlan"], "list", "soft"); plan.Click += (_, _) => s.ShowTab(MobileTab.Plan);
-        return Ui.V(12, Ui.Text(text, "h3"), plan).Margin(16, 8);
+        var page = Ui.V(16, Ui.Text(text, "h2").Margin(16, 8, 16, 0));
+        if (before)
+        {
+            var starts = Starts(s);
+            if (starts.Count > 0)
+            {
+                var list = Ui.V(12, Ui.Text(s.Strings["HowItStarts"], "overline"));
+                foreach (var (label, entry) in starts)
+                {
+                    var time = TimeText.Local(entry, s.PhoneZone, s.Strings, s.Trip);
+                    var day = entry.Day is { } d ? Views.Lines.DayTitle(d, s) : "";
+                    list.Children.Add(Ui.V(6, Ui.Text(string.Join(" · ", new[] { label, day, entry.IsTimed ? time.Primary : "" }.Where(t => t.Length > 0)), "caption"),
+                        Views.Lines.Card(s, entry, LineState.Normal, () => s.ShowDetails(entry.Item.Id), time: time)));
+                }
+                page.Children.Add(list.Margin(16, 0));
+            }
+            if (MoreView.OpenTasks(s.Trip!) is > 0 and var open)
+            {
+                var tasks = Ui.Button(string.Format(CultureInfo.CurrentCulture, s.Strings["OpenTasksBeforeTrip"], open), "square-check", "ghost");
+                tasks.Click += (_, _) => s.ShowPage("tasks");
+                page.Children.Add(tasks.Margin(8, 0));
+            }
+        }
+        page.Children.Add(plan.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(16, 0, 16, 24));
+        return page;
+    }
+
+    /// <summary>The first journey, the first stay and the first activity of the trip, in time order. Ideas and cancelled items are left out.</summary>
+    private static List<(string Label, AgendaEntry Entry)> Starts(MobileSession s)
+    {
+        var lines = s.Agenda.Days.SelectMany(d => d.Entries).Where(e => e.Role is AgendaRole.Item or AgendaRole.CheckIn && !e.IsIdea && e.Status != "cancelled").ToList();
+        var journey = lines.FirstOrDefault(e => e.Role == AgendaRole.Item && e.Kind == ScheduleKind.Transport);
+        var stay = lines.FirstOrDefault(e => e.Role == AgendaRole.CheckIn);
+        var activity = lines.FirstOrDefault(e => e.Role == AgendaRole.Item && e.Kind is not (ScheduleKind.Transport or ScheduleKind.Accommodation));
+        return new (string, AgendaEntry?)[] { (s.Strings["FirstJourney"], journey), (s.Strings["FirstStay"], stay), (s.Strings["FirstActivity"], activity) }
+            .Where(x => x.Item2 is not null).Select(x => (x.Item1, x.Item2!)).OrderBy(x => lines.IndexOf(x.Item2)).ToList();
     }
 }

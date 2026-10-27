@@ -77,10 +77,9 @@ public static class Menus
 
     private static ActionMenu Days(MobileSession s, Entity item)
     {
-        var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
         var current = s.Entry(item.Id)?.Day;
         var actions = s.Agenda.Days.Where(d => d.Date != current)
-            .Select(d => new MenuAction(d.Date.ToString("ddd d MMM", culture) + (d.Number > 0 ? " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], d.Number) : ""), "calendar",
+            .Select(d => new MenuAction(Lines.DayShort(d.Date, s.Strings) + (d.Number > 0 ? " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], d.Number) : ""), "calendar",
                 _ => s.MoveToDayAsync(item.Id, d.Date))).ToArray();
         return new(item.Title, s.Strings["MoveToDay"], actions);
     }

@@ -24,7 +24,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Jourfold.Mobile/Jourfold.Mobile.csproj"/>
-    <AssemblyMetadata Include="GitHubClientId" Value="$(JourfoldGitHubClientId)" Condition="'$(JourfoldGitHubClientId)' != ''"/>
     <ProjectReference Include="../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj" Condition="Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>
     <PackageReference Include="TravelRepo.Git.LibGit2" Version="$(TravelRepoVersion)" Condition="!Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>
     <PackageReference Include="Avalonia.Android" Version="12.1.4"/>

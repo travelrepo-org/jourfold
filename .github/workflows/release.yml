@@ -149,7 +149,11 @@ jobs:
       # Tests run where the runner matches the package architecture.
       - if: runner.arch == matrix.arch
         run: dotnet test Jourfold.sln -c Release --no-build
+      # Official packages sign in with the project's GitHub App. MSBuild reads the variable as a property (see
+      # Directory.Build.props); builds without it ask for a client ID.
       - run: python eng/package.py --rid ${{ matrix.rid }}
+        env:
+          JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
       - if: runner.os == 'Windows'
         shell: pwsh
         run: |

@@ -1,0 +1,20 @@
+# Release notes for Jourfold 0.7.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.7.0
+date: 2026-10-26
+highlights:
+  - icon: monitor
+    en: Jourfold runs on macOS. The same one-line install command as on Linux installs it on Apple silicon and Intel Macs with macOS 14 or newer.
+    de: Jourfold läuft auf macOS. Derselbe einzeilige Installationsbefehl wie unter Linux installiert es auf Macs mit Apple-Chip oder Intel ab macOS 14.
+  - icon: user-check
+    en: Screen readers on Linux now read Jourfold, including which status, category, view or filter is chosen and who the people in a trip are.
+    de: Screenreader unter Linux lesen Jourfold jetzt vor, auch welcher Status, welche Kategorie, Ansicht oder welcher Filter gewählt ist und wer zu einer Reise gehört.
+changes:
+  - en: On a Mac, shortcuts use Cmd, GitHub sign-ins are kept in the keychain, reminders appear in the notification centre and trip links open in Jourfold.
+    de: Auf dem Mac nutzen Tastenkürzel Cmd, GitHub-Anmeldungen liegen im Schlüsselbund, Erinnerungen erscheinen in der Mitteilungszentrale und Reise-Links öffnen sich in Jourfold.
+  - en: Jourfold draws only when something changes, which saves power while it is open.
+    de: Jourfold zeichnet nur noch, wenn sich etwas ändert, und spart so Strom, während es geöffnet ist.
+  - en: Windows 11 shows the Jourfold window with rounded corners.
+    de: Windows 11 zeigt das Jourfold-Fenster mit abgerundeten Ecken.
+  - en: When a coordinate needs both values, screen readers read that with the field.
+    de: Wenn eine Koordinate beide Werte braucht, lesen Screenreader das mit dem Feld vor.

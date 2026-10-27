@@ -29,7 +29,7 @@ installation, Jourfold says so and opens the App's installation page, where the 
 release workflow passes the App's name in its GitHub address (`github.com/apps/<slug>`) from the repository variable
 `JOURFOLD_GITHUB_APP_SLUG` as `JourfoldGitHubAppSlug`; builds without it, and Apps of your own, only explain what to do.
 The search lists the repositories of every installation first and then reads their `travel.yaml` a few at a time, so
-the phone can show how many of all repositories it has checked.
+the phone and the desktop show how many of all repositories have been checked, in a bar that can be cancelled.
 
 For development validation, follow the [GitHub App registration walkthrough](github-app-setup.md).
 

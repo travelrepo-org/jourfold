@@ -37,6 +37,8 @@ public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate D
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
 public sealed record ConflictPrompt(string Title, string Field, string Current, string Incoming, IReadOnlyList<string> Actions, string CurrentRaw);
 public sealed record ConflictAnswer(string Action, string? Text = null);
+/// <summary>How far a long task has come, for a progress bar: <paramref name="Done"/> of <paramref name="Total"/> steps, or an open-ended wait when the total is 0.</summary>
+public sealed record WorkProgress(int Done, int Total, string Text);
 
 /// <summary>Everything that needs the user. Implemented by in-window dialogs; tests use a scripted double.</summary>
 public interface IInteraction
@@ -83,6 +85,11 @@ public interface IInteraction
     Task ReleaseNotesAsync(IReadOnlyList<ReleaseNote> releases, bool highlightsOnly);
     /// <summary>Shows a PDF, e-mail or image of the trip in the document window, next to the main window.</summary>
     void ViewDocument(Entity document);
+    /// <summary>
+    /// Runs <paramref name="work"/> while a sheet shows its progress. Cancel stops it through the token; the result is
+    /// then <c>default</c>.
+    /// </summary>
+    Task<T?> ProgressAsync<T>(string title, Func<IProgress<WorkProgress>, CancellationToken, Task<T>> work);
     /// <summary>A short non-modal notice with an optional action such as Undo.</summary>
     void Toast(string message, string? action = null, Func<Task>? onAction = null);
     void Open(string path);

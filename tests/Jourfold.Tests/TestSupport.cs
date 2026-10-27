@@ -88,6 +88,9 @@ public sealed class TestInteraction : IInteraction
     public List<Problem> Problems { get; } = [];
     public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }
     public void Toast(string message, string? action = null, Func<Task>? onAction = null) => Toasts.Add(message);
+    public List<WorkProgress> Progress { get; } = [];
+    public async Task<T?> ProgressAsync<T>(string title, Func<IProgress<WorkProgress>, CancellationToken, Task<T>> work) => await work(new Listener(Progress.Add), CancellationToken.None);
+    private sealed class Listener(Action<WorkProgress> report) : IProgress<WorkProgress> { public void Report(WorkProgress value) => report(value); }
     public List<(IReadOnlyList<ReleaseNote> Releases, bool HighlightsOnly)> ReleaseNotesShown { get; } = [];
     public Task ReleaseNotesAsync(IReadOnlyList<ReleaseNote> releases, bool highlightsOnly) { ReleaseNotesShown.Add((releases, highlightsOnly)); return Task.CompletedTask; }
     public List<Entity> Viewed { get; } = [];

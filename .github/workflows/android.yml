@@ -1,0 +1,90 @@
+name: Android
+# Builds the Android app, one APK for arm64 phones and x86_64 emulators, signed with the project's release key, so
+# that every later build installs over it as an update. Pushing a tag such as v0.7.1-android.3 starts it; the job
+# waits for approval in the release environment, which holds the key, and keeps the APK as a workflow artifact for
+# testers.
+#
+# Until the mobile app is part of a release, it builds against TRAVELREPO_REF, the TravelRepo branch with the
+# mobile work.
+on:
+  push:
+    tags: ['v*-android.*']
+permissions:
+  contents: read
+env:
+  TRAVELREPO_REF: feature/mobile-app
+  LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+  NDK_VERSION: 28.2.13676358
+  CMAKE_VERSION: 3.31.6
+  # SHA-256 of the release certificate. A build signed with anything else fails here, not on someone's phone.
+  CERTIFICATE_SHA256: a831a252abe3d256bce5cc0c6f004ac30057d2b929d9f82637c935996cc26e54
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    environment: release
+    defaults:
+      run:
+        working-directory: jourfold
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: jourfold
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ env.TRAVELREPO_REF }}
+          path: travelrepo
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: jourfold/global.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: dotnet workload install android
+      - run: "\"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager\" --install \"ndk;$NDK_VERSION\" \"cmake;$CMAKE_VERSION\" > /dev/null"
+      - id: libgit2
+        uses: actions/cache@v4
+        with:
+          path: jourfold/artifacts/libgit2-android
+          key: libgit2-android-${{ env.LIBGIT2_COMMIT }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('travelrepo/eng/build-libgit2-android.sh') }}
+      - if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          git init -q "$RUNNER_TEMP/libgit2" && git -C "$RUNNER_TEMP/libgit2" fetch -q --depth 1 https://github.com/libgit2/libgit2.git "$LIBGIT2_COMMIT"
+          git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
+          ANDROID_NDK="$ANDROID_HOME/ndk/$NDK_VERSION" PATH="$ANDROID_HOME/cmake/$CMAKE_VERSION/bin:$PATH" \
+            sh ../travelrepo/eng/build-libgit2-android.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-android
+      - id: version
+        run: |
+          version="$(python3 eng/version.py)"
+          [ "${GITHUB_REF_NAME%%-android.*}" = "v$version" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match version $version in Directory.Build.props."; exit 1; }
+          echo "display=$version-preview.${GITHUB_REF_NAME##*-android.}" >> "$GITHUB_OUTPUT"
+      - run: dotnet restore src/Jourfold.Android --locked-mode
+      - name: Build and sign
+        env:
+          JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/jourfold.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+          trap 'rm -f "$keystore"' EXIT
+          # The passwords are read from the environment (env:), so they never appear on a command line.
+          dotnet publish src/Jourfold.Android -c Release --no-restore -o "$RUNNER_TEMP/apk" \
+            -p:AndroidBuildNumber=${{ github.run_number }} -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
+            -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="$keystore" -p:AndroidSigningKeyAlias=jourfold \
+            -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEYSTORE_PASSWORD
+      - name: Check the signature
+        run: |
+          apk="$RUNNER_TEMP/jourfold-${{ steps.version.outputs.display }}-android.apk"
+          mv "$RUNNER_TEMP"/apk/dev.jourfold.app-Signed.apk "$apk"
+          signer="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
+          "$signer" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          grep -qi "certificate SHA-256 digest: $CERTIFICATE_SHA256" "$RUNNER_TEMP/certs.txt" || { echo "::error::The APK is not signed with the release certificate."; exit 1; }
+          echo "APK=$apk" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jourfold-${{ steps.version.outputs.display }}-android
+          path: ${{ env.APK }}
+          retention-days: 30
+          if-no-files-found: error

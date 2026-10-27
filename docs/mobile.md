@@ -61,8 +61,9 @@ before says so.
 Signing in uses GitHub's device flow, like the desktop: the app shows a code, opens GitHub, and waits until the user
 has entered it. While the user is in the browser, Android may freeze or stop the app: requests lost that way do not
 end the sign-in, and the waiting code is kept in secure storage so the next start goes on waiting. The token is kept by the platform's secure storage (on Android encrypted with a key in the Android
-Keystore) and handed to the built-in Git for github.com only. A build can name the GitHub App to sign in with,
-`-p:JourfoldGitHubClientId=<client ID>`; without one, the user enters the client ID once, as on the desktop.
+Keystore) and handed to the built-in Git for github.com only. Signed builds from CI sign in with the project's GitHub App; other
+builds can name their own with `-p:JourfoldGitHubClientId=<client ID>`, and without one the user enters the client ID
+once, as on the desktop (see `providers.md`).
 
 A signed-in phone can put a trip on GitHub as a private repository and get a trip someone shared from the trip
 list. Shared trips sync when they open and after each automatic version. When both sides changed different things,
@@ -94,6 +95,39 @@ beside this repository on a branch that has `TravelRepo.Git.LibGit2`.
    starts the app about a third faster on old phones.
 
 The Android project is not in `Jourfold.sln`, so the desktop build and CI do not need the Android workload.
+
+## Signed builds
+
+Android installs an update only when it is signed with the same key as the installed app and has a higher version
+code. `.github/workflows/android.yml` builds an APK signed with the project's release key when a tag such as
+`v0.7.1-android.3` is pushed (the part before `-android` has to match the version in `Directory.Build.props`). The
+job runs in the `release` environment, which holds the key and needs a maintainer's approval, and keeps the APK as a
+workflow artifact for 30 days. The version code is the version times 1000 plus the run number (0.7.1 becomes
+701000 + run), so each build updates the one before.
+
+The release certificate's SHA-256 fingerprint, to compare with `apksigner verify --print-certs`:
+
+```
+A8:31:A2:52:AB:E3:D2:56:BC:E5:CC:0C:6F:00:4A:C3:00:57:D2:B9:29:D9:F8:26:37:C9:35:99:6C:C2:6E:54
+```
+
+To sign on a computer that holds the key instead, build the APK without signing and sign it there:
+
+```sh
+JourfoldGitHubClientId=<client ID> dotnet publish src/Jourfold.Android -c Release -o artifacts/android \
+  -p:AndroidBuildNumber=<n> -p:ApplicationDisplayVersion=<version>-preview.<n>
+# artifacts/android/dev.jourfold.app.apk is not signed yet
+zipalign -P 16 -f 4 dev.jourfold.app.apk aligned.apk
+apksigner sign --ks <keystore> --ks-key-alias jourfold --out jourfold.apk aligned.apk
+apksigner verify --print-certs jourfold.apk
+```
+
+`zipalign -P 16` keeps the native libraries aligned for devices with 16 KB pages; `apksigner` asks for the password.
+Pick a higher `AndroidBuildNumber` for every build.
+
+Builds from a computer are signed with that computer's debug key. Android refuses to install one over a signed build
+and the other way round; switching means uninstalling first, which removes the trips on the phone that are not on
+GitHub.
 
 ## Screenshots
 

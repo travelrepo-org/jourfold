@@ -6,12 +6,14 @@
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <ApplicationId>dev.jourfold.app</ApplicationId>
     <ApplicationTitle>Jourfold</ApplicationTitle>
-    <!-- 0.6.0 becomes 600; a Play upload needs a higher number for every release. -->
+    <!-- Android installs an update only when its version code is higher. 0.7.1 becomes 701000; signed builds from CI
+         add their build number (AndroidBuildNumber), so every preview of a version updates the one before. -->
+    <AndroidBuildNumber Condition="'$(AndroidBuildNumber)' == ''">0</AndroidBuildNumber>
     <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
     <VersionMajor>$([System.Version]::Parse('$(Version)').Major)</VersionMajor>
     <VersionMinor>$([System.Version]::Parse('$(Version)').Minor)</VersionMinor>
     <VersionPatch>$([System.Version]::Parse('$(Version)').Build)</VersionPatch>
-    <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(VersionMajor), 10000)), $([MSBuild]::Multiply($(VersionMinor), 100)))), $(VersionPatch)))</ApplicationVersion>
+    <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Multiply($([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(VersionMajor), 10000)), $([MSBuild]::Multiply($(VersionMinor), 100)))), $(VersionPatch))), 1000)), $(AndroidBuildNumber)))</ApplicationVersion>
     <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>

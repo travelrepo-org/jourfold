@@ -251,6 +251,16 @@ public partial class MainViewModel
         await GitHub().SignOutAsync(); Store.Set("github.login", ""); GitHubAccount = null; GitHubConnected = false; OnPropertyChanged(nameof(GitHubLogin));
         Interaction.Toast(Strings["GitHubDisconnected"]);
     });
+    /// <summary>Signs in with the built-in App again instead of one the user entered. Only while disconnected, because a
+    /// sign-in belongs to the App it was made with.</summary>
+    public void UseBuiltInGitHubApp() { if (!GitHubConnected) Store.Set("github.client", ""); }
+    /// <summary>Asks for the client ID of the user's own GitHub App and signs in with it from then on.</summary>
+    public async Task UseOwnGitHubAppAsync()
+    {
+        if (GitHubConnected) return;
+        var values = await Interaction.FormAsync(Strings["UseOwnGitHubApp"].TrimEnd('…'), [new("client", Strings["GitHubClient"], Value: OwnGitHubClient ?? "", Required: true, Hint: Strings["GitHubClientHint"])]);
+        if (values?["client"].Trim() is { Length: > 0 } client) Store.Set("github.client", client);
+    }
     [RelayCommand] private Task ConnectGitHub() => RunAsync(ConnectGitHubCoreAsync);
     private async Task ConnectGitHubCoreAsync()
     {

@@ -76,6 +76,44 @@ public sealed class GitHubAccountTests : IDisposable
         }
         finally { w.Close(); }
     }
+
+    [AvaloniaFact]
+    public async Task AnOwnGitHubAppStaysUntilTheBuiltInOneIsChosen()
+    {
+        var builtIn = MainViewModel.BuiltInGitHubClient; MainViewModel.BuiltInGitHubClient = "built-in";
+        var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Show(); Probe.Layout();
+        var secrets = new MemorySecrets { Values = { ["github.user-token"] = "token" } };
+        using var http = new HttpClient(new UserHandler()); using var store = new LocalStore(Path.Combine(root, "state"));
+        store.Set("github.client", "Iv23liOwnApp");
+        // Disconnecting keeps the App, so the next account signs in through it too.
+        using (var first = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), new TestInteraction(), () => new GitHubProvider(http, secrets, "Iv23liOwnApp")))
+        {
+            await first.RefreshGitHubAccountAsync(); await first.DisconnectGitHubCommand.ExecuteAsync(null);
+            Assert.False(first.GitHubConnected); Assert.Equal("Iv23liOwnApp", first.OwnGitHubClient);
+        }
+
+        using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), w.Model.Interaction, () => new GitHubProvider(http, secrets, "Iv23liOwnApp"));
+        try
+        {
+
+            var settings = ((Dialogs)w.Model.Interaction).SettingsAsync(vm); Probe.Layout();
+            Probe.Click(Probe.Sheet(w), vm.Strings["Providers"]); Probe.Layout();
+            static IEnumerable<string?> Texts(Control sheet) => Probe.All<TextBlock>(sheet).Select(t => t.Text);
+            static bool Has(Control sheet, string label) => Probe.All<Button>(sheet).Any(b => Avalonia.Automation.AutomationProperties.GetName(b) == label);
+            var own = string.Format(vm.Strings["GitHubOwnApp"], "Iv23liOwnApp");
+            await Probe.Until(() => Texts(Probe.Sheet(w)).Contains(own));
+            Assert.True(Has(Probe.Sheet(w), vm.Strings["ChangeGitHubApp"]));
+
+            Probe.Click(Probe.Sheet(w), vm.Strings["UseJourfoldGitHubApp"]); await Probe.Until(() => !Texts(Probe.Sheet(w)).Contains(own));
+            Assert.Null(vm.OwnGitHubClient); Assert.True(Has(Probe.Sheet(w), vm.Strings["ConnectGitHub"]));
+            // Choosing an own App again is only offered in Advanced mode.
+            Assert.False(Has(Probe.Sheet(w), vm.Strings["UseOwnGitHubApp"]));
+            vm.Advanced = true; Probe.Click(Probe.Sheet(w), vm.Strings["General"]); Probe.Layout(); Probe.Click(Probe.Sheet(w), vm.Strings["Providers"]); Probe.Layout();
+            Assert.True(Has(Probe.Sheet(w), vm.Strings["UseOwnGitHubApp"]));
+            Probe.Click(Probe.Sheet(w), vm.Strings["Close"]); await settings.WaitAsync(TimeSpan.FromSeconds(3));
+        }
+        finally { w.Close(); MainViewModel.BuiltInGitHubClient = builtIn; }
+    }
 }
 
 public sealed class NewTripPublishingTests : IDisposable

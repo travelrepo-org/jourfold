@@ -53,7 +53,14 @@ public sealed partial class Dialogs
                 if (!model.GitHubConnected)
                 {
                     var connect = Run("ConnectGitHub", "cloud", true).Also(b => b.VerticalAlignment = VerticalAlignment.Center);
-                    return Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Tile("cloud", "Transport", 44), Ui.V(4, Title(null), Ui.Text(s["GitHubAccountHint"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap)).Margin(14, 0, 14, 0), connect), 16);
+                    Button AppButton(string key, Func<Task> choose) { var b = Ui.Button(s[key], null, "ghost", "compact"); b.Click += async (_, _) => { await choose(); Render(); }; return b; }
+                    // Which App sign-in uses. An App the user entered always shows, so there is a way back to the built-in one;
+                    // choosing an own App is for developers and waits for Advanced mode.
+                    Control? app = model.OwnGitHubClient is { } own
+                        ? Ui.V(2, Ui.Text(string.Format(s["GitHubOwnApp"], own), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap),
+                            Ui.H(4, MainViewModel.BuiltInGitHubClient is null ? null : AppButton("UseJourfoldGitHubApp", () => { model.UseBuiltInGitHubApp(); return Task.CompletedTask; }), AppButton("ChangeGitHubApp", model.UseOwnGitHubAppAsync)).Margin(-8, 0, 0, 0))
+                        : model.Advanced && MainViewModel.BuiltInGitHubClient is not null ? Ui.H(4, AppButton("UseOwnGitHubApp", model.UseOwnGitHubAppAsync)).Margin(-8, 0, 0, 0) : null;
+                    return Ui.Card(Ui.Columns("Auto,*,Auto", Ui.Tile("cloud", "Transport", 44), Ui.V(4, Title(null), Ui.Text(s["GitHubAccountHint"], "muted").Also(t => t.TextWrapping = TextWrapping.Wrap), app).Margin(14, 0, 14, 0), connect), 16);
                 }
                 var account = model.GitHubAccount; var login = model.GitHubLogin;
                 if (!avatarRequested && account?.AvatarUrl is not null)

@@ -2,6 +2,16 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.7.1 “Keen Kudu” – 2026-10-26
+
+### Highlights
+
+- Connecting to GitHub no longer needs a GitHub App of your own. Jourfold signs in with its own App, and you choose on GitHub which repositories it may use.
+
+### Changes
+
+- If you entered the client ID of your own GitHub App before, Settings → Sharing shows it and lets you switch to Jourfold's App. Advanced mode offers your own App again.
+
 ## 0.7.0 “Keen Kudu” – 2026-10-26
 
 ### Highlights

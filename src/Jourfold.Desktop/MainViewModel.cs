@@ -218,10 +218,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public static bool IsGitHubUrl(string url) => url.StartsWith("git@github.com:", StringComparison.Ordinal) || Uri.TryCreate(url, UriKind.Absolute, out var uri) && uri.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase);
     public static string GitHubName(string url) { var name = url.StartsWith("git@github.com:", StringComparison.Ordinal) ? url[15..] : new Uri(url).AbsolutePath.Trim('/'); return name.EndsWith(".git", StringComparison.Ordinal) ? name[..^4] : name; }
-    /// <summary>The GitHub App this build signs in with, or null when the build has none and asks for a client ID.</summary>
-    internal static string? BuiltInGitHubClient { get; set; } = typeof(MainViewModel).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubClientId")?.Value;
-    /// <summary>A client ID entered in Settings wins over the built-in one.</summary>
-    private string? GitHubClient => Store.Get("github.client") ?? BuiltInGitHubClient;
+    /// <summary>The GitHub App this build signs in with, or null when the build has none and asks for a client ID. Tests set it.</summary>
+    public static string? BuiltInGitHubClient { get; set; } = typeof(MainViewModel).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubClientId")?.Value;
+    /// <summary>The client ID of a GitHub App the user entered. It wins over the built-in one and stays when they disconnect,
+    /// so a developer can sign in with several accounts through the same App.</summary>
+    public string? OwnGitHubClient => Store.Get("github.client") is { Length: > 0 } id ? id : null;
+    private string? GitHubClient => OwnGitHubClient ?? BuiltInGitHubClient;
     private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, GitHubClient ?? "");
 
     public void Dispose() { Workspace?.Dispose(); mergeCancellation?.Cancel(); githubHttp.Dispose(); weatherHttp.Dispose(); }

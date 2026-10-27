@@ -22,7 +22,7 @@ A build without the ID asks for a client ID the first time someone connects to G
 dotnet build src/Jourfold.Desktop -p:JourfoldGitHubClientId=Iv23li...
 ```
 
-MSBuild also reads an environment variable of the same name. A client ID entered in the app takes precedence over a built-in one.
+MSBuild also reads an environment variable of the same name. A client ID entered in the app takes precedence over a built-in one and stays when you disconnect, so you can sign in with several accounts through the same App. While disconnected, **Settings → Sharing** shows which App is used and offers **Use Jourfold's App**; **Use your own GitHub App** appears there in Advanced mode.
 
 For development validation, follow the [GitHub App registration walkthrough](github-app-setup.md).
 

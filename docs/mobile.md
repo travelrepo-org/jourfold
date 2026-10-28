@@ -29,8 +29,9 @@ ends as its arrival or end, on the days between as running all day. TravelRepo's
 
 The date strip stays at the top while the day scrolls. A sideways swipe moves the day with the finger and slides the
 next one in; the strip scrolls on its own. A tap on an item opens its details at the smallest step (time, place,
-booking reference, Navigate); the whole header drags the sheet, and dragging the content up or, at its top, down
-moves the sheet too. Only the item happening now or next on the phone's today shows extra context in the plan. A
+booking reference, Navigate). Below the top step the content does not scroll, so a drag anywhere on the sheet moves
+it; at the top step the content scrolls, and dragging down at its top lowers the sheet again. Journeys show their
+travel time. Only the item happening now or next on the phone's today shows extra context in the plan. A
 stay's check-in says how many nights it has; the night line under the day appears only on the other nights.
 
 A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,

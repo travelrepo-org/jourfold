@@ -113,7 +113,7 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "Jourfold.Application": "[0.6.0, )"
+          "Jourfold.Application": "[0.7.1, )"
         }
       },
       "travelrepo.core": {

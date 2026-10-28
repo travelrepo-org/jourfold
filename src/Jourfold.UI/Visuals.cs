@@ -114,6 +114,10 @@ public static class Formats
         return Date(a) + " – " + Date(b);
     }
 
+    /// <summary>How long a journey takes from departure to arrival, across time zones; null without both or when it would not be positive.</summary>
+    public static string? TravelTime(NodaTime.Instant? departs, NodaTime.Instant? arrives, Localization s) =>
+        departs is { } from && arrives is { } to && to > from ? Duration(to - from, s) : null;
+
     public static string Duration(NodaTime.Duration duration, Localization s)
     {
         var minutes = (long)Math.Round(duration.TotalMinutes);

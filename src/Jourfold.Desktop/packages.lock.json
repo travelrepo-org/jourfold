@@ -390,7 +390,7 @@
       "jourfold.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Jourfold.Application": "[0.6.0, )",
+          "Jourfold.Application": "[0.7.1, )",
           "Microsoft.Data.Sqlite": "[10.0.9, )",
           "PDFsharp": "[6.2.4, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )",
@@ -406,7 +406,7 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "Jourfold.Application": "[0.6.0, )"
+          "Jourfold.Application": "[0.7.1, )"
         }
       },
       "travelrepo.core": {

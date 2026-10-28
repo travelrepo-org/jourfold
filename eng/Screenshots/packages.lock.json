@@ -406,9 +406,9 @@
           "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "CommunityToolkit.Mvvm": "[8.4.0, )",
-          "Jourfold.Application": "[0.6.0, )",
-          "Jourfold.Infrastructure": "[0.6.0, )",
-          "Jourfold.UI": "[0.6.0, )",
+          "Jourfold.Application": "[0.7.1, )",
+          "Jourfold.Infrastructure": "[0.7.1, )",
+          "Jourfold.UI": "[0.7.1, )",
           "Markdig": "[1.4.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
           "Tmds.DBus.Protocol": "[0.94.1, )",
@@ -418,7 +418,7 @@
       "jourfold.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Jourfold.Application": "[0.6.0, )",
+          "Jourfold.Application": "[0.7.1, )",
           "Microsoft.Data.Sqlite": "[10.0.9, )",
           "PDFsharp": "[6.2.4, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )",
@@ -433,7 +433,8 @@
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",
-          "Jourfold.Application": "[0.6.0, )"
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.Application": "[0.7.1, )"
         }
       },
       "travelrepo.core": {

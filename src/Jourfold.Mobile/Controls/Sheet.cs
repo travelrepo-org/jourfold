@@ -18,6 +18,8 @@ public sealed class Sheet : Grid
 {
     private readonly Border panel;
     private readonly Border scrim;
+    private readonly ScrollViewer scroll;
+    private bool placed;
     private readonly double[] detents;
     private readonly bool side;
     private int detent;
@@ -37,7 +39,7 @@ public sealed class Sheet : Grid
         this.detents = detents; this.side = side; detent = Math.Clamp(start, 0, detents.Length - 1);
         scrim = new Border { Background = new SolidColorBrush(Colors.Black, side ? 0.18 : 0.32) };
         scrim.PointerPressed += (_, e) => { Close(); e.Handled = true; };
-        var scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         // The whole header takes the drag, not only the handle, so it needs a background to be hit everywhere.
         var top = new Border { Child = side ? header : Ui.V(0, Handle(), header), Background = Brushes.Transparent };
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
@@ -50,10 +52,11 @@ public sealed class Sheet : Grid
             VerticalAlignment = side ? VerticalAlignment.Stretch : VerticalAlignment.Bottom,
             HorizontalAlignment = side ? HorizontalAlignment.Right : HorizontalAlignment.Stretch,
             Width = side ? 400 : double.NaN,
-            BoxShadow = BoxShadows.Parse("0 -2 16 0 #26000000")
+            BoxShadow = BoxShadows.Parse("0 -2 16 0 #26000000"),
+            // Hidden until it knows the screen's height; it would otherwise show at the height of its content first.
+            IsVisible = side
         }.Res(Border.BackgroundProperty, "Bg.Surface");
         AutomationProperties.SetName(panel, label);
-        if (!side) panel.Transitions = [new DoubleTransition { Property = HeightProperty, Duration = TimeSpan.FromMilliseconds(180), Easing = new Avalonia.Animation.Easings.CubicEaseOut() }];
         Children.Add(scrim); Children.Add(panel);
         // Dragging works on the handle and the header, so the content can still scroll.
         top.PointerPressed += OnPressed; top.PointerMoved += OnMoved; top.PointerReleased += OnReleased;
@@ -62,8 +65,8 @@ public sealed class Sheet : Grid
     }
 
     /// <summary>
-    /// Below the top detent, dragging the content up raises the sheet; at the top of the content, dragging down lowers
-    /// it. Otherwise the content scrolls.
+    /// Below the top detent the content does not scroll, so dragging it moves the whole sheet, as the handle does. At the
+    /// top detent it scrolls; dragging down at the top of the content lowers the sheet again.
     /// </summary>
     private void FollowContent(ScrollViewer scroll)
     {
@@ -116,6 +119,12 @@ public sealed class Sheet : Grid
         var available = Bounds.Height - keyboard;
         // With the keyboard up the sheet takes the room above it.
         panel.Height = keyboard > 0 ? available * 0.96 : dragHeight ?? available * detents[detent];
+        // Touch scrolling would take every drag in the content; below the top detent the drag belongs to the sheet.
+        var scrolls = keyboard > 0 || detent == detents.Length - 1;
+        scroll.VerticalScrollBarVisibility = scrolls ? Avalonia.Controls.Primitives.ScrollBarVisibility.Auto : Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled;
+        if (!scrolls) scroll.Offset = default;
+        // The first placement is immediate; later changes of detent glide.
+        if (!placed) { placed = true; panel.IsVisible = true; panel.Transitions = [Glide()]; }
     }
 
     private void OnPressed(object? sender, PointerPressedEventArgs e)
@@ -138,11 +147,13 @@ public sealed class Sheet : Grid
         Settle(dragHeight ?? panel.Bounds.Height);
     }
 
+    private static DoubleTransition Glide() => new() { Property = HeightProperty, Duration = TimeSpan.FromMilliseconds(180), Easing = new Avalonia.Animation.Easings.CubicEaseOut() };
+
     /// <summary>Lets go of a drag: the nearest detent, or closed when well below the lowest.</summary>
     private void Settle(double height)
     {
         dragFrom = null; dragHeight = null;
-        panel.Transitions = [new DoubleTransition { Property = HeightProperty, Duration = TimeSpan.FromMilliseconds(180), Easing = new Avalonia.Animation.Easings.CubicEaseOut() }];
+        panel.Transitions = [Glide()];
         var share = height / Math.Max(1, Bounds.Height);
         // Well below the lowest detent closes; otherwise the nearest detent wins.
         if (share < detents[0] * 0.6) { Close(); return; }

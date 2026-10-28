@@ -245,8 +245,10 @@ public static class InspectorView
         var precision = span.Precision is TimePrecision.Exact or TimePrecision.Unscheduled ? null : s[span.Precision switch { TimePrecision.Approximate => "approximate", TimePrecision.Window => "window", TimePrecision.DayPart => "day_part", _ => "all_day" }];
         var zoneNote = span.StartZone is { } z && z != ScheduleQueries.TripZone(trip).Id && span.Start is { } st ? string.Format(s["LocalTimeIn"], Formats.Time(st.InZone(DateTimeZoneProviders.Tzdb[z]).TimeOfDay), Formats.ZoneName(z)) : null;
         var endNote = span.EndZone is { } ez && ez != span.StartZone && span.End is { } en ? string.Format(s["ArrivesLocal"], Formats.Time(en.InZone(DateTimeZoneProviders.Tzdb[ez]).TimeOfDay), Formats.ZoneName(ez)) : null;
+        // A journey says how long it takes, which its times in two zones do not show at a glance.
+        var travel = e.Data["components"]?["transport"] is JsonObject && Formats.TravelTime(span.Start, span.End, s) is { } length ? string.Format(s["TravelTime"], length) : null;
         var when = Editors.ValueButton(whenText, span.IsPlaced ? "clock" : "calendar-plus", s["Schedule"], () => m.ScheduleSelectedAsync(), "time");
-        var whenBlock = Ui.V(6, when, precision is null && zoneNote is null && endNote is null ? null : Ui.H(10, precision is null ? null : Ui.Pill(precision, "timer", "Bg.Subtle", "Text.Muted"), Ui.Text(string.Join(" · ", new[] { zoneNote, endNote }.Where(x => x is not null)), "caption")));
+        var whenBlock = Ui.V(6, when, precision is null && zoneNote is null && endNote is null && travel is null ? null : Ui.H(10, precision is null ? null : Ui.Pill(precision, "timer", "Bg.Subtle", "Text.Muted"), Ui.Text(string.Join(" · ", new[] { zoneNote, endNote, travel }.Where(x => x is not null)), "caption")));
         if (span.Derived) whenBlock.Children.Add(Ui.Text(s["DerivedFromItems"], "caption"));
         if (!span.IsPlaced) whenBlock.Children.Add(Field(s["DurationMinutes"], Editors.Number(w, e.Id, "duration", s["DurationMinutes"], ScheduleQueries.PlannedDuration(e)?.TotalMinutes, s["MinutesShort"], v => JsonValue.Create(PeriodPattern.NormalizingIso.Format(Period.FromMinutes((long)v)))!, 15)));
         Add(body, s["When"], whenBlock);

@@ -93,6 +93,8 @@ public static class AgendaView
         }
         var route = ScheduleQueries.Route(trip, item); var place = ScheduleQueries.PrimaryPlace(trip, item);
         var where = route.From is not null && route.To is not null ? route.From.Title + " → " + route.To.Title : place?.Title;
+        // A journey also says how long it takes.
+        if (item.Data["components"]?["transport"] is System.Text.Json.Nodes.JsonObject && Formats.TravelTime(span.Start, span.End, s) is { } travel) where = where is null ? travel : where + " · " + travel;
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).ToArray();
         var status = item.Data["status"]?.ToString() ?? "idea"; var (statusIcon, bg, fg) = Visuals.Status(status);
         var grid = Ui.Columns(m.SecondZone is null ? "74,Auto,*,Auto,Auto,Auto" : "104,Auto,*,Auto,Auto,Auto",

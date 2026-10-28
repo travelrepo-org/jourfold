@@ -36,7 +36,9 @@ public static class DetailView
         if (entry is not null && TimeText.Local(entry, s.PhoneZone, str, s.Trip) is { Start.Length: > 0 } time)
         {
             var day = entry.Day is { } d ? Lines.DayShort(d, str) + " · " : "";
-            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), time.Other));
+            var travel = Lines.TravelTime(entry, str) is { } length ? string.Format(CultureInfo.CurrentCulture, str["TravelTime"], length) : null;
+            var other = string.Join(" · ", new[] { travel, time.Other }.OfType<string>());
+            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), other.Length > 0 ? other : null));
         }
         if (Lines.Where(trip, item) is { Length: > 0 } where)
             page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString()));

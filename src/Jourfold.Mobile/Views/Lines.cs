@@ -80,7 +80,7 @@ public static class Lines
             _ => ""
         };
         var arrival = time?.Arrival is { } arrives ? string.Format(CultureInfo.CurrentCulture, s.Strings["ArrivesAt"], arrives) : "";
-        var details = string.Join(" · ", new[] { role, place, arrival, e.IsGroup ? string.Format(CultureInfo.CurrentCulture, s.Strings["StepsCount"], e.Steps.Count) : "", reference ?? "" }.Where(t => t.Length > 0));
+        var details = string.Join(" · ", new[] { role, place, arrival, TravelTime(e, s.Strings) ?? "", e.IsGroup ? string.Format(CultureInfo.CurrentCulture, s.Strings["StepsCount"], e.Steps.Count) : "", reference ?? "" }.Where(t => t.Length > 0));
         var header = Ui.Columns("Auto,*,Auto",
             Ui.Icon(icon, 18, "Kind." + key + ".Fg").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 10, 0),
             Ui.V(2, title, details.Length > 0 ? Ui.Text(details, "caption") : null, time?.Other is { } other ? Ui.Text(other, "caption", "subtle") : null),
@@ -136,6 +136,10 @@ public static class Lines
     }
 
     public static string DayTitle(LocalDate date, MobileSession s) => date.ToString(s.Strings["DayTitleFormat"], CultureInfo.GetCultureInfo(s.Strings.Language));
+    /// <summary>How long a journey takes from departure to arrival, across time zones; null for anything else.</summary>
+    public static string? TravelTime(AgendaEntry e, Localization s) =>
+        e.Kind == ScheduleKind.Transport && e.Role == AgendaRole.Item ? Formats.TravelTime(e.Start, e.End, s) : null;
+
     /// <summary>A day in short, such as "Sun 16 May" or "So., 16. Mai".</summary>
     public static string DayShort(LocalDate date, Localization s) => date.ToString(s["DayShortFormat"], CultureInfo.GetCultureInfo(s.Language));
 }

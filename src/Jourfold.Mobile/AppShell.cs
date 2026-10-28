@@ -232,6 +232,28 @@ public sealed class AppShell : UserControl
         return new Panel { Children = { scrim, panel } }.Classed("menu");
     }
 
+    /// <summary>A short notice at the bottom, above the sheet and the bottom bar, that goes away by itself.</summary>
+    public void Notify(string message)
+    {
+        foreach (var old in overlays.Children.OfType<Control>().Where(c => c.Classes.Contains("notice")).ToArray()) overlays.Children.Remove(old);
+        var notice = new Border
+        {
+            Child = Ui.Text(message).Also(t => { t.Foreground = Brushes.White; t.TextWrapping = TextWrapping.Wrap; }),
+            Background = new SolidColorBrush(Color.Parse("#E6202A36")),
+            CornerRadius = new CornerRadius(12),
+            Padding = new Thickness(16, 10),
+            MaxWidth = 420,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Bottom,
+            Margin = new Thickness(24, 0, 24, 88 + safeArea.Bottom),
+            IsHitTestVisible = false
+        }.Classed("notice");
+        Avalonia.Automation.AutomationProperties.SetLiveSetting(notice, Avalonia.Automation.AutomationLiveSetting.Polite);
+        AutomationProperties.SetName(notice, message);
+        overlays.Children.Add(notice);
+        DispatcherTimer.RunOnce(() => overlays.Children.Remove(notice), TimeSpan.FromSeconds(2));
+    }
+
     private void OnSheetClosed() { sheet = null; sheetFor = (Overlay.None, null); Session.CloseOverlay(); }
 
     private Control Question(Question question)

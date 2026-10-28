@@ -41,7 +41,8 @@ public static class Menus
 
     /// <summary>
     /// Copies <paramref name="value"/> on a long press or a right click on the text, such as a flight number or an
-    /// address, and says so in the text for a moment. Without a value, the text itself is copied.
+    /// address. Without a value, the text itself is copied. Android 13 and later confirm a copy themselves; elsewhere a
+    /// short notice says what was copied.
     /// </summary>
     public static T Copies<T>(this T text, MobileSession s, string? value = null) where T : TextBlock
     {
@@ -53,9 +54,9 @@ public static class Menus
         {
             if (TopLevel.GetTopLevel(text)?.Clipboard is not { } clipboard) return;
             await clipboard.SetTextAsync(copy);
-            var shown = text.Text;
-            text.Text = copy.Length <= 40 && !copy.Contains('\n') ? string.Format(CultureInfo.CurrentCulture, s.Strings["CopiedValue"], copy) : s.Strings["Copied"];
-            DispatcherTimer.RunOnce(() => text.Text = shown, TimeSpan.FromMilliseconds(1600));
+            if (OperatingSystem.IsAndroidVersionAtLeast(33)) return;
+            var notice = copy.Length <= 40 && !copy.Contains('\n') ? string.Format(CultureInfo.CurrentCulture, s.Strings["CopiedValue"], copy) : s.Strings["Copied"];
+            Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(text)?.Notify(notice);
         });
         return text;
     }

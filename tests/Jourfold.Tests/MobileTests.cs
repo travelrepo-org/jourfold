@@ -90,6 +90,25 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ANoticeShowsAboveTheDetailsAndGoesAway()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var shell = new AppShell(session);
+        var window = new Window { Width = 412, Height = 915, Content = shell }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowDetails(session.Agenda.Find(new LocalDate(2027, 5, 14))!.Entries.First(e => e.Item.Title == "Flight to Tokyo").Item.Id);
+            shell.Notify("Copied: LH 716");
+            Assert.Contains("Copied: LH 716", Texts());
+            await Probe.Until(() => !Texts().Contains("Copied: LH 716"), 4000);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheSampleTripOpensOnTodayAndEveryPlaceRenders()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

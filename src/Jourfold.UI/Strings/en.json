@@ -1438,6 +1438,7 @@
   "SyncSignInAgain": "GitHub needs you to sign in again.",
   "SyncedWithGitHub": "Synced {0}",
   "TripsOnGitHub": "Trips on GitHub",
+  "CopiedValue": "Copied: {0}",
   "DayTitleFormat": "dddd d MMMM",
   "DayShortFormat": "ddd d MMM",
   "WelcomePhoneBody": "Your trip plan on the road: what comes next today, bookings and tickets, also without a network. Get a trip from GitHub or look around in the sample trip.",

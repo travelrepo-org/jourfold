@@ -122,14 +122,14 @@ public static class MorePages
             var body = Ui.V(12);
             if (reference is not null) body.Children.Add(DetailView.Copyable(s, "ticket", reference, DetailView.Provider(booking)));
             if (first is { } item && Navigation.Button(s, item.Item) is { } navigate) body.Children.Add(navigate.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
-            if (Names(trip, booking.Data["travelers"]) is { Length: > 0 } people) body.Children.Add(DetailView.Row("users", people, null));
+            if (Names(trip, booking.Data["travelers"]) is { Length: > 0 } people) body.Children.Add(DetailView.Row("users", people, null, s));
             foreach (var linked in (booking.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>())
             {
                 var open = Ui.Button(linked.Title, "calendar", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
                 open.Click += (_, _) => s.ShowDetails(linked.Id);
                 body.Children.Add(open);
             }
-            if (booking.Data["notes"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null));
+            if (booking.Data["notes"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
             var details = Ui.Button(str["ShowDetails"], "chevron-right");
             details.Click += (_, _) => s.ShowDetails(booking.Id);
             body.Children.Add(details);
@@ -230,7 +230,7 @@ public static class MorePages
         {
             var body = Ui.V(10);
             if (Names(trip, expense.Data["paid_by"]) is { Length: > 0 } payers) body.Children.Add(DetailView.Row("user", string.Format(CultureInfo.CurrentCulture, str["PaidBy"], payers), null));
-            if (expense.Data["body"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null));
+            if (expense.Data["body"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
             var change = Ui.Button(str["Edit"], "pencil");
             change.Click += (_, _) => s.ShowEditor(expense.Id);
             var details = Ui.Button(str["ShowDetails"], "chevron-right", "ghost");

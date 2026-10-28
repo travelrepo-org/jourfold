@@ -22,7 +22,7 @@ public static class DetailView
         var shut = Ui.IconButton("x", s.Strings["Close"]); shut.Click += (_, _) => close();
         return Ui.Columns("Auto,*,Auto",
             Ui.Tile(Visuals.KindIcon(kind, ScheduleCategories.TransportType(item)), key, 40).Margin(0, 0, 12, 0),
-            Ui.V(2, Ui.Text(item.Title, "h3"), Ui.Text(label, "caption")),
+            Ui.V(2, Ui.Text(item.Title, "h3").Copies(s), Ui.Text(label, "caption")),
             shut).Margin(16, 2, 8, 10);
     }
 
@@ -38,10 +38,10 @@ public static class DetailView
             var day = entry.Day is { } d ? Lines.DayShort(d, str) + " · " : "";
             var travel = Lines.TravelTime(entry, str) is { } length ? string.Format(CultureInfo.CurrentCulture, str["TravelTime"], length) : null;
             var other = string.Join(" · ", new[] { travel, time.Other }.OfType<string>());
-            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), other.Length > 0 ? other : null));
+            page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), other.Length > 0 ? other : null, s));
         }
         if (Lines.Where(trip, item) is { Length: > 0 } where)
-            page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString()));
+            page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString(), s));
         var booking = Booking(trip, item);
         if (booking?.Data["reference"]?.ToString() is { Length: > 0 } reference) page.Children.Add(Copyable(s, "ticket", reference, booking.Title));
         if (Navigation.Button(s, item) is { } navigate) page.Children.Add(navigate.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
@@ -50,24 +50,27 @@ public static class DetailView
         var transport = item.Data["components"]?["transport"];
         var service = string.Join(" ", new[] { transport?["carrier"]?.ToString(), transport?["flight_number"]?.ToString() }.Where(t => !string.IsNullOrWhiteSpace(t)));
         if (service.Length > 0 || transport?["seat"] is not null)
-            page.Children.Add(Row(Visuals.TransportIcon(ScheduleCategories.TransportType(item)), service.Length > 0 ? service : str["Journey"], transport?["seat"]?.ToString() is { } seat ? string.Format(CultureInfo.CurrentCulture, str["SeatsAre"], seat) : null));
+            page.Children.Add(Row(Visuals.TransportIcon(ScheduleCategories.TransportType(item)), service.Length > 0 ? service : str["Journey"], transport?["seat"]?.ToString() is { } seat ? string.Format(CultureInfo.CurrentCulture, str["SeatsAre"], seat) : null,
+                // The flight or train number alone is what goes into a tracking app.
+                s, transport?["flight_number"]?.ToString() is { Length: > 0 } number ? number : service.Length > 0 ? service : "", transport?["seat"]?.ToString()));
         var notes = ExportText.Notes(trip, item).Concat(new[] { item.Data["body"]?.ToString(), item.Data["description"]?.ToString() }.OfType<string>()).Where(n => n.Length > 0).Distinct().ToArray();
-        if (notes.Length > 0) page.Children.Add(Section(str["Notes"], Ui.V(6, notes.Select(n => (Control)Ui.Text(n)).ToArray())));
+        if (notes.Length > 0) page.Children.Add(Section(str["Notes"], Ui.V(6, notes.Select(n => (Control)Ui.Text(n).Copies(s)).ToArray())));
         var tasks = Linked(trip, item, "task").Where(t => t.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled")).ToArray();
         if (tasks.Length > 0) page.Children.Add(Section(str["OpenTasks"], Ui.V(4, tasks.Select(t => (Control)TaskRow(s, t)).ToArray())));
 
         // Expanded
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
-        if (people.Length > 0) page.Children.Add(Row("users", Lines.Names(people, s), null));
+        if (people.Length > 0) page.Children.Add(Row("users", Lines.Names(people, s), null, s));
         if (booking is not null)
         {
             var price = TripSummaries.Money(booking.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : null;
-            page.Children.Add(Section(str["Booking"], Ui.Card(Ui.V(4, Ui.Text(booking.Title, "strong"),
-                Ui.Text(string.Join(" · ", new[] { Provider(booking), booking.Data["reference"]?.ToString(), str.Optional(booking.Data["status"]?.ToString() ?? ""), price }.Where(t => !string.IsNullOrWhiteSpace(t))), "caption")), 12)));
+            page.Children.Add(Section(str["Booking"], Ui.Card(Ui.V(4, Ui.Text(booking.Title, "strong").Copies(s),
+                Ui.Text(string.Join(" · ", new[] { Provider(booking), booking.Data["reference"]?.ToString(), str.Optional(booking.Data["status"]?.ToString() ?? ""), price }.Where(t => !string.IsNullOrWhiteSpace(t))), "caption")
+                    .Copies(s, booking.Data["reference"]?.ToString() is { Length: > 0 } code ? code : null)), 12)));
         }
         var costs = Linked(trip, item, "expense").Concat(booking is null ? [] : Linked(trip, booking, "expense")).DistinctBy(e => e.Id).ToArray();
         foreach (var cost in costs)
-            if (TripSummaries.Money(cost.Data["amount"]) is { } money) page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), cost.Title));
+            if (TripSummaries.Money(cost.Data["amount"]) is { } money) page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), cost.Title, s));
         var files = TripReferences.From(item).Concat(booking is null ? [] : TripReferences.From(booking)).Select(r => trip.Find(r.Target)).OfType<Entity>().Where(e => e.Type == "document").DistinctBy(e => e.Id).ToArray();
         if (files.Length > 0) page.Children.Add(Section(str["Files"], Ui.V(0, files.Select(f => FileRow(s, f)).ToArray())));
         if (item.Type == "schedule_item") page.Children.Add(Section(str["Status"], StatusChooser(s, item)));
@@ -99,8 +102,16 @@ public static class DetailView
     public static IEnumerable<Entity> Linked(TripSnapshot trip, Entity item, string type) =>
         TripSummaries.ReferencesTo(trip, item.Id).Where(e => e.Type == type).OrderBy(e => e.Title, StringComparer.CurrentCulture);
 
-    public static Control Row(string icon, string text, string? detail) =>
-        Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, Ui.Text(text), detail is null ? null : Ui.Text(detail, "caption")));
+    /// <summary>
+    /// A line of the details with an icon and an optional second line. With a session, a long press copies the line:
+    /// <paramref name="copy"/> and <paramref name="copyDetail"/> when given, otherwise the text as shown.
+    /// </summary>
+    public static Control Row(string icon, string text, string? detail, MobileSession? s = null, string? copy = null, string? copyDetail = null)
+    {
+        var main = Ui.Text(text); var second = detail is null ? null : Ui.Text(detail, "caption");
+        if (s is not null) { main.Copies(s, copy); second?.Copies(s, copyDetail); }
+        return Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, main, second));
+    }
 
     /// <summary>A file of the item, such as the booking e-mail or a ticket, which opens in the viewer.</summary>
     private static Control FileRow(MobileSession s, Entity file)
@@ -120,7 +131,7 @@ public static class DetailView
     {
         var copy = Ui.Button(s.Strings["Copy"], "copy", "chip");
         copy.Click += async (_, _) => { if (TopLevel.GetTopLevel(copy)?.Clipboard is { } clipboard) await clipboard.SetTextAsync(value); copy.Content = Ui.H(6, Ui.Icon("check", 15), Ui.Text(s.Strings["Copied"])); };
-        var row = Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, Ui.Text(value, "strong"), detail is null ? null : Ui.Text(detail, "caption")));
+        var row = Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, Ui.Text(value, "strong").Copies(s), detail is null ? null : Ui.Text(detail, "caption")));
         return Ui.Columns("*,Auto", row, copy);
     }
 

@@ -16,10 +16,10 @@ namespace Jourfold.Mobile.Views;
 public static class Menus
 {
     /// <summary>
-    /// Opens a menu on a long press or a right click on the button. The tap that ends a long press does not count as
-    /// a click, so call this before adding the button's own click handler.
+    /// Runs <paramref name="open"/> on a long press or a right click on the control, such as opening a menu. On a
+    /// button the tap that ends a long press does not count as a click, so call this before adding its click handler.
     /// </summary>
-    public static void OnHold(Button button, Action open)
+    public static void OnHold(Control button, Action open)
     {
         // Timed here rather than with Avalonia's holding gesture, which does not fire for touch on Android.
         var held = false; Point? from = null; IDisposable? timer = null;
@@ -37,6 +37,27 @@ public static class Menus
         button.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Stop(), RoutingStrategies.Bubble, handledEventsToo: true);
         button.ContextRequested += (_, e) => { if (!held) open(); e.Handled = true; };
         button.AddHandler(Button.ClickEvent, (_, e) => { if (held) { held = false; e.Handled = true; } });
+    }
+
+    /// <summary>
+    /// Copies <paramref name="value"/> on a long press or a right click on the text, such as a flight number or an
+    /// address, and says so in the text for a moment. Without a value, the text itself is copied.
+    /// </summary>
+    public static T Copies<T>(this T text, MobileSession s, string? value = null) where T : TextBlock
+    {
+        var copy = value ?? text.Text;
+        if (string.IsNullOrWhiteSpace(copy)) return text;
+        // Hits the whole line, not only the letters.
+        text.Background ??= Avalonia.Media.Brushes.Transparent;
+        OnHold(text, async () =>
+        {
+            if (TopLevel.GetTopLevel(text)?.Clipboard is not { } clipboard) return;
+            await clipboard.SetTextAsync(copy);
+            var shown = text.Text;
+            text.Text = copy.Length <= 40 && !copy.Contains('\n') ? string.Format(CultureInfo.CurrentCulture, s.Strings["CopiedValue"], copy) : s.Strings["Copied"];
+            DispatcherTimer.RunOnce(() => text.Text = shown, TimeSpan.FromMilliseconds(1600));
+        });
+        return text;
     }
 
     /// <summary>What can be done with an item: the same as in its details, plus duplicating and moving it.</summary>

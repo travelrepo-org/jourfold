@@ -25,10 +25,18 @@ public static class Covers
         catch (Exception ex) when (ex is DomainException or IOException or ArgumentException or NotSupportedException) { return null; }
     }
     private static readonly (string A, string B)[] Gradients = [("#0F7B7A", "#45C4AF"), ("#103B5C", "#1593A5"), ("#1B4C8A", "#5B9BEA"), ("#4C3796", "#9C82EA"), ("#1C653C", "#4FC07E"), ("#844210", "#E2843A"), ("#842B58", "#DD6FA5")];
-    public static Control Generated(string title, double width, double height, double radius = 8)
+    private static (string A, string B) Gradient(string title)
     {
         var hash = 0; foreach (var ch in title) hash = unchecked(hash * 31 + ch);
-        var (a, b) = Gradients[Math.Abs(hash % Gradients.Length)];
+        return Gradients[Math.Abs(hash % Gradients.Length)];
+    }
+
+    /// <summary>The trip's colour: where its generated cover starts, such as for its calendar on the phone.</summary>
+    public static string Tint(string title) => Gradient(title).A;
+
+    public static Control Generated(string title, double width, double height, double radius = 8)
+    {
+        var (a, b) = Gradient(title);
         var brush = new LinearGradientBrush { StartPoint = new RelativePoint(0, 0, RelativeUnit.Relative), EndPoint = new RelativePoint(1, 1, RelativeUnit.Relative), GradientStops = { new GradientStop(Color.Parse(a), 0), new GradientStop(Color.Parse(b), 1) } };
         // Soft rolling hills echo the route-and-landscape idea of the mark without repeating the logo.
         var hills = new Avalonia.Controls.Shapes.Path { Data = Geometry.Parse("M0,70 C25,52 45,60 60,66 C75,72 85,58 100,50 L100,100 L0,100 Z"), Fill = new SolidColorBrush(Colors.White, 0.16), Stretch = Stretch.Fill, VerticalAlignment = VerticalAlignment.Bottom, Height = height * 0.55 };

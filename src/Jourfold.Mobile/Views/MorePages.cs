@@ -342,6 +342,23 @@ public static class MorePages
 
     // Settings
 
+    /// <summary>The trips in the calendar app: on or off, one calendar per trip or per kind. Only where the platform has it.</summary>
+    private static Control? Calendar(MobileSession s)
+    {
+        if (s.Host.Calendar is null) return null;
+        var str = s.Strings;
+        ToggleSwitch Switch(string label, bool on, bool enabled) => new ToggleSwitch { IsChecked = on, IsEnabled = enabled, OnContent = label, OffContent = label }.Also(t => AutomationProperties.SetName(t, label));
+        var show = Switch(str["CalendarShow"], s.CalendarOn, true);
+        var byKind = Switch(str["CalendarByKind"], s.CalendarByKind, s.CalendarOn);
+        show.IsCheckedChanged += async (_, _) => await s.SetCalendarAsync(show.IsChecked == true, byKind.IsChecked == true);
+        byKind.IsCheckedChanged += async (_, _) => await s.SetCalendarAsync(s.CalendarOn, byKind.IsChecked == true);
+        Control Hint(string text) => Ui.Text(text, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        return Ui.V(8, Ui.Text(str["CalendarSection"], "overline").Margin(20, 0),
+            Ui.Card(Ui.V(12, show, Hint(str["CalendarHint"]), byKind, Hint(str["CalendarByKindHint"]),
+                s.CalendarOn ? Hint(str["CalendarSyncHint"]) : null,
+                s.CalendarProblem is { } problem ? Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }) : null), 14).Margin(16, 0));
+    }
+
     private static Control Settings(MobileSession s)
     {
         var str = s.Strings;
@@ -360,6 +377,7 @@ public static class MorePages
         return Frame(s, str["Settings"],
             Ui.V(8, Ui.Text(str["YouOnThisPhone"], "overline").Margin(20, 0),
                 Ui.Card(Ui.V(12, Ui.Text(str["YouOnThisPhoneHint"], "caption"), Ui.Field(str["Name"], name), Ui.Field(str["Email"], email), save), 14).Margin(16, 0)),
+            Calendar(s),
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),
                 Info("folder", str["StorageUsed"], Formats.Bytes(size)),

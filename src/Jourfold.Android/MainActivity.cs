@@ -26,7 +26,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
-            Locate: AndroidLocation.LocateAsync, Device: Device());
+            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this));
         base.OnCreate();
     }
 
@@ -88,6 +88,7 @@ public sealed class MainActivity : AvaloniaMainActivity
     {
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         AndroidLocation.Answered(requestCode, grantResults);
+        AndroidCalendar.Answered(requestCode, grantResults);
     }
 
     /// <summary>Leaving the app turns open changes into a version right away; Android may stop the app at any time after.</summary>

@@ -4,6 +4,12 @@
   <!-- Only for "Where I am" when changing a place; asked for when the user taps it, never in the background. -->
   <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
   <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <!-- Only when the user turns on "Show trips in the calendar app": the trip calendars are written, never read for anything else. -->
+  <uses-permission android:name="android.permission.READ_CALENDAR"/>
+  <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
+  <!-- The trip calendars' account syncs only when the user asks; these set that up. -->
+  <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
+  <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
   <application android:allowBackup="false" android:supportsRtl="true">
     <profileable android:shell="true"/>
     <!-- Hands a copy of a ticket or PDF to an app that can show it, with read access for that one file. -->

@@ -520,6 +520,114 @@ public sealed class MobileTests : IDisposable
         alex.Dispose(); sam.Dispose();
     }
 
+    [AvaloniaFact]
+    public async Task TripsAppearInTheCalendarToReadAndGoWithTheTrip()
+    {
+        var calendar = new FakeCalendar();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 40)), () => Tokyo, "en", new MemorySecrets(), Calendar: calendar));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        // Off until the user turns it on; without the permission it stays off.
+        Assert.False(session.CalendarOn);
+        calendar.Allowed = false;
+        await session.SetCalendarAsync(true, false);
+        Assert.False(session.CalendarOn); Assert.Equal("Jourfold may not use the calendar. You can allow it in the system settings.", session.CalendarProblem);
+        calendar.Allowed = true;
+        await session.SetCalendarAsync(true, false);
+        var trip = Assert.Single(calendar.Calendars);
+        Assert.Equal(("Spring in Japan", Path.GetFileName(path)), (trip.Name, trip.Key));
+        // Stays come as check-in and check-out; the flight keeps its own zone.
+        Assert.Contains(trip.Entries, e => e.Title == "Check-in: Hotel Gracery Shinjuku" && e.Start is not null);
+        Assert.Contains(trip.Entries, e => e.Title == "Check-out: Hotel Gracery Shinjuku");
+        Assert.DoesNotContain(trip.Entries, e => e.Title == "Hotel Gracery Shinjuku");
+        Assert.Equal("Europe/Berlin", trip.Entries.Single(e => e.Title == "Flight to Tokyo").Zone);
+
+        // One calendar per kind, named after the trip.
+        await session.SetCalendarAsync(true, true);
+        Assert.Equal(["Spring in Japan · Getting around", "Spring in Japan · Stays", "Spring in Japan · Food", "Spring in Japan · Plans"], calendar.Calendars.Select(c => c.Name));
+        Assert.All(calendar.Calendars.Single(c => c.Key.EndsWith("/stays", StringComparison.Ordinal)).Entries, e => Assert.StartsWith("Check-", e.Title));
+
+        // An edit reaches the calendar once the trip is quiet for a moment.
+        await session.OpenAsync(path);
+        var dinner = session.Trip!.Entities.Values.First(e => e.Title == "Dinner in Ginza");
+        await session.SaveEditAsync(dinner.Id, "Dinner in Shimbashi", null, null, null, null);
+        await Until(() => calendar.Calendars.SelectMany(c => c.Entries).Any(e => e.Title == "Dinner in Shimbashi"));
+
+        // A trip removed from the phone takes its calendars with it; turning off removes them all.
+        await session.DeleteTripAsync(path);
+        await Until(() => calendar.Calendars.Count == 0);
+        await session.SetCalendarAsync(false, false);
+        Assert.True(calendar.TurnedOff); Assert.False(session.CalendarOn);
+        session.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task SyncNowOnlyTakesNewerVersionsAndNeverSends()
+    {
+        var git = new GitCliBackend();
+        var shared = Path.Combine(root, "shared.git"); Directory.CreateDirectory(shared);
+        Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
+        var secrets = new MemorySecrets(); await secrets.WriteAsync("github.user-token", "token");
+        var calendar = new FakeCalendar();
+        MobileSession Phone(string name)
+        {
+            var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
+            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "Values": { "calendar": "trips" } }""");
+            return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub(), Calendar: calendar));
+        }
+        async Task<string> Head(string folder) => (await git.ExecuteAsync(folder, ["rev-parse", "HEAD"])).Output.Trim();
+        var alex = Phone("alex"); var sam = Phone("sam");
+        await alex.LoadGitHubAsync(); await sam.LoadGitHubAsync();
+        var path = await alex.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await alex.OpenAsync(path); await alex.Workspace!.Git.AddRemoteAsync("origin", shared);
+        await alex.OpenAsync(path); while (alex.Syncing) await Task.Delay(20);
+        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        while (sam.Syncing) await Task.Delay(20);
+        var samTrip = sam.Workspace!.Repository.Root; sam.Close();
+
+        // Alex's newer version comes in, and the calendar shows it.
+        var wifi = alex.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+        await alex.SaveEditAsync(alex.Trip!.Entities.Values.First(e => e.Title == "Dinner in Ginza").Id, "Dinner in Shimbashi", null, null, null, null);
+        await alex.SyncAsync(quiet: false);
+        Assert.Equal(1, await SystemCalendars.RefreshAsync(sam.Host, open: null));
+        Assert.Equal(await Head(path), await Head(samTrip));
+        Assert.Contains(calendar.Calendars.Single().Entries, e => e.Title == "Dinner in Shimbashi");
+
+        // The trip open in the app is left to the app.
+        await alex.SetTaskDoneAsync(wifi.Id, true); await alex.SyncAsync(quiet: false);
+        Assert.Equal(0, await SystemCalendars.RefreshAsync(sam.Host, open: samTrip));
+        Assert.NotEqual(await Head(path), await Head(samTrip));
+
+        // With a version of its own the phone takes nothing and sends nothing, even where the changes could be combined.
+        // (A version made on the phone while it was offline.)
+        var offline = new TravelRepo.Repository.TravelRepository(samTrip); var offlineGit = new GitRepository(offline, git);
+        var passport = (await offline.ReadAsync()).Trip.Entities.Values.Single(e => e.Title == "Check passport validity").Copy(); passport.Data["status"] = "open";
+        await offline.ApplyAsync(await offline.ReadAsync(), [new(passport.Id, passport)]); await offlineGit.CreateVersionAsync("Passport to check");
+        await alex.SaveEditAsync(alex.Trip!.Entities.Values.First(e => e.Title == "Dinner in Shimbashi").Id, "Dinner in Ginza", null, null, null, null);
+        await alex.SyncAsync(quiet: false);
+        var (samBefore, remoteBefore) = (await Head(samTrip), (await git.ExecuteAsync(shared, ["rev-parse", "main"])).Output.Trim());
+        Assert.Equal(0, await SystemCalendars.RefreshAsync(sam.Host, open: null));
+        Assert.Equal(samBefore, await Head(samTrip));
+        Assert.Equal(remoteBefore, (await git.ExecuteAsync(shared, ["rev-parse", "main"])).Output.Trim());
+        alex.Dispose(); sam.Dispose();
+    }
+
+    private static async Task Until(Func<bool> condition)
+    {
+        for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }
+        Assert.True(condition());
+    }
+
+    /// <summary>The device's calendar, keeping what was written last.</summary>
+    private sealed class FakeCalendar : ISystemCalendar
+    {
+        public bool Allowed { get; set; } = true;
+        public bool TurnedOff { get; private set; }
+        public IReadOnlyList<SystemCalendar> Calendars { get; private set; } = [];
+        public Task<bool> AllowAsync(bool ask, CancellationToken ct = default) => Task.FromResult(Allowed);
+        public Task PublishAsync(IReadOnlyList<SystemCalendar> calendars, CancellationToken ct = default) { Calendars = calendars; TurnedOff = false; return Task.CompletedTask; }
+        public Task TurnOffAsync(CancellationToken ct = default) { Calendars = []; TurnedOff = true; return Task.CompletedTask; }
+    }
+
     private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore
     {
         private readonly Dictionary<string, string> values = [];

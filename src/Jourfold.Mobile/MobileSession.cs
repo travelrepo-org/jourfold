@@ -90,6 +90,8 @@ public sealed partial class MobileSession : IDisposable
         }
         Trips = cards.OrderByDescending(c => c.Start ?? LocalDate.MinIsoValue).ToArray();
         Changed?.Invoke();
+        // A trip added or removed adds or removes its calendar.
+        UpdateCalendarSoon();
     }
 
     /// <summary>Creates the "Spring in Japan" sample trip, starting on the next suitable Friday.</summary>
@@ -106,7 +108,10 @@ public sealed partial class MobileSession : IDisposable
     {
         Close();
         var workspace = new Workspace(path, Host.Git);
-        await workspace.OpenAsync(ct);
+        // Not while the system's "Sync now" is moving this trip forward.
+        await SystemCalendars.TripGate.WaitAsync(ct);
+        try { await workspace.OpenAsync(ct); }
+        finally { SystemCalendars.TripGate.Release(); }
         if (Settings.Name is { Length: > 0 } name && Settings.Email is { Length: > 0 } email) await workspace.Git.SetIdentityAsync(name, email, ct);
         Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
         Agenda = TripAgenda.Build(workspace.State.Trip);
@@ -153,6 +158,7 @@ public sealed partial class MobileSession : IDisposable
     {
         if (Workspace is null) return;
         Agenda = TripAgenda.Build(Workspace.State.Trip); Changed?.Invoke();
+        UpdateCalendarSoon();
     }
 
     public void ShowTab(MobileTab tab) { Tab = tab; Page = null; Changed?.Invoke(); }

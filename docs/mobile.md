@@ -143,6 +143,27 @@ the changes are combined on the phone. When both changed the same thing, the pho
 user to open the trip on a computer, where both can be compared. Without a network the app says so quietly and
 tries again after the next change.
 
+## Trips in the calendar app
+
+Settings → Calendar → "Show trips in the calendar app" (off until turned on, asks for the calendar permission) puts
+each trip on the device into the system calendar as a calendar of its own, to read only; "One calendar per kind"
+splits each trip into getting around, stays, food and plans, which calendar apps show and hide one by one. Entries
+come from TravelRepo's `TripCalendar` with stays as check-in and check-out: a single moment at a fixed time, a block
+for the check-in or check-out hours, all day when the time is not known. Cancelled plans are left out; ideas and plans
+not yet booked are tentative. The calendars follow every edit (after two quiet seconds) and every sync, a trip removed
+from the device takes its calendar along, and turning the option off removes them all.
+
+On Android the calendars belong to an account "Jourfold" (`AndroidCalendar`, `CalendarAccountService`), written as
+its sync adapter and never uploaded. Only what changed is written: each entry keeps a fingerprint in `sync_data1`.
+The account's sync is on, because "Sync now" in the system settings asks only accounts whose sync is on, but it has
+no schedule, and `CalendarSyncService` acts only on syncs the user asked for (`SYNC_EXTRAS_MANUAL`: "Sync now", a
+calendar app's refresh). Such a sync takes newer versions from GitHub only as a fast-forward (`GitRepository.PullAsync`):
+it never sends and never combines, and it leaves alone a trip with changes or versions of its own, one where both
+sides changed, and the trip open in the app. Then it writes the calendars. Syncs Android starts on its own do nothing.
+
+The AOSP calendar app in the emulator images stops with any event (also one it would write itself); check entries
+with `adb shell content query --uri content://com.android.calendar/events`. iOS and iPadOS will use EventKit.
+
 ## Building for Android
 
 Needs the .NET `android` workload, the Android SDK with an NDK (r28 or later) and CMake, and TravelRepo checked out

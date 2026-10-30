@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The account "Jourfold" that holds the trip calendars; it has no sign-in of its own. -->
+<account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
+    android:accountType="dev.jourfold.app"
+    android:icon="@mipmap/ic_launcher"
+    android:smallIcon="@mipmap/ic_launcher"
+    android:label="@string/calendar_account"/>

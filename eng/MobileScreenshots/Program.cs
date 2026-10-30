@@ -103,6 +103,34 @@ try
         await Capture("sync");
         s.ShowPage("settings");
         await Capture("settings");
+        // On the road without a computer: editing a journey and a stay, packing, money, a ticket and the taxi card.
+        s.ShowTab(MobileTab.Plan);
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo").Id);
+        await Capture("edit-journey", 412, 1600);
+        s.CloseOverlay();
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && TravelRepo.Core.Stays.IsStay(e)).Id);
+        await Capture("edit-stay", 412, 1500);
+        s.CloseOverlay();
+        s.ShowTab(MobileTab.More); s.ShowPage("packing");
+        await Capture("packing", 412, 1200);
+        File.WriteAllText(Path.Combine(MobileApp.Host!.DataRoot, "rates.json"), """{ "Date": "2027-05-14", "PerEuro": { "JPY": 160, "USD": 1.1, "NZD": 1.8 } }""");
+        s.Settings.Values["rates.online"] = "on"; s.Drafts["converter.amount"] = "3200"; s.Drafts["converter.from"] = "JPY"; s.Drafts["converter.to"] = "EUR";
+        s.ShowPage("converter");
+        await Capture("converter");
+        s.Settings.Values.Remove("rates.online");
+        {
+            using var pass = new MemoryStream();
+            using (var zip = new System.IO.Compression.ZipArchive(pass, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            using (var writer = new StreamWriter(zip.CreateEntry("pass.json").Open()))
+                writer.Write("""{ "description": "Boarding pass", "organizationName": "Example Air", "barcode": { "message": "M1SAMPLE/ALEX EABC123 FRAHNDXA 0042 134Y032A0001 100", "format": "PKBarcodeFormatAztec", "messageEncoding": "iso-8859-1", "altText": "ABC123" }, "boardingPass": { "transitType": "PKTransitTypeAir", "primaryFields": [ { "key": "from", "label": "Frankfurt", "value": "FRA" }, { "key": "to", "label": "Tokyo", "value": "HND" } ], "auxiliaryFields": [ { "key": "gate", "label": "Gate", "value": "B44" }, { "key": "boarding", "label": "Boarding", "value": "12:40" }, { "key": "seat", "label": "Seat", "value": "32A" } ] } }""");
+            s.ShowFile(new ShownFile("Boarding pass.pkpass", TravelRepo.Documents.WalletPass.MediaType, pass.ToArray()));
+            await Capture("ticket-pass");
+            s.CloseFile();
+        }
+        s.ShowTab(MobileTab.Today);
+        s.ShowTaxiCard(s.Trip!.Entities.Values.First(e => e.Type == "place" && e.Title == "Hotel Gracery Shinjuku").Id);
+        await Capture("taxi-card");
+        s.ShowTaxiCard(null);
         s.ShowTab(MobileTab.Plan);
         await Capture("tablet-plan", 1194, 834);
         s.ShowDate(new LocalDate(2027, 5, 15));

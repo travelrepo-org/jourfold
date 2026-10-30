@@ -192,7 +192,7 @@ public sealed class QuickAddView
             }
             if (editing is not null && Stay)
             {
-                form.Children.Add(Field(str["CheckInHours"], Ui.Columns("*,Auto,*", Optional(windowFrom), Ui.Text("–").Margin(8, 0).Also(x => x.VerticalAlignment = VerticalAlignment.Center), Optional(windowUntil))));
+                form.Children.Add(Field(str["CheckInHours"], Ui.V(6, Ui.Text(str["WindowFrom"], "caption"), Optional(windowFrom), Ui.Text(str["WindowUntil"], "caption"), Optional(windowUntil))));
                 form.Children.Add(Field(str["LatestCheckOut"], Optional(latestOut)));
                 foreach (var (path, label, _) in StayFields) if (details.TryGetValue(path, out var d)) form.Children.Add(Field(str[label], d.Box));
                 form.Children.Add(Field(str["BookingNumber"], reference));
@@ -245,7 +245,7 @@ public sealed class QuickAddView
         for (var i = 0; i <= 2; i++)
         {
             var offset = i;
-            var chip = Ui.Choice(i == 0 ? str["SameDay"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
+            var chip = Ui.Choice(i == 0 ? str["SameDay"] : i == 1 ? str["OneDayLater"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
             chip.Click += (_, _) => { arrivalDays = offset; Render(); };
             days.Children.Add(chip);
         }

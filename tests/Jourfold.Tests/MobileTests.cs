@@ -790,6 +790,34 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TheTaxiCardShowsTheLocalScriptBright()
+    {
+        var bright = new List<bool>();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 15, 3, 0)), () => Tokyo, "en", new MemorySecrets(), Brightness: bright.Add));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var hotel = session.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && Stays.IsStay(e));
+        var place = session.Trip!.Entities.Values.First(e => e.Type == "place" && e.Title == "Ginza").Copy();
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowDetails(hotel.Id); Probe.Layout();
+            Probe.Click(window, "Taxi card");
+            Assert.Contains("ホテルグレイスリー新宿", Texts()); Assert.Contains("東京都新宿区歌舞伎町", Texts()); Assert.Contains("Kabukicho, Shinjuku City, Tokyo", Texts());
+            Assert.Equal([true], bright);
+            session.ShowTaxiCard(null);
+            Assert.Equal([true, false], bright);
+        }
+        finally { window.Close(); session.Dispose(); }
+
+        // The local spelling is kept with the place and can be cleared.
+        Jourfold.Application.PlaceEdits.Describe(place, "Ginza", "Chuo City, Tokyo", null, null, "銀座", "東京都中央区銀座");
+        Assert.Equal(("銀座", "東京都中央区銀座"), (Places.LocalName(place), Places.LocalAddress(place)));
+        Jourfold.Application.PlaceEdits.Describe(place, "Ginza", "Chuo City, Tokyo", null, null, "", "");
+        Assert.Equal((null, null), (Places.LocalName(place), Places.LocalAddress(place)));
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

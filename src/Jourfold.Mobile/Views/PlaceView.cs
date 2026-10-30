@@ -22,6 +22,9 @@ public sealed class PlaceView
     private readonly TextBox address = new() { AcceptsReturn = true, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
     private readonly TextBox latitude = new() { PlaceholderText = "-37.0093" };
     private readonly TextBox longitude = new() { PlaceholderText = "174.7841" };
+    // The name and address in the place's own script, for the taxi card.
+    private readonly TextBox localName = new();
+    private readonly TextBox localAddress = new() { AcceptsReturn = true, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
     private readonly StackPanel results = Ui.V(0);
     private readonly TextBlock problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
     private bool filling;
@@ -39,6 +42,7 @@ public sealed class PlaceView
         if (place is not null)
         {
             name.Text = place.Title; address.Text = Places.Address(place);
+            localName.Text = Places.LocalName(place); localAddress.Text = Places.LocalAddress(place);
             if (Places.Location(place) is { } at) Fill(at.Latitude, at.Longitude);
         }
         else if (s.PlaceDraft is { } draft)
@@ -57,13 +61,22 @@ public sealed class PlaceView
         if (here is not null) here.Click += async (_, _) => await LocateAsync(here);
         var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
         save.Click += async (_, _) => await SaveAsync(save);
+        AutomationProperties.SetName(localName, str["LocalName"]); AutomationProperties.SetName(localAddress, str["LocalAddress"]);
+        Button? taxi = null;
+        if (place is not null && (Places.Address(place) ?? Places.LocalAddress(place) ?? Places.LocalName(place)) is not null)
+        {
+            taxi = Ui.Button(str["TaxiCard"], "car-taxi-front", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+            taxi.Click += (_, _) => s.ShowTaxiCard(place.Id);
+        }
 
         View = Ui.V(14,
+            taxi,
             Field(str["Title"], name),
             Field(str["Address"], Ui.V(8, address, Ui.H(8, search, here))),
             results,
             Ui.Columns("*,12,*", Field(str["Latitude"], latitude), null, Field(str["Longitude"], longitude).Col(2)),
             Ui.Text(str["CoordinatesPasteHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap),
+            Field(str["LocalName"], localName), Field(str["LocalAddress"], localAddress),
             problem, save).Margin(16, 0, 16, 24);
     }
 
@@ -119,11 +132,15 @@ public sealed class PlaceView
             {
                 var row = new Button { Content = Ui.Columns("Auto,*", Ui.Icon("map-pin", 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.V(1, Ui.Text(result.Name, "strong"), Ui.Text(result.Address, "caption"))) }.Classed("row");
                 AutomationProperties.SetName(row, result.Name + ", " + result.Address);
-                row.Click += (_, _) =>
+                row.Click += async (_, _) =>
                 {
                     if (string.IsNullOrWhiteSpace(name.Text)) name.Text = result.Name;
                     filling = true; address.Text = result.Address; lengths[address] = result.Address.Length; filling = false;
                     Fill(result.Latitude, result.Longitude); results.Children.Clear();
+                    // The local script for the taxi card, when the place is written differently there.
+                    if (result.LocalName is { } own && string.IsNullOrWhiteSpace(localName.Text)) localName.Text = own;
+                    try { if (await s.LocalAddressAsync(result) is { } local && string.IsNullOrWhiteSpace(localAddress.Text)) localAddress.Text = local; }
+                    catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException) { }
                 };
                 results.Children.Add(row);
             }
@@ -157,7 +174,7 @@ public sealed class PlaceView
             lat = a; lon = b;
         }
         save.IsEnabled = false;
-        try { await s.SavePlaceAsync(place?.Id, name.Text ?? "", address.Text, lat, lon); }
+        try { await s.SavePlaceAsync(place?.Id, name.Text ?? "", address.Text, lat, lon, localName.Text ?? "", localAddress.Text ?? ""); }
         catch (DomainException ex) { Show(ex.Code == "mobile.title" ? ex.Message : str.Diagnostic(ex.Code)); }
         finally { save.IsEnabled = true; }
     }

@@ -182,6 +182,14 @@ app: the barcode (QR, Aztec, PDF417 or Code 128, drawn with ZXing.Net) large on 
 pass's fields; "open in another app" hands it to a wallet app where one is installed. Passes and pictures are shown
 at full screen brightness. Passes reach the trip through "share to Jourfold" or "attach file".
 
+## Local script and taxi card
+
+A place can keep its name and address in the local script (TravelRepo `local_name`, `address.local`), entered on
+the desktop or the phone; choosing a search result fills them when the place is written differently there (the
+search server answers in the place's own language when none is asked for). "Taxi card" on a place, and on a plan
+whose place, stay or destination has an address, shows the local name and address large at full brightness, the
+usual spelling and the phone number below.
+
 ## Trips in the calendar app
 
 Settings → Calendar → "Show trips in the calendar app" (off until turned on, asks for the calendar permission) puts

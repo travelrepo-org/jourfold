@@ -139,7 +139,7 @@ public sealed partial class MobileSession : IDisposable
     private void Reset()
     {
         quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
-        viewing.Clear(); FileProblem = null;
+        viewing.Clear(); FileProblem = null; TaxiCard = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
 

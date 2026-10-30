@@ -48,6 +48,7 @@ public static class DetailView
         var booking = Booking(trip, item);
         if (booking?.Data["reference"]?.ToString() is { Length: > 0 } reference) page.Children.Add(Copyable(s, "ticket", reference, booking.Title));
         if (TicketButton(s, item) is { } ticket) page.Children.Add(ticket.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
+        if (item.Type == "schedule_item" && TaxiCardView.Button(s, item) is { } taxi) page.Children.Add(taxi.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
         if (Navigation.Button(s, item) is { } navigate) page.Children.Add(navigate.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
 
         // Operational

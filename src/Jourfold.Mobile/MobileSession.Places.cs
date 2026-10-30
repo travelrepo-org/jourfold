@@ -42,12 +42,12 @@ public sealed partial class MobileSession
     /// Saves a place's name, address and position, or adds it when <paramref name="id"/> is null. A new place opened
     /// from an item's details becomes that item's place, and the details come back.
     /// </summary>
-    public async Task<Guid> SavePlaceAsync(Guid? id, string name, string? address, double? latitude, double? longitude, CancellationToken ct = default)
+    public async Task<Guid> SavePlaceAsync(Guid? id, string name, string? address, double? latitude, double? longitude, string? localName = null, string? localAddress = null, CancellationToken ct = default)
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         if (string.IsNullOrWhiteSpace(name)) throw new DomainException("mobile.title", Strings["EnterTitle"]);
         var place = id is { } existing ? workspace.State.Trip.Find(existing)?.Copy() ?? throw new DomainException("entity.missing", "Place not found.") : Entity.Create("place", name.Trim());
-        PlaceEdits.Describe(place, name, address, latitude, longitude);
+        PlaceEdits.Describe(place, name, address, latitude, longitude, localName, localAddress);
         if (id is null) await workspace.ApplyAsync([new(place.Id, place)], ct); else await workspace.EditAsync(place, ct);
         NoteChange();
         if (PlaceFor is { } target)
@@ -60,6 +60,14 @@ public sealed partial class MobileSession
         Changed?.Invoke();
         return place.Id;
     }
+
+    /// <summary>A found place's address as written locally, for the taxi card; null without online maps or when it is the same.</summary>
+    public async Task<string?> LocalAddressAsync(PlaceResult result, CancellationToken ct = default) =>
+        Settings.OnlineMaps ? await new PlaceSearch(MapsHttp, MapProvider.SearchUrl).LocalAddressAsync(result, ct) : null;
+
+    /// <summary>The place whose taxi card is on screen: name and address large, in the local script first.</summary>
+    public Guid? TaxiCard { get; private set; }
+    public void ShowTaxiCard(Guid? place) { TaxiCard = place; Host.Brightness?.Invoke(place is not null); Changed?.Invoke(); }
 
     /// <summary>Turns online maps and the address search on or off for this phone.</summary>
     public void SetOnlineMaps(bool on) { Settings.OnlineMaps = on; Settings.Save(); Changed?.Invoke(); }

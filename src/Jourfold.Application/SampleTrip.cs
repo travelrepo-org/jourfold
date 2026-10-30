@@ -57,6 +57,8 @@ public static class SampleTrip
         var fra = Place("Frankfurt Airport", 50.0379, 8.5622, "Europe/Berlin", "Frankfurt am Main, Germany");
         var hnd = Place("Tokyo Haneda Airport", 35.5494, 139.7798, "Asia/Tokyo", "Ota City, Tokyo, Japan");
         var gracery = Place("Hotel Gracery Shinjuku", 35.6950, 139.7020, "Asia/Tokyo", "Kabukicho, Shinjuku City, Tokyo");
+        // In Japanese too, for the taxi card.
+        gracery.Data["local_name"] = "ホテルグレイスリー新宿"; gracery.Data["address"]!["local"] = "東京都新宿区歌舞伎町";
         var omoide = Place("Omoide Yokocho", 35.6929, 139.6996, "Asia/Tokyo", "Nishishinjuku, Shinjuku City, Tokyo");
         var tsukiji = Place("Tsukiji Outer Market", 35.6654, 139.7707, "Asia/Tokyo", "Tsukiji, Chuo City, Tokyo");
         var sensoji = Place("Senso-ji", 35.7148, 139.7967, "Asia/Tokyo", "Asakusa, Taito City, Tokyo");

@@ -76,8 +76,16 @@ public static class PlaceEdits
     /// Sets a place's name, address and position. An empty address or a missing position removes it; the other
     /// address parts and the time zone stay.
     /// </summary>
-    public static void Describe(Entity place, string? name, string? address, double? latitude, double? longitude)
+    /// <param name="localName">The name in the place's own script; null leaves it, empty text removes it.</param>
+    /// <param name="localAddress">The address in the place's own script; null leaves it, empty text removes it.</param>
+    public static void Describe(Entity place, string? name, string? address, double? latitude, double? longitude, string? localName = null, string? localAddress = null)
     {
+        if (localName is not null) DetailEdits.SetText(place, "local_name", localName);
+        if (localAddress is not null)
+        {
+            DetailEdits.SetText(place, "address/local", localAddress);
+            if (place.Data["address"] is JsonObject { Count: 0 }) place.Data.Remove("address");
+        }
         if (!string.IsNullOrWhiteSpace(name)) place.Data[place.Data.ContainsKey("name") && !place.Data.ContainsKey("title") ? "name" : "title"] = name.Trim();
         var postal = place.Data["address"] as JsonObject;
         if (!string.IsNullOrWhiteSpace(address)) { postal ??= new JsonObject(); postal["formatted"] = address.Trim(); place.Data["address"] = postal.DeepClone(); }

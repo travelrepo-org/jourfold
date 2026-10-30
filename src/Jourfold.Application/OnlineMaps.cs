@@ -238,7 +238,8 @@ public sealed class MapTiles
     }
 }
 
-public sealed record PlaceResult(string Name, string Address, double Latitude, double Longitude, string? OsmId);
+/// <summary>A place found by the address search. <see cref="LocalName"/> is its name in its own script, when that differs.</summary>
+public sealed record PlaceResult(string Name, string Address, double Latitude, double Longitude, string? OsmId, string? LocalName = null);
 
 /// <summary>
 /// Nominatim place search, opt-in like map tiles. Requests are made only when the person starts a search (no search as
@@ -259,7 +260,7 @@ public sealed class PlaceSearch(HttpClient http, string searchUrl)
         {
             if (Recent.TryGetValue(key, out var known)) return known;
             var wait = TimeSpan.FromSeconds(1) - (DateTime.UtcNow - last); if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
-            var url = searchUrl + (searchUrl.Contains('?') ? "&" : "?") + "format=jsonv2&limit=6&addressdetails=0&q=" + Uri.EscapeDataString(query.Trim()) + "&accept-language=" + Uri.EscapeDataString(language);
+            var url = searchUrl + (searchUrl.Contains('?') ? "&" : "?") + "format=jsonv2&limit=6&addressdetails=0&namedetails=1&q=" + Uri.EscapeDataString(query.Trim()) + "&accept-language=" + Uri.EscapeDataString(language);
             using var request = new HttpRequestMessage(HttpMethod.Get, url); OnlineIdentity.Apply(request);
             using var response = await http.SendAsync(request, ct); last = DateTime.UtcNow;
             response.EnsureSuccessStatusCode();
@@ -271,12 +272,38 @@ public sealed class PlaceSearch(HttpClient http, string searchUrl)
                 var name = item.TryGetProperty("name", out var n) && n.GetString() is { Length: > 0 } named ? named : display.Split(',')[0].Trim();
                 if (!double.TryParse(item.GetProperty("lat").GetString(), CultureInfo.InvariantCulture, out var lat) || !double.TryParse(item.GetProperty("lon").GetString(), CultureInfo.InvariantCulture, out var lon)) continue;
                 var osm = item.TryGetProperty("osm_type", out var type) && item.TryGetProperty("osm_id", out var id) ? type.GetString() + "/" + id.GetRawText() : null;
-                results.Add(new(name, display, Math.Round(lat, 6), Math.Round(lon, 6), osm));
+                var local = item.TryGetProperty("namedetails", out var names) && names.ValueKind == JsonValueKind.Object && names.TryGetProperty("name", out var own) && own.GetString() is { Length: > 0 } ownName && ownName != name ? ownName : null;
+                results.Add(new(name, display, Math.Round(lat, 6), Math.Round(lon, 6), osm, local));
             }
             if (Recent.Count >= 100) Recent.Clear();
             Recent[key] = results;
             return results;
         }
+        finally { Gate.Release(); }
+    }
+
+    /// <summary>
+    /// The address of a found place as written locally, such as in Japanese for a place in Tokyo: the search server
+    /// answers in the place's own language when no language is asked for. Null when it is the same as
+    /// <paramref name="result"/>'s address or cannot be found.
+    /// </summary>
+    public async Task<string?> LocalAddressAsync(PlaceResult result, CancellationToken ct = default)
+    {
+        if (result.OsmId?.Split('/') is not [var type, var id] || type.Length == 0 || !searchUrl.Contains("/search", StringComparison.Ordinal)) return null;
+        await Gate.WaitAsync(ct);
+        try
+        {
+            var wait = TimeSpan.FromSeconds(1) - (DateTime.UtcNow - last); if (wait > TimeSpan.Zero) await Task.Delay(wait, ct);
+            var url = searchUrl.Replace("/search", "/lookup", StringComparison.Ordinal);
+            url += (url.Contains('?') ? "&" : "?") + "format=jsonv2&osm_ids=" + char.ToUpperInvariant(type[0]) + Uri.EscapeDataString(id);
+            using var request = new HttpRequestMessage(HttpMethod.Get, url); OnlineIdentity.Apply(request);
+            using var response = await http.SendAsync(request, ct); last = DateTime.UtcNow;
+            if (!response.IsSuccessStatusCode) return null;
+            using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            var local = document.RootElement.ValueKind == JsonValueKind.Array && document.RootElement.GetArrayLength() > 0 && document.RootElement[0].TryGetProperty("display_name", out var d) ? d.GetString() : null;
+            return string.IsNullOrWhiteSpace(local) || local == result.Address ? null : local;
+        }
+        catch (JsonException) { return null; }
         finally { Gate.Release(); }
     }
 }

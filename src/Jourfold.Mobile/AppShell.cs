@@ -126,6 +126,7 @@ public sealed class AppShell : UserControl
     private void OnBack(object? sender, RoutedEventArgs e)
     {
         if (Session.Asking is not null || Session.Menu is not null) { Session.CloseOverlay(); e.Handled = true; return; }
+        if (Session.TaxiCard is not null) { Session.ShowTaxiCard(null); e.Handled = true; return; }
         if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
         if (Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.Workspace is null) { if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; } return; }
@@ -148,7 +149,7 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>Where the user is. When it changes, the page is drawn at once, even while someone types.</summary>
-    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking, Session.Menu, Session.Viewing.Count, Session.FileProblem);
+    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking, Session.Menu, Session.Viewing.Count, Session.FileProblem, Session.TaxiCard);
 
     /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
     private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);
@@ -256,6 +257,7 @@ public sealed class AppShell : UserControl
         foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);
         // A file opened from the details covers the whole screen; back returns to the details.
         if (Session.Viewing.Count > 0) overlays.Children.Add(FileView.Build(Session, Session.Viewing[^1]).Classed("viewer"));
+        if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
         if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
         if (Session.Asking is { } question) overlays.Children.Add(Question(question));
     }

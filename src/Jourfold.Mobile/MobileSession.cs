@@ -343,15 +343,19 @@ public sealed partial class MobileSession : IDisposable
     }
 
     /// <summary>Adds what Quick Add collected, with the same rules as the desktop; an idea stays tentative.</summary>
-    public async Task AddAsync(QuickAddDraft draft, bool idea, CancellationToken ct = default)
+    /// <returns>The new item, such as an expense to attach its receipt to.</returns>
+    public async Task<Guid> AddAsync(QuickAddDraft draft, bool idea, CancellationToken ct = default)
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        // An expense on the road was paid by the user, unless the form said otherwise.
+        if (draft.Kind == "expense" && draft.People.Count == 0 && Me is { } me) draft = draft with { People = [me.Id] };
         var (main, edits) = QuickAdd.Build(draft, workspace.State.Trip);
         if (idea && main.Type == "schedule_item") main.Data["status"] = "idea";
         await workspace.ApplyAsync(edits, ct); NoteChange();
         Showing = Overlay.None; OverlayItem = null;
         if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
         Changed?.Invoke();
+        return main.Id;
     }
 
     private async Task UpdateAsync(Guid id, Action<Entity> change, CancellationToken ct = default)

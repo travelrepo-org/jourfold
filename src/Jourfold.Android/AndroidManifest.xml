@@ -27,6 +27,8 @@
   <!-- Navigate hands a geo: link to the user's maps or navigation app. -->
   <queries>
     <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="geo"/></intent>
+    <!-- A receipt is photographed with the camera app; Jourfold itself needs no camera permission. -->
+    <intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent>
     <!-- Files such as PDFs open in an app that can show them. -->
     <intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="*/*"/></intent>
   </queries>

@@ -25,6 +25,8 @@ namespace Jourfold.Mobile;
 /// The device's current position, asked for only when the user taps "Where I am"; it may ask for the permission first.
 /// Null when the device cannot tell or the user declines; the delegate itself is null where the platform has none.
 /// </param>
+/// <param name="TakePhoto">Takes a photo with the camera app, such as of a receipt, made small enough for the trip; null when cancelled.</param>
+/// <param name="ShareText">Hands a text to another app, such as a messenger, through the system's share sheet: title, text.</param>
 /// <param name="Brightness">Turns the screen to full brightness (true) or back to normal, for showing a ticket.</param>
 /// <param name="Notices">The device's notifications; null where the platform has none.</param>
 /// <param name="Calendar">The device's calendar app, where trips can appear; null where the platform has none.</param>
@@ -32,7 +34,7 @@ namespace Jourfold.Mobile;
 /// Hands a file in <see cref="SharedRoot"/> to another app that can show it, such as a PDF viewer, with its media type.
 /// False when no app can; null where the platform cannot do it.
 /// </param>
-public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null, Action<bool>? Brightness = null)
+public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null, Action<bool>? Brightness = null, Func<CancellationToken, Task<SharedFile?>>? TakePhoto = null, Func<string, string, Task>? ShareText = null)
 {
     /// <summary>Copies of files handed to other apps. Emptied each time, so they do not pile up.</summary>
     public string SharedRoot => Path.Combine(DataRoot, "shared");

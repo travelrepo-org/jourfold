@@ -190,6 +190,24 @@ search server answers in the place's own language when none is asked for). "Taxi
 whose place, stay or destination has an address, shows the local name and address large at full brightness, the
 usual spelling and the phone number below.
 
+## Packing, money, weather and sharing
+
+- **Packing lists** (More → Packing lists): the user's items to tick off, what others bring, what nobody brings yet,
+  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Before the trip, Today and
+  More say how much is left to pack, and a notification comes the evening before.
+- **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.
+  Fetching asks once; afterwards the rates come with every sync, at most once a day, and nothing about the trip is
+  sent.
+- **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold
+  needs no camera permission); the photo is turned upright, made at most 1600 pixels on the longer side and attached
+  to the expense, which the user paid unless the form says otherwise. There is no text recognition (ML Kit would
+  rule out F-Droid).
+- **Weather**: after a yes in Today or Settings, as on the desktop, each day's forecast shows in Today and Plan, and
+  what it means for a plan on Today's next plan and in the details. Forecasts are kept on the device; warnings
+  become notifications on the morning of the plan.
+- **Share a day** (Plan → share): the day as plain text with times, places and OpenStreetMap links, for people
+  without Jourfold.
+
 ## Trips in the calendar app
 
 Settings → Calendar → "Show trips in the calendar app" (off until turned on, asks for the calendar permission) puts

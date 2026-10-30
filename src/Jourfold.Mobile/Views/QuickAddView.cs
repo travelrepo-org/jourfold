@@ -47,6 +47,8 @@ public sealed class QuickAddView
     // Text details by path, with what they were, to write only what changed.
     private readonly Dictionary<string, (TextBox Box, string? Before)> details = [];
     private readonly TextBox reference = new();
+    // A receipt photographed for a new expense, attached once it is added.
+    private SharedFile? receipt;
     private string? referenceBefore;
     private readonly TextBlock problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
     private readonly StackPanel form = Ui.V(14);
@@ -146,6 +148,14 @@ public sealed class QuickAddView
     private void Render()
     {
         var str = s.Strings; form.Children.Clear();
+        // The fields keep what was typed between draws; they leave the layout of the last draw first.
+        foreach (var field in new Control[] { title, start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference }.Concat(details.Values.Select(d => d.Box)))
+            switch (field.Parent)
+            {
+                case Panel panel: panel.Children.Remove(field); break;
+                case ContentControl content: content.Content = null; break;
+                case Decorator decorator: decorator.Child = null; break;
+            }
         if (editing is null)
         {
             var kinds = Ui.Flow(8);
@@ -199,6 +209,12 @@ public sealed class QuickAddView
                 currencies.Children.Add(chip);
             }
             form.Children.Add(Field(str["Amount"], Ui.V(8, amount, currencies)));
+            if (editing is null && s.Host.TakePhoto is { } take)
+            {
+                var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                photo.Click += async (_, _) => { if (await take(CancellationToken.None) is { } taken) { receipt = taken; Render(); } };
+                form.Children.Add(photo);
+            }
         }
         if (editing is not null) form.Children.Add(Field(str["Notes"], body));
     }
@@ -324,7 +340,8 @@ public sealed class QuickAddView
                 ArrivalTime = Journey ? Time(arrival) : null,
                 ArrivalTimezone = Journey ? arrivalZoneId : null,
             };
-            await s.AddAsync(draft, idea: kind == "idea" || (Scheduled && idea.IsChecked == true));
+            var added = await s.AddAsync(draft, idea: kind == "idea" || (Scheduled && idea.IsChecked == true));
+            if (receipt is { } photo) await s.AddFilesAsync([photo], added);
         }
         // The form's own checks carry translated text; anything from the domain is looked up by its code.
         catch (DomainException ex) { problem.Text = ex.Code is "mobile.title" or "mobile.amount" ? ex.Message : s.Strings.Diagnostic(ex.Code); problem.IsVisible = true; }

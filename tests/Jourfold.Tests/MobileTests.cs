@@ -900,6 +900,43 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task AReceiptIsPhotographedAndADayIsSharedAsText()
+    {
+        var shared = new List<(string Title, string Text)>();
+        var receipt = new SharedFile("2027-05-16 12-30.jpg", "image/jpeg", [0xFF, 0xD8, 0xFF, 0xD9]);
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => Tokyo, "en", new MemorySecrets(),
+            TakePhoto: _ => Task.FromResult<SharedFile?>(receipt), ShareText: (title, text) => { shared.Add((title, text)); return Task.CompletedTask; }));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            Probe.Click(window, "Expense"); Probe.Layout();
+            var form = window.GetVisualDescendants().OfType<TextBox>().ToArray();
+            form.First(b => AutomationProperties.GetName(b) == "Title").Text = "Ramen";
+            form.First(b => AutomationProperties.GetName(b) == "Amount").Text = "1800";
+            Probe.Click(window, "Photograph the receipt"); Probe.Layout();
+            Probe.Click(window, "Add");
+            await Until(() => session.Trip!.Entities.Values.Any(e => e.Type == "expense" && e.Title == "Ramen" && TripCommands.AttachedDocuments(session.Trip!, e).Count > 0));
+            var ramen = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Ramen");
+            // The receipt is attached, and the expense was paid by the user.
+            Assert.Single(TripCommands.AttachedDocuments(session.Trip!, ramen));
+            Assert.Equal(session.Me!.Id.ToString(), ramen.Data["paid_by"]![0]!.ToString());
+
+            // A day as text, with times, places and map links.
+            session.ShowTab(MobileTab.Plan); session.ShowDate(new LocalDate(2027, 5, 16)); Probe.Layout();
+            Probe.Click(window, "Share this day");
+            var (title, text) = Assert.Single(shared);
+            Assert.Equal("Sunday 16 May", title);
+            Assert.StartsWith("Plan for Sunday 16 May (Spring in Japan)", text);
+            Assert.Contains("11:00–13:00  Senso-ji and Asakusa · Senso-ji", text);
+            Assert.Contains("https://www.openstreetmap.org/?mlat=35.7148&mlon=139.7967", text);
+            Assert.DoesNotContain("Dinner in Ginza", text.Split('\n').Where(l => l.StartsWith("~", StringComparison.Ordinal)));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>A web server that answers every request with the same text and notes what was asked.</summary>
     private sealed class Answer(List<string> asked, string body) : HttpMessageHandler
     {

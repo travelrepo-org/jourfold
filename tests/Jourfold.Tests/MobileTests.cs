@@ -204,7 +204,12 @@ public sealed class MobileTests : IDisposable
             Assert.True(PlanView.Timetable(session, WidthClass.Wide));
             var days = TimetableView.Columns(1440 - 232);
             Assert.InRange(days, 4, 7);
-            Assert.Contains(Texts(), t => t.StartsWith("Senso-ji and Asakusa · 11:00", StringComparison.Ordinal));
+            IEnumerable<string?> Names() { Probe.Layout(); return window.GetVisualDescendants().OfType<Button>().Select(AutomationProperties.GetName); }
+            Assert.Contains("Senso-ji and Asakusa, 11:00 – 13:00", Names());
+            // Stays are bars over their nights below the grid; check-in and check-out are markers, not blocks.
+            Assert.Contains("Hotel Gracery Shinjuku, 3 nights", Names());
+            Assert.DoesNotContain(Names(), n => n?.StartsWith("Hotel Gracery Shinjuku, 15:00", StringComparison.Ordinal) == true);
+            Assert.Contains("Check-out 11:00", Texts());
             // The arrow keys move between days, Ctrl+N adds.
             var before = session.SelectedDate;
             shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Right, Source = shell });

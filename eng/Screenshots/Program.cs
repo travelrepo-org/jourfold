@@ -258,6 +258,13 @@ try
                     m.View = "Plan"; m.ShowDate(new NodaTime.LocalDate(2027, 5, 15)); m.Selected = m.Workspace.State.Trip.Find(hotel.Id); await Settle(400);
                     // A taller window shows the whole accommodation section without scrolling.
                     window.FindControl<Panel>("ToastLayer")?.Children.Clear(); window.Height = 1500; await Settle(400); await Capture("stay-details"); window.Height = 900; await Settle(300);
+                    // Check-in hours without a fixed arrival time: a soft band with "Check-in 15:00–19:00" instead of a line.
+                    {
+                        var open = m.Workspace.State.Trip.Find(hotel.Id)!.Copy(); var data = (System.Text.Json.Nodes.JsonObject)open.Data["components"]!["accommodation"]!;
+                        data["check_in_window"] = new System.Text.Json.Nodes.JsonObject { ["from"] = "15:00", ["until"] = "19:00" };
+                        ((System.Text.Json.Nodes.JsonObject)data["check_in"]!)["approximate"] = true;
+                        await m.Workspace.EditAsync(open); m.Selected = null; m.ShowDate(new NodaTime.LocalDate(2027, 5, 15)); await Settle(400); await Capture("stay-check-in-window");
+                    }
                     var bellName = m.UrgentReminders > 0 ? string.Format(m.Strings["RemindersUrgent"], m.Reminders.Count, m.UrgentReminders) : string.Format(m.Strings["RemindersCount"], m.Reminders.Count);
                     var bell = window.GetVisualDescendants().OfType<Button>().First(b => Avalonia.Automation.AutomationProperties.GetName(b) == bellName);
                     bell.Flyout!.ShowAt(bell);

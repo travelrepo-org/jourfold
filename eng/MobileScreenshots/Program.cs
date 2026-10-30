@@ -104,7 +104,17 @@ try
         await Capture("wide-timetable-start", 1440, 900);
         s.ShowTab(MobileTab.Today);
         await Capture("tablet-today", 1194, 834);
-        // A trip that has not started yet: how it begins.
+        // Check-in hours without a fixed arrival time, as on the desktop: a soft band with "Check-in 15:00–19:00".
+        {
+            var hotel = s.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && TravelRepo.Core.Stays.IsStay(e)).Copy();
+            var stay = (System.Text.Json.Nodes.JsonObject)hotel.Data["components"]!["accommodation"]!;
+            stay["check_in_window"] = new System.Text.Json.Nodes.JsonObject { ["from"] = "15:00", ["until"] = "19:00" };
+            ((System.Text.Json.Nodes.JsonObject)stay["check_in"]!)["approximate"] = true;
+            await s.Workspace!.EditAsync(hotel);
+            s.ShowTab(MobileTab.Plan); s.ShowDate(new LocalDate(2027, 5, 14));
+            await Capture("wide-timetable-check-in", 1440, 900);
+        }
+                // A trip that has not started yet: how it begins.
         s.Close(); await s.OpenAsync(await s.CreateSampleAsync(new LocalDate(2027, 6, 4)));
         await Capture("today-before");
         return true;

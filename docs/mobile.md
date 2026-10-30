@@ -81,8 +81,12 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
 - From 840 dp: details as a fixed column; Today puts what comes next and tonight's stay beside the day; Plan
   switches between the day list and a timetable; pages under More keep a readable width.
 - From 1200 dp: a sidebar with the trip and the places with their names, which folds into the rail; Plan starts as
-  the timetable, with as many days as fit (three to seven), each in its own local time, stays and all-day plans
-  above the grid and a line at the current time.
+  the timetable, with as many days as fit (three to seven), each in its own local time and a line at the current
+  time. It reads like the desktop's timetable: all-day plans in a strip above the grid, stays as bars over their
+  nights in a band below it, check-in and check-out as thin markers instead of blocks (a dashed line at a fixed
+  hour, a soft band with "Check-in 15:00–19:00" for the check-in hours when the arrival has no fixed hour, "Check-out
+  by 11:00" for the latest departure), and plans as tinted blocks with icon, time and title, dashed for ideas and
+  parts of the day.
 
 With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),
 and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+1 to

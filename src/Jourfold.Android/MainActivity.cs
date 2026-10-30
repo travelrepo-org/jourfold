@@ -26,8 +26,19 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
-            Locate: AndroidLocation.LocateAsync);
+            Locate: AndroidLocation.LocateAsync, Device: Device());
         base.OnCreate();
+    }
+
+    /// <summary>
+    /// What the system would call this device: a phone when it can make calls (foldables too, as their makers call
+    /// them), a computer-like device such as a Chromebook, otherwise a tablet. The window size does not count; a
+    /// phone on a monitor in DeX stays a phone.
+    /// </summary>
+    private string Device()
+    {
+        if (PackageManager?.HasSystemFeature("android.hardware.type.pc") == true) return "device";
+        return GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true } ? "phone" : "tablet";
     }
 
     /// <summary>Offers a file to the apps that can show its media type, through the app's FileProvider.</summary>

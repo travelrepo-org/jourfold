@@ -17,6 +17,10 @@ namespace Jourfold.Mobile;
 /// <param name="Http">How the app reaches GitHub; tests pass a fake.</param>
 /// <param name="GitHubClientId">The GitHub App this build signs in with, if one is built in. Settings can name another.</param>
 /// <param name="GitHubAppSlug">That App's name in its GitHub address, for the page where users choose its repositories.</param>
+/// <param name="Device">
+/// What the app runs on, as the system calls it: <c>phone</c>, <c>tablet</c> or <c>device</c>; texts such as "Only on
+/// this phone" use it. Android tells phones by their ability to make calls, iOS by iPhone or iPad.
+/// </param>
 /// <param name="Locate">
 /// The device's current position, asked for only when the user taps "Where I am"; it may ask for the permission first.
 /// Null when the device cannot tell or the user declines; the delegate itself is null where the platform has none.
@@ -25,7 +29,7 @@ namespace Jourfold.Mobile;
 /// Hands a file in <see cref="SharedRoot"/> to another app that can show it, such as a PDF viewer, with its media type.
 /// False when no app can; null where the platform cannot do it.
 /// </param>
-public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null)
+public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone")
 {
     /// <summary>Copies of files handed to other apps. Emptied each time, so they do not pile up.</summary>
     public string SharedRoot => Path.Combine(DataRoot, "shared");

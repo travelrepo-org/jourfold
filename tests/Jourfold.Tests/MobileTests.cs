@@ -123,6 +123,18 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [Theory]
+    [InlineData("en", "phone", "Only on this phone")]
+    [InlineData("en", "tablet", "Only on this tablet")]
+    [InlineData("de", "tablet", "Nur auf diesem Tablet")]
+    [InlineData("de", "device", "Nur auf diesem Gerät")]
+    public void TextsNameTheDeviceAsTheSystemDoes(string language, string device, string expected)
+    {
+        Assert.Equal(expected, new Localization(language) { Device = device }["OnlyOnThisPhone"]);
+        // A format string keeps its own placeholders.
+        Assert.Contains("{0}", new Localization(language) { Device = device }["DeleteLocalTripQuestion"]);
+    }
+
     [Fact]
     public void SharedTextGivesPlaceNameAddressAndPosition()
     {

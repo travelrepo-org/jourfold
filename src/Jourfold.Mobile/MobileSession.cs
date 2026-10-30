@@ -63,7 +63,7 @@ public sealed partial class MobileSession : IDisposable
 
     public MobileSession(MobileHost host)
     {
-        Host = host; Strings = new Localization(host.Language);
+        Host = host; Strings = new Localization(host.Language) { Device = host.Device };
         Directory.CreateDirectory(host.TripsRoot);
         Settings = MobileSettings.Load(Path.Combine(host.DataRoot, "settings.json"));
     }

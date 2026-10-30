@@ -18,7 +18,14 @@ public sealed class Localization
         Language = language == "de" ? "de" : "en";
         using var stream = typeof(Localization).Assembly.GetManifestResourceStream("Jourfold.UI.Strings." + Language + ".json")!; strings = JsonSerializer.Deserialize<Dictionary<string, string>>(stream)!;
     }
-    public string this[string key] => strings.GetValueOrDefault(key) ?? key;
+    /// <summary>
+    /// What the app runs on, for texts that name it: <c>phone</c>, <c>tablet</c> or <c>device</c>. Texts write
+    /// <c>{device}</c> where it goes ("Only on this {device}"); in German all three words are neuter, so the sentence
+    /// around them stays the same.
+    /// </summary>
+    public string Device { get; set; } = "phone";
+
+    public string this[string key] => strings.GetValueOrDefault(key) is { } text ? text.Contains("{device}", StringComparison.Ordinal) ? text.Replace("{device}", strings.GetValueOrDefault("device." + Device) ?? Device, StringComparison.Ordinal) : text : key;
     /// <summary>Translate a canonical value such as a status when a label exists; otherwise show it unchanged.</summary>
     public string Optional(string value) => strings.GetValueOrDefault(value) ?? value;
     public string Diagnostic(string code) => strings.GetValueOrDefault("diagnostic." + code) ?? this["ValidationIssue"] + " (" + code + ")";

@@ -71,6 +71,24 @@ the desktop and the cache in the app's private folder. A docked sheet lists the 
 only its handle, in the middle it shows the list, and a tapped pin or stop comes first with Navigate and Details. On
 tablets the list is a column on the right. The map stays while its trip is open, so it keeps its position and tiles.
 
+## Large screens, foldables and DeX
+
+The layout follows the window, not the device, so one APK serves phones, foldables, tablets, split screen and
+Samsung DeX windows, and changes as soon as a window changes size; attaching a keyboard no longer restarts the app.
+
+- Below 600 dp: bottom bar, details as a sheet.
+- From 600 dp: a rail on the left; the trip list shows two or three trips in a row.
+- From 840 dp: details as a fixed column; Today puts what comes next and tonight's stay beside the day; Plan
+  switches between the day list and a timetable; pages under More keep a readable width.
+- From 1200 dp: a sidebar with the trip and the places with their names, which folds into the rail; Plan starts as
+  the timetable, with as many days as fit (three to seven), each in its own local time, stays and all-day plans
+  above the grid and a line at the current time.
+
+With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),
+and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+1 to
+Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and Map, and Escape to go back.
+Layouts that follow a foldable's hinge are not built yet.
+
 ## Sharing to Jourfold
 
 Other apps share to Jourfold through the system share sheet. Files such as tickets, PDFs, e-mails and images are

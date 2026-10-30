@@ -185,6 +185,43 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task WideScreensGetTheSidebarATimetableAndShortcuts()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var shell = new AppShell(session);
+        var window = new Window { Width = 1440, Height = 900, Content = shell }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            Probe.Layout();
+            Assert.Equal(WidthClass.Wide, shell.Breakpoint);
+            Assert.Contains("Ctrl+2", Texts());
+            // Ctrl+2 opens Plan, which starts as a timetable on wide screens with as many days as fit.
+            shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.D2, KeyModifiers = Avalonia.Input.KeyModifiers.Control, Source = shell });
+            Assert.Equal(MobileTab.Plan, session.Tab);
+            Assert.True(PlanView.Timetable(session, WidthClass.Wide));
+            var days = TimetableView.Columns(1440 - 232);
+            Assert.InRange(days, 4, 7);
+            Assert.Contains(Texts(), t => t.StartsWith("Senso-ji and Asakusa · 11:00", StringComparison.Ordinal));
+            // The arrow keys move between days, Ctrl+N adds.
+            var before = session.SelectedDate;
+            shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Right, Source = shell });
+            Assert.Equal(before.PlusDays(1), session.SelectedDate);
+            shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.N, KeyModifiers = Avalonia.Input.KeyModifiers.Control, Source = shell });
+            Assert.Equal(Overlay.QuickAdd, session.Showing);
+            shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Escape, Source = shell });
+            Assert.Equal(Overlay.None, session.Showing);
+            // The sidebar folds into the rail and stays folded.
+            Probe.Click(window, "Fold the sidebar");
+            Assert.Equal("collapsed", session.Settings.Values["sidebar"]);
+            Assert.DoesNotContain("Ctrl+2", Texts());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheMapShowsTheDaysStopsInOrder()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

@@ -47,7 +47,32 @@ public sealed class AppShell : UserControl
         AddHandler(GotFocusEvent, (_, e) => { if (e.Source is TextBox) acting = false; }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(LostFocusEvent, (_, _) => Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background), RoutingStrategies.Bubble, handledEventsToo: true);
         SizeChanged += (_, e) => { if (Classify(e.NewSize.Width) != Breakpoint) Render(); };
+        // With a mouse, as on Samsung DeX or a tablet with a trackpad, rows and cards show where the pointer is;
+        // with a finger they do not, or the last tapped row would stay highlighted.
+        AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerPressedEvent, (_, e) => { if (e.Pointer.Type != Avalonia.Input.PointerType.Mouse) Classes.Remove("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
         Render();
+    }
+
+    /// <summary>
+    /// Shortcuts for a hardware keyboard: Ctrl+N adds, Ctrl+1 to Ctrl+4 open the four places, the arrow keys move
+    /// between days, Escape goes back. Typing in a field keeps its keys, except Escape.
+    /// </summary>
+    private void OnKey(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        var ctrl = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Control) || e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta);
+        if (e.Key == Avalonia.Input.Key.Escape) { OnBack(this, e); e.Handled = true; return; }
+        if (e.Source is TextBox || Session.Workspace is null) return;
+        switch (e.Key)
+        {
+            case Avalonia.Input.Key.N when ctrl: Session.ShowQuickAdd(); break;
+            case >= Avalonia.Input.Key.D1 and <= Avalonia.Input.Key.D4 when ctrl: Session.ShowTab(Places[e.Key - Avalonia.Input.Key.D1].Tab); break;
+            case Avalonia.Input.Key.Left when Session.Showing == Overlay.None && Session.Tab is MobileTab.Plan or MobileTab.Map: Session.StepDay(-1); break;
+            case Avalonia.Input.Key.Right when Session.Showing == Overlay.None && Session.Tab is MobileTab.Plan or MobileTab.Map: Session.StepDay(1); break;
+            default: return;
+        }
+        e.Handled = true;
     }
 
     public static WidthClass Classify(double width) => width switch { < 600 => WidthClass.Phone, < 840 => WidthClass.CompactTablet, < 1200 => WidthClass.Tablet, _ => WidthClass.Wide };
@@ -141,14 +166,16 @@ public sealed class AppShell : UserControl
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
         bottomBar = null;
         Inset();
-        if (Session.Workspace is null) { main.Child = TripListView.Build(Session); Overlays(docked: false); return; }
+        if (Session.Workspace is null) { main.Child = TripListView.Build(Session, Breakpoint); Overlays(docked: false); return; }
         var page = Session.Tab switch
         {
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
-            MobileTab.Plan => PlanView.Build(Session, Breakpoint),
+            MobileTab.Plan => PlanView.Build(Session, Breakpoint, PageWidth()),
             MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };
+        // Lists and forms under More read better in a column than across a wide screen.
+        if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Center };
         // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
         var docked = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details && Session.OverlayItem is { } shown && Session.Trip?.Find(shown) is not null;
         if (Breakpoint == WidthClass.Phone)
@@ -157,8 +184,22 @@ public sealed class AppShell : UserControl
             grid.Children.Add(page); grid.Children.Add(BottomBar().Row(1));
             main.Child = grid;
         }
-        else main.Child = docked ? Ui.Columns("Auto,*,400", Rail(), page, DetailColumn()) : Ui.Columns("Auto,*", Rail(), page);
+        else
+        {
+            var side = Breakpoint == WidthClass.Wide && Session.Settings.Values.GetValueOrDefault("sidebar") != "collapsed" ? Sidebar() : Rail();
+            main.Child = docked ? Ui.Columns("Auto,*,400", side, page, DetailColumn()) : Ui.Columns("Auto,*", side, page);
+        }
         Overlays(docked);
+    }
+
+    /// <summary>The width left for the page beside the rail or sidebar and an open details column.</summary>
+    private double PageWidth()
+    {
+        var width = Bounds.Width > 0 ? Bounds.Width : 412;
+        if (Breakpoint == WidthClass.Phone) return width;
+        var side = Breakpoint == WidthClass.Wide && Session.Settings.Values.GetValueOrDefault("sidebar") != "collapsed" ? 232 : 88;
+        var details = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details ? 400 : 0;
+        return width - side - details;
     }
 
     private Control Map()
@@ -285,8 +326,10 @@ public sealed class AppShell : UserControl
     private Button Place(MobileTab tab, string icon, string label)
     {
         var s = Session.Strings; var text = s[label];
+        var key = Array.FindIndex(Places, p => p.Tab == tab) + 1;
         var button = new ChoiceButton { IsSelected = Session.Tab == tab, Content = Ui.V(3, Ui.Icon(icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
+        ToolTip.SetTip(button, text + " (Ctrl+" + key + ")");
         button.Click += (_, _) => Session.ShowTab(tab);
         return button;
     }
@@ -312,11 +355,52 @@ public sealed class AppShell : UserControl
         return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
     }
 
-    /// <summary>The rail on tablets: the plus on top, then the four places.</summary>
+    /// <summary>The rail on tablets: the plus on top, then the four places. On wide screens it opens into the sidebar.</summary>
     private Control Rail()
     {
         var items = Ui.V(4, Plus().Also(p => p.HorizontalAlignment = HorizontalAlignment.Center).Margin(0, 12, 0, 16));
         foreach (var (tab, icon, label) in Places) items.Children.Add(Place(tab, icon, label).Also(b => b.Width = 80));
+        if (Breakpoint == WidthClass.Wide) items.Children.Add(SidebarToggle(open: true).Also(b => b.HorizontalAlignment = HorizontalAlignment.Center).Margin(0, 12, 0, 0));
         return new Border { Child = items, Width = 88, BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+    }
+
+    /// <summary>
+    /// The sidebar on wide screens, as in the desktop app: the trip, Quick Add with its name, and the four places with
+    /// their names and shortcuts. It folds into the rail and remembers that on this device.
+    /// </summary>
+    private Control Sidebar()
+    {
+        var s = Session.Strings;
+        var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (Ctrl+N)"); });
+        add.Click += (_, _) => Session.ShowQuickAdd();
+        var trip = Session.Trip!;
+        var items = Ui.V(4, Ui.Text(trip.Manifest.Title, "strong").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis).Margin(8, 16, 8, 2),
+            Ui.Text(Formats.DateRange(TravelRepo.Core.TripQueries.EffectiveDates(trip).Start, TravelRepo.Core.TripQueries.EffectiveDates(trip).End), "caption").Margin(8, 0, 8, 14),
+            add.Margin(0, 0, 0, 12));
+        for (var i = 0; i < Places.Length; i++)
+        {
+            var (tab, icon, label) = Places[i];
+            var text = s[label];
+            var button = new ChoiceButton
+            {
+                IsSelected = Session.Tab == tab,
+                Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text("Ctrl+" + (i + 1), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
+            }.Classed("sidebar");
+            AutomationProperties.SetName(button, text);
+            button.Click += (_, _) => Session.ShowTab(tab);
+            items.Children.Add(button);
+        }
+        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
+        layout.Children.Add(items); layout.Children.Add(SidebarToggle(open: false).Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(4, 0, 0, 12).Row(1));
+        return new Border { Child = layout, Width = 232, Padding = new Thickness(12, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+    }
+
+    private Button SidebarToggle(bool open)
+    {
+        var label = Session.Strings[open ? "ShowSidebar" : "HideSidebar"];
+        var toggle = Ui.IconButton("panel-left", label);
+        ToolTip.SetTip(toggle, label);
+        toggle.Click += (_, _) => { Session.Settings.Values["sidebar"] = open ? "open" : "collapsed"; Session.Settings.Save(); Render(); };
+        return toggle;
     }
 }

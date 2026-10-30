@@ -10,7 +10,8 @@ namespace Jourfold.Mobile.Views;
 /// <summary>The trips on this device. Opening one shows its Today; the back gesture comes back here.</summary>
 public static class TripListView
 {
-    public static Control Build(MobileSession s)
+    /// <param name="width">From 600 dp the trips stand side by side, two or three in a row.</param>
+    public static Control Build(MobileSession s, WidthClass width = WidthClass.Phone)
     {
         if (s.RemoteTrips is { } remote) return GitHubView.RemoteTrips(s, remote);
         var logo = new Image { Height = 30, HorizontalAlignment = HorizontalAlignment.Left, Stretch = Stretch.Uniform };
@@ -24,7 +25,14 @@ public static class TripListView
             page.Children.Add(Ui.Card(Ui.V(6, Ui.Text(s.Strings["ChooseTripForShare"], "strong"), Ui.Text(what, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), cancel.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)), 14)
                 .Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent").Margin(16, 0));
         }
-        foreach (var trip in s.Trips) page.Children.Add(Card(s, trip).Margin(16, 0));
+        var columns = width switch { WidthClass.Phone => 1, WidthClass.CompactTablet => 2, _ => 3 };
+        if (columns == 1) foreach (var trip in s.Trips) page.Children.Add(Card(s, trip).Margin(16, 0));
+        else if (s.Trips.Count > 0)
+        {
+            var grid = new Avalonia.Controls.Primitives.UniformGrid { Columns = columns, Margin = new Thickness(10, 0) };
+            foreach (var trip in s.Trips) grid.Children.Add(Card(s, trip).Margin(6));
+            page.Children.Add(grid);
+        }
         if (s.Trips.Count == 0) page.Children.Add(Welcome(s).Margin(16, 0));
         var sample = Ui.Button(s.Strings["ExploreSample"], "sparkles", s.Trips.Count == 0 ? "primary" : "soft");
         sample.Click += async (_, _) => { sample.IsEnabled = false; await s.OpenAsync(await s.CreateSampleAsync()); };
@@ -33,6 +41,8 @@ public static class TripListView
         page.Children.Add(Ui.Text(s.Strings["SharedTrips"], "overline").Margin(20, 8, 20, 0));
         if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
         else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
+        // On wide screens the list keeps a readable width in the middle.
+        if (width >= WidthClass.Tablet) { page.MaxWidth = 1100; page.HorizontalAlignment = HorizontalAlignment.Center; }
         return Ui.Scroll(page);
     }
 

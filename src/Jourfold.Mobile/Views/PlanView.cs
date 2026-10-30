@@ -26,18 +26,43 @@ public static class PlanView
     private static (string? Trip, LocalDate Date) shown;
     private static int enter;
 
-    public static Control Build(MobileSession s, WidthClass width)
+    /// <summary>Whether Plan shows the timetable: chosen with the switch from 840 dp, and the first choice from 1200 dp.</summary>
+    public static bool Timetable(MobileSession s, WidthClass width) =>
+        width >= WidthClass.Tablet && (s.Settings.Values.GetValueOrDefault("plan.mode") ?? (width == WidthClass.Wide ? "timetable" : "list")) == "timetable";
+
+    /// <param name="pixels">The width the page gets, for how many days the timetable shows.</param>
+    public static Control Build(MobileSession s, WidthClass width, double pixels = 0)
     {
+        if (Timetable(s, width))
+        {
+            var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
+            layout.Children.Add(Lines.TripHeader(s));
+            layout.Children.Add(Modes(s, timetable: true).Margin(16, 4, 16, 8).Row(1));
+            layout.Children.Add(TimetableView.Build(s, pixels).Row(2));
+            return layout;
+        }
         var day = s.Agenda.Find(s.SelectedDate) ?? s.Agenda.Days.FirstOrDefault();
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
-        var page = Ui.V(6, Lines.TripHeader(s), strip, content);
+        var page = Ui.V(6, Lines.TripHeader(s), width >= WidthClass.Tablet ? Modes(s, timetable: false).Margin(16, 0, 16, 4) : null, strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
         var scroll = new ScrollViewer { Content = page, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Sticky(s, scroll, strip, day?.Date);
         if (day is not null) Swipeable(s, scroll, strip, content);
         return scroll;
+    }
+
+    /// <summary>The switch between the day list and the timetable, offered from 840 dp.</summary>
+    private static Control Modes(MobileSession s, bool timetable)
+    {
+        Button Mode(string label, string icon, bool selected, string value)
+        {
+            var chip = Ui.Choice(s.Strings[label], icon, selected, "chip");
+            chip.Click += (_, _) => { s.Settings.Values["plan.mode"] = value; s.Settings.Save(); s.ShowDate(s.SelectedDate); };
+            return chip;
+        }
+        return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
     }
 
     private static Control Day(MobileSession s, AgendaDay day)

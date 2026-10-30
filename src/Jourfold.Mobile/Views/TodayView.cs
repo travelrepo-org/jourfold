@@ -25,8 +25,7 @@ public static class TodayView
             ?? lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start > now);
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
             Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone)).Margin(16, 0));
-        if (current is not null) page.Children.Add(NextCard(s, current, now, phone).Margin(16, 0));
-
+        var next = current is null ? null : NextCard(s, current, now, phone);
         var rail = Ui.V(10);
         var nowShown = false;
         foreach (var line in lines)
@@ -38,8 +37,16 @@ public static class TodayView
             rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state, TimeText.Second(line, s.SecondZone, phone)), Views.Lines.Card(s, line, state, () => s.ShowDetails(line.Item.Id), time: time)));
         }
         if (!nowShown) rail.Children.Add(NowLine(s, now, phone));
-        page.Children.Add(rail.Margin(16, 0));
-        if (Tonight(s, day) is { } tonight) page.Children.Add(tonight.Margin(16, 0));
+        var tonight = Tonight(s, day);
+        // From 840 dp what comes next and tonight's stay stand beside the day instead of above and below it.
+        if (width >= WidthClass.Tablet)
+            page.Children.Add(Ui.Columns("5*,24,6*", Ui.V(16, next, tonight).Also(v => v.VerticalAlignment = VerticalAlignment.Top), null, rail.Col(2)).Margin(16, 0));
+        else
+        {
+            if (next is not null) page.Children.Add(next.Margin(16, 0));
+            page.Children.Add(rail.Margin(16, 0));
+            if (tonight is not null) page.Children.Add(tonight.Margin(16, 0));
+        }
         page.Margin = new Thickness(0, 0, 0, 24);
         return Ui.Scroll(page);
     }

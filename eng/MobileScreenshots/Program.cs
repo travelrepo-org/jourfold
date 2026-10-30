@@ -98,6 +98,10 @@ try
         await Capture("settings");
         s.ShowTab(MobileTab.Plan);
         await Capture("tablet-plan", 1194, 834);
+        s.ShowDate(new LocalDate(2027, 5, 15));
+        await Capture("wide-timetable", 1440, 900);
+        s.ShowTab(MobileTab.Today);
+        await Capture("tablet-today", 1194, 834);
         // A trip that has not started yet: how it begins.
         s.Close(); await s.OpenAsync(await s.CreateSampleAsync(new LocalDate(2027, 6, 4)));
         await Capture("today-before");

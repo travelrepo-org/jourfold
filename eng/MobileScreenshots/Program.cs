@@ -100,6 +100,8 @@ try
         await Capture("tablet-plan", 1194, 834);
         s.ShowDate(new LocalDate(2027, 5, 15));
         await Capture("wide-timetable", 1440, 900);
+        s.ShowDate(new LocalDate(2027, 5, 14));
+        await Capture("wide-timetable-start", 1440, 900);
         s.ShowTab(MobileTab.Today);
         await Capture("tablet-today", 1194, 834);
         // A trip that has not started yet: how it begins.

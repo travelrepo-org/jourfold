@@ -78,8 +78,8 @@ public static class TimetableView
 
     /// <summary>The zone a day's times are read in: that of its first timed line, otherwise the trip's.</summary>
     private static DateTimeZone Zone(MobileSession s, AgendaDay day) =>
-        // A journey that continues from the day before still reads in the zone it left from; the day's own lines decide.
-        Timed(day).Where(e => e.Zone is not null).Select(e => DateTimeZoneProviders.Tzdb.GetZoneOrNull(e.EndZone ?? e.Zone!)).FirstOrDefault(z => z is not null) ?? ScheduleQueries.TripZone(s.Trip!);
+        // The zone where the day's own first line starts; a journey continuing from the day before does not count.
+        Timed(day).Where(e => e.Zone is not null).Select(e => DateTimeZoneProviders.Tzdb.GetZoneOrNull(e.Zone!)).FirstOrDefault(z => z is not null) ?? ScheduleQueries.TripZone(s.Trip!);
 
     /// <summary>The lines of a day that have a clock time; groups show their steps, and stays only their check-in and check-out.</summary>
     private static AgendaEntry[] Timed(AgendaDay day) =>

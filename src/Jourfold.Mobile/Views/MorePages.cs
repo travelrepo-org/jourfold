@@ -18,6 +18,7 @@ public static class MorePages
 {
     public static Control Build(MobileSession s, WidthClass width) => s.Page switch
     {
+        "trip" => TripPage(s),
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
         "packing" => Packing(s),
@@ -146,11 +147,13 @@ public static class MorePages
         var bookings = trip.Entities.Values.Where(e => e.Type == "booking")
             .Select(b => (Booking: b, First: FirstItem(trip, b)))
             .OrderBy(x => x.First?.Start?.ToInstant() ?? Instant.MaxValue).ThenBy(x => x.Booking.Title, StringComparer.CurrentCulture).ToArray();
-        if (bookings.Length == 0) return Frame(s, str["Bookings"], Empty("ticket", str["NoBookingsTitle"], str["NoBookingsBody"]));
+        var add = Ui.Button(str["AddBooking"], "plus", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(16, 0);
+        ((Button)add).Click += (_, _) => s.ShowQuickAdd("booking");
+        if (bookings.Length == 0) return Frame(s, str["Bookings"], Empty("ticket", str["NoBookingsTitle"], str["NoBookingsBody"]), add);
         var groups = bookings.GroupBy(x => x.Booking.Data["status"]?.ToString() ?? "planned")
-            .OrderBy(g => g.Key switch { "confirmed" => 0, "reserved" => 1, "planned" => 2, "idea" => 3, _ => 4 });
+            .OrderBy(g => g.Key switch { "confirmed" => 0, "reserved" => 1, "pending" => 2, "planned" => 2, "idea" => 3, _ => 4 });
         return Frame(s, str["Bookings"], groups.Select(g => Group(str.Optional(g.Key) is { Length: > 0 } label ? label : g.Key,
-            g.Select(x => Booking(s, x.Booking, x.First)).ToArray())).ToArray());
+            g.Select(x => Booking(s, x.Booking, x.First)).ToArray())).Prepend(add).ToArray());
     }
 
     private static Control Booking(MobileSession s, Entity booking, (Entity Item, ZonedDateTime? Start)? first)
@@ -180,9 +183,11 @@ public static class MorePages
                 body.Children.Add(open);
             }
             if (booking.Data["notes"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
-            var details = Ui.Button(str["ShowDetails"], "chevron-right");
+            var change = Ui.Button(str["Edit"], "pencil");
+            change.Click += (_, _) => s.ShowEditor(booking.Id);
+            var details = Ui.Button(str["ShowDetails"], "chevron-right", "ghost");
             details.Click += (_, _) => s.ShowDetails(booking.Id);
-            body.Children.Add(details);
+            body.Children.Add(Ui.Flow(8, change, details));
             return body;
         });
     }
@@ -424,7 +429,23 @@ public static class MorePages
         return Frame(s, str["Travellers"],
             Ui.Text(me is null ? str["WhoAmIPhone"] : string.Format(CultureInfo.CurrentCulture, str["YouAreNow"], me.Title), "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0),
             Group(string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people.Length), rows),
-            me is null ? null : notInTrip.Margin(12, 0));
+            me is null ? null : notInTrip.Margin(12, 0),
+            AddPerson(s));
+    }
+
+    /// <summary>A name and a button that adds the person to the trip, to choose them for plans, costs and tasks.</summary>
+    private static Control AddPerson(MobileSession s)
+    {
+        var str = s.Strings;
+        var name = Draft(s, "person", new TextBox { PlaceholderText = str["NameOfPerson"] }); AutomationProperties.SetName(name, str["NameOfPerson"]);
+        var add = Ui.Button(str["AddPerson"], "user-plus");
+        var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
+        add.Click += async (_, _) =>
+        {
+            try { await s.AddPersonAsync(name.Text ?? ""); s.Drafts.Remove("person"); name.Text = ""; }
+            catch (DomainException ex) { problem.Text = ex.Message; problem.IsVisible = true; }
+        };
+        return Ui.V(8, Ui.Text(str["AddPerson"], "overline").Margin(20, 0), Ui.Card(Ui.V(10, Ui.Columns("*,8,Auto", name, null, add.Col(2)), problem), 14).Margin(16, 0));
     }
 
     // Sync and versions
@@ -551,6 +572,42 @@ public static class MorePages
             Ui.Card(Ui.V(12, show, Hint(str["CalendarHint"]), byKind, Hint(str["CalendarByKindHint"]),
                 s.CalendarOn ? Hint(str["CalendarSyncHint"]) : null,
                 s.CalendarProblem is { } problem ? Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }) : null), 14).Margin(16, 0));
+    }
+
+    /// <summary>
+    /// The trip's title and dates. Without dates, the trip runs from its first to its last plan; dates of their own
+    /// keep empty days at the start or end, such as a day to arrive.
+    /// </summary>
+    private static Control TripPage(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var title = Draft(s, "trip.title", new TextBox { Text = trip.Manifest.Title }); AutomationProperties.SetName(title, str["Title"]);
+        DatePicker Day(string key)
+        {
+            var picker = new DatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+            if (trip.Manifest.Data["dates"]?[key]?.ToString() is { } text && LocalDatePattern.Iso.Parse(text) is { Success: true } day)
+                picker.SelectedDate = new DateTimeOffset(day.Value.ToDateTimeUnspecified(), TimeSpan.Zero);
+            AutomationProperties.SetName(picker, str[key == "start" ? "TripStart" : "TripEnd"]);
+            return picker;
+        }
+        var start = Day("start"); var end = Day("end");
+        Control Clearable(DatePicker picker)
+        {
+            var clear = Ui.IconButton("x", str["FromThePlans"]); clear.Click += (_, _) => picker.SelectedDate = null;
+            return Ui.Columns("*,Auto", picker, clear);
+        }
+        var hint = Ui.Text(str["TripDatesHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
+        var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        static LocalDate? Date(DatePicker p) => p.SelectedDate is { } d ? LocalDate.FromDateTime(d.Date) : null;
+        save.Click += async (_, _) =>
+        {
+            problem.IsVisible = false;
+            try { await s.SaveTripAsync(title.Text ?? "", Date(start), Date(end)); s.Drafts.Remove("trip.title"); s.ShowPage(null); }
+            catch (DomainException ex) { problem.Text = ex.Message; problem.IsVisible = true; }
+        };
+        return Frame(s, str["TripDetails"],
+            Ui.Card(Ui.V(12, Ui.Field(str["Title"], title), Ui.Field(str["TripStart"], Clearable(start)), Ui.Field(str["TripEnd"], Clearable(end)), hint, problem, save), 14).Margin(16, 0));
     }
 
     private static Control Settings(MobileSession s)

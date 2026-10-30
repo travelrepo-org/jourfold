@@ -111,6 +111,19 @@ try
         s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && TravelRepo.Core.Stays.IsStay(e)).Id);
         await Capture("edit-stay", 412, 1500);
         s.CloseOverlay();
+        // A booking, an expense, a group with its steps and the trip itself.
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Type == "booking" && e.Data["reference"]?.ToString() == "GR-1187").Id);
+        await Capture("edit-booking", 412, 1500);
+        s.CloseOverlay();
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Type == "expense").Id);
+        await Capture("edit-expense", 412, 1200);
+        s.CloseOverlay();
+        s.ShowDetails(s.Trip!.Entities.Values.First(e => e.Data["children"] is System.Text.Json.Nodes.JsonArray { Count: > 0 }).Id);
+        await Capture("detail-group", 412, 1400);
+        s.CloseOverlay();
+        s.ShowTab(MobileTab.More); s.ShowPage("trip");
+        await Capture("trip-details");
+        s.ShowTab(MobileTab.Plan);
         s.ShowTab(MobileTab.More); s.ShowPage("packing");
         await Capture("packing", 412, 1200);
         File.WriteAllText(Path.Combine(MobileApp.Host!.DataRoot, "rates.json"), """{ "Date": "2027-05-14", "PerEuro": { "JPY": 160, "USD": 1.1, "NZD": 1.8 } }""");

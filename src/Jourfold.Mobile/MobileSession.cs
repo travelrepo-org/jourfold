@@ -273,7 +273,12 @@ public sealed partial class MobileSession : IDisposable
         .FirstOrDefault(e => e.Item.Id == id && e.Role == AgendaRole.Item);
 
     public void ShowDetails(Guid id) { Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
-    public void ShowQuickAdd() { Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
+    /// <summary>Opens Quick Add; <paramref name="kind"/> picks what to add, <paramref name="into"/> the group a new step joins.</summary>
+    public void ShowQuickAdd(string? kind = null, Guid? into = null) { QuickAddKind = kind; QuickAddInto = into; Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
+    /// <summary>What Quick Add was opened for, such as a booking from the bookings page.</summary>
+    public string? QuickAddKind { get; private set; }
+    /// <summary>The group a step added in Quick Add joins.</summary>
+    public Guid? QuickAddInto { get; private set; }
     public void ShowEditor(Guid id) { Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
     /// <summary>Closes what is on top: a question or menu first, otherwise the sheet. A place opened from an item's details goes back to them.</summary>
     public void CloseOverlay()
@@ -344,14 +349,24 @@ public sealed partial class MobileSession : IDisposable
 
     /// <summary>Adds what Quick Add collected, with the same rules as the desktop; an idea stays tentative.</summary>
     /// <returns>The new item, such as an expense to attach its receipt to.</returns>
-    public async Task<Guid> AddAsync(QuickAddDraft draft, bool idea, CancellationToken ct = default)
+    /// <param name="into">A group the new plan becomes a step of.</param>
+    public async Task<Guid> AddAsync(QuickAddDraft draft, bool idea, Guid? into = null, CancellationToken ct = default)
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         // An expense on the road was paid by the user, unless the form said otherwise.
         if (draft.Kind == "expense" && draft.People.Count == 0 && Me is { } me) draft = draft with { People = [me.Id] };
-        var (main, edits) = QuickAdd.Build(draft, workspace.State.Trip);
+        var (main, built) = QuickAdd.Build(draft, workspace.State.Trip);
         if (idea && main.Type == "schedule_item") main.Data["status"] = "idea";
-        await workspace.ApplyAsync(edits, ct); NoteChange();
+        var edits = built.ToList();
+        if (into is { } group && main.Type == "schedule_item")
+        {
+            // The step and its place in the group are one change.
+            var trip = workspace.State.Trip;
+            var with = trip with { Entities = trip.Entities.Values.Append(main).ToDictionary(e => e.Id) };
+            foreach (var changed in TripCommands.Nest(with, group, main.Id))
+                if (changed.Id == main.Id) edits[0] = new(main.Id, changed); else edits.Add(new(changed.Id, changed));
+        }
+        await workspace.ApplyAsync([.. edits], ct); NoteChange();
         Showing = Overlay.None; OverlayItem = null;
         if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
         Changed?.Invoke();
@@ -371,6 +386,42 @@ public sealed partial class MobileSession : IDisposable
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         if (edits.Count == 0) return;
         await workspace.ApplyAsync([.. edits], ct); NoteChange();
+    }
+
+    /// <summary>Makes a plan a step of a group, or with no group takes it out of its group.</summary>
+    public async Task NestAsync(Guid step, Guid? group, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var trip = workspace.State.Trip;
+        var changed = group is { } g ? TripCommands.Nest(trip, g, step) : TripCommands.Unnest(trip, step);
+        if (changed.Count == 0) return;
+        await workspace.ApplyAsync(changed.Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
+        Changed?.Invoke();
+    }
+
+    /// <summary>The trip's title and its dates; without dates the trip's days follow its plans.</summary>
+    public async Task SaveTripAsync(string title, LocalDate? start, LocalDate? end, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(title)) throw new DomainException("mobile.title", Strings["EnterTitle"]);
+        if (start is { } a && end is { } b && b < a) throw new DomainException("mobile.dates", Strings["EndBeforeStart"]);
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var manifest = workspace.State.Trip.Manifest.Copy();
+        manifest.Data["title"] = title.Trim();
+        string? Day(LocalDate? d) => d?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        manifest.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = Day(start), ["end"] = Day(end) };
+        await workspace.EditAsync(manifest, ct); NoteChange();
+        Changed?.Invoke();
+    }
+
+    /// <summary>Adds a traveller to the trip, who can then be chosen for plans, costs and tasks.</summary>
+    public async Task<Guid> AddPersonAsync(string name, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("mobile.title", Strings["EnterName"]);
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var (person, edits) = QuickAdd.Build(new QuickAddDraft("person", name), workspace.State.Trip);
+        await workspace.ApplyAsync(edits, ct); NoteChange();
+        Changed?.Invoke();
+        return person.Id;
     }
 
     public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);

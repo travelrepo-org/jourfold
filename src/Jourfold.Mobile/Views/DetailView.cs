@@ -64,6 +64,8 @@ public static class DetailView
         var tasks = Linked(trip, item, "task").Where(t => t.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled")).ToArray();
         if (tasks.Length > 0) page.Children.Add(Section(str["OpenTasks"], Ui.V(4, tasks.Select(t => (Control)TaskRow(s, t)).ToArray())));
 
+        if (item.Type == "schedule_item" && Group(s, item) is { } group) page.Children.Add(group);
+
         // Expanded
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
         if (people.Length > 0) page.Children.Add(Row("users", Lines.Names(people, s), null, s));
@@ -88,6 +90,75 @@ public static class DetailView
         page.Margin = new Thickness(16, 0, 16, 32);
         return page;
     }
+
+    /// <summary>
+    /// A group's steps, each opening its details, with ways to add a new step or take in a plan; for a step, the group
+    /// it belongs to and a way out of it. A plain plan offers to become a group or join one. A stay runs alongside the
+    /// plan and is not nested.
+    /// </summary>
+    private static Control? Group(MobileSession s, Entity item)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        if (Stays.IsStay(item)) return null;
+        var parent = TripQueries.Parent(trip, item.Id);
+        var steps = (item.Data["children"] as System.Text.Json.Nodes.JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>()
+            .OrderBy(e => s.Entry(e.Id)?.Start ?? NodaTime.Instant.MaxValue).ToArray();
+        var section = Ui.V(4);
+        if (parent is not null)
+        {
+            var open = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon("layers", 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StepOf"], parent.Title)), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(0, 6) }.Classed("row");
+            AutomationProperties.SetName(open, string.Format(CultureInfo.CurrentCulture, str["StepOf"], parent.Title));
+            open.Click += (_, _) => s.ShowDetails(parent.Id);
+            var leave = Ui.Button(str["LeaveGroup"], "x", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            leave.Click += async (_, _) => await s.NestAsync(item.Id, null);
+            section.Children.Add(open); section.Children.Add(leave);
+            return Section(str["Group"], section);
+        }
+        foreach (var step in steps)
+        {
+            var when = s.Entry(step.Id) is { } entry && TimeText.Local(entry, s.PhoneZone, str, trip) is { Start.Length: > 0 } t ? t.Primary : null;
+            var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(Visuals.KindIcon(ScheduleCategories.Classify(trip, step), ScheduleCategories.TransportType(step)), 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.V(0, Ui.Text(step.Title), when is null ? null : Ui.Text(when, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(0, 6) }.Classed("row");
+            AutomationProperties.SetName(row, step.Title);
+            row.Click += (_, _) => s.ShowDetails(step.Id);
+            section.Children.Add(row);
+        }
+        var newStep = new MenuAction(str["NewStep"], "plus", _ => { s.ShowQuickAdd(null, item.Id); return Task.CompletedTask; });
+        var takeIn = Candidates(s, item).Select(c => new MenuAction(Label(s, c), "calendar", _ => s.NestAsync(c.Id, item.Id))).ToArray();
+        if (steps.Length > 0)
+        {
+            var add = Ui.Button(str["NewStep"], "plus", "ghost", "compact");
+            add.Click += (_, _) => s.ShowQuickAdd(null, item.Id);
+            var take = Ui.Button(str["TakeInPlan"], "layers", "ghost", "compact");
+            take.Click += (_, _) => s.ShowMenu(new ActionMenu(str["TakeInPlan"], item.Title, takeIn));
+            take.IsEnabled = takeIn.Length > 0;
+            section.Children.Add(Ui.Flow(8, add, take));
+            return Section(str["Steps"], section);
+        }
+        // A plan on its own can gather steps or join a group; journeys rarely do, so they keep it in the menu only.
+        var groups = trip.Entities.Values.Where(e => e.Type == "schedule_item" && e.Id != item.Id && e.Data["children"] is System.Text.Json.Nodes.JsonArray { Count: > 0 })
+            .OrderBy(e => s.Entry(e.Id)?.Start ?? NodaTime.Instant.MaxValue)
+            .Select(g => new MenuAction(string.Format(CultureInfo.CurrentCulture, str["JoinGroup"], g.Title), "layers", _ => s.NestAsync(item.Id, g.Id)));
+        var actions = new[] { newStep }.Concat(takeIn.Length > 0 ? [new MenuAction(str["TakeInPlan"], "layers", _ => { s.ShowMenu(new ActionMenu(str["TakeInPlan"], item.Title, takeIn)); return Task.CompletedTask; })] : []).Concat(groups).ToArray();
+        if (item.Data["components"]?["transport"] is not null) return null;
+        var steps0 = Ui.Button(str["AddSteps"], "layers", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        steps0.Click += (_, _) => s.ShowMenu(new ActionMenu(str["AddSteps"], str["AddStepsHint"], actions));
+        return steps0;
+    }
+
+    /// <summary>Plans that can become steps of a group: not a stay, not a group, not the group or one above it, not in it yet.</summary>
+    private static IEnumerable<Entity> Candidates(MobileSession s, Entity group)
+    {
+        var trip = s.Trip!; var day = s.Entry(group.Id)?.Day;
+        var above = new HashSet<Guid>();
+        for (var e = (Entity?)group; e is not null; e = TripQueries.Parent(trip, e.Id)) above.Add(e.Id);
+        var mine = (group.Data["children"] as System.Text.Json.Nodes.JsonArray ?? []).Select(n => n?.ToString()).ToHashSet();
+        return trip.Entities.Values.Where(e => e.Type == "schedule_item" && !above.Contains(e.Id) && !mine.Contains(e.Id.ToString()) && !Stays.IsStay(e)
+                && e.Data["children"] is not System.Text.Json.Nodes.JsonArray { Count: > 0 })
+            // Plans of the group's day first.
+            .OrderBy(e => day is not null && s.Entry(e.Id)?.Day == day ? 0 : 1).ThenBy(e => s.Entry(e.Id)?.Start ?? NodaTime.Instant.MaxValue).ThenBy(e => e.Title, StringComparer.CurrentCulture);
+    }
+
+    private static string Label(MobileSession s, Entity plan) => s.Entry(plan.Id)?.Day is { } d ? Lines.DayShort(d, s.Strings) + " · " + plan.Title : plan.Title;
 
     /// <summary>The provider's name; the field may be a plain name or an object with one.</summary>
     public static string? Provider(Entity booking) => booking.Data["provider"] switch

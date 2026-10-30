@@ -126,15 +126,29 @@ public static class Lines
         return new Panel { Children = { card, outline } };
     }
 
-    /// <summary>The steps of a group, unfolded inline: time and title on a thin rail.</summary>
+    /// <summary>
+    /// The steps of a group, unfolded inline: time and title on a thin rail. A step opens its details; the last line
+    /// opens the group's own, to change it or its steps.
+    /// </summary>
     public static Control Steps(MobileSession s, AgendaEntry group, Func<AgendaEntry, ClockText> time)
     {
-        var list = Ui.V(6);
+        var list = Ui.V(2);
         foreach (var step in group.Steps)
         {
-            var clock = time(step);
-            list.Children.Add(Ui.Columns("52,*", Ui.Text(clock.Start, "time", "small", "muted").Also(t => t.VerticalAlignment = VerticalAlignment.Top), Ui.V(0, Ui.Text(step.Item.Title, "strong"), Where(s.Trip!, step.Item) is { Length: > 0 } w ? Ui.Text(w, "caption") : null)));
+            var clock = time(step); var id = step.Item.Id;
+            var row = new Button
+            {
+                Content = Ui.Columns("52,*", Ui.Text(clock.Start, "time", "small", "muted").Also(t => t.VerticalAlignment = VerticalAlignment.Top), Ui.V(0, Ui.Text(step.Item.Title, "strong"), Where(s.Trip!, step.Item) is { Length: > 0 } w ? Ui.Text(w, "caption") : null)),
+                Padding = new Thickness(0, 4),
+                MinHeight = 0,
+            }.Classed("row");
+            AutomationProperties.SetName(row, step.Item.Title);
+            row.Click += (_, _) => s.ShowDetails(id);
+            list.Children.Add(row);
         }
+        var open = Ui.Button(s.Strings["GroupDetails"], "layers", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        open.Click += (_, _) => s.ShowDetails(group.Item.Id);
+        list.Children.Add(open);
         return new Border { Child = list, BorderThickness = new Thickness(2, 0, 0, 0), Padding = new Thickness(10, 2, 0, 2) }.Res(Border.BorderBrushProperty, "Line.Strong");
     }
 

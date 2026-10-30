@@ -151,6 +151,18 @@ numbers (a booking is added when there is none); tasks with a due day. When a sy
 same thing, the sync waits and Sync → "Choose what applies" lists each change with this device's and GitHub's
 version, and "keep both" for items; the choices are merged and sent (`MergeAnswers`, shared with the desktop).
 
+Bookings are added under More → Bookings or in Quick Add and edited with their provider, number, status, price,
+free cancellation, travellers and the plans they are for; linking a plan updates both sides (`TripCommands.LinkBooking`).
+An expense names who paid it, its currency (any three-letter code), whether it is still an estimate and the plan or
+booking it belongs to; TravelRepo has no splitting of costs, so several payers are simply listed. A plan is for
+everyone, chosen people or, as a step, the same people as its group; a stay names its guests, a task who does it.
+More → Trip details changes the title and the first and last day; without dates the trip follows its plans. More →
+Travellers adds a person.
+
+A group, such as a day tour, is added in Quick Add. Its details list the steps and add a new one or take in an
+existing plan; a step's details name its group and take it out again (`TripCommands.Nest`, `Unnest`). Unfolded in the
+plan, a step opens its own details.
+
 "Me" works as on the desktop (`TripMe`): chosen per trip on the device under More → Travellers, or found by GitHub
 login and e-mail; choosing saves the user's e-mail and GitHub name on that person, so their other devices recognise
 them. Today asks once when nobody matches.

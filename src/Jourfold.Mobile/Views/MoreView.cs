@@ -31,6 +31,7 @@ public static class MoreView
                 Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"]),
                 Row(s, "converter", "coins", str["Converter"], s.Rates is { } rates ? string.Format(CultureInfo.CurrentCulture, str["RatesFromShort"], rates.Date.ToString("d MMM", CultureInfo.GetCultureInfo(str.Language))) : null)),
             Group(str["TripTogether"],
+                Row(s, "trip", "pencil", str["TripDetails"], Formats.DateRange(TripQueries.EffectiveDates(trip).Start, TripQueries.EffectiveDates(trip).End) is { Length: > 0 } range ? range : str["NoDatesYet"]),
                 Row(s, "travellers", "users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),
                 Row(s, "sync", "refresh-cw", str["SyncAndVersions"], s.HasChanges ? str["ChangesNotInVersion"] : str["SavedOnPhone"])),
             Group(str["App"],

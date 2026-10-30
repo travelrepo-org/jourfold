@@ -57,7 +57,8 @@ public static class QuickAdd
             case "activity" or "food" or "sightseeing" or "transport" or "accommodation":
                 main = Entity.Create("schedule_item", draft.Title.Trim());
                 if (draft.Kind is "food" or "sightseeing") main.Data["category"] = draft.Kind;
-                if (draft.People.Count > 0) main.Data["participants"] = Participants();
+                // A stay names its guests; other plans their participants.
+                if (draft.People.Count > 0 && draft.Kind != "accommodation") main.Data["participants"] = Participants();
                 if (draft.Kind == "transport")
                 {
                     var transport = new JsonObject { ["type"] = draft.TransportType ?? "other" };
@@ -69,6 +70,7 @@ public static class QuickAdd
                 {
                     var accommodation = new JsonObject();
                     if (Place(draft.Place) is { } stay) accommodation["place"] = stay;
+                    if (draft.People.Count > 0) accommodation["guests"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
                     main.Data["components"]!["accommodation"] = accommodation;
                     if (draft.Date is { } arrival)
                     {

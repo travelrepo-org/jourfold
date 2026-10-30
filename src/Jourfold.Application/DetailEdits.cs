@@ -6,6 +6,9 @@ using TravelRepo.Repository;
 
 namespace Jourfold.Application;
 
+/// <summary>Who a plan is for: everyone (it names nobody), the same people as its group, or the people chosen.</summary>
+public enum PeopleChoice { Everyone, AsGroup, Chosen }
+
 /// <summary>
 /// Changes to an item's details that both clients make the same way: fields by path, a journey's arrival in its own
 /// time zone, a stay's nights and hours, and the booking number, which lives on the booking.
@@ -74,5 +77,60 @@ public static class DetailEdits
         var (added, edits) = QuickAdd.Build(new QuickAddDraft("booking", item.Title) { Reference = reference }, trip);
         var linkedItem = item.Copy(); Set(linkedItem, "components/booking/ref", JsonValue.Create(added.Id.ToString()));
         return [.. edits, new(linkedItem.Id, linkedItem)];
+    }
+
+    /// <summary>The people listed at a path such as <c>paid_by</c> or <c>components/accommodation/guests</c>.</summary>
+    public static IReadOnlyList<Guid> People(Entity e, string path) =>
+        (Get(e, path) as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(id => id != Guid.Empty).Distinct().ToArray();
+
+    /// <summary>Lists people at a path; nobody removes the field.</summary>
+    public static void SetPeople(Entity e, string path, IEnumerable<Guid> people)
+    {
+        var ids = people.Distinct().Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray();
+        Set(e, path, ids.Length == 0 ? null : new JsonArray(ids));
+    }
+
+    /// <summary>How a plan's own participants are set, and the people it names itself.</summary>
+    public static (PeopleChoice Choice, IReadOnlyList<Guid> People) Participants(TripSnapshot trip, Entity item)
+    {
+        var inGroup = TripQueries.Parent(trip, item.Id) is not null;
+        if (item.Data["participants"] is not JsonObject own) return (inGroup ? PeopleChoice.AsGroup : PeopleChoice.Everyone, []);
+        if (own["inherit"]?.ToString() == "true" && inGroup) return (PeopleChoice.AsGroup, []);
+        var people = People(item, "participants/values");
+        return (people.Count == 0 ? PeopleChoice.Everyone : PeopleChoice.Chosen, people);
+    }
+
+    /// <summary>
+    /// Sets who a plan is for. Everyone is no participants: at the top of the plan the field goes, in a group the plan
+    /// stops taking the group's people. Without anyone chosen, a choice of people means everyone.
+    /// </summary>
+    public static void SetParticipants(TripSnapshot trip, Entity item, PeopleChoice choice, IEnumerable<Guid> people)
+    {
+        var chosen = people.Distinct().Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray();
+        var inGroup = TripQueries.Parent(trip, item.Id) is not null;
+        if (choice == PeopleChoice.Chosen && chosen.Length == 0) choice = PeopleChoice.Everyone;
+        if (choice == PeopleChoice.AsGroup && !inGroup) choice = PeopleChoice.Everyone;
+        item.Data.Remove("participants");
+        if (choice == PeopleChoice.AsGroup) item.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() };
+        else if (choice == PeopleChoice.Chosen) item.Data["participants"] = new JsonObject { ["inherit"] = false, ["values"] = new JsonArray(chosen) };
+        else if (inGroup) item.Data["participants"] = new JsonObject { ["inherit"] = false, ["values"] = new JsonArray() };
+    }
+
+    /// <summary>An amount in a currency at a path such as <c>price</c>; no amount removes it.</summary>
+    public static void SetMoney(Entity e, string path, decimal? amount, string currency)
+    {
+        if (amount is { } value && (currency.Length != 3 || !currency.All(char.IsAsciiLetterUpper))) throw new DomainException("money.currency", "A currency is a three-letter code such as EUR.");
+        Set(e, path, amount is { } v ? new JsonObject { ["value"] = v.ToString("0.00", CultureInfo.InvariantCulture), ["currency"] = currency } : null);
+    }
+
+    /// <summary>
+    /// Until when a booking can be cancelled for free, in a zone, keeping the note beside it; null removes the date.
+    /// </summary>
+    public static void SetFreeCancellation(Entity booking, LocalDateTime? until, string zone)
+    {
+        if (until is not { } local) { Set(booking, "cancellation/free_until", null); if (booking.Data["cancellation"] is JsonObject { Count: 0 }) booking.Data.Remove("cancellation"); return; }
+        var time = new ZonedTime(local.ToString("yyyy-MM-dd'T'HH:mm:ss", CultureInfo.InvariantCulture), zone);
+        time.ToInstant();
+        Set(booking, "cancellation/free_until", time.ToJson());
     }
 }

@@ -25,7 +25,8 @@ public static class TimetableView
     /// <summary>How many days fit into <paramref name="width"/> pixels, from three to seven.</summary>
     public static int Columns(double width) => Math.Clamp((int)((width - Gutter - 32) / MinColumn), 3, 7);
 
-    public static Control Build(MobileSession s, double width)
+    /// <param name="leading">Shown at the start of the top row, such as the trip; the switch to the list goes in <paramref name="trailing"/>.</param>
+    public static Control Build(MobileSession s, double width, Control? leading = null, Control? trailing = null)
     {
         var days = s.Agenda.Days;
         if (days.Count == 0) return Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8);
@@ -75,7 +76,8 @@ public static class TimetableView
         var range = Ui.Text(Formats.DateRange(shown[0].Date, shown[^1].Date), "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
         var scroll = new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
-        layout.Children.Add(Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Margin(12, 0, 12, 8));
+        // One row for the trip, the days shown and the switch, so the grid gets the height.
+        layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
         layout.Children.Add(header.Row(1));
         layout.Children.Add(Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true).Row(2));
         layout.Children.Add(scroll.Row(3));

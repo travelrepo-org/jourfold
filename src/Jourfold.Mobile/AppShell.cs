@@ -1,3 +1,4 @@
+using System.Globalization;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
@@ -383,16 +384,50 @@ public sealed class AppShell : UserControl
             var text = s[label];
             var button = new ChoiceButton
             {
-                IsSelected = Session.Tab == tab,
+                IsSelected = Session.Tab == tab && !(tab == MobileTab.More && Session.Page is not null),
                 Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text("Ctrl+" + (i + 1), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
             }.Classed("sidebar");
             AutomationProperties.SetName(button, text);
             button.Click += (_, _) => Session.ShowTab(tab);
             items.Children.Add(button);
         }
-        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
-        layout.Children.Add(items); layout.Children.Add(SidebarToggle(open: false).Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(4, 0, 0, 12).Row(1));
+        // As in the desktop's sidebar, the trip's pages are one tap away, each with what matters about it.
+        items.Children.Add(Ui.Text(s["TripTools"], "overline").Margin(10, 18, 0, 4));
+        var open = TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).ToArray();
+        foreach (var (page, icon, label, detail) in new (string, string, string, string?)[]
+        {
+            ("bookings", "ticket", "Bookings", trip.Entities.Values.Count(e => e.Type == "booking").ToString(CultureInfo.CurrentCulture)),
+            ("tasks", "square-check", "Tasks", MoreView.OpenTasks(trip) is > 0 and var tasks ? tasks.ToString(CultureInfo.CurrentCulture) : null),
+            ("costs", "wallet", "Costs", open.Length > 0 ? string.Join(" + ", open) : null),
+            ("places", "map-pin", "Places", null),
+            ("files", "paperclip", "Files", null),
+            ("travellers", "users", "Travellers", null)
+        })
+            items.Children.Add(PageRow(page, icon, s[label], detail));
+        // Where the trip is kept, as the desktop says at the bottom of its sidebar; a tap opens sync and versions.
+        var where = Session.Remote is null ? s["OnlyOnThisPhone"] : Session.SyncProblem ?? (Session.LastSync is { } at ? string.Format(CultureInfo.CurrentCulture, s["SyncedWithGitHub"], Formats.Relative(at, s)) : s["NotSyncedYet"]);
+        var state = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(Session.Remote is null || Session.SyncProblem is not null ? "cloud-off" : "cloud", 18, "Text.Muted").Margin(0, 0, 10, 0), Ui.Text(where, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)) }.Classed("sidebar");
+        AutomationProperties.SetName(state, s["SyncAndVersions"] + ": " + where);
+        state.Click += (_, _) => Session.ShowPage("sync");
+        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto") };
+        layout.Children.Add(new ScrollViewer { Content = items, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+        layout.Children.Add(state.Margin(0, 8, 0, 4).Row(1));
+        layout.Children.Add(SidebarToggle(open: false).Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(4, 0, 0, 12).Row(2));
         return new Border { Child = layout, Width = 232, Padding = new Thickness(12, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+    }
+
+    /// <summary>A page of the trip in the sidebar, marked while it is open.</summary>
+    private Button PageRow(string page, string icon, string label, string? detail)
+    {
+        var row = new ChoiceButton
+        {
+            IsSelected = Session.Tab == MobileTab.More && Session.Page == page,
+            Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 18).Margin(0, 0, 12, 0), Ui.Text(label).Also(t => t.VerticalAlignment = VerticalAlignment.Center), detail is null ? null : Ui.Text(detail, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
+        }.Classed("sidebar");
+        row.Padding = new Thickness(10, 7);
+        AutomationProperties.SetName(row, label);
+        row.Click += (_, _) => Session.ShowPage(page);
+        return row;
     }
 
     private Button SidebarToggle(bool open)

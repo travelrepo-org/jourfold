@@ -35,11 +35,7 @@ public static class PlanView
     {
         if (Timetable(s, width))
         {
-            var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*") };
-            layout.Children.Add(Lines.TripHeader(s));
-            layout.Children.Add(Modes(s, timetable: true).Margin(16, 4, 16, 8).Row(1));
-            layout.Children.Add(TimetableView.Build(s, pixels).Row(2));
-            return layout;
+            return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, timetable: true));
         }
         var day = s.Agenda.Find(s.SelectedDate) ?? s.Agenda.Days.FirstOrDefault();
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }

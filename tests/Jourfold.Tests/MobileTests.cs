@@ -818,6 +818,35 @@ public sealed class MobileTests : IDisposable
         Assert.Equal((null, null), (Places.LocalName(place), Places.LocalAddress(place)));
     }
 
+    [AvaloniaFact]
+    public async Task PackingListsAreTickedOffOnThePhone()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 1, 9, 0)), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var before = session.OpenPacking;
+        await session.AddPackingListAsync("Gadgets");
+        var list = PackingLists.All(session.Trip!).Single(l => l.Collection.Title == "Gadgets").Collection.Id;
+        await session.AddPackingItemAsync(list, "Plug adapter");
+        await session.AddPackingItemAsync(list, "Neck pillow @all #Comfort");
+        var sam = session.Trip!.Entities.Values.First(e => e.Type == "person" && e.Title.StartsWith("Sam", StringComparison.Ordinal));
+        await session.AddPackingItemAsync(list, "Travel umbrella @" + sam.Title.Split(' ')[0]);
+        // The user's own item and the one everyone brings are open; Sam's umbrella is Sam's.
+        Assert.Equal(before + 2, session.OpenPacking);
+        var passport = session.Trip!.Entities.Values.Single(e => e.Title == "Plug adapter");
+        await session.SetPackedAsync(passport.Id, true);
+        Assert.Equal(before + 1, session.OpenPacking);
+
+        session.ShowTab(MobileTab.More); session.ShowPage("packing");
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            var boxes = window.GetVisualDescendants().OfType<CheckBox>().ToDictionary(b => AutomationProperties.GetName(b) ?? "", b => b.IsChecked);
+            Assert.Equal(true, boxes["Plug adapter"]); Assert.Equal(false, boxes["Neck pillow"]); Assert.False(boxes.ContainsKey("Travel umbrella"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

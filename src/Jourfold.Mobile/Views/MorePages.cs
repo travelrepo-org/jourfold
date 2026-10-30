@@ -20,6 +20,7 @@ public static class MorePages
     {
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
+        "packing" => Packing(s),
         "places" => Places(s),
         "files" => Files(s),
         "costs" => Costs(s, width),
@@ -200,6 +201,55 @@ public static class MorePages
         Control? Section(string title, Entity[] items) => items.Length == 0 ? null
             : Group(title, items.OrderBy(t => Due(t) ?? LocalDate.MaxIsoValue).ThenBy(t => t.Title, StringComparer.CurrentCulture).Select(t => Task(s, t, Due(t), Due(t) < today && !Done(t))).ToArray());
         return Frame(s, str["Tasks"], Section(str["Overdue"], overdue), Section(str["OpenTasks"], open), Section(str["DoneTasks"], done));
+    }
+
+    /// <summary>
+    /// The packing lists: what the user brings, to tick off; what others bring, to see; what nobody brings yet, to take
+    /// on with a tap. A line at the end of each list adds an item, the user's own unless it says "@name" or "@all".
+    /// </summary>
+    private static Control Packing(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings; var me = s.Me;
+        var newList = Draft(s, "packing-list", new TextBox { PlaceholderText = str["NewPackingList"] }); AutomationProperties.SetName(newList, str["NewPackingList"]);
+        var create = Ui.Button(str["NewPackingList"], "plus", "soft");
+        create.Click += async (_, _) => { var title = newList.Text; s.Drafts.Remove("packing-list"); await s.AddPackingListAsync(title ?? ""); };
+        var lists = PackingLists.All(trip);
+        var parts = new List<Control?> { Ui.Text(str["PackingHint"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0) };
+        if (me is null && trip.Entities.Values.Any(e => e.Type == "person"))
+        {
+            var who = Ui.Button(str["ChooseWhoIAm"], "user-check", "soft"); who.Click += (_, _) => s.ShowPage("travellers");
+            parts.Add(Ui.Card(Ui.V(8, Ui.Text(str["PackingWhoAmI"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), who), 14).Margin(16, 0));
+        }
+        if (lists.Count == 0) parts.Add(Empty("backpack", str["NoPackingListsTitle"], str["NoPackingListsBody"]));
+        foreach (var list in lists)
+        {
+            var rows = new List<Control>();
+            Control Caption(PackingItem item) => Ui.Text(string.Join(" · ", new[] { item.Group, item.Quantity,
+                item.Everyone ? str["EveryoneBringsOwn"] : item.Assignees.Count > 1 ? string.Join(", ", item.Assignees.Select(a => a.Title)) : null }.Where(t => !string.IsNullOrEmpty(t))), "caption");
+            foreach (var item in list.Items.Where(i => me is not null && i.IsFor(me.Id)).OrderBy(i => i.Group, StringComparer.CurrentCulture))
+            {
+                var box = new CheckBox { IsChecked = item.IsPackedBy(me!.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 52, Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(16, 2) };
+                AutomationProperties.SetName(box, item.Task.Title);
+                box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(item.Task.Id, box.IsChecked == true);
+                rows.Add(box);
+            }
+            foreach (var item in list.Items.Where(i => me is null || !i.IsFor(me.Id)))
+            {
+                var who = item.Unassigned ? str["Unassigned"] : string.Join(", ", item.Assignees.Select(a => a.Title + (item.IsPackedBy(a.Id) ? " ✓" : "")));
+                var row = Ui.Columns("Auto,*", Ui.Icon(item.Done ? "circle-check" : "circle", 18, item.Done ? "Success" : "Text.Muted").Margin(0, 0, 12, 0), Ui.V(2, Ui.Text(item.Task.Title), Ui.Text(who, "caption")))
+                    .Also(g => { g.MinHeight = 48; g.Margin = new Thickness(18, 4); });
+                rows.Add(row);
+            }
+            var add = Draft(s, "packing:" + list.Collection.Id, new TextBox { PlaceholderText = str["AddPackingItemPlaceholder"] }); AutomationProperties.SetName(add, str["AddPackingItem"]);
+            var plus = Ui.IconButton("plus", str["AddPackingItem"]);
+            async Task Add() { var text = add.Text; s.Drafts.Remove("packing:" + list.Collection.Id); if (!string.IsNullOrWhiteSpace(text)) await s.AddPackingItemAsync(list.Collection.Id, text); }
+            plus.Click += async (_, _) => await Add();
+            add.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; await Add(); } };
+            rows.Add(Ui.Columns("*,Auto", add, plus).Margin(16, 6));
+            parts.Add(Group(string.Format(CultureInfo.CurrentCulture, str["PackingListProgress"], list.Collection.Title, list.DoneCount, list.Items.Count), rows));
+        }
+        parts.Add(Ui.Columns("*,Auto", newList, create.Margin(8, 0, 0, 0)).Margin(16, 0));
+        return Frame(s, str["Packing"], [.. parts]);
     }
 
     private static Control Task(MobileSession s, Entity task, LocalDate? due, bool late)

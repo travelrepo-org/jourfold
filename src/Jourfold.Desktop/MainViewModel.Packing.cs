@@ -56,24 +56,7 @@ public partial class MainViewModel
         await Workspace.ApplyAsync([new(item.Id, item), new(updated.Id, updated)]);
     });
 
-    public static (string Title, string? Group, IReadOnlyList<Guid> People, bool Everyone) ParsePackingLine(TripSnapshot trip, string text)
-    {
-        var people = new List<Guid>(); var everyone = false; string? group = null; var words = new List<string>();
-        var persons = trip.Entities.Values.Where(e => e.Type == "person").ToArray();
-        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
-        {
-            if (word.Length > 1 && word[0] == '#') { group = word[1..].Replace('_', ' '); continue; }
-            if (word.Length > 1 && word[0] == '@')
-            {
-                var name = word[1..];
-                if (name.ToLowerInvariant() is "all" or "alle" or "everyone") { everyone = true; continue; }
-                var matches = persons.Where(p => p.Title.Equals(name, StringComparison.CurrentCultureIgnoreCase) || p.Title.Split(' ')[0].Equals(name, StringComparison.CurrentCultureIgnoreCase)).ToArray();
-                if (matches.Length == 1) { people.Add(matches[0].Id); continue; }
-            }
-            words.Add(word);
-        }
-        return (string.Join(' ', words).Trim(), group, people, everyone);
-    }
+    public static (string Title, string? Group, IReadOnlyList<Guid> People, bool Everyone) ParsePackingLine(TripSnapshot trip, string text) => Jourfold.Application.PackingInput.Parse(trip, text);
 
     /// <summary>Asks who brings an item: some of the travellers, or everyone.</summary>
     public Task AssignPackingItemAsync(Guid itemId) => RunEditAsync(async () =>

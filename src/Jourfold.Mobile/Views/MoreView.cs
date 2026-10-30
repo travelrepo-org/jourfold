@@ -25,6 +25,7 @@ public static class MoreView
             Group(str["TripTools"],
                 Row(s, "bookings", "ticket", str["Bookings"], string.Format(CultureInfo.CurrentCulture, str["CountBookings"], bookings)),
                 Row(s, "tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], openTasks)),
+                Row(s, "packing", "backpack", str["Packing"], s.OpenPacking > 0 ? string.Format(CultureInfo.CurrentCulture, str["PackingOpen"], s.OpenPacking) : null),
                 Row(s, "places", "map-pin", str["Places"], string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places)),
                 Row(s, "files", "paperclip", str["Files"], string.Format(CultureInfo.CurrentCulture, str["CountFiles"], files)),
                 Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),

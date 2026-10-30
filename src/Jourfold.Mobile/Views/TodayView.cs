@@ -134,6 +134,13 @@ public static class TodayView
                 tasks.Click += (_, _) => s.ShowPage("tasks");
                 page.Children.Add(tasks.Margin(8, 0));
             }
+            // Before the trip, what is left to pack is one tap away.
+            if (PackingLists.All(s.Trip!).Count > 0)
+            {
+                var packing = Ui.Button(s.OpenPacking > 0 ? string.Format(CultureInfo.CurrentCulture, s.Strings["PackingOpen"], s.OpenPacking) : s.Strings["PackingAllDone"], "backpack", "soft");
+                packing.Click += (_, _) => { s.ShowTab(MobileTab.More); s.ShowPage("packing"); };
+                page.Children.Add(packing.Margin(16, 0));
+            }
         }
         page.Children.Add(plan.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(16, 0, 16, 24));
         return page;

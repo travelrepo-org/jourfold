@@ -40,6 +40,32 @@ A long press on an item opens a menu with details, edit, status, Navigate, copy 
 move to another day and delete. A long press on a trip in the trip list removes it from the phone after a question
 that says whether it is still on GitHub. Everything in these menus can also be reached without the gesture.
 
+## Places and the map
+
+Quick Add and the editor choose an item's place by name, a journey's start and end, and create a place when the name
+is new; the editor shows the current places and changes only those that were changed, so an inherited place stays
+inherited. In the details, a place opens to change its name, address and position; without a place, a button adds
+one that goes straight into the item. **More → Places** lists every place with its address or position. The rules
+for which field holds a place are in `PlaceEdits` (Jourfold.Application).
+
+Coordinates copied from a map ("-37.0093, 174.7841") or a map link from Google Maps, Apple Maps or OpenStreetMap
+fill latitude and longitude when they are pasted into any field of a place, the name and address included. Android's
+keyboard inserts its clipboard suggestion without a paste event, so the fields read text that arrives several
+characters at once; typed characters do not count. Short links such as maps.app.goo.gl need the network and are
+not read. The address search uses the same Nominatim server and rules as the desktop and works only after the user
+turned on online maps; it explains what is sent before that. "Where I am" asks Android for the position only when
+tapped and requests the location permission at that moment; the position only fills the fields.
+
+Navigate hands the place's position to the maps app; without one it searches for the address, then the name.
+
+The Map tab draws the selected day like the desktop's map (`MapSurface` in Jourfold.UI): numbered pins in the order
+of the plan, a dashed line through them and journeys as arcs. It pans with a finger and zooms with two fingers, a
+double tap or the buttons. Without online maps it shows a plain grid and works offline; street tiles from
+OpenStreetMap come after the user turned them on, with the credit next to the buttons, the same tile cache rules as
+the desktop and the cache in the app's private folder. A docked sheet lists the day's stops: dragged down it leaves
+only its handle, in the middle it shows the list, and a tapped pin or stop comes first with Navigate and Details. On
+tablets the list is a column on the right. The map stays while its trip is open, so it keeps its position and tiles.
+
 ## Files
 
 Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date, attachments and their text,

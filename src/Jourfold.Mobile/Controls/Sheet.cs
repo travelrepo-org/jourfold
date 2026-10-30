@@ -19,9 +19,11 @@ public sealed class Sheet : Grid
     private readonly Border panel;
     private readonly Border scrim;
     private readonly ScrollViewer scroll;
+    private readonly Border top;
     private bool placed;
     private readonly double[] detents;
     private readonly bool side;
+    private readonly bool docked;
     private int detent;
     // Where a drag started and how tall the sheet was then; the height follows the finger from there.
     private double? dragFrom, dragHeight;
@@ -34,14 +36,18 @@ public sealed class Sheet : Grid
 
     /// <param name="detents">Heights as parts of the available height, lowest first, for example 0.4, 0.62, 0.94.</param>
     /// <param name="side">Show as a panel on the right instead of a bottom sheet.</param>
-    public Sheet(Control header, Control content, double[] detents, int start, bool side, string label)
+    /// <param name="docked">
+    /// Part of the page instead of over it, like the map's list: no dimmed background, the page stays usable around
+    /// it, and dragging it down stops at the lowest detent instead of closing it.
+    /// </param>
+    public Sheet(Control header, Control content, double[] detents, int start, bool side, string label, bool docked = false)
     {
-        this.detents = detents; this.side = side; detent = Math.Clamp(start, 0, detents.Length - 1);
-        scrim = new Border { Background = new SolidColorBrush(Colors.Black, side ? 0.18 : 0.32) };
+        this.detents = detents; this.side = side; this.docked = docked; detent = Math.Clamp(start, 0, detents.Length - 1);
+        scrim = new Border { Background = new SolidColorBrush(Colors.Black, side ? 0.18 : 0.32), IsVisible = !docked };
         scrim.PointerPressed += (_, e) => { Close(); e.Handled = true; };
         scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         // The whole header takes the drag, not only the handle, so it needs a background to be hit everywhere.
-        var top = new Border { Child = side ? header : Ui.V(0, Handle(), header), Background = Brushes.Transparent };
+        top = new Border { Child = side ? header : Ui.V(0, Handle(), header), Background = Brushes.Transparent };
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         layout.Children.Add(top); layout.Children.Add(scroll.Row(1));
         panel = new Border
@@ -106,6 +112,13 @@ public sealed class Sheet : Grid
             pane.StateChanged += (_, args) => { keyboard = args.NewState == Avalonia.Controls.Platform.InputPaneState.Open ? args.EndRect.Height : 0; Place(); };
     }
 
+    /// <summary>Replaces what the sheet shows, keeping its detent and the scroll position.</summary>
+    public void Replace(Control header, Control content)
+    {
+        top.Child = side ? header : Ui.V(0, Handle(), header);
+        var offset = scroll.Offset; scroll.Content = content; scroll.Offset = offset;
+    }
+
     /// <summary>Moves to a detent; on tablets there is only one size.</summary>
     public void Show(int index) { detent = Math.Clamp(index, 0, detents.Length - 1); Place(); }
 
@@ -156,7 +169,7 @@ public sealed class Sheet : Grid
         panel.Transitions = [Glide()];
         var share = height / Math.Max(1, Bounds.Height);
         // Well below the lowest detent closes; otherwise the nearest detent wins.
-        if (share < detents[0] * 0.6) { Close(); return; }
+        if (share < detents[0] * 0.6 && !docked) { Close(); return; }
         detent = Enumerable.Range(0, detents.Length).OrderBy(i => Math.Abs(detents[i] - share)).First();
         Place();
     }

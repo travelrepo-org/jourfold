@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-permission android:name="android.permission.INTERNET"/>
+  <!-- Only for "Where I am" when changing a place; asked for when the user taps it, never in the background. -->
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
   <application android:allowBackup="false" android:supportsRtl="true">
     <profileable android:shell="true"/>
     <!-- Hands a copy of a ticket or PDF to an app that can show it, with read access for that one file. -->

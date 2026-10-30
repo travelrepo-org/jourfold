@@ -10,8 +10,9 @@ using TravelRepo.Core;
 namespace Jourfold.Mobile.Views;
 
 /// <summary>
-/// Quick Add behind the plus: a type, a title, the day, an optional time and place, and for expenses the amount.
-/// "Only an idea" keeps a plan tentative. One Add button. The same form edits an item's title, day, time and notes.
+/// Quick Add behind the plus: a type, a title, the day, an optional time and place (start and end for a journey), and
+/// for expenses the amount. "Only an idea" keeps a plan tentative. One Add button. The same form edits an item's
+/// title, day, time, places and notes.
 /// </summary>
 public sealed class QuickAddView
 {
@@ -27,6 +28,10 @@ public sealed class QuickAddView
     private readonly TimePicker start = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly TimePicker end = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly AutoCompleteBox place = new() { FilterMode = AutoCompleteFilterMode.ContainsOrdinal, MinimumPrefixLength = 1 };
+    private readonly AutoCompleteBox from = new() { FilterMode = AutoCompleteFilterMode.ContainsOrdinal, MinimumPrefixLength = 1 };
+    // The places the edited item had, to change only those that the form changed.
+    private string? placeBefore, fromBefore;
+    private bool journey;
     private readonly ToggleSwitch idea = new();
     private readonly TextBox body = new() { AcceptsReturn = true, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MinHeight = 96 };
     private readonly TextBox amount = new();
@@ -44,8 +49,8 @@ public sealed class QuickAddView
         currency = TripSummaries.Costs(trip).FirstOrDefault()?.Currency ?? "EUR";
         title.PlaceholderText = str["QuickAddTitleHint"]; AutomationProperties.SetName(title, str["Title"]);
         AutomationProperties.SetName(start, str["StartTime"]); AutomationProperties.SetName(end, str["EndTime"]);
-        place.ItemsSource = trip.Entities.Values.Where(e => e.Type == "place").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
-        place.PlaceholderText = str["PlaceOptional"]; AutomationProperties.SetName(place, str["Place"]);
+        place.ItemsSource = from.ItemsSource = trip.Entities.Values.Where(e => e.Type == "place").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
+        place.PlaceholderText = from.PlaceholderText = str["PlaceOptional"]; AutomationProperties.SetName(place, str["Place"]); AutomationProperties.SetName(from, str["From"]);
         body.PlaceholderText = str["Notes"]; AutomationProperties.SetName(body, str["Notes"]);
         amount.PlaceholderText = "0.00"; AutomationProperties.SetName(amount, str["Amount"]);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
@@ -71,6 +76,12 @@ public sealed class QuickAddView
         var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(entry?.Zone ?? "") ?? ScheduleQueries.TripZone(s.Trip!);
         if (entry is { IsTimed: true, Start: { } a }) { start.SelectedTime = a.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); if (entry.End is { } b) end.SelectedTime = b.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); }
         idea.IsChecked = item.Data["status"]?.ToString() == "idea";
+        if (item.Type == "schedule_item")
+        {
+            journey = item.Data["components"]?["transport"] is System.Text.Json.Nodes.JsonObject;
+            place.Text = placeBefore = PlaceEdits.Current(s.Trip!, item, journey ? PlaceSlot.To : PlaceSlot.Place)?.Title ?? "";
+            if (journey) from.Text = fromBefore = PlaceEdits.Current(s.Trip!, item, PlaceSlot.From)?.Title ?? "";
+        }
         if (TripSummaries.Money(item.Data["amount"]) is { } money) { amount.Text = money.Amount.ToString(CultureInfo.InvariantCulture); currency = money.Currency; }
     }
 
@@ -97,7 +108,8 @@ public sealed class QuickAddView
         {
             form.Children.Add(Field(kind == "accommodation" ? str["CheckIn"] : str["StartTime"], start));
             if (kind != "accommodation") form.Children.Add(Field(str["EndTime"], end));
-            form.Children.Add(Field(str["Place"], place));
+            if (journey || kind == "transport") { form.Children.Add(Field(str["From"], from)); form.Children.Add(Field(str["To"], place)); }
+            else form.Children.Add(Field(str["Place"], place));
             if (kind != "idea") form.Children.Add(idea);
         }
         if (kind == "expense")
@@ -116,6 +128,16 @@ public sealed class QuickAddView
     }
 
     private static Control Field(string label, Control value) => Ui.V(6, Ui.Text(label, "overline"), value);
+
+    private static bool Changed(string? text, string? before) => !string.Equals(text?.Trim() ?? "", before ?? "", StringComparison.CurrentCulture);
+
+    /// <summary>A place of the trip with the typed name, a new place with it, or none for an empty field.</summary>
+    private PlaceChoice? Choice(string? text)
+    {
+        text = text?.Trim();
+        if (string.IsNullOrEmpty(text)) return null;
+        return s.Trip!.Entities.Values.FirstOrDefault(p => p.Type == "place" && string.Equals(p.Title, text, StringComparison.CurrentCultureIgnoreCase)) is { } known ? PlaceChoice.Existing(known.Id) : PlaceChoice.Create(text);
+    }
 
     private Control Days()
     {
@@ -136,25 +158,31 @@ public sealed class QuickAddView
         try
         {
             if (string.IsNullOrWhiteSpace(title.Text)) throw new DomainException("mobile.title", s.Strings["EnterTitle"]);
-            LocalTime? from = start.SelectedTime is { } t ? LocalTime.FromTimeOnly(TimeOnly.FromTimeSpan(t)) : null;
-            LocalTime? to = end.SelectedTime is { } e ? LocalTime.FromTimeOnly(TimeOnly.FromTimeSpan(e)) : null;
-            Duration? length = from is { } a && to is { } b ? (b > a ? b - a : b - a + Period.FromDays(1)).ToDuration() : null;
-            var placeText = place.Text?.Trim();
-            var placeChoice = string.IsNullOrEmpty(placeText) ? null
-                : s.Trip!.Entities.Values.FirstOrDefault(p => p.Type == "place" && string.Equals(p.Title, placeText, StringComparison.CurrentCultureIgnoreCase)) is { } known ? PlaceChoice.Existing(known.Id) : PlaceChoice.Create(placeText);
+            LocalTime? startTime = start.SelectedTime is { } t ? LocalTime.FromTimeOnly(TimeOnly.FromTimeSpan(t)) : null;
+            LocalTime? endTime = end.SelectedTime is { } e ? LocalTime.FromTimeOnly(TimeOnly.FromTimeSpan(e)) : null;
+            Duration? length = startTime is { } a && endTime is { } b ? (b > a ? b - a : b - a + Period.FromDays(1)).ToDuration() : null;
+            var placeChoice = Choice(place.Text); var fromChoice = Choice(from.Text);
             decimal? money = null;
             if (kind == "expense")
             {
                 if (!decimal.TryParse(amount.Text?.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)) throw new DomainException("mobile.amount", s.Strings["EnterAmount"]);
                 money = value;
             }
-            if (editing is not null) { await s.SaveEditAsync(editing.Id, title.Text!, body.Text, Scheduled ? day : null, Scheduled ? from : null, length, money); return; }
+            if (editing is not null)
+            {
+                await s.SaveEditAsync(editing.Id, title.Text!, body.Text, Scheduled ? day : null, Scheduled ? startTime : null, length, money);
+                // Only places the form changed are written, so an inherited place stays inherited.
+                if (editing.Type == "schedule_item" && Changed(place.Text, placeBefore)) await s.AssignPlaceAsync(editing.Id, journey ? PlaceSlot.To : PlaceSlot.Place, placeChoice);
+                if (journey && Changed(from.Text, fromBefore)) await s.AssignPlaceAsync(editing.Id, PlaceSlot.From, fromChoice);
+                return;
+            }
             var draft = new QuickAddDraft(kind == "idea" ? "activity" : kind, title.Text!)
             {
                 Date = Scheduled ? day : null,
-                Start = from,
+                Start = startTime,
                 Length = length,
                 Place = kind == "transport" ? null : placeChoice,
+                From = kind == "transport" ? fromChoice : null,
                 To = kind == "transport" ? placeChoice : null,
                 Body = kind == "note" ? body.Text : null,
                 Amount = money,

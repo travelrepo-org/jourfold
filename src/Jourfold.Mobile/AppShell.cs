@@ -29,6 +29,8 @@ public sealed class AppShell : UserControl
     private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
     private Border? bottomBar;
+    // The map stays while its trip is open, so it keeps its position and tiles when the page is drawn again.
+    private MapPage? map;
     // Redrawing replaces every control on the page, so a text field being typed in would lose its focus and the
     // keyboard would close. While someone types, redraws that only refresh data wait until the field is left.
     private bool pending, acting, keyboard;
@@ -144,7 +146,7 @@ public sealed class AppShell : UserControl
         {
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
             MobileTab.Plan => PlanView.Build(Session, Breakpoint),
-            MobileTab.Map => MapView.Build(Session, Breakpoint),
+            MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };
         // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
@@ -157,6 +159,14 @@ public sealed class AppShell : UserControl
         }
         else main.Child = docked ? Ui.Columns("Auto,*,400", Rail(), page, DetailColumn()) : Ui.Columns("Auto,*", Rail(), page);
         Overlays(docked);
+    }
+
+    private Control Map()
+    {
+        if (map is null || !map.Shows(Session.Workspace)) map = new MapPage(Session);
+        Ui.Detach(map);
+        map.Update(Breakpoint);
+        return map;
     }
 
     /// <summary>The details as a fixed column on wide screens: no handle, a close button instead.</summary>
@@ -177,8 +187,9 @@ public sealed class AppShell : UserControl
     {
         var want = docked ? Overlay.None : Session.Showing;
         var item = Session.OverlayItem is { } id ? Session.Trip?.Find(id) : null;
-        if (want != Overlay.None && want != Overlay.QuickAdd && item is null) want = Overlay.None;
-        var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor;
+        // A new place has no item yet; everything else needs one that still exists.
+        if (want is not (Overlay.None or Overlay.QuickAdd) && item is null && !(want == Overlay.Place && Session.OverlayItem is null)) want = Overlay.None;
+        var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor or Overlay.Place;
         if (!keep)
         {
             // Details open at the glance detent: time, place, reference and Navigate. Dragging up shows more.
@@ -190,6 +201,7 @@ public sealed class AppShell : UserControl
                 Overlay.Details => new Sheet(DetailView.Header(Session, item!, Session.CloseOverlay), DetailView.Body(Session, item!), [0.4, 0.62, 0.94], detent, side, item!.Title),
                 Overlay.QuickAdd or Overlay.Editor => new QuickAddView(Session, want == Overlay.Editor ? item : null) is var form
                     ? new Sheet(form.Header, form.View, [0.94], 0, side, Session.Strings[want == Overlay.Editor ? "Edit" : "QuickAdd"]) : null,
+                Overlay.Place => new PlaceView(Session, item) is var place ? new Sheet(place.Header, place.View, [0.94], 0, side, item?.Title ?? Session.Strings["AddPlace"]) : null,
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);

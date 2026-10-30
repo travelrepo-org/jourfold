@@ -7,7 +7,7 @@ using TravelRepo.Core;
 namespace Jourfold.Mobile.Views;
 
 /// <summary>
-/// Everything that is not a daily place: bookings, tasks and costs of the trip, the travellers, sync and versions,
+/// Everything that is not a daily place: bookings, tasks, places and costs of the trip, the travellers, sync and versions,
 /// and the app's settings. Each row says the most useful thing about its page.
 /// </summary>
 public static class MoreView
@@ -19,10 +19,12 @@ public static class MoreView
         var openTasks = OpenTasks(trip);
         var currencies = TripSummaries.Costs(trip).Select(c => c.Currency).ToArray();
         var people = trip.Entities.Values.Count(e => e.Type == "person");
+        var places = trip.Entities.Values.Count(e => e.Type == "place");
         var page = Ui.V(18, Lines.TripHeader(s),
             Group(str["TripTools"],
                 Row(s, "bookings", "ticket", str["Bookings"], string.Format(CultureInfo.CurrentCulture, str["CountBookings"], bookings)),
                 Row(s, "tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], openTasks)),
+                Row(s, "places", "map-pin", str["Places"], string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places)),
                 Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),
             Group(str["TripTogether"],
                 Row(s, "travellers", "users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),

@@ -33,6 +33,38 @@ public static partial class Coordinates
             && IsLatitude(latitude) && IsLongitude(longitude);
     }
 
+    /// <summary>
+    /// Reads a position from a map link or a geo URI as map apps share them: Google Maps (<c>@lat,lon</c>,
+    /// <c>q=</c>, <c>query=</c>, <c>ll=</c>, <c>!3d…!4d…</c>), Apple Maps (<c>ll=</c>, <c>q=</c>), OpenStreetMap
+    /// (<c>mlat</c>/<c>mlon</c>, <c>#map=zoom/lat/lon</c>) and <c>geo:lat,lon</c>. Short links that need the network to
+    /// resolve, such as maps.app.goo.gl, are not read. A plain pair works too.
+    /// </summary>
+    public static bool TryParseLink(string? text, out double latitude, out double longitude)
+    {
+        latitude = longitude = 0; text = text?.Trim();
+        if (string.IsNullOrEmpty(text)) return false;
+        if (TryParsePair(text, out latitude, out longitude)) return true;
+        var decoded = Uri.UnescapeDataString(text.Replace('+', ' '));
+        foreach (var pattern in Links())
+            if (pattern.Match(decoded) is { Success: true } m
+                && double.TryParse(m.Groups["lat"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out latitude)
+                && double.TryParse(m.Groups["lon"].Value, NumberStyles.Float, CultureInfo.InvariantCulture, out longitude)
+                && IsLatitude(latitude) && IsLongitude(longitude)) return true;
+        latitude = longitude = 0; return false;
+    }
+
+    private const string Number = @"[+-]?\d{1,3}(?:\.\d+)?";
+    private static Regex[] Links() =>
+    [
+        // A place's own position comes before the map's centre in Google links.
+        new(@"!3d(?<lat>" + Number + @")!4d(?<lon>" + Number + ")"),
+        new(@"^geo:(?<lat>" + Number + @"),(?<lon>" + Number + ")"),
+        new(@"[?&](?:q|query|ll|sll|daddr|destination)=(?<lat>" + Number + @")\s*,\s*(?<lon>" + Number + ")"),
+        new(@"[?&]mlat=(?<lat>" + Number + @")&mlon=(?<lon>" + Number + ")"),
+        new(@"#map=\d+/(?<lat>" + Number + @")/(?<lon>" + Number + ")"),
+        new(@"@(?<lat>" + Number + @"),(?<lon>" + Number + ")")
+    ];
+
     [GeneratedRegex(@"^[+-]?\d{1,3}([.,]\d+)?$")]
     private static partial Regex Single();
 

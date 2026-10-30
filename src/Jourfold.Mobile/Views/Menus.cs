@@ -72,7 +72,7 @@ public static class Menus
         };
         if (item.Type == "schedule_item") actions.Add(new(str["ChangeStatus"], "check", _ => { s.ShowMenu(Status(s, item)); return Task.CompletedTask; }));
         if (Navigation.Target(trip, item) is { } target)
-            actions.Add(new(str["Navigate"], "navigation", async top => { if (top?.Launcher is { } launcher) await launcher.LaunchUriAsync(Navigation.Link(target.Lat, target.Lon, target.Name)); }));
+            actions.Add(new(str["Navigate"], "navigation", async top => { if (top?.Launcher is { } launcher) await launcher.LaunchUriAsync(Navigation.Link(target.Lat, target.Lon, target.Name, target.Query)); }));
         if (Lines.BookingReference(trip, item) is { Length: > 0 } reference)
             actions.Add(new(string.Format(CultureInfo.CurrentCulture, str["CopyReferenceValue"], reference), "copy", async top => { if (top?.Clipboard is { } clipboard) await clipboard.SetTextAsync(reference); }));
         // A stay's nights are changed in the stay itself; moving a single night would split it.

@@ -11,8 +11,8 @@ public sealed record TripCard(string Path, TripSnapshot Trip, TravelRepository R
 /// <summary>The four places of the phone's bottom bar.</summary>
 public enum MobileTab { Today, Plan, Map, More }
 
-/// <summary>What is open over the page: an item's details, Quick Add, or the editor for an item.</summary>
-public enum Overlay { None, Details, QuickAdd, Editor }
+/// <summary>What is open over the page: an item's details, Quick Add, the editor for an item, or a place.</summary>
+public enum Overlay { None, Details, QuickAdd, Editor, Place }
 
 /// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
 public sealed record Question(string Text, string Action, Func<Task> Run);
@@ -266,11 +266,12 @@ public sealed partial class MobileSession : IDisposable
     public void ShowDetails(Guid id) { Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
     public void ShowQuickAdd() { Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
     public void ShowEditor(Guid id) { Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
-    /// <summary>Closes what is on top: a question or menu first, otherwise the sheet.</summary>
+    /// <summary>Closes what is on top: a question or menu first, otherwise the sheet. A place opened from an item's details goes back to them.</summary>
     public void CloseOverlay()
     {
         if (Asking is not null || Menu is not null) { Asking = null; Menu = null; }
-        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; }
+        else if (Showing == Overlay.Place && PlaceFor is { } from) { Showing = Overlay.Details; OverlayItem = from.Item; PlaceFor = null; }
+        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; PlaceFor = null; }
         else return;
         Changed?.Invoke();
     }

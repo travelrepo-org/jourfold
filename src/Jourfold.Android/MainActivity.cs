@@ -25,7 +25,8 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         string? Built(string key) => typeof(JourfoldApplication).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
-            () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"));
+            () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
+            Locate: AndroidLocation.LocateAsync);
         base.OnCreate();
     }
 
@@ -44,10 +45,22 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
     ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 public sealed class MainActivity : AvaloniaMainActivity
 {
+    /// <summary>The activity on screen, for questions such as the location permission.</summary>
+    public static MainActivity? Current { get; private set; }
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        Current = this;
         AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
         base.OnCreate(savedInstanceState);
+    }
+
+    protected override void OnDestroy() { if (Current == this) Current = null; base.OnDestroy(); }
+
+    public override void OnRequestPermissionsResult(int requestCode, string[] permissions, Permission[] grantResults)
+    {
+        base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
+        AndroidLocation.Answered(requestCode, grantResults);
     }
 
     /// <summary>Leaving the app turns open changes into a version right away; Android may stop the app at any time after.</summary>

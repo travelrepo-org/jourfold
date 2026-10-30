@@ -2,7 +2,9 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
+using Avalonia.Automation;
 using Avalonia.Layout;
+using Jourfold.Application;
 using TravelRepo.Core;
 using TravelRepo.Repository;
 
@@ -40,7 +42,8 @@ public static class DetailView
             var other = string.Join(" · ", new[] { travel, time.Other }.OfType<string>());
             page.Children.Add(Row("clock", day + time.Primary + (time.Arrival is { } arrival ? " → " + arrival : ""), other.Length > 0 ? other : null, s));
         }
-        if (Lines.Where(trip, item) is { Length: > 0 } where)
+        if (item.Type == "schedule_item") foreach (var slot in PlaceEdits.Slots(item)) page.Children.Add(PlaceRow(s, item, slot));
+        else if (Lines.Where(trip, item) is { Length: > 0 } where)
             page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString(), s));
         var booking = Booking(trip, item);
         if (booking?.Data["reference"]?.ToString() is { Length: > 0 } reference) page.Children.Add(Copyable(s, "ticket", reference, booking.Title));
@@ -111,6 +114,32 @@ public static class DetailView
         var main = Ui.Text(text); var second = detail is null ? null : Ui.Text(detail, "caption");
         if (s is not null) { main.Copies(s, copy); second?.Copies(s, copyDetail); }
         return Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0), Ui.V(1, main, second));
+    }
+
+    /// <summary>
+    /// A place of the item that opens the place, to change its name, address or position; for a journey its start and
+    /// end. Without a place, a button adds one.
+    /// </summary>
+    private static Control PlaceRow(MobileSession s, Entity item, PlaceSlot slot)
+    {
+        var str = s.Strings; var place = PlaceEdits.Current(s.Trip!, item, slot);
+        var label = slot switch { PlaceSlot.From => str["From"], PlaceSlot.To => str["To"], _ => null };
+        if (place is null)
+        {
+            var add = Ui.Button(label is null ? str["PlaceMissing"] : label + ": " + str["PlaceMissing"], "map-pin", "ghost", "compact");
+            add.Click += (_, _) => s.ShowPlace(null, item.Id, slot);
+            return add.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        }
+        var detail = Places.Address(place) ?? (Places.Location(place) is { } at ? PlaceEdits.Format(at.Latitude, at.Longitude) : str["NoPositionYet"]);
+        var row = new Button
+        {
+            Content = Ui.Columns("Auto,*,Auto", Ui.Icon("map-pin", 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
+                Ui.V(1, Ui.Text(label is null ? place.Title : label + ": " + place.Title), Ui.Text(detail, "caption")),
+                Ui.Icon("pencil", 16, "Text.Subtle").Margin(8, 2, 0, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top))
+        }.Classed("row");
+        AutomationProperties.SetName(row, str["ChangePlace"] + ": " + place.Title);
+        row.Click += (_, _) => s.ShowPlace(place.Id, item.Id, slot);
+        return row;
     }
 
     /// <summary>A file of the item, such as the booking e-mail or a ticket, which opens in the viewer.</summary>

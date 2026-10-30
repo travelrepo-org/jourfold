@@ -90,6 +90,64 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APlaceTakesAPastedPositionAndBecomesTheItemsPlace()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            var breakfast = session.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.First(e => e.Item.Title == "Breakfast at Tsukiji").Item;
+            await session.AssignPlaceAsync(breakfast.Id, Jourfold.Application.PlaceSlot.Place, null);
+            Assert.Null(Jourfold.Application.PlaceEdits.Current(session.Trip!, session.Trip!.Find(breakfast.Id)!, Jourfold.Application.PlaceSlot.Place));
+
+            // From the details, a new place goes straight into the item.
+            session.ShowDetails(breakfast.Id); session.ShowPlace(null, breakfast.Id, Jourfold.Application.PlaceSlot.Place); Probe.Layout();
+            TextBox Box(string name) => window.GetVisualDescendants().OfType<TextBox>().Single(b => AutomationProperties.GetName(b) == name);
+            Box("Title").Text = "Tsukiji Outer Market stall";
+            // Typing a pair character by character does not split it early; pasting it does.
+            Box("Latitude").Text = "35.6"; Assert.Equal("35.6", Box("Latitude").Text); Assert.True(string.IsNullOrEmpty(Box("Longitude").Text));
+            Box("Latitude").Text = "35.6655, 139.7707"; Probe.Layout();
+            Assert.Equal("35.6655", Box("Latitude").Text); Assert.Equal("139.7707", Box("Longitude").Text);
+            // A map link pasted into the address gives the position too and leaves the address empty.
+            Box("Address").Text = "https://www.google.com/maps/@35.6654,139.7706,17z"; Probe.Layout();
+            Assert.Equal("35.6654", Box("Latitude").Text); Assert.True(string.IsNullOrEmpty(Box("Address").Text));
+            Probe.Click(window, "Save");
+            await Probe.Until(() => session.Showing == Overlay.Details);
+            var place = Jourfold.Application.PlaceEdits.Current(session.Trip!, session.Trip!.Find(breakfast.Id)!, Jourfold.Application.PlaceSlot.Place)!;
+            Assert.Equal("Tsukiji Outer Market stall", place.Title);
+            Assert.Equal((35.6654, 139.7706), TravelRepo.Core.Places.Location(place));
+            Assert.Equal(breakfast.Id, session.OverlayItem);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheMapShowsTheDaysStopsInOrder()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowTab(MobileTab.Map); session.ShowDate(new LocalDate(2027, 5, 16)); Probe.Layout();
+            IEnumerable<string?> Names() { Probe.Layout(); return window.GetVisualDescendants().OfType<Button>().Select(AutomationProperties.GetName); }
+            Assert.Contains("1. Breakfast at Tsukiji", Names()); Assert.Contains("3. teamLab Planets", Names());
+            // Online maps stay off until the user turns them on.
+            Assert.False(session.Settings.OnlineMaps);
+            Assert.Contains("Show street map", Names());
+            var map = window.GetVisualDescendants().OfType<MapPage>().Single();
+            session.Select(session.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.First(e => e.Item.Title.StartsWith("teamLab", StringComparison.Ordinal)).Item.Id);
+            Assert.Contains("Navigate", Names()); Assert.Contains("Details", Names());
+            // The map is the same control after the page was drawn again, so it keeps its position.
+            Assert.Same(map, window.GetVisualDescendants().OfType<MapPage>().Single());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task ANoticeShowsAboveTheDetailsAndGoesAway()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

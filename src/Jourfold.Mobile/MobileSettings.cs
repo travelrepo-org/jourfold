@@ -6,7 +6,7 @@ namespace Jourfold.Mobile;
 /// This phone's settings, in a small file in the app's private folder. Never part of a trip; secrets such as the
 /// GitHub token are kept by the platform's secure storage, not here.
 /// </summary>
-public sealed class MobileSettings
+public sealed class MobileSettings : Jourfold.Application.IValueStore
 {
     private string path = "";
     /// <summary>The name versions made on this phone are saved under.</summary>
@@ -18,6 +18,13 @@ public sealed class MobileSettings
     public string? GitHubLogin { get; set; }
     /// <summary>When each trip folder last synced, by folder name.</summary>
     public Dictionary<string, DateTimeOffset> LastSync { get; set; } = [];
+    /// <summary>Whether the map shows street tiles and places can be searched online. Off until the user turns it on.</summary>
+    public bool OnlineMaps { get; set; }
+    /// <summary>Small values kept for shared code, such as the downloaded list of map servers.</summary>
+    public Dictionary<string, string> Values { get; set; } = [];
+
+    string? Jourfold.Application.IValueStore.Get(string key) => Values.GetValueOrDefault(key);
+    void Jourfold.Application.IValueStore.Set(string key, string value) { Values[key] = value; Save(); }
 
     public static MobileSettings Load(string path)
     {

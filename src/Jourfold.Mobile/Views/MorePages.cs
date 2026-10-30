@@ -20,6 +20,7 @@ public static class MorePages
     {
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
+        "places" => Places(s),
         "costs" => Costs(s, width),
         "travellers" => Travellers(s),
         "sync" => Sync(s),
@@ -67,6 +68,32 @@ public static class MorePages
     }
 
     private static Control Empty(string icon, string title, string body) => Ui.Card(Ui.EmptyState(icon, title, body), 0).Margin(16, 0);
+
+    /// <summary>The trip's places by name, each with its address or position; a tap opens it to change, and a button adds one.</summary>
+    private static Control Places(MobileSession s)
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        var places = trip.Entities.Values.Where(e => e.Type == "place").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        var add = Ui.Button(str["AddPlace"], "plus", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        add.Click += (_, _) => s.ShowPlace(null);
+        if (places.Length == 0) return Frame(s, str["Places"], Empty("map-pin", str["NoPlacesYet"], str["NoPlacesYetBody"]), add.Margin(16, 0));
+        var rows = places.Select(place =>
+        {
+            var position = TravelRepo.Core.Places.Location(place);
+            var detail = TravelRepo.Core.Places.Address(place) ?? (position is { } at ? Jourfold.Application.PlaceEdits.Format(at.Latitude, at.Longitude) : str["NoPositionYet"]);
+            var row = new Button
+            {
+                Content = Ui.Columns("Auto,*,Auto", Ui.Icon("map-pin", 18, position is null ? "Warning" : "Text.Muted").Margin(0, 0, 14, 0),
+                    Ui.V(1, Ui.Text(place.Title, "strong"), Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle"))
+            }.Classed("row");
+            AutomationProperties.SetName(row, place.Title + ", " + detail);
+            row.Click += (_, _) => s.ShowPlace(place.Id);
+            return (Control)row;
+        }).ToList();
+        var missing = places.Count(p => TravelRepo.Core.Places.Location(p) is null);
+        return Frame(s, str["Places"], add.Margin(16, 0), Group(string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places.Length), rows),
+            missing > 0 ? Ui.Text(str["PlacesWithoutPosition"], "caption").Margin(20, 0) : null);
+    }
 
     private static string Day(LocalDate date, MobileSession s) => Lines.DayShort(date, s.Strings);
 

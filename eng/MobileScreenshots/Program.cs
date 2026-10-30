@@ -65,6 +65,15 @@ try
         await Capture("plan-flight");
         s.ShowTab(MobileTab.Map); s.ShowDate(new LocalDate(2027, 5, 16));
         await Capture("map");
+        s.Select(teamLab.Item.Id);
+        await Capture("map-selected");
+        await Capture("tablet-map", 1194, 834);
+        s.ShowDate(new LocalDate(2027, 5, 16));
+        s.ShowPage("places");
+        await Capture("places");
+        s.ShowPlace(s.Trip!.Entities.Values.First(e => e.Type == "place" && e.Title.StartsWith("Hotel Gracery", StringComparison.Ordinal)).Id);
+        await Capture("place");
+        s.CloseOverlay();
         s.ShowTab(MobileTab.More);
         await Capture("more");
         s.ShowPage("bookings");

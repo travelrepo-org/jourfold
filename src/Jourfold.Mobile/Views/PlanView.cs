@@ -80,7 +80,7 @@ public static class PlanView
     }
 
     /// <summary>One chip per trip day; the phone's today has a dot under its number.</summary>
-    private static Control DateStrip(MobileSession s)
+    internal static Control DateStrip(MobileSession s)
     {
         var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
         var strip = Ui.H(4);

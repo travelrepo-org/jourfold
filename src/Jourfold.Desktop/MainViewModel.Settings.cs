@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 using CommunityToolkit.Mvvm.Input;
 using Jourfold.Infrastructure;
 using TravelRepo.Core;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 

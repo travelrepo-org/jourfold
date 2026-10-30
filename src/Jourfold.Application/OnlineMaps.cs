@@ -7,7 +7,14 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
-namespace Jourfold.Infrastructure;
+namespace Jourfold.Application;
+
+/// <summary>Where an app keeps its own small settings, such as the chosen map servers: the desktop's local database or the phone's settings file.</summary>
+public interface IValueStore
+{
+    string? Get(string key);
+    void Set(string key, string value);
+}
 
 /// <summary>
 /// The servers behind online maps: a raster tile server and a Nominatim-compatible address search. Online maps are
@@ -47,7 +54,7 @@ public static class MapProviders
             ? new Uri($"https://raw.githubusercontent.com/{owner}/{name}/main/config/map-providers.json") : null;
 
     /// <summary>Own servers from Settings, else the last downloaded list, else OpenStreetMap.</summary>
-    public static MapProvider Current(LocalStore store)
+    public static MapProvider Current(IValueStore store)
     {
         var listed = Parse(store.Get(ListKey)) ?? MapProvider.OpenStreetMap;
         var own = listed with
@@ -60,10 +67,10 @@ public static class MapProviders
     }
 
     /// <summary>True when the person entered their own tile or search server.</summary>
-    public static bool HasOwnServers(LocalStore store) => Value(store, TilesKey) is not null || Value(store, SearchKey) is not null;
+    public static bool HasOwnServers(IValueStore store) => Value(store, TilesKey) is not null || Value(store, SearchKey) is not null;
 
     /// <summary>Downloads the provider list when the last check is older than a day. Failures keep the previous list.</summary>
-    public static async Task RefreshAsync(LocalStore store, HttpClient http, CancellationToken ct = default)
+    public static async Task RefreshAsync(IValueStore store, HttpClient http, CancellationToken ct = default)
     {
         if (ListUrl is not { } url) return;
         if (DateTimeOffset.TryParse(store.Get(CheckedKey), CultureInfo.InvariantCulture, DateTimeStyles.None, out var last) && DateTimeOffset.UtcNow - last < CheckInterval) return;
@@ -93,7 +100,7 @@ public static class MapProviders
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or FormatException) { return null; }
     }
 
-    private static string? Value(LocalStore store, string key) => store.Get(key) is { Length: > 0 } value ? value.Trim() : null;
+    private static string? Value(IValueStore store, string key) => store.Get(key) is { Length: > 0 } value ? value.Trim() : null;
 }
 
 /// <summary>Identifies Jourfold to map servers with its version and a contact address, as their usage policies ask.</summary>
@@ -107,7 +114,7 @@ public static class OnlineIdentity
         var assembly = typeof(OnlineIdentity).Assembly;
         var version = (assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0").Split('+')[0];
         var contact = assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "RepositoryUrl")?.Value;
-        return "Jourfold/" + version + (string.IsNullOrEmpty(contact) ? " (desktop trip planner)" : " (+" + contact + ")");
+        return "Jourfold/" + version + (string.IsNullOrEmpty(contact) ? " (trip planner)" : " (+" + contact + ")");
     }
 }
 

@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 
@@ -85,12 +86,12 @@ public sealed partial class Dialogs
             // Own map servers, for example a commercial provider with a key in the URL. Empty fields use the default servers.
             Control MapServers()
             {
-                var store = model.Store; var current = Jourfold.Infrastructure.MapProviders.Current(store);
+                var store = model.Store; var current = Jourfold.Application.MapProviders.Current(store);
                 TextBox Box(string key, string label, string watermark) { var box = new TextBox { Text = store.Get(key) ?? "", PlaceholderText = watermark, Tag = key }; AutomationProperties.SetName(box, label); return box; }
-                var defaults = Jourfold.Infrastructure.MapProvider.OpenStreetMap;
-                var tiles = Box(Jourfold.Infrastructure.MapProviders.TilesKey, s["MapTilesServer"], defaults.TilesUrl);
-                var attribution = Box(Jourfold.Infrastructure.MapProviders.AttributionKey, s["MapAttribution"], defaults.Attribution);
-                var search = Box(Jourfold.Infrastructure.MapProviders.SearchKey, s["MapSearchServer"], defaults.SearchUrl);
+                var defaults = Jourfold.Application.MapProvider.OpenStreetMap;
+                var tiles = Box(Jourfold.Application.MapProviders.TilesKey, s["MapTilesServer"], defaults.TilesUrl);
+                var attribution = Box(Jourfold.Application.MapProviders.AttributionKey, s["MapAttribution"], defaults.Attribution);
+                var search = Box(Jourfold.Application.MapProviders.SearchKey, s["MapSearchServer"], defaults.SearchUrl);
                 var problem = Ui.Text(s["MapServersInvalid"], "caption").Res(TextBlock.ForegroundProperty, "Danger").Also(t => { t.IsVisible = false; t.TextWrapping = TextWrapping.Wrap; });
                 var save = Ui.Button(s["Save"], "check", "primary"); var reset = Ui.Button(s["UseDefaultServers"], "rotate-ccw", "ghost");
                 save.Click += (_, _) =>
@@ -98,14 +99,14 @@ public sealed partial class Dialogs
                     string Or(TextBox box, string fallback) => string.IsNullOrWhiteSpace(box.Text) ? fallback : box.Text.Trim();
                     var candidate = current with { TilesUrl = Or(tiles, current.TilesUrl), Attribution = Or(attribution, current.Attribution), SearchUrl = Or(search, current.SearchUrl) };
                     if (!candidate.IsValid) { problem.IsVisible = true; return; }
-                    store.Set(Jourfold.Infrastructure.MapProviders.TilesKey, tiles.Text?.Trim() ?? ""); store.Set(Jourfold.Infrastructure.MapProviders.AttributionKey, attribution.Text?.Trim() ?? ""); store.Set(Jourfold.Infrastructure.MapProviders.SearchKey, search.Text?.Trim() ?? "");
+                    store.Set(Jourfold.Application.MapProviders.TilesKey, tiles.Text?.Trim() ?? ""); store.Set(Jourfold.Application.MapProviders.AttributionKey, attribution.Text?.Trim() ?? ""); store.Set(Jourfold.Application.MapProviders.SearchKey, search.Text?.Trim() ?? "");
                     Toast(s["MapServersSaved"]); model.RaiseContentChanged(); Render();
                 };
-                reset.Click += (_, _) => { foreach (var key in new[] { Jourfold.Infrastructure.MapProviders.TilesKey, Jourfold.Infrastructure.MapProviders.AttributionKey, Jourfold.Infrastructure.MapProviders.SearchKey }) store.Set(key, ""); model.RaiseContentChanged(); Render(); };
+                reset.Click += (_, _) => { foreach (var key in new[] { Jourfold.Application.MapProviders.TilesKey, Jourfold.Application.MapProviders.AttributionKey, Jourfold.Application.MapProviders.SearchKey }) store.Set(key, ""); model.RaiseContentChanged(); Render(); };
                 var form = Ui.V(10, Ui.Text(s["MapServersHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap),
                     Ui.Field(s["MapTilesServer"], tiles), Ui.Field(s["MapAttribution"], attribution), Ui.Field(s["MapSearchServer"], search), problem, Ui.H(8, save, reset));
-                var source = Jourfold.Infrastructure.MapProviders.HasOwnServers(store) ? s["MapServersOwn"] : s["MapServersDefault"];
-                return new Expander { Header = Ui.V(2, Ui.Text(s["MapServers"], "strong"), Ui.Text(string.Format(source, new Uri(current.TilesUrl.Replace("{z}", "0").Replace("{x}", "0").Replace("{y}", "0")).Host), "caption")), Content = form, HorizontalAlignment = HorizontalAlignment.Stretch, IsExpanded = Jourfold.Infrastructure.MapProviders.HasOwnServers(store) };
+                var source = Jourfold.Application.MapProviders.HasOwnServers(store) ? s["MapServersOwn"] : s["MapServersDefault"];
+                return new Expander { Header = Ui.V(2, Ui.Text(s["MapServers"], "strong"), Ui.Text(string.Format(source, new Uri(current.TilesUrl.Replace("{z}", "0").Replace("{x}", "0").Replace("{y}", "0")).Host), "caption")), Content = form, HorizontalAlignment = HorizontalAlignment.Stretch, IsExpanded = Jourfold.Application.MapProviders.HasOwnServers(store) };
             }
             switch (settingsPage)
             {
@@ -133,7 +134,7 @@ public sealed partial class Dialogs
                 case "MapsAndPlaces":
                     page.Children.Add(Ui.Card(Ui.Columns("Auto,*", Ui.Icon("shield", 18, "Accent"), Ui.Text(s["OnlineMapsPrivacy"], "muted").Margin(12, 0, 0, 0)), 14));
                     Row(s["OnlineMaps"], s["OnlineMapsHint"], Toggle(model.OnlineMaps, model.SetOnlineMaps, s["OnlineMaps"]));
-                    Row(s["ClearMapCache"], string.Format(s["MapCacheSize"], Formats.Bytes(Jourfold.Infrastructure.MapTiles.CacheSize(model.Store.Root)), Formats.Bytes(Jourfold.Infrastructure.MapTiles.MaxCacheBytes)), Run("ClearMapCache", "trash-2"));
+                    Row(s["ClearMapCache"], string.Format(s["MapCacheSize"], Formats.Bytes(Jourfold.Application.MapTiles.CacheSize(model.Store.Root)), Formats.Bytes(Jourfold.Application.MapTiles.MaxCacheBytes)), Run("ClearMapCache", "trash-2"));
                     page.Children.Add(MapServers().Margin(0, 12, 0, 0));
                     break;
                 case "Weather":

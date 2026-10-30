@@ -9,6 +9,7 @@ using Avalonia.Threading;
 using Jourfold.Infrastructure;
 using TravelRepo.Core;
 using TravelRepo.Documents;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 

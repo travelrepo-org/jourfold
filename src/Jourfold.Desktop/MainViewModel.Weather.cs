@@ -2,6 +2,7 @@ using Jourfold.Infrastructure;
 using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Providers.Weather;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 

@@ -6,6 +6,7 @@ using Jourfold.Infrastructure;
 using TravelRepo.Core;
 using TravelRepo.Documents;
 using TravelRepo.Repository;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 

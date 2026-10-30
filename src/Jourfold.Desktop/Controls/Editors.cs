@@ -12,6 +12,7 @@ using Jourfold.Infrastructure;
 using NodaTime;
 using NodaTime.Text;
 using TravelRepo.Core;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 

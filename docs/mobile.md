@@ -66,6 +66,16 @@ the desktop and the cache in the app's private folder. A docked sheet lists the 
 only its handle, in the middle it shows the list, and a tapped pin or stop comes first with Navigate and Details. On
 tablets the list is a column on the right. The map stays while its trip is open, so it keeps its position and tiles.
 
+## Sharing to Jourfold
+
+Other apps share to Jourfold through the system share sheet. Files such as tickets, PDFs, e-mails and images are
+read right away and go to an item of the plan or a booking, or only into the trip's files (**More → Files**); files
+above 25 MB are left to the desktop. A place from a maps app opens as a new place or as the place of an item, with
+its name, address and position taken from the shared text. A short link such as maps.app.goo.gl carries no
+position; on request the app asks the maps service where it leads, and sends nothing else. Other text becomes a
+note or goes to the end of an item's notes. Shared before a trip is open, the trip list asks which trip it belongs
+to. In the details, **Attach a file** picks files on the device.
+
 ## Files
 
 Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date, attachments and their text,

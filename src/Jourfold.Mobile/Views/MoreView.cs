@@ -20,11 +20,13 @@ public static class MoreView
         var currencies = TripSummaries.Costs(trip).Select(c => c.Currency).ToArray();
         var people = trip.Entities.Values.Count(e => e.Type == "person");
         var places = trip.Entities.Values.Count(e => e.Type == "place");
+        var files = trip.Entities.Values.Count(e => e.Type == "document");
         var page = Ui.V(18, Lines.TripHeader(s),
             Group(str["TripTools"],
                 Row(s, "bookings", "ticket", str["Bookings"], string.Format(CultureInfo.CurrentCulture, str["CountBookings"], bookings)),
                 Row(s, "tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], openTasks)),
                 Row(s, "places", "map-pin", str["Places"], string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places)),
+                Row(s, "files", "paperclip", str["Files"], string.Format(CultureInfo.CurrentCulture, str["CountFiles"], files)),
                 Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),
             Group(str["TripTogether"],
                 Row(s, "travellers", "users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),

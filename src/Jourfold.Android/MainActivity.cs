@@ -41,8 +41,11 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
     }
 }
 
-[Activity(Label = "Jourfold", Theme = "@style/Theme.Jourfold.Starting", MainLauncher = true, Exported = true,
-    ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+// Tickets, PDFs, e-mails and places come in through the system share sheet.
+[IntentFilter([Intent.ActionSend, Intent.ActionSendMultiple], Categories = [Intent.CategoryDefault], DataMimeType = "*/*")]
+[Activity(Label = "Jourfold", Theme = "@style/Theme.Jourfold.Starting", MainLauncher = true, Exported = true, LaunchMode = LaunchMode.SingleTask,
+    ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density
+        | ConfigChanges.Keyboard | ConfigChanges.KeyboardHidden | ConfigChanges.Navigation)]
 public sealed class MainActivity : AvaloniaMainActivity
 {
     /// <summary>The activity on screen, for questions such as the location permission.</summary>
@@ -53,6 +56,19 @@ public sealed class MainActivity : AvaloniaMainActivity
         Current = this;
         AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
         base.OnCreate(savedInstanceState);
+        // Not again when Android rebuilds the activity, for example after the screen turned.
+        if (savedInstanceState is null) Share(Intent);
+    }
+
+    protected override void OnNewIntent(Intent? intent)
+    {
+        base.OnNewIntent(intent);
+        Share(intent);
+    }
+
+    private void Share(Intent? intent)
+    {
+        if (AndroidSharing.Read(this, intent) is { } shared) Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.Session?.Receive(shared));
     }
 
     protected override void OnDestroy() { if (Current == this) Current = null; base.OnDestroy(); }

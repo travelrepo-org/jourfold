@@ -41,7 +41,11 @@ public sealed class PlaceView
             name.Text = place.Title; address.Text = Places.Address(place);
             if (Places.Location(place) is { } at) Fill(at.Latitude, at.Longitude);
         }
-        else if (s.PlaceFor is null && s.Drafts.GetValueOrDefault("place.name") is { } typed) name.Text = typed;
+        else if (s.PlaceDraft is { } draft)
+        {
+            name.Text = draft.Name; address.Text = draft.Address;
+            if (draft.Latitude is { } lat && draft.Longitude is { } lon) Fill(lat, lon);
+        }
         foreach (var box in new[] { latitude, longitude, address, name }) { lengths[box] = box.Text?.Length ?? 0; box.TextChanged += (_, _) => ReadPosition(box); }
 
         var close = Ui.IconButton("x", str["Close"]); close.Click += (_, _) => s.CloseOverlay();

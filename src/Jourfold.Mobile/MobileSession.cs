@@ -11,8 +11,8 @@ public sealed record TripCard(string Path, TripSnapshot Trip, TravelRepository R
 /// <summary>The four places of the phone's bottom bar.</summary>
 public enum MobileTab { Today, Plan, Map, More }
 
-/// <summary>What is open over the page: an item's details, Quick Add, the editor for an item, or a place.</summary>
-public enum Overlay { None, Details, QuickAdd, Editor, Place }
+/// <summary>What is open over the page: an item's details, Quick Add, the editor for an item, a place, or what another app shared.</summary>
+public enum Overlay { None, Details, QuickAdd, Editor, Place, Share }
 
 /// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
 public sealed record Question(string Text, string Action, Func<Task> Run);
@@ -115,6 +115,8 @@ public sealed partial class MobileSession : IDisposable
         await RefreshRemoteAsync(ct);
         // Changes left from the last time, for example when Android stopped the app, become a version soon.
         if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) NoteChange();
+        // Something shared before a trip was chosen goes into this one.
+        if (Incoming is not null) Showing = Overlay.Share;
         Changed?.Invoke();
         // Others may have changed the trip since it was last open here.
         if (GitHubLogin is not null && Remote is not null) _ = SyncAsync(quiet: true, CancellationToken.None);
@@ -271,6 +273,7 @@ public sealed partial class MobileSession : IDisposable
     {
         if (Asking is not null || Menu is not null) { Asking = null; Menu = null; }
         else if (Showing == Overlay.Place && PlaceFor is { } from) { Showing = Overlay.Details; OverlayItem = from.Item; PlaceFor = null; }
+        else if (Showing == Overlay.Share) { Incoming = null; Showing = Overlay.None; }
         else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; PlaceFor = null; }
         else return;
         Changed?.Invoke();

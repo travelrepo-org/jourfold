@@ -20,10 +20,13 @@ public sealed partial class MobileSession
     /// <summary>Shared by tiles and the address search, so their rules on parallel requests hold together.</summary>
     public HttpClient MapsHttp => mapsHttp ??= Host.Http is null ? new HttpClient { Timeout = TimeSpan.FromSeconds(20) } : new HttpClient(Host.Http, disposeHandler: false);
 
+    /// <summary>What a new place starts with, such as a place shared from a maps app.</summary>
+    public (string? Name, string? Address, double? Latitude, double? Longitude)? PlaceDraft { get; private set; }
+
     /// <summary>Opens a place: <paramref name="id"/> to change it, null for a new one. From an item, the place goes into <paramref name="slot"/> of it.</summary>
-    public void ShowPlace(Guid? id, Guid? forItem = null, PlaceSlot slot = PlaceSlot.Place)
+    public void ShowPlace(Guid? id, Guid? forItem = null, PlaceSlot slot = PlaceSlot.Place, (string? Name, string? Address, double? Latitude, double? Longitude)? draft = null)
     {
-        PlaceFor = forItem is { } item ? (item, slot) : null;
+        PlaceFor = forItem is { } item ? (item, slot) : null; PlaceDraft = draft;
         Showing = Overlay.Place; OverlayItem = id; Changed?.Invoke();
     }
 

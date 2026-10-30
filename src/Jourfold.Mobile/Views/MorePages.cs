@@ -21,6 +21,7 @@ public static class MorePages
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
         "places" => Places(s),
+        "files" => Files(s),
         "costs" => Costs(s, width),
         "travellers" => Travellers(s),
         "sync" => Sync(s),
@@ -68,6 +69,25 @@ public static class MorePages
     }
 
     private static Control Empty(string icon, string title, string body) => Ui.Card(Ui.EmptyState(icon, title, body), 0).Margin(16, 0);
+
+    /// <summary>The trip's files, newest name order, each opening in the viewer, with what it belongs to.</summary>
+    private static Control Files(MobileSession s)
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        var files = trip.Entities.Values.Where(e => e.Type == "document").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        if (files.Length == 0) return Frame(s, str["Files"], Empty("paperclip", str["NoFilesYet"], str["NoFilesYetBody"]));
+        var rows = files.Select(file =>
+        {
+            var owners = string.Join(", ", TripSummaries.ReferencesTo(trip, file.Id).Where(e => e.Type is "schedule_item" or "booking").Select(e => e.Title));
+            var media = file.Data["media_type"]?.ToString() ?? "";
+            var icon = TravelRepo.Documents.Mail.IsMail(media) ? "mail" : media == "application/pdf" ? "file-text" : media.StartsWith("image/", StringComparison.Ordinal) ? "image" : "file";
+            var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 18, "Text.Muted").Margin(0, 0, 14, 0), Ui.V(1, Ui.Text(file.Title, "strong"), owners.Length > 0 ? Ui.Text(owners, "caption") : null), Ui.Icon("chevron-right", 18, "Text.Subtle")) }.Classed("row");
+            AutomationProperties.SetName(row, file.Title);
+            row.Click += (_, _) => s.ShowDocument(file);
+            return (Control)row;
+        }).ToList();
+        return Frame(s, str["Files"], Group(string.Format(CultureInfo.CurrentCulture, str["CountFiles"], files.Length), rows));
+    }
 
     /// <summary>The trip's places by name, each with its address or position; a tap opens it to change, and a button adds one.</summary>
     private static Control Places(MobileSession s)

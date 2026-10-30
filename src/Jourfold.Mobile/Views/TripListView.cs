@@ -16,6 +16,14 @@ public static class TripListView
         var logo = new Image { Height = 30, HorizontalAlignment = HorizontalAlignment.Left, Stretch = Stretch.Uniform };
         logo.Bind(Image.SourceProperty, logo.GetResourceObservable(Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark ? "Brand.Lockup.Dark" : "Brand.Lockup.Light"));
         var page = Ui.V(14, logo.Margin(20, 16, 20, 4), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
+        // Something shared from another app waits for the trip it belongs to.
+        if (s.Incoming is { } shared)
+        {
+            var what = shared.Files.Count > 0 ? string.Join(", ", shared.Files.Select(f => f.Name)) : (shared.Lines.FirstOrDefault() ?? shared.Text ?? "");
+            var cancel = Ui.Button(s.Strings["Cancel"], null, "ghost", "compact"); cancel.Click += (_, _) => s.DropIncoming();
+            page.Children.Add(Ui.Card(Ui.V(6, Ui.Text(s.Strings["ChooseTripForShare"], "strong"), Ui.Text(what, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), cancel.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)), 14)
+                .Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent").Margin(16, 0));
+        }
         foreach (var trip in s.Trips) page.Children.Add(Card(s, trip).Margin(16, 0));
         if (s.Trips.Count == 0) page.Children.Add(Welcome(s).Margin(16, 0));
         var sample = Ui.Button(s.Strings["ExploreSample"], "sparkles", s.Trips.Count == 0 ? "primary" : "soft");

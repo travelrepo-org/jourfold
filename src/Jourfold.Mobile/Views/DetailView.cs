@@ -76,6 +76,7 @@ public static class DetailView
             if (TripSummaries.Money(cost.Data["amount"]) is { } money) page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), cost.Title, s));
         var files = TripReferences.From(item).Concat(booking is null ? [] : TripReferences.From(booking)).Select(r => trip.Find(r.Target)).OfType<Entity>().Where(e => e.Type == "document").DistinctBy(e => e.Id).ToArray();
         if (files.Length > 0) page.Children.Add(Section(str["Files"], Ui.V(0, files.Select(f => FileRow(s, f)).ToArray())));
+        if (item.Type is "schedule_item" or "booking") page.Children.Add(AttachButton(s, item));
         if (item.Type == "schedule_item") page.Children.Add(Section(str["Status"], StatusChooser(s, item)));
         var edit = Ui.Button(str["Edit"], "pencil"); edit.Click += (_, _) => s.ShowEditor(item.Id);
         var delete = Ui.Button(str["Delete"], "trash-2", "ghost").Also(b => b.Res(Button.ForegroundProperty, "Danger"));
@@ -140,6 +141,28 @@ public static class DetailView
         AutomationProperties.SetName(row, str["ChangePlace"] + ": " + place.Title);
         row.Click += (_, _) => s.ShowPlace(place.Id, item.Id, slot);
         return row;
+    }
+
+    /// <summary>Picks files on the device, such as a ticket from the downloads, and attaches them to the item.</summary>
+    private static Control AttachButton(MobileSession s, Entity item)
+    {
+        var attach = Ui.Button(s.Strings["AttachFile"], "paperclip", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        attach.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(attach)?.StorageProvider is not { CanOpen: true } storage) return;
+            var picked = await storage.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions { AllowMultiple = true, Title = s.Strings["AttachFile"] });
+            var files = new List<SharedFile>();
+            foreach (var file in picked)
+            {
+                await using var stream = await file.OpenReadAsync(); using var copy = new MemoryStream();
+                await stream.CopyToAsync(copy);
+                files.Add(new(file.Name, TravelRepo.Documents.MediaTypes.FromFileName(file.Name), copy.ToArray()));
+            }
+            if (files.Count == 0) return;
+            try { await s.AddFilesAsync(files, item.Id); }
+            catch (DomainException ex) when (ex.Code == "asset.large") { Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(attach)?.Notify(ex.Message); }
+        };
+        return attach;
     }
 
     /// <summary>A file of the item, such as the booking e-mail or a ticket, which opens in the viewer.</summary>

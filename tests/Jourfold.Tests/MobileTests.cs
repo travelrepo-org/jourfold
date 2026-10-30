@@ -123,6 +123,41 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [Fact]
+    public void SharedTextGivesPlaceNameAddressAndPosition()
+    {
+        var google = new SharedContent([], "Senso-ji\n2 Chome-3-1 Asakusa, Taito City, Tokyo\nhttps://www.google.com/maps/place/Senso-ji/@35.7147651,139.7966553,17z");
+        Assert.Equal((35.7147651, 139.7966553), google.Position);
+        Assert.Equal(["Senso-ji", "2 Chome-3-1 Asakusa, Taito City, Tokyo"], google.Lines);
+        var shortLink = new SharedContent([], "Senso-ji https://maps.app.goo.gl/AbC123");
+        Assert.Null(shortLink.Position); Assert.Equal("maps.app.goo.gl", shortLink.ShortLink?.Host);
+        Assert.Null(new SharedContent([], "Remember the umbrella").Position);
+    }
+
+    [AvaloniaFact]
+    public async Task SharedFilesAttachToAnItemOrStayWithTheTrip()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        // Shared before a trip is open: the trip that opens next gets it.
+        session.Receive(new SharedContent([new("ticket.pdf", "application/pdf", [1, 2, 3])], null));
+        Assert.Null(session.Workspace); Assert.NotNull(session.Incoming);
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        Assert.Equal(Overlay.Share, session.Showing);
+        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo");
+        await session.AddFilesAsync(session.Incoming!.Files, flight.Id); session.FinishSharing(flight.Id);
+        var ticket = session.Trip!.Entities.Values.Single(e => e.Type == "document" && e.Title == "ticket.pdf");
+        Assert.Contains(ticket.Id, TravelRepo.Core.TripReferences.From(session.Trip!.Find(flight.Id)!).Select(r => r.Target));
+        Assert.Equal(Overlay.Details, session.Showing); Assert.Null(session.Incoming);
+        await session.AddFilesAsync([new("receipt.png", "image/png", [4, 5])], null);
+        Assert.Contains(session.Trip!.Entities.Values, e => e.Type == "document" && e.Title == "receipt.png");
+        await Assert.ThrowsAsync<TravelRepo.Core.DomainException>(() => session.AddFilesAsync([new("huge.mp4", "video/mp4", new byte[26 * 1024 * 1024])], null));
+
+        await session.AppendNoteAsync(flight.Id, "Gate changes are announced by text.");
+        Assert.EndsWith("Gate changes are announced by text.", session.Trip!.Find(flight.Id)!.Data["body"]!.ToString());
+        session.Dispose();
+    }
+
     [AvaloniaFact]
     public async Task TheMapShowsTheDaysStopsInOrder()
     {

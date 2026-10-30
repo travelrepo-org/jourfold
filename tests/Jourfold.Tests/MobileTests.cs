@@ -611,6 +611,109 @@ public sealed class MobileTests : IDisposable
         alex.Dispose(); sam.Dispose();
     }
 
+    [AvaloniaFact]
+    public async Task TwoPhonesChooseWhatAppliesWithoutAComputer()
+    {
+        var git = new GitCliBackend();
+        var shared = Path.Combine(root, "shared.git"); Directory.CreateDirectory(shared);
+        Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
+        var secrets = new MemorySecrets(); await secrets.WriteAsync("github.user-token", "token");
+        MobileSession Phone(string name)
+        {
+            var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
+            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex" }""");
+            return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
+        }
+        var phone = Phone("phone"); var tablet = Phone("tablet");
+        await phone.LoadGitHubAsync(); await tablet.LoadGitHubAsync();
+        var path = await phone.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await phone.OpenAsync(path); await phone.Workspace!.Git.AddRemoteAsync("origin", shared);
+        await phone.OpenAsync(path); while (phone.Syncing) await Task.Delay(20);
+        await tablet.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        while (tablet.Syncing) await Task.Delay(20);
+
+        // Both rename the same dinner, and the tablet also moves a task: only the dinner needs a choice.
+        var dinner = phone.Trip!.Entities.Values.First(e => e.Title == "Dinner in Ginza").Id;
+        await phone.SaveEditAsync(dinner, "Dinner in Shimbashi", null, null, null, null); await phone.SyncAsync(quiet: false);
+        await tablet.SaveEditAsync(dinner, "Dinner at the hotel", null, null, null, null);
+        await tablet.SyncAsync(quiet: false);
+        var pending = Assert.IsType<PendingMerge>(tablet.PendingMerge);
+        Assert.Equal("This tablet and GitHub changed the same thing. Choose what should apply.".Replace("tablet", "phone"), tablet.SyncProblem);
+        Assert.Single(pending.Plan.Conflicts);
+
+        // The page offers both versions and keeping both; the choice is sent, and the phone receives it.
+        tablet.ShowTab(MobileTab.More); tablet.ShowPage("merge");
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(tablet) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            var names = window.GetVisualDescendants().OfType<Button>().Select(AutomationProperties.GetName).ToArray();
+            Assert.Contains("As on this phone: Dinner at the hotel", names); Assert.Contains("As on GitHub: Dinner in Shimbashi", names);
+            Probe.Click(window, "As on GitHub: Dinner in Shimbashi");
+            Probe.Click(window, "Combine and send");
+            await Until(() => !tablet.Syncing && tablet.PendingMerge is null);
+        }
+        finally { window.Close(); }
+        Assert.Null(tablet.SyncProblem);
+        Assert.Equal("Dinner in Shimbashi", tablet.Trip!.Find(dinner)!.Title);
+        await phone.SyncAsync(quiet: false);
+        Assert.Equal("Dinner in Shimbashi", phone.Trip!.Find(dinner)!.Title);
+        phone.Dispose(); tablet.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task JourneysStaysAndTasksAreEditableOnTheRoad()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 40)), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var trip = session.Trip!;
+        var flight = trip.Entities.Values.First(e => e.Title == "Flight to Tokyo");
+        var hotel = trip.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && Stays.IsStay(e));
+
+        // A rebooked flight lands later, read in Tokyo time; gate and seat are filled in on the way.
+        var changed = Jourfold.Application.DetailEdits.WithArrival(flight, new LocalDate(2027, 5, 15), new LocalTime(10, 5), "Asia/Tokyo");
+        Jourfold.Application.DetailEdits.SetText(changed, "components/transport/departure/gate", " B44 ");
+        await session.SaveDetailsAsync([new(changed.Id, changed)]);
+        var saved = session.Trip!.Find(flight.Id)!;
+        Assert.Equal(("2027-05-15T10:05:00", "Asia/Tokyo"), (saved.Data["time"]!["end"]!["local"]!.ToString(), saved.Data["time"]!["end"]!["timezone"]!.ToString()));
+        Assert.Equal("B44", saved.Data["components"]!["transport"]!["departure"]!["gate"]!.ToString());
+        Assert.Throws<DomainException>(() => Jourfold.Application.DetailEdits.WithArrival(flight, new LocalDate(2027, 5, 14), new LocalTime(10, 0), "Europe/Berlin"));
+
+        // The stay gets a fourth night, check-in hours and its door code.
+        var stay = Jourfold.Application.DetailEdits.WithStay(hotel, new LocalDate(2027, 5, 15), 4, null, new LocalTime(11, 0), "Asia/Tokyo");
+        Jourfold.Application.DetailEdits.SetWindow(stay, "check_in_window", new LocalTime(15, 0), new LocalTime(22, 0));
+        Jourfold.Application.DetailEdits.SetText(stay, "components/accommodation/access", "Code 4711, room 802");
+        await session.SaveDetailsAsync([new(stay.Id, stay)]);
+        var resolved = Stays.Resolve(session.Trip!, session.Trip!.Find(hotel.Id)!)!;
+        Assert.Equal((4, true, false), (resolved.Nights, resolved.CheckInApproximate, resolved.CheckOutApproximate));
+        Assert.Equal(new LocalTime(22, 0), resolved.CheckInWindow!.Until); Assert.Equal("Code 4711, room 802", resolved.Access);
+
+        // A booking number on an item without a booking adds one and links it; on one with a booking it changes it.
+        var temple = session.Trip!.Entities.Values.First(e => e.Title == "Senso-ji and Asakusa");
+        await session.SaveDetailsAsync(Jourfold.Application.DetailEdits.WithBookingReference(session.Trip!, temple, "TEMPLE-1"));
+        Assert.Equal("TEMPLE-1", Lines.BookingReference(session.Trip!, session.Trip!.Find(temple.Id)!));
+        await session.SaveDetailsAsync(Jourfold.Application.DetailEdits.WithBookingReference(session.Trip!, session.Trip!.Find(temple.Id)!, "TEMPLE-2"));
+        Assert.Equal("TEMPLE-2", Lines.BookingReference(session.Trip!, session.Trip!.Find(temple.Id)!));
+        Assert.Single(session.Trip!.Entities.Values, e => e.Type == "booking" && e.Title == "Senso-ji and Asakusa");
+
+        // Tasks are added on the phone with a day they are due.
+        await session.AddAsync(new Jourfold.Application.QuickAddDraft("task", "Buy a SIM card") { Date = new LocalDate(2027, 5, 15) }, idea: false);
+        var task = session.Trip!.Entities.Values.Single(e => e.Title == "Buy a SIM card");
+        Assert.Equal("2027-05-15", task.Data["due"]!["date"]!.ToString());
+
+        // The editor offers the details for a journey and a stay.
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowEditor(flight.Id);
+            Assert.Contains("Booking number", Texts()); Assert.Contains("Local time on arrival", Texts()); Assert.Contains("Seat", Texts());
+            session.CloseOverlay(); Probe.Layout(); session.ShowEditor(hotel.Id);
+            Assert.Contains("Check-in hours", Texts()); Assert.Contains("Nights", Texts()); Assert.Contains("Getting in", Texts());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

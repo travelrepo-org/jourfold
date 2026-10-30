@@ -31,14 +31,8 @@ public static class EditorModel
         }
         return f;
     }
-    public static JsonNode? Get(Entity e, string path)
-    { JsonNode? n = e.Data; foreach (var k in path.Split('/')) n = n is JsonObject o ? o[k] : null; return n; }
-    public static void Set(Entity e, string path, JsonNode? value)
-    {
-        var keys = path.Split('/'); JsonObject n = e.Data;
-        foreach (var k in keys[..^1]) { if (n[k] is not JsonObject) n[k] = new JsonObject(); n = (JsonObject)n[k]!; }
-        if (value is null) n.Remove(keys[^1]); else n[keys[^1]] = value.DeepClone();
-    }
+    public static JsonNode? Get(Entity e, string path) => Jourfold.Application.DetailEdits.Get(e, path);
+    public static void Set(Entity e, string path, JsonNode? value) => Jourfold.Application.DetailEdits.Set(e, path, value);
     public static async Task UpdateAsync(MainViewModel vm, Guid id, EditorField field, string value)
     {
         if (vm.Workspace?.State.Trip.Find(id) is not { } existing) return;

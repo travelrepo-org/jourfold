@@ -138,7 +138,7 @@ public sealed partial class MobileSession : IDisposable
 
     private void Reset()
     {
-        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; Drafts.Remove("version");
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
         viewing.Clear(); FileProblem = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
@@ -357,6 +357,14 @@ public sealed partial class MobileSession : IDisposable
         change(copy); await workspace.EditAsync(copy, ct); NoteChange();
     }
 
+    /// <summary>Saves edits the editor built from the open trip, such as an item and its booking, as one change.</summary>
+    public async Task SaveDetailsAsync(IReadOnlyList<EntityEdit> edits, CancellationToken ct = default)
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        if (edits.Count == 0) return;
+        await workspace.ApplyAsync([.. edits], ct); NoteChange();
+    }
+
     public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);
     public Task SetTaskDoneAsync(Guid id, bool done, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = done ? "completed" : "open", ct);
 
@@ -427,7 +435,8 @@ public sealed partial class MobileSession : IDisposable
 
     /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>
     /// <param name="amount">For an expense, the new amount in its currency.</param>
-    public async Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, CancellationToken ct = default)
+    /// <param name="task">For a task, <paramref name="day"/> is when it is due; null clears it.</param>
+    public async Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default)
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var entry = Entry(id);
@@ -436,10 +445,16 @@ public sealed partial class MobileSession : IDisposable
             e.Data[e.Data.ContainsKey("name") && !e.Data.ContainsKey("title") ? "name" : "title"] = title.Trim();
             if (string.IsNullOrWhiteSpace(body)) e.Data.Remove("body"); else e.Data["body"] = body.Trim();
             if (amount is { } value && e.Data["amount"] is System.Text.Json.Nodes.JsonObject money) money["value"] = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (task)
+            {
+                if (day is { } due) e.Data["due"] = new System.Text.Json.Nodes.JsonObject { ["date"] = due.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) };
+                else e.Data.Remove("due");
+                return;
+            }
             if (day is { } date && start is null)
                 e.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "all_day", ["date"] = date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) };
         }, ct);
-        if (day is { } d && start is { } t)
+        if (!task && day is { } d && start is { } t)
         {
             var zone = entry?.Zone ?? ScheduleQueries.TripZone(workspace.State.Trip).Id;
             var previous = entry is { Start: { } a, End: { } b } && b > a ? b - a : Duration.FromHours(1);

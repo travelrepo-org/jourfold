@@ -79,8 +79,11 @@ public sealed class Workspace : IDisposable
     }
     public async Task<MergePlan> CompareMergeAsync(string branch, CancellationToken ct = default)
     {
-        var baseline = await Git.SnapshotAsync(await Git.MergeBaseAsync(branch, ct), ct); var incoming = await Git.SnapshotAsync(branch, ct); return SemanticMerge.Plan(baseline, State.Trip, incoming);
+        var (baseline, incoming) = await MergeSidesAsync(branch, ct); return SemanticMerge.Plan(baseline, State.Trip, incoming);
     }
+    /// <summary>The common ancestor and the other side of a merge with <paramref name="branch"/>, to answer its conflicts.</summary>
+    public async Task<(TripSnapshot Baseline, TripSnapshot Incoming)> MergeSidesAsync(string branch, CancellationToken ct = default) =>
+        (await Git.SnapshotAsync(await Git.MergeBaseAsync(branch, ct), ct), await Git.SnapshotAsync(branch, ct));
     public async Task ApplyMergeAsync(string branch, MergePlan plan, CancellationToken ct = default)
     {
         if (!string.IsNullOrEmpty(await Git.StatusAsync(ct))) throw new DomainException("git.dirty", "Create a version before merging.");

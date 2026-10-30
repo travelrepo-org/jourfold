@@ -1,5 +1,7 @@
+using Jourfold.Application;
 using TravelRepo.Core;
 using TravelRepo.Git;
+using TravelRepo.Merge;
 using TravelRepo.Providers;
 using TravelRepo.Providers.GitHub;
 
@@ -185,11 +187,19 @@ public sealed partial class MobileSession
         {
             await SaveChangesAsync(ct);
             var state = await workspace.Git.SyncAsync(remote, ct);
+            PendingMerge = null;
             if (state == SyncState.Diverged)
             {
                 var branch = "refs/remotes/" + remote + "/" + await workspace.Git.CurrentBranchAsync(ct);
-                var plan = await workspace.CompareMergeAsync(branch, ct);
-                if (!plan.CanApply) { SyncProblem = Strings["SyncNeedsComputer"]; return; }
+                var (baseline, incoming) = await workspace.MergeSidesAsync(branch, ct);
+                var plan = SemanticMerge.Plan(baseline, workspace.State.Trip, incoming);
+                if (!plan.CanApply)
+                {
+                    // Both changed the same thing: the user chooses on this device, then the sync goes on.
+                    if (plan.Conflicts.Count > 0) { PendingMerge = new(branch, remote, baseline, incoming, plan); SyncProblem = Strings["SyncChoose"]; }
+                    else SyncProblem = Strings["SyncNeedsComputer"];
+                    return;
+                }
                 await workspace.ApplyMergeAsync(branch, plan, ct);
                 await workspace.Git.PushAsync(remote, ct);
             }
@@ -208,6 +218,33 @@ public sealed partial class MobileSession
             if (Workspace == workspace) await RefreshVersionsAsync(ct);
             Changed?.Invoke();
         }
+    }
+
+    /// <summary>A sync that waits for the user to choose, for each thing both sides changed, which version to keep.</summary>
+    public PendingMerge? PendingMerge { get; private set; }
+
+    /// <summary>
+    /// Finishes a sync that waited for choices: <paramref name="answers"/> follow the order of the conflicts. The
+    /// combined trip becomes a version and is sent. If the trip changed meanwhile, the sync starts over and asks again.
+    /// </summary>
+    public async Task ResolveMergeAsync(IReadOnlyList<string> answers, CancellationToken ct = default)
+    {
+        if (Workspace is not { } workspace || PendingMerge is not { } pending) return;
+        Syncing = true; SyncProblem = null; Changed?.Invoke();
+        try
+        {
+            var plan = MergeAnswers.Resolve(pending.Baseline, workspace.State.Trip, pending.Incoming, pending.Plan, answers.Select(a => (a, (string?)null)).ToArray());
+            if (!plan.CanApply) { SyncProblem = Strings["SyncNeedsComputer"]; return; }
+            await workspace.ApplyMergeAsync(pending.Branch, plan, ct);
+            await workspace.Git.PushAsync(pending.Remote, ct);
+            PendingMerge = null;
+            await workspace.ReloadAsync(ct);
+            Settings.LastSync[Path.GetFileName(workspace.Repository.Root)] = DateTimeOffset.Now; Settings.Save();
+            if (Page == "merge") Page = "sync";
+        }
+        catch (DomainException ex) when (ex.Code == "merge.stale") { Syncing = false; PendingMerge = null; await SyncAsync(quiet: false, ct); return; }
+        catch (Exception ex) when (ex is DomainException or HttpRequestException or IOException) { SyncProblem = Problem(ex); }
+        finally { Syncing = false; if (Workspace == workspace) await RefreshVersionsAsync(ct); Changed?.Invoke(); }
     }
 
     /// <summary>
@@ -254,3 +291,6 @@ public sealed partial class MobileSession
         await OpenAsync(path, ct);
     }
 }
+
+/// <summary>A merge with GitHub's version of the trip that needs the user's choices.</summary>
+public sealed record PendingMerge(string Branch, string Remote, TripSnapshot Baseline, TripSnapshot Incoming, TravelRepo.Merge.MergePlan Plan);

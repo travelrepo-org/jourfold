@@ -118,6 +118,12 @@ public static class GitHubView
             Ui.V(2, Ui.Text(str["SharedOnGitHub"], "strong"), Ui.Text(detail, "caption")));
         var sync = Ui.Button(str["SyncNow"], "refresh-cw", "soft").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; b.IsEnabled = !s.Syncing && s.GitHubLogin is not null; });
         sync.Click += (_, _) => _ = s.SyncAsync(quiet: false);
+        if (s.PendingMerge is not null && !s.Syncing)
+        {
+            var choose = Ui.Button(str["MergeChoose"], "git-compare", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+            choose.Click += (_, _) => s.ShowPage("merge");
+            return Ui.Card(Ui.V(12, state, choose), 16);
+        }
         return Ui.Card(Ui.V(12, state, sync), 16);
     }
 

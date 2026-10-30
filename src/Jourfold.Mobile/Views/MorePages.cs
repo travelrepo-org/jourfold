@@ -25,6 +25,7 @@ public static class MorePages
         "costs" => Costs(s, width),
         "travellers" => Travellers(s),
         "sync" => Sync(s),
+        "merge" => Merge(s),
         "settings" => Settings(s),
         _ => MoreView.Build(s, width)
     };
@@ -341,6 +342,52 @@ public static class MorePages
     }
 
     // Settings
+
+    /// <summary>
+    /// The things both sides changed, each with this device's and GitHub's version to choose from, and "keep both" for
+    /// an item. Everything else was combined already. Choosing all sends the combined trip.
+    /// </summary>
+    private static Control Merge(MobileSession s)
+    {
+        var str = s.Strings;
+        if (s.PendingMerge is not { } pending || s.Trip is not { } trip) return Frame(s, str["MergeTitle"], Ui.Text(str["NothingToChoose"], "muted").Margin(20, 0));
+        var answers = new string?[pending.Plan.Conflicts.Count];
+        var apply = Ui.Button(str["MergeApply"], "check", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; b.IsEnabled = false; });
+        var cards = Ui.V(12);
+        for (var i = 0; i < pending.Plan.Conflicts.Count; i++)
+        {
+            var conflict = pending.Plan.Conflicts[i]; var index = i;
+            var name = trip.Find(conflict.Entity)?.Title ?? pending.Incoming.Find(conflict.Entity)?.Title ?? str["Files"];
+            string Side(System.Text.Json.Nodes.JsonNode? value, TripSnapshot from) => conflict.Kind == TravelRepo.Merge.ConflictKind.Binary ? str["BinaryConflict"] : MergeText.Value(value, from, str);
+            var choices = Ui.V(6);
+            var buttons = new List<ChoiceButton>();
+            foreach (var action in Jourfold.Application.MergeAnswers.Actions(conflict, pending.Incoming, canEdit: false))
+            {
+                var (label, value) = action switch
+                {
+                    Jourfold.Application.MergeAnswers.UseCurrent => (str["MergeThisDevice"], Side(conflict.Current, trip)),
+                    Jourfold.Application.MergeAnswers.UseOther => (str["MergeOther"], Side(conflict.Incoming, pending.Incoming)),
+                    _ => (str["MergeKeepBoth"], str["MergeKeepBothHint"]),
+                };
+                var choice = new ChoiceButton { Content = Ui.V(2, Ui.Text(label, "strong"), Ui.Text(value, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left }.Classed("row");
+                AutomationProperties.SetName(choice, label + ": " + value);
+                var chosen = action;
+                choice.Click += (_, _) =>
+                {
+                    answers[index] = chosen;
+                    foreach (var b in buttons) b.IsSelected = b == choice;
+                    apply.IsEnabled = answers.All(a => a is not null);
+                };
+                buttons.Add(choice); choices.Children.Add(choice);
+            }
+            cards.Children.Add(Ui.Card(Ui.V(10, Ui.V(2, Ui.Text(name, "strong"), Ui.Text(MergeText.Field(conflict.Path, str), "caption")), choices), 14));
+        }
+        apply.Click += async (_, _) => { apply.IsEnabled = false; await s.ResolveMergeAsync(answers.Select(a => a!).ToArray()); };
+        return Frame(s, str["MergeTitle"],
+            Ui.Text(str["MergeHint"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0),
+            cards.Margin(16, 0), apply.Margin(16, 0),
+            s.SyncProblem is { } problem && !s.Syncing ? Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }).Margin(20, 0) : null);
+    }
 
     /// <summary>The trips in the calendar app: on or off, one calendar per trip or per kind. Only where the platform has it.</summary>
     private static Control? Calendar(MobileSession s)

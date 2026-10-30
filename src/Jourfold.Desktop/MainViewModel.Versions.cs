@@ -142,32 +142,17 @@ public partial class MainViewModel
         if (Workspace is null) return false;
         var baseline = await Workspace.Git.SnapshotAsync(await Workspace.Git.MergeBaseAsync(branch)); var incoming = await Workspace.Git.SnapshotAsync(branch);
         var plan = SemanticMerge.Plan(baseline, Workspace.State.Trip, incoming);
-        var resolutions = new Dictionary<string, JsonNode?>(); var duplicates = new Dictionary<Guid, Entity>();
         if (plan.Conflicts.Count > 0)
         {
             var prompts = plan.Conflicts.Select(conflict =>
             {
                 var title = Workspace.State.Trip.Find(conflict.Entity)?.Title ?? incoming.Find(conflict.Entity)?.Title ?? Strings["Files"];
-                var actions = conflict.Entity == Guid.Empty && conflict.Kind == ConflictKind.Binary ? new[] { "UseCurrent", "UseVariant" } : conflict.Entity != Guid.Empty && incoming.Find(conflict.Entity) is { Type: not "trip" } ? new[] { "UseCurrent", "UseVariant", "KeepBoth", "EditResult" } : new[] { "UseCurrent", "UseVariant", "EditResult" };
                 var current = conflict.Kind == ConflictKind.Binary ? Strings["BinaryConflict"] : DescribeValue(conflict.Current, Workspace.State.Trip);
                 var other = conflict.Kind == ConflictKind.Binary ? Strings["BinaryConflict"] : DescribeValue(conflict.Incoming, incoming);
-                return new ConflictPrompt(title, FieldLabel(conflict.Path), current, other, actions, conflict.Current?.ToString() ?? "");
+                return new ConflictPrompt(title, FieldLabel(conflict.Path), current, other, Jourfold.Application.MergeAnswers.Actions(conflict, incoming), conflict.Current?.ToString() ?? "");
             }).ToArray();
             var answers = await Interaction.ResolveConflictsAsync(prompts, VariantTitle, otherTitle); if (answers is null) return false;
-            var keptBoth = new HashSet<Guid>();
-            for (var i = 0; i < plan.Conflicts.Count; i++)
-            {
-                var conflict = plan.Conflicts[i]; var answer = answers[i]; var key = conflict.Entity + conflict.Path;
-                if (answer.Action == "KeepBoth" || keptBoth.Contains(conflict.Entity))
-                {
-                    if (keptBoth.Add(conflict.Entity)) foreach (var duplicate in TripCommands.DuplicateSubtree(incoming, conflict.Entity)) duplicates[duplicate.Id] = duplicate;
-                    resolutions[key] = conflict.Current?.DeepClone(); continue;
-                }
-                if (answer.Action == "EditResult") resolutions[key] = conflict.Current is JsonObject or JsonArray || conflict.Incoming is JsonObject or JsonArray ? JsonNode.Parse(answer.Text ?? "null") : JsonValue.Create(answer.Text ?? "");
-                else resolutions[key] = (answer.Action == "UseCurrent" ? conflict.Current : conflict.Incoming)?.DeepClone();
-            }
-            plan = SemanticMerge.Plan(baseline, Workspace.State.Trip, incoming, resolutions);
-            if (duplicates.Count > 0) { var all = plan.Result.Entities.ToDictionary(p => p.Key, p => p.Value); foreach (var duplicate in duplicates) all[duplicate.Key] = duplicate.Value; plan = plan with { Result = plan.Result with { Entities = all } }; }
+            plan = Jourfold.Application.MergeAnswers.Resolve(baseline, Workspace.State.Trip, incoming, plan, answers.Select(a => (a.Action, a.Text)).ToArray());
         }
         else if (!await Interaction.ConfirmAsync(Strings["Merge"], string.Format(Strings["MergeNoConflicts"], otherTitle, ChangeSummary.Between(Workspace.State.Trip, plan.Result).Count), Strings["Merge"])) return false;
         await Workspace.ApplyMergeAsync(branch, plan);
@@ -182,25 +167,7 @@ public partial class MainViewModel
         return true;
     }
 
-    public string FieldLabel(string path)
-    {
-        var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length == 0) return Strings["WholeItem"];
-        if (parts[0] == "resources") return Strings["Content"];
-        var key = parts[0] == "components" && parts.Length > 1 ? parts[1] : parts[0];
-        return Strings["field." + key] is var label && label != "field." + key ? label : key.Replace('_', ' ');
-    }
+    public string FieldLabel(string path) => MergeText.Field(path, Strings);
 
-    public string DescribeValue(JsonNode? value, TripSnapshot trip)
-    {
-        if (value is null) return Strings["Removed"];
-        if (value is JsonArray array) return array.Count == 0 ? Strings["Empty"] : string.Join(", ", array.Select(v => DescribeValue(v, trip)));
-        if (value is JsonObject obj)
-        {
-            if (obj["local"] is { } local && obj["timezone"] is { } zone && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(local.ToString()).TryGetValue(default, out var wall)) return wall.ToString("g", CultureInfo.CurrentCulture) + " (" + Formats.ZoneName(zone.ToString()) + ")";
-            if (TripSummaries.Money(obj) is { } money) return Formats.Money(money.Amount, money.Currency);
-            return string.Join("; ", obj.Where(p => p.Key is not ("id" or "extensions") && p.Value is not null).Select(p => FieldLabel(p.Key) + ": " + DescribeValue(p.Value, trip)));
-        }
-        return Guid.TryParse(value.ToString(), out var id) && trip.Find(id) is { } entity ? entity.Title : Strings.Optional(value.ToString());
-    }
+    public string DescribeValue(JsonNode? value, TripSnapshot trip) => MergeText.Value(value, trip, Strings);
 }

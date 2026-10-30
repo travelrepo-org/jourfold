@@ -21,6 +21,11 @@ follow ("Times as on your phone (Berlin)", "Local time Tokyo"), and a second tim
 abbreviation ("Berlin: 01:30 (Wed)"). A journey across zones always names both places. `TimeText` implements these
 rules and `MobileTests` checks them.
 
+A tap on that line chooses a second time zone for the trip, from the phone's zone and the zones of the trip and its
+items. Its times then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day),
+and not where both zones show the same time. The choice stays on this phone, per trip. Dark mode uses the design
+spec's navy tokens, which `Jourfold.UI` shares with the desktop.
+
 An item that runs past midnight, such as a night flight, appears again on the days after it starts: on the day it
 ends as its arrival or end, on the days between as running all day. TravelRepo's `TripAgenda` marks these lines as
 `AgendaRole.Continued`; Today reads spans itself and shows such an item once.

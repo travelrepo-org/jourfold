@@ -44,6 +44,9 @@ try
         await s.OpenAsync(s.Trips[0].Path);
         await Capture("today");
         await Capture("today-dark", theme: ThemeVariant.Dark);
+        s.SetSecondZone("Europe/Berlin");
+        await Capture("today-second-time");
+        s.SetSecondZone(null);
         s.ShowTab(MobileTab.Plan); s.ShowDate(new LocalDate(2027, 5, 16));
         await Capture("plan");
         var teamLab = s.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.First(e => e.Item.Title.StartsWith("teamLab", StringComparison.Ordinal));
@@ -51,6 +54,7 @@ try
         await Capture("plan-selected");
         s.ShowDetails(teamLab.Item.Id);
         await Capture("detail-teamlab");
+        await Capture("detail-dark", theme: ThemeVariant.Dark);
         var shinkansen = s.Agenda.Find(new LocalDate(2027, 5, 18))!.Entries.First(e => e.Item.Title.StartsWith("Shinkansen", StringComparison.Ordinal));
         s.ShowDate(new LocalDate(2027, 5, 18)); s.ShowDetails(shinkansen.Item.Id);
         await Capture("detail-transport");

@@ -24,7 +24,7 @@ public static class TodayView
         var current = lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start <= now && (l.End ?? l.Start) > now)
             ?? lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start > now);
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
-            Ui.Text(TimeText.PhoneHeading(phone, s.Strings), "caption")).Margin(16, 0));
+            Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone)).Margin(16, 0));
         if (current is not null) page.Children.Add(NextCard(s, current, now, phone).Margin(16, 0));
 
         var rail = Ui.V(10);
@@ -35,7 +35,7 @@ public static class TodayView
             var past = (line.End ?? line.Start) is { } end && end <= now;
             var state = past ? LineState.Past : ReferenceEquals(line, current) ? LineState.Expanded : LineState.Normal;
             var time = TimeText.OnPhone(line, phone, s.Strings, s.Trip);
-            rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state), Views.Lines.Card(s, line, state, () => s.ShowDetails(line.Item.Id), time: time)));
+            rail.Children.Add(Ui.Columns("64,*", Views.Lines.TimeColumn(time, state, TimeText.Second(line, s.SecondZone, phone)), Views.Lines.Card(s, line, state, () => s.ShowDetails(line.Item.Id), time: time)));
         }
         if (!nowShown) rail.Children.Add(NowLine(s, now, phone));
         page.Children.Add(rail.Margin(16, 0));
@@ -63,7 +63,7 @@ public static class TodayView
         var place = Views.Lines.Where(s.Trip!, e.Item);
         var navigate = Navigation.Button(s, e.Item);
         var content = Ui.V(10,
-            Ui.Text(happening ? s.Strings["NowLabel"] : s.Strings["Next"], "overline"),
+            Ui.Text(happening ? s.Strings["NowLabel"] : s.Strings["NextUp"], "overline"),
             Ui.V(2, Ui.Text(e.Item.Title, "h3"), Ui.Text(string.Join(" · ", new[] { time.Primary, place }.Where(t => t.Length > 0)), "muted"), time.Other is { } other ? Ui.Text(other, "caption") : null),
             Ui.Columns("*,Auto", Ui.H(6, Ui.Icon("clock", 16, "Accent"), Ui.Text(when, "strong")), navigate));
         return Ui.Card(content, 16).Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent");

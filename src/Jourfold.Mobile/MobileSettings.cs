@@ -18,6 +18,8 @@ public sealed class MobileSettings : Jourfold.Application.IValueStore
     public string? GitHubLogin { get; set; }
     /// <summary>When each trip folder last synced, by folder name.</summary>
     public Dictionary<string, DateTimeOffset> LastSync { get; set; } = [];
+    /// <summary>The second time zone shown next to the times of each trip, by trip folder name; chosen by the user.</summary>
+    public Dictionary<string, string> SecondZones { get; set; } = [];
     /// <summary>Whether the map shows street tiles and places can be searched online. Off until the user turns it on.</summary>
     public bool OnlineMaps { get; set; }
     /// <summary>Small values kept for shared code, such as the downloaded list of map servers.</summary>

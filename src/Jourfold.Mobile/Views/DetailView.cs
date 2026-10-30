@@ -136,7 +136,9 @@ public static class DetailView
         {
             Content = Ui.Columns("Auto,*,Auto", Ui.Icon("map-pin", 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
                 Ui.V(1, Ui.Text(label is null ? place.Title : label + ": " + place.Title), Ui.Text(detail, "caption")),
-                Ui.Icon("pencil", 16, "Text.Subtle").Margin(8, 2, 0, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top))
+                Ui.Icon("pencil", 16, "Text.Subtle").Margin(8, 2, 0, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top)),
+            // Lined up with the other lines of the details, which have no padding of their own.
+            Padding = new Thickness(0, 6)
         }.Classed("row");
         AutomationProperties.SetName(row, str["ChangePlace"] + ": " + place.Title);
         row.Click += (_, _) => s.ShowPlace(place.Id, item.Id, slot);

@@ -124,15 +124,39 @@ public static class Lines
     }
 
     /// <summary>The time column next to a card: the main time, its end and, for a journey across zones, its place.</summary>
-    public static Control TimeColumn(ClockText time, LineState state)
+    /// <param name="second">The start in the second time zone the user chose, quieter than the rest; see <see cref="TimeText.Second"/>.</param>
+    public static Control TimeColumn(ClockText time, LineState state, string? second = null)
     {
         // Words such as "Afternoon" or "All day" are set smaller so they fit the narrow column.
         var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Ui.Text(time.Start, "small", "strong"),
             time.End is { } end ? Ui.Text(end, "small", "muted") : null,
-            time.Zone is { } zone ? Ui.Text(zone, "small", "muted").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis) : null);
+            time.Zone is { } zone ? Ui.Text(zone, "small", "muted").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis) : null,
+            second is null ? null : Ui.Text(second, "small").Also(t => { t.Res(TextBlock.ForegroundProperty, "Accent"); t.Opacity = 0.8; }).Margin(0, 2, 0, 0));
         if (state == LineState.Past) column.Opacity = 0.55;
         column.VerticalAlignment = VerticalAlignment.Top; column.Margin = new Thickness(0, 10, 8, 0);
         return column;
+    }
+
+    /// <summary>
+    /// The line under a day's title that says which clock its times follow. A tap chooses a second time zone, shown
+    /// quieter next to every time; the line names it.
+    /// </summary>
+    public static Control ClockLine(MobileSession s, string heading, DateTimeZone primary)
+    {
+        var text = s.SecondZone is { } second ? heading + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["SecondTimesIn"], TimeText.Place(second)) : heading;
+        var button = new Button { Content = Ui.H(6, Ui.Text(text, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), Ui.Icon("chevron-down", 14, "Text.Subtle")), Padding = new Thickness(0, 2), MinHeight = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0) };
+        AutomationProperties.SetName(button, text);
+        button.Click += (_, _) => s.ShowMenu(ZoneMenu(s, primary));
+        return button;
+    }
+
+    /// <summary>The trip's time zones and the phone's to choose the second time from, and a way to turn it off.</summary>
+    private static ActionMenu ZoneMenu(MobileSession s, DateTimeZone primary)
+    {
+        var actions = s.ZoneChoices.Where(z => z.Id != primary.Id).Select(zone =>
+            new MenuAction(TimeText.Place(zone), zone.Id == s.SecondZone?.Id ? "check" : "clock", _ => { s.SetSecondZone(zone.Id); return Task.CompletedTask; })).ToList();
+        if (s.SecondZone is not null) actions.Add(new MenuAction(s.Strings["NoSecondTime"], "x", _ => { s.SetSecondZone(null); return Task.CompletedTask; }));
+        return new ActionMenu(s.Strings["SecondTime"], s.Strings["SecondTimeHint"], actions);
     }
 
     public static string DayTitle(LocalDate date, MobileSession s) => date.ToString(s.Strings["DayTitleFormat"], CultureInfo.GetCultureInfo(s.Strings.Language));

@@ -159,6 +159,32 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ASecondTimeZoneShowsNextToTheTimesWhereItDiffers()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            Assert.Null(session.SecondZone);
+            Assert.Contains("Europe/Berlin", session.ZoneChoices.Select(z => z.Id));
+            session.SetSecondZone("Europe/Berlin");
+            // Breakfast at 08:30 in Tokyo is 01:30 in Berlin; the line under the day names the second time.
+            Assert.Contains("01:30", Texts());
+            Assert.Contains(Texts(), t => t.EndsWith("second time Berlin", StringComparison.Ordinal));
+            // The choice stays with the trip on this phone.
+            Assert.Equal("Europe/Berlin", MobileSettings.Load(Path.Combine(root, "settings.json")).SecondZones.Values.Single());
+            // The same zone as the phone shows nothing twice.
+            session.SetSecondZone("Asia/Tokyo"); Assert.DoesNotContain("08:30 +0", Texts());
+            Assert.Null(TimeText.Second(session.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries[0], session.SecondZone, Tokyo));
+            session.SetSecondZone(null); Assert.Null(session.SecondZone);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheMapShowsTheDaysStopsInOrder()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

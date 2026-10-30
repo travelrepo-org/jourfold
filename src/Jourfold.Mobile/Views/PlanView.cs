@@ -44,7 +44,7 @@ public static class PlanView
     {
         var zone = ScheduleQueries.TripZone(s.Trip!);
         var body = Ui.V(12, Ui.V(2, Ui.Text(Lines.DayTitle(day.Date, s), "h2"),
-            Ui.Text(string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number) + " · " + TimeText.LocalHeading(day, zone, s.Strings, s.Trip), "caption")).Margin(16, 6, 16, 0));
+            Lines.ClockLine(s, string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number) + " · " + TimeText.LocalHeading(day, zone, s.Strings, s.Trip), zone)).Margin(16, 6, 16, 0));
 
         // On the phone's today, the item happening now or next shows its context; every other card stays compact.
         var now = s.Now;
@@ -60,7 +60,8 @@ public static class PlanView
                 : entry.Role == AgendaRole.CheckIn ? Nights(s, day, entry) : null;
             var card = Lines.Card(s, entry, ReferenceEquals(entry, current) ? LineState.Expanded : LineState.Normal,
                 entry.IsGroup ? () => s.ToggleGroup(entry.Item.Id) : () => s.ShowDetails(entry.Item.Id), extra, open, time);
-            list.Children.Add(Ui.Columns("64,*", Lines.TimeColumn(time, LineState.Normal), card));
+            var local = DateTimeZoneProviders.Tzdb.GetZoneOrNull(entry.Zone ?? "") ?? zone;
+            list.Children.Add(Ui.Columns("64,*", Lines.TimeColumn(time, LineState.Normal, TimeText.Second(entry, s.SecondZone, local)), card));
         }
         if (day.Entries.Count == 0) list.Children.Add(Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(0, 8));
         // The night closes the day, unless the stay's check-in on this day already says where it is.

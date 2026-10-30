@@ -29,6 +29,17 @@ public static class TimeText
     private static DateTimeZone Zone(string? id, DateTimeZone fallback) => id is null ? fallback : DateTimeZoneProviders.Tzdb.GetZoneOrNull(id) ?? fallback;
     private static bool Same(DateTimeZone a, DateTimeZone b, Instant at) => a.Id == b.Id || a.GetUtcOffset(at) == b.GetUtcOffset(at);
 
+    /// <summary>
+    /// A line's start in the second time zone the user chose, such as "01:30" or "18:00 +1" when it falls on another
+    /// day than in <paramref name="primary"/>. Null without a start or when both zones show the same time.
+    /// </summary>
+    public static string? Second(AgendaEntry entry, DateTimeZone? second, DateTimeZone primary)
+    {
+        if (second is null || entry.Start is not { } start || !entry.IsTimed || Same(second, primary, start)) return null;
+        var there = start.InZone(second); var here = start.InZone(primary).Date;
+        return Clock(there) + (there.Date > here ? " +1" : there.Date < here ? " −1" : "");
+    }
+
     /// <summary>The place a zone is named after, such as "Berlin" or "New York".</summary>
     public static string Place(DateTimeZone zone) => zone.Id is "UTC" or "Etc/UTC" ? "UTC" : Formats.ZoneName(zone.Id);
 

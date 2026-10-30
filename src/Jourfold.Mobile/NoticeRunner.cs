@@ -26,6 +26,8 @@ public interface ISystemNotices
     void ShowLive(LiveNotice? live, string? tripFolder);
     /// <summary>Wakes the app at <paramref name="at"/> to run <see cref="NoticeRunner.RunAsync"/>; null cancels.</summary>
     void WakeAt(Instant? at);
+    /// <summary>Shortcuts on the app's icon to the tickets of journeys that are close, replacing the ones before.</summary>
+    void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets);
 }
 
 /// <summary>
@@ -33,6 +35,9 @@ public interface ISystemNotices
 /// notification up to date, and asks to be woken for the next one. It runs when the app starts, after the trips
 /// change, when the time zone changes, after a restart and when it woke itself.
 /// </summary>
+/// <summary>A shortcut to a journey's ticket, such as "Ticket: Flight to Tokyo".</summary>
+public sealed record TicketShortcut(string Label, string TripFolder, Guid Item);
+
 public static class NoticeRunner
 {
     private static readonly SemaphoreSlim Running = new(1, 1);
@@ -48,11 +53,11 @@ public static class NoticeRunner
         try
         {
             var settings = MobileSettings.Load(Path.Combine(host.DataRoot, "settings.json"));
-            if (!On(settings) || !await notices.AllowAsync(ask: false, ct)) { notices.ShowLive(null, null); notices.WakeAt(null); return; }
+            if (!On(settings) || !await notices.AllowAsync(ask: false, ct)) { notices.ShowLive(null, null); notices.WakeAt(null); notices.SetTicketShortcuts([]); return; }
             var now = host.Clock.GetCurrentInstant(); var phone = host.PhoneZone(); var strings = new Localization(host.Language) { Device = host.Device };
             var shownPath = Path.Combine(host.DataRoot, "notices-shown.json");
             var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
-            Instant? next = null; (LiveNotice Live, string Folder)? live = null;
+            Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>();
             foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
             {
                 TripSnapshot trip;
@@ -60,6 +65,10 @@ public static class NoticeRunner
                 catch (DomainException) { continue; }
                 var me = TripMe.Resolve(trip, settings.Values.GetValueOrDefault(MobileSession.MeSetting(folder)), settings.GitHubLogin, settings.Email);
                 var current = TravelNotices.Live(trip, me, now, phone, strings);
+                // Tickets of journeys from an hour ago to the next day sit on the app's icon.
+                foreach (var journey in trip.Entities.Values.Where(e => e.Type == "schedule_item" && e.Data["components"]?["transport"] is not null && TripMe.Concerns(trip, e, me)))
+                    if (ScheduleQueries.Span(trip, journey) is { IsPlaced: true, Start: { } start, End: { } end } && end > now - Duration.FromHours(1) && start < now + Duration.FromDays(1) && Tickets.For(trip, journey).Count > 0)
+                        shortcuts.Add((start, new(string.Format(System.Globalization.CultureInfo.CurrentCulture, strings["TicketFor"], journey.Title), folder, journey.Id)));
                 if (live is null && current is not null) live = (current, folder);
                 foreach (var notice in TravelNotices.Plan(trip, me, now, phone, strings))
                 {
@@ -71,6 +80,7 @@ public static class NoticeRunner
                 }
             }
             notices.ShowLive(live?.Live, live?.Folder);
+            notices.SetTicketShortcuts(shortcuts.OrderBy(t => t.At).Take(3).Select(t => t.Shortcut).ToArray());
             // While travelling the progress is redrawn every few minutes; otherwise the plan is read again twice a day.
             var wake = new[] { next, live?.Live.Changes, now + (live is null ? Duration.FromHours(12) : Duration.FromMinutes(5)) }.OfType<Instant>().Where(t => t > now).Min();
             notices.WakeAt(wake);

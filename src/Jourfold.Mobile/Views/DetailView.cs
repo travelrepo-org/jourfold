@@ -47,6 +47,7 @@ public static class DetailView
             page.Children.Add(Row("map-pin", where, (ScheduleQueries.PrimaryPlace(trip, item) ?? ScheduleQueries.Route(trip, item).To)?.Data["address"]?["formatted"]?.ToString(), s));
         var booking = Booking(trip, item);
         if (booking?.Data["reference"]?.ToString() is { Length: > 0 } reference) page.Children.Add(Copyable(s, "ticket", reference, booking.Title));
+        if (TicketButton(s, item) is { } ticket) page.Children.Add(ticket.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
         if (Navigation.Button(s, item) is { } navigate) page.Children.Add(navigate.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
 
         // Operational
@@ -95,6 +96,20 @@ public static class DetailView
     };
 
     /// <summary>The booking an item points to, if any.</summary>
+    /// <summary>"Show ticket" for a plan with a ticket of its own or of its booking; with several, a menu to choose.</summary>
+    public static Button? TicketButton(MobileSession s, Entity item)
+    {
+        var tickets = Tickets.For(s.Trip!, item);
+        if (tickets.Count == 0) return null;
+        var button = Ui.Button(s.Strings["ShowTicket"], "ticket", "primary");
+        button.Click += (_, _) =>
+        {
+            if (tickets.Count == 1) { s.ShowDocument(tickets[0]); return; }
+            s.ShowMenu(new ActionMenu(s.Strings["ShowTicket"], item.Title, tickets.Select(t => new MenuAction(t.Title, "ticket", _ => { s.ShowDocument(t); return Task.CompletedTask; })).ToArray()));
+        };
+        return button;
+    }
+
     public static Entity? Booking(TripSnapshot trip, Entity item)
     {
         if (item.Type == "booking") return item;

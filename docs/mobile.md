@@ -173,6 +173,15 @@ shows what is due once, and an alarm wakes it for the next notice; it also runs 
 time zone changes (an arrival up to three hours early is shown on the zone change after landing), and after edits
 and syncs. A tap opens the plan, "Show ticket" its first ticket.
 
+## Tickets
+
+A plan's tickets are the PDFs, images and Wallet passes (`.pkpass`) attached to it or to its booking. "Show ticket"
+sits in the details, on Today's next plan, in notifications and, for journeys within a day, as shortcuts on the app's
+icon. A Wallet pass is read by TravelRepo's `WalletPass` and shown by Jourfold itself, offline and without a wallet
+app: the barcode (QR, Aztec, PDF417 or Code 128, drawn with ZXing.Net) large on white, its code as text, and the
+pass's fields; "open in another app" hands it to a wallet app where one is installed. Passes and pictures are shown
+at full screen brightness. Passes reach the trip through "share to Jourfold" or "attach file".
+
 ## Trips in the calendar app
 
 Settings → Calendar → "Show trips in the calendar app" (off until turned on, asks for the calendar permission) puts

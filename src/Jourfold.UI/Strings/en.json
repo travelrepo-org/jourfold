@@ -1447,6 +1447,8 @@
   "PlanTimetable": "Timetable",
   "EarlierDays": "Earlier days",
   "LaterDays": "Later days",
+  "WalletPass": "Wallet pass",
+  "TicketFor": "Ticket: {0}",
   "NoticeDeparture": "{0} · departs {1}",
   "NoticeArrives": "{0} · arrives {1}",
   "NoticeConnection": "Change: {0} until the next departure",

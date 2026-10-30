@@ -26,7 +26,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
-            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()));
+            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright);
         base.OnCreate();
     }
 
@@ -39,6 +39,14 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
     {
         if (PackageManager?.HasSystemFeature("android.hardware.type.pc") == true) return "device";
         return GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true } ? "phone" : "tablet";
+    }
+
+    /// <summary>Full brightness while a ticket is on screen, so a scanner reads it; back to the system's setting after.</summary>
+    private static void Bright(bool on)
+    {
+        if (MainActivity.Current?.Window is not { } window || window.Attributes is not { } attributes) return;
+        attributes.ScreenBrightness = on ? 1f : global::Android.Views.WindowManagerLayoutParams.BrightnessOverrideNone;
+        window.Attributes = attributes;
     }
 
     /// <summary>Offers a file to the apps that can show its media type, through the app's FileProvider.</summary>

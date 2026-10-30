@@ -1,5 +1,9 @@
 {
-  "Avalonia.Angle.Windows.Natives/2.1.25547.20250602": {
+  "Avalonia.Android/12.1.4": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Angle.Windows.Natives/2.1.27548.20260419": {
     "license": "LICENSE",
     "project": "https://avaloniaui.net/"
   },
@@ -7,51 +11,63 @@
     "license": "MIT",
     "project": "https://avaloniaui.net/"
   },
-  "Avalonia.Desktop/11.3.13": {
+  "Avalonia.Desktop/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.FreeDesktop/11.3.13": {
+  "Avalonia.Fonts.Inter/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Headless.XUnit/11.3.13": {
+  "Avalonia.FreeDesktop.AtSpi/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Headless/11.3.13": {
+  "Avalonia.FreeDesktop/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.HtmlRenderer/11.3.0": {
+  "Avalonia.HarfBuzz/12.1.4": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Headless.XUnit/12.1.4": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.Headless/12.1.4": {
+    "license": "MIT",
+    "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
+  },
+  "Avalonia.HtmlRenderer/12.0.0": {
     "license": "MIT",
     "project": "https://avaloniaui.net/"
   },
-  "Avalonia.Native/11.3.13": {
+  "Avalonia.Native/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Remote.Protocol/11.3.13": {
+  "Avalonia.Remote.Protocol/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Skia/11.3.13": {
+  "Avalonia.Skia/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Themes.Fluent/11.3.13": {
+  "Avalonia.Themes.Fluent/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.Win32/11.3.13": {
+  "Avalonia.Win32/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia.X11/11.3.13": {
+  "Avalonia.X11/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
-  "Avalonia/11.3.13": {
+  "Avalonia/12.1.4": {
     "license": "MIT",
     "project": "https://avaloniaui.net/?utm_source=nuget&utm_medium=referral&utm_content=project_homepage_link"
   },
@@ -63,23 +79,27 @@
     "license": "MIT",
     "project": "https://github.com/CommunityToolkit/dotnet"
   },
-  "HarfBuzzSharp.NativeAssets.Linux/8.3.1.1": {
+  "HarfBuzzSharp.NativeAssets.Android/8.3.1.3": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.1": {
+  "HarfBuzzSharp.NativeAssets.Linux/8.3.1.3": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "HarfBuzzSharp.NativeAssets.Win32/8.3.1.1": {
+  "HarfBuzzSharp.NativeAssets.WebAssembly/8.3.1.3": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "HarfBuzzSharp.NativeAssets.macOS/8.3.1.1": {
+  "HarfBuzzSharp.NativeAssets.Win32/8.3.1.3": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "HarfBuzzSharp/8.3.1.1": {
+  "HarfBuzzSharp.NativeAssets.macOS/8.3.1.3": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "HarfBuzzSharp/8.3.1.3": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
@@ -99,13 +119,29 @@
     "license": "MIT",
     "project": "https://github.com/json-everything/json-everything"
   },
+  "LibGit2Sharp.NativeBinaries/2.0.324": {
+    "license": "libgit2/libgit2.license.txt",
+    "project": "https://github.com/libgit2/libgit2sharp.nativebinaries"
+  },
+  "LibGit2Sharp/0.32.0": {
+    "license": "App_Readme/LICENSE.md",
+    "project": "https://github.com/libgit2/libgit2sharp/"
+  },
   "Markdig/1.4.0": {
     "license": "BSD-2-Clause",
     "project": "https://xoofx.github.io/markdig"
   },
-  "MicroCom.Runtime/0.11.0": {
+  "MicroCom.Runtime/0.11.6": {
     "license": "MIT",
     "project": null
+  },
+  "Microsoft.ApplicationInsights/2.23.0": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?LinkId=392727"
+  },
+  "Microsoft.Bcl.AsyncInterfaces/6.0.0": {
+    "license": "MIT",
+    "project": "https://dot.net/"
   },
   "Microsoft.CodeCoverage/17.14.1": {
     "license": "MIT",
@@ -143,6 +179,10 @@
     "license": "MIT",
     "project": "https://dot.net/"
   },
+  "Microsoft.NET.ILLink.Tasks/10.0.12": {
+    "license": "MIT",
+    "project": "https://dot.net/"
+  },
   "Microsoft.NET.Test.Sdk/17.14.1": {
     "license": "MIT",
     "project": "https://github.com/microsoft/vstest"
@@ -154,6 +194,26 @@
   "Microsoft.TestPlatform.TestHost/17.14.1": {
     "license": "MIT",
     "project": "https://github.com/microsoft/vstest"
+  },
+  "Microsoft.Testing.Extensions.Telemetry/1.9.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/testfx"
+  },
+  "Microsoft.Testing.Extensions.TrxReport.Abstractions/1.9.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/testfx"
+  },
+  "Microsoft.Testing.Platform.MSBuild/1.9.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/testfx"
+  },
+  "Microsoft.Testing.Platform/1.9.1": {
+    "license": "MIT",
+    "project": "https://github.com/microsoft/testfx"
+  },
+  "Microsoft.Win32.Registry/5.0.0": {
+    "license": "MIT",
+    "project": "https://github.com/dotnet/runtime"
   },
   "MimeKit/4.18.1": {
     "license": "MIT",
@@ -195,23 +255,27 @@
     "license": "Apache-2.0",
     "project": null
   },
-  "SkiaSharp.NativeAssets.Linux/2.88.9": {
+  "SkiaSharp.NativeAssets.Android/3.119.4": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "SkiaSharp.NativeAssets.WebAssembly/2.88.9": {
+  "SkiaSharp.NativeAssets.Linux/3.119.4": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "SkiaSharp.NativeAssets.Win32/2.88.9": {
+  "SkiaSharp.NativeAssets.WebAssembly/3.119.4": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "SkiaSharp.NativeAssets.macOS/2.88.9": {
+  "SkiaSharp.NativeAssets.Win32/3.119.4": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
-  "SkiaSharp/2.88.9": {
+  "SkiaSharp.NativeAssets.macOS/3.119.4": {
+    "license": "MIT",
+    "project": "https://go.microsoft.com/fwlink/?linkid=868515"
+  },
+  "SkiaSharp/3.119.4": {
     "license": "MIT",
     "project": "https://go.microsoft.com/fwlink/?linkid=868515"
   },
@@ -219,13 +283,261 @@
     "license": "MIT",
     "project": "https://dot.net/"
   },
-  "Tmds.DBus.Protocol/0.21.3": {
+  "Tmds.DBus.Protocol/0.94.1": {
     "license": "MIT",
     "project": null
+  },
+  "Xamarin.AndroidX.Activity/1.12.4.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Annotation.Experimental/1.5.1.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Annotation.Jvm/1.9.1.7": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Annotation/1.9.1.7": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.AppCompat.AppCompatResources/1.7.1.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.AppCompat/1.7.1.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Arch.Core.Common/2.2.0.20": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Arch.Core.Runtime/2.2.0.20": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Collection.Jvm/1.5.0.5": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Collection/1.5.0.5": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Compose.Runtime.Annotation.Android/1.10.4.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Compose.Runtime.Annotation/1.10.4.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Concurrent.Futures/1.3.0.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Core.Core.Ktx/1.17.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Core.SplashScreen/1.2.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Core.ViewTree/1.0.0.5": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Core/1.17.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.CursorAdapter/1.0.0.36": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.CustomView/1.2.0.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.DocumentFile/1.1.0.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.DrawerLayout/1.2.0.20": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Emoji2.ViewsHelper/1.6.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Emoji2/1.6.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Fragment/1.8.9.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Interpolator/1.0.0.36": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.Common.Jvm/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.Common/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.LiveData.Core/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.Process/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.Runtime.Android/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.Runtime/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.ViewModel.Android/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.ViewModel/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Lifecycle.ViewModelSavedState/2.10.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Loader/1.1.0.36": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.NavigationEvent.Android/1.0.2.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.NavigationEvent/1.0.2.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.ProfileInstaller.ProfileInstaller/1.4.1.7": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.ResourceInspection.Annotation/1.0.1.24": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.SavedState.SavedState.Android/1.4.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.SavedState/1.4.0.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Startup.StartupRuntime/1.2.0.7": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Tracing.Tracing.Android/1.3.0.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Tracing.Tracing/1.3.0.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.VectorDrawable.Animated/1.2.0.10": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.VectorDrawable/1.2.0.10": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.VersionedParcelable/1.2.1.5": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.ViewPager/1.1.0.6": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Window.WindowCore.Jvm/1.5.1.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Window.WindowCore/1.5.1.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.AndroidX.Window/1.5.1.2": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.Google.Guava.ListenableFuture/1.0.0.31": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.JSpecify/1.0.0.6": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.Jetbrains.Annotations/26.1.0.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.Kotlin.StdLib/2.3.10.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.KotlinX.Coroutines.Android/1.10.2.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.KotlinX.Coroutines.Core.Jvm/1.10.2.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.KotlinX.Coroutines.Core/1.10.2.3": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.KotlinX.Serialization.Core.Jvm/1.10.0.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
+  },
+  "Xamarin.KotlinX.Serialization.Core/1.10.0.1": {
+    "license": "MIT AND Apache-2.0",
+    "project": "https://aka.ms/android-libraries"
   },
   "YamlDotNet/16.3.0": {
     "license": "MIT",
     "project": "https://github.com/aaubry/YamlDotNet/wiki"
+  },
+  "ZXing.Net/0.16.10": {
+    "license": "Apache-2.0",
+    "project": "https://github.com/micjahn/ZXing.Net/"
   },
   "bblanchon.PDFium.Linux/157.0.8100": {
     "license": "Apache-2.0",
@@ -239,27 +551,7 @@
     "license": "Apache-2.0",
     "project": "https://github.com/bblanchon/pdfium-binaries"
   },
-  "xunit.abstractions/2.0.3": {
-    "license": "https://raw.githubusercontent.com/xunit/xunit/master/license.txt",
-    "project": "https://github.com/xunit/xunit"
-  },
-  "xunit.analyzers/1.18.0": {
-    "license": "Apache-2.0",
-    "project": null
-  },
-  "xunit.assert/2.9.3": {
-    "license": "Apache-2.0",
-    "project": null
-  },
-  "xunit.core/2.9.3": {
-    "license": "Apache-2.0",
-    "project": null
-  },
-  "xunit.extensibility.core/2.9.3": {
-    "license": "Apache-2.0",
-    "project": null
-  },
-  "xunit.extensibility.execution/2.9.3": {
+  "xunit.analyzers/1.27.0": {
     "license": "Apache-2.0",
     "project": null
   },
@@ -267,7 +559,35 @@
     "license": "Apache-2.0",
     "project": null
   },
-  "xunit/2.9.3": {
+  "xunit.v3.assert/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.common/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.core.mtp-v1/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.extensibility.core/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.mtp-v1/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.runner.common/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3.runner.inproc.console/3.2.2": {
+    "license": "Apache-2.0",
+    "project": null
+  },
+  "xunit.v3/3.2.2": {
     "license": "Apache-2.0",
     "project": null
   }

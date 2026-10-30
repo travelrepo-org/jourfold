@@ -377,6 +377,11 @@
         "resolved": "16.3.0",
         "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
       },
+      "ZXing.Net": {
+        "type": "Transitive",
+        "resolved": "0.16.10",
+        "contentHash": "9avtcn21T7Ndcl8PQ1LHR7/wEoCruX1QKKHvO6zBPTsDW9IdvR5vKOmd618AY+DtDWZz8NaFDTkpbZdgaF4l4w=="
+      },
       "jourfold.application": {
         "type": "Project",
         "dependencies": {
@@ -406,7 +411,8 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "Jourfold.Application": "[0.7.1, )"
+          "Jourfold.Application": "[0.7.1, )",
+          "ZXing.Net": "[0.16.10, )"
         }
       },
       "travelrepo.core": {

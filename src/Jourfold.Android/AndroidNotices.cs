@@ -103,6 +103,17 @@ public sealed class AndroidNotices(Context context, string language, string devi
         else Alarms.SetAndAllowWhileIdle(AlarmType.RtcWakeup, ms, wake);
     }
 
+    public void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets)
+    {
+        if (context.GetSystemService(Java.Lang.Class.FromType(typeof(ShortcutManager))) is not ShortcutManager shortcuts) return;
+        shortcuts.SetDynamicShortcuts(tickets.Select(t =>
+        {
+            var intent = new Intent(context, typeof(MainActivity)).SetAction(Intent.ActionView)!.PutExtra(ExtraTrip, t.TripFolder)!.PutExtra(ExtraItem, t.Item.ToString())!.PutExtra(ExtraTicket, true)!;
+            return new ShortcutInfo.Builder(context, "ticket-" + t.Item).SetShortLabel(t.Label)!.SetLongLabel(t.Label)!
+                .SetIcon(global::Android.Graphics.Drawables.Icon.CreateWithResource(context, Resource.Mipmap.ic_launcher))!.SetIntent(intent)!.Build()!;
+        }).ToList());
+    }
+
     private Localization Strings => new(language) { Device = device };
 
     private void Channels()

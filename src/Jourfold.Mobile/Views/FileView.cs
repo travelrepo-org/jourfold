@@ -24,6 +24,7 @@ public static class FileView
         var title = file.Name;
         Control body;
         if (Mail.IsMail(file.MediaType) && Read(file.Bytes) is { } mail) { title = mail.Subject is { Length: > 0 } subject ? subject : file.Name; body = MailBody(s, mail); }
+        else if (file.MediaType == WalletPass.MediaType && WalletPass.Read(file.Bytes, str.Language) is { } pass) { title = pass.Description ?? file.Name; body = PassBody(pass); }
         else if (file.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && Picture(file.Bytes) is { } picture)
             body = new Image { Source = picture, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Center }.Margin(16);
         else body = Elsewhere(s, file);
@@ -39,8 +40,43 @@ public static class FileView
         return page;
     }
 
+    /// <summary>
+    /// A Wallet pass as the gate needs it: the barcode large on white, its code in text below, then the pass's fields,
+    /// the most important first. It works offline and without a wallet app.
+    /// </summary>
+    private static Control PassBody(WalletPass pass)
+    {
+        var page = Ui.V(14);
+        if (pass.Organization is { Length: > 0 } organization) page.Children.Add(Ui.Text(organization, "overline"));
+        var primary = pass.Fields.Where(f => f.Group == "primary").ToArray();
+        if (primary.Length > 0)
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions(string.Join(',', primary.Select(_ => "*"))) };
+            for (var i = 0; i < primary.Length; i++) row.Children.Add(Ui.V(0, Ui.Text(primary[i].Label ?? "", "caption"), Ui.Text(primary[i].Value, "h1")).Col(i));
+            page.Children.Add(row);
+        }
+        if (pass.Barcode is { } code)
+        {
+            Control barcode;
+            try { barcode = new Jourfold.UI.Controls.BarcodeView(code.Message, code.Format, code.Encoding); }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or ZXing.WriterException) { barcode = Ui.Text(code.Message, "strong"); }
+            page.Children.Add(new Border { Child = barcode, Background = Brushes.White, Padding = new Thickness(12), CornerRadius = new CornerRadius(12) });
+            if (code.AltText is { Length: > 0 } alt) page.Children.Add(Ui.Text(alt, "strong").Also(t => t.HorizontalAlignment = HorizontalAlignment.Center));
+        }
+        var details = pass.Fields.Where(f => f.Group is "header" or "secondary" or "auxiliary").ToArray();
+        if (details.Length > 0)
+        {
+            var flow = Ui.Flow(20);
+            foreach (var field in details) flow.Children.Add(Ui.V(0, Ui.Text(field.Label ?? "", "caption"), new SelectableTextBlock { Text = field.Value, FontWeight = FontWeight.SemiBold }));
+            page.Children.Add(flow);
+        }
+        foreach (var field in pass.Fields.Where(f => f.Group == "back"))
+            page.Children.Add(Ui.V(2, Ui.Text(field.Label ?? "", "caption"), new SelectableTextBlock { Text = field.Value, TextWrapping = TextWrapping.Wrap }));
+        return page.Margin(16, 8, 16, 24);
+    }
+
     private static string Kind(ShownFile file, Localization str) =>
-        (Mail.IsMail(file.MediaType) ? str["EmailMessage"] : file.MediaType == "application/pdf" ? "PDF" : file.MediaType.StartsWith("image/", StringComparison.Ordinal) ? str["Image"] : str["File"])
+        (Mail.IsMail(file.MediaType) ? str["EmailMessage"] : file.MediaType == "application/pdf" ? "PDF" : file.MediaType == WalletPass.MediaType ? str["WalletPass"] : file.MediaType.StartsWith("image/", StringComparison.Ordinal) ? str["Image"] : str["File"])
         + " · " + Formats.Bytes(file.Bytes.Length);
 
     private static MailMessage? Read(byte[] bytes) { try { return Mail.Read(bytes); } catch (DomainException) { return null; } }

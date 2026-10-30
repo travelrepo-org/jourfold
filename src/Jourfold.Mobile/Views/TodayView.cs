@@ -81,7 +81,8 @@ public static class TodayView
         var content = Ui.V(10,
             Ui.Text(happening ? s.Strings["NowLabel"] : s.Strings["NextUp"], "overline"),
             Ui.V(2, Ui.Text(e.Item.Title, "h3"), Ui.Text(string.Join(" · ", new[] { time.Primary, place }.Where(t => t.Length > 0)), "muted"), time.Other is { } other ? Ui.Text(other, "caption") : null),
-            Ui.Columns("*,Auto", Ui.H(6, Ui.Icon("clock", 16, "Accent"), Ui.Text(when, "strong")), navigate));
+            Ui.Columns("*,Auto", Ui.H(6, Ui.Icon("clock", 16, "Accent"), Ui.Text(when, "strong")), navigate),
+            DetailView.TicketButton(s, e.Item)?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
         return Ui.Card(content, 16).Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent");
     }
 

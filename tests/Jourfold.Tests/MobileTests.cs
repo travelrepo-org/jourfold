@@ -762,6 +762,34 @@ public sealed class MobileTests : IDisposable
         session.Dispose();
     }
 
+    [AvaloniaFact]
+    public async Task AWalletPassShowsItsBarcodeBrightOnTheRoad()
+    {
+        var bright = new List<bool>();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 14, 9, 0)), () => Berlin, "en", new MemorySecrets(), Brightness: bright.Add));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo");
+        using var stream = new MemoryStream();
+        using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+        using (var writer = new StreamWriter(zip.CreateEntry("pass.json").Open()))
+            writer.Write("""{ "description": "Boarding pass", "organizationName": "Example Air", "barcode": { "message": "M1EXAMPLE ABC123", "format": "PKBarcodeFormatQR", "messageEncoding": "iso-8859-1", "altText": "ABC123" }, "boardingPass": { "auxiliaryFields": [ { "key": "gate", "label": "Gate", "value": "B44" } ] } }""");
+        await session.AddFilesAsync([new SharedFile("Boarding pass.pkpass", TravelRepo.Documents.WalletPass.MediaType, stream.ToArray())], flight.Id);
+        Assert.Single(Tickets.For(session.Trip!, session.Trip!.Find(flight.Id)!));
+
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowDetails(flight.Id); Probe.Layout();
+            Probe.Click(window, "Show ticket"); Probe.Layout();
+            Assert.Single(window.GetVisualDescendants().OfType<Jourfold.UI.Controls.BarcodeView>());
+            Assert.Contains("B44", window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
+            Assert.Equal([true], bright);
+            session.CloseFile();
+            Assert.Equal([true, false], bright);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

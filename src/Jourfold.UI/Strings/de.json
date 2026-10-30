@@ -1447,6 +1447,8 @@
   "PlanTimetable": "Zeitleiste",
   "EarlierDays": "Frühere Tage",
   "LaterDays": "Spätere Tage",
+  "WalletPass": "Wallet-Pass",
+  "TicketFor": "Ticket: {0}",
   "NoticeDeparture": "{0} · Abfahrt {1}",
   "NoticeArrives": "{0} · Ankunft {1}",
   "NoticeConnection": "Umstieg: {0} bis zur Weiterfahrt",

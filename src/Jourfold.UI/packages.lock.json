@@ -22,6 +22,12 @@
           "Avalonia": "12.1.4"
         }
       },
+      "ZXing.Net": {
+        "type": "Direct",
+        "requested": "[0.16.10, )",
+        "resolved": "0.16.10",
+        "contentHash": "9avtcn21T7Ndcl8PQ1LHR7/wEoCruX1QKKHvO6zBPTsDW9IdvR5vKOmd618AY+DtDWZz8NaFDTkpbZdgaF4l4w=="
+      },
       "Avalonia.BuildServices": {
         "type": "Transitive",
         "resolved": "11.3.2",

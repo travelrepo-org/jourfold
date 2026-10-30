@@ -14,6 +14,12 @@ Jourfold includes the following open-source software. License files from each pa
 - CommunityToolkit.Mvvm: MIT, https://github.com/CommunityToolkit/dotnet
 - Microsoft .NET runtime and extensions: MIT, https://github.com/dotnet/runtime
 
+## Android app
+
+- AndroidX libraries (Xamarin.AndroidX packages), Kotlin standard library and the Jetpack libraries they use: Apache-2.0, https://developer.android.com/jetpack/androidx; license files in the `licenses/xamarin.*` folders.
+- libgit2 (through TravelRepo.Git.LibGit2, built from source for Android): GPL-2.0 with the linking exception, https://github.com/libgit2/libgit2. The built-in Git of the phone and tablet app.
+- SkiaSharp and HarfBuzzSharp native assets for Android: MIT, as above.
+
 ## Data and documents
 
 - Noda Time: Apache-2.0, https://github.com/nodatime/nodatime
@@ -25,6 +31,7 @@ Jourfold includes the following open-source software. License files from each pa
 - PDFium (native builds from bblanchon/pdfium-binaries): BSD-3-Clause with bundled permissive third-party libraries, see `licenses/pdfium/LICENSE`. https://pdfium.googlesource.com/pdfium. Renders PDF pages in the document window from memory; PDF JavaScript is not run.
 - TravelRepo.Documents uses MimeKit (MIT, https://github.com/jstedfast/MimeKit) with BouncyCastle.Cryptography (MIT) to read e-mails, and PdfPig (Apache-2.0, https://github.com/UglyToad/PdfPig) to read PDF text. Remote content in e-mails is never loaded.
 - MCP C# SDK (ModelContextProtocol.Core) with Microsoft.Extensions.AI.Abstractions: Apache-2.0 and MIT, https://github.com/modelcontextprotocol/csharp-sdk. Used for the local assistant server; it communicates only through standard input and output.
+- ZXing.Net: Apache-2.0, https://github.com/micjahn/ZXing.Net. Draws the barcodes of Wallet passes (boarding passes, tickets) on the screen; the license text is the Apache-2.0 text in `licenses/TravelRepo-Apache-2.0.txt`.
 - Markdig: BSD-2-Clause, https://github.com/xoofx/markdig. Used for local CommonMark parsing; no remote content is executed.
 - Avalonia.HtmlRenderer: MIT, https://github.com/AvaloniaUI/Avalonia.HtmlRenderer (based on HTML-Renderer by Arthur Teplitzki and José Manuel Menéndez Poo, BSD-3-Clause; both texts in `licenses/avalonia.htmlrenderer`). Shows e-mails in their original layout after TravelRepo removes scripts, frames, forms and remote content; it runs no JavaScript and loads nothing by itself.
 

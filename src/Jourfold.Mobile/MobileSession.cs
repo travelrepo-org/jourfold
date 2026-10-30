@@ -300,10 +300,13 @@ public sealed partial class MobileSession : IDisposable
         ShowFile(new(document.Title, document.Data["media_type"]?.ToString() ?? "application/octet-stream", bytes));
     }
 
-    public void ShowFile(ShownFile file) { viewing.Add(file); FileProblem = null; Changed?.Invoke(); }
+    public void ShowFile(ShownFile file) { viewing.Add(file); FileProblem = null; Bright(); Changed?.Invoke(); }
+
+    /// <summary>A ticket on screen, a pass or a picture, is shown at full brightness so a scanner can read it.</summary>
+    private void Bright() => Host.Brightness?.Invoke(viewing.LastOrDefault() is { } shown && (Tickets.IsTicket(shown.MediaType) && shown.MediaType != "application/pdf"));
 
     /// <summary>One step back in the viewer: to the e-mail an attachment came from, or out of the viewer.</summary>
-    public void CloseFile() { if (viewing.Count > 0) viewing.RemoveAt(viewing.Count - 1); FileProblem = null; Changed?.Invoke(); }
+    public void CloseFile() { if (viewing.Count > 0) viewing.RemoveAt(viewing.Count - 1); FileProblem = null; Bright(); Changed?.Invoke(); }
 
     /// <summary>A short message about something that did not work, shown until the next step.</summary>
     public string? FileProblem { get; private set; }

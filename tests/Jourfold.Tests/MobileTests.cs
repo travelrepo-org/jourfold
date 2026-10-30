@@ -847,6 +847,47 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TheCurrencyConverterWorksOfflineWithTheLastRates()
+    {
+        var asked = new List<string>();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => Tokyo, "en", new MemorySecrets(), new Answer(asked, """
+            <gesmes:Envelope xmlns:gesmes="http://www.gesmes.org/xml/2002-08-01" xmlns="http://www.ecb.int/vocabulary/2002-08-01/eurofxref">
+              <Cube><Cube time='2027-05-14'><Cube currency='USD' rate='1.1'/><Cube currency='JPY' rate='160'/></Cube></Cube></gesmes:Envelope>
+            """)));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        // Nothing is fetched before the user says yes.
+        await session.FetchRatesAsync(force: true);
+        Assert.Empty(asked); Assert.Null(session.Rates);
+        await session.TurnOnRatesAsync();
+        Assert.Equal(["https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml"], asked);
+        Assert.Equal(new DateOnly(2027, 5, 14), session.Rates!.Date);
+        Assert.Equal(20m, Math.Round(session.Rates.Convert(3200m, "JPY", "EUR")!.Value, 2));
+        Assert.Equal(22m, Math.Round(session.Rates.Convert(3200m, "JPY", "USD")!.Value, 2));
+        Assert.Null(session.Rates.Convert(1m, "JPY", "XXX"));
+
+        session.Drafts["converter.amount"] = "3200"; session.Drafts["converter.from"] = "JPY"; session.Drafts["converter.to"] = "EUR";
+        session.ShowTab(MobileTab.More); session.ShowPage("converter");
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            var texts = window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? "").ToArray();
+            Assert.Contains(texts, t => t.Contains("20.00", StringComparison.Ordinal) || t.Contains("20,00", StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    /// <summary>A web server that answers every request with the same text and notes what was asked.</summary>
+    private sealed class Answer(List<string> asked, string body) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            asked.Add(request.RequestUri!.ToString());
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

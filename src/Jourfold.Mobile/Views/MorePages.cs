@@ -21,6 +21,7 @@ public static class MorePages
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
         "packing" => Packing(s),
+        "converter" => Converter(s),
         "places" => Places(s),
         "files" => Files(s),
         "costs" => Costs(s, width),
@@ -250,6 +251,57 @@ public static class MorePages
         }
         parts.Add(Ui.Columns("*,Auto", newList, create.Margin(8, 0, 0, 0)).Margin(16, 0));
         return Frame(s, str["Packing"], [.. parts]);
+    }
+
+    /// <summary>
+    /// Converts an amount between currencies offline, with the reference rates fetched at the last sync. The trip's
+    /// currencies come first; any of the central bank's can be typed. Fetching waits for the user's yes once.
+    /// </summary>
+    private static Control Converter(MobileSession s)
+    {
+        var str = s.Strings;
+        _ = s.FetchRatesAsync();
+        if (!s.RatesOn)
+        {
+            var allow = Ui.Button(str["RatesAllow"], "globe", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            allow.Click += async (_, _) => await s.TurnOnRatesAsync();
+            return Frame(s, str["Converter"], Ui.Card(Ui.V(10, Ui.Text(str["RatesTitle"], "strong"), Ui.Text(str["RatesBody"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), allow), 14).Margin(16, 0));
+        }
+        if (s.Rates is not { } rates) return Frame(s, str["Converter"], Ui.Text(s.FetchingRates ? str["RatesLoading"] : str["RatesNone"], "muted").Margin(20, 0));
+        var currencies = s.TripCurrencies().Where(c => rates.Currencies.Contains(c)).ToArray();
+        string Pick(string key, string fallback) => s.Drafts.GetValueOrDefault(key) is { Length: 3 } c && rates.Currencies.Contains(c) ? c : fallback;
+        var from = Pick("converter.from", currencies.FirstOrDefault(c => c != "EUR") ?? "USD"); var to = Pick("converter.to", "EUR");
+        var amount = Draft(s, "converter.amount", new TextBox { Text = s.Drafts.GetValueOrDefault("converter.amount") ?? "100", FontSize = 28 });
+        AutomationProperties.SetName(amount, str["Amount"]);
+        var result = Ui.Text("", "h1").Also(t => t.FontSize = 32);
+        void Show()
+        {
+            var text = amount.Text?.Replace(',', '.') ?? "";
+            result.Text = decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && rates.Convert(value, from, to) is { } converted
+                ? Formats.Money(Math.Round(converted, 2), to) : "–";
+        }
+        amount.TextChanged += (_, _) => Show();
+        Control Chips(string key, string chosen)
+        {
+            var flow = Ui.Flow(6);
+            foreach (var code in currencies.Append(chosen).Distinct())
+            {
+                var chip = Ui.Choice(code, null, code == chosen, "chip"); var c = code;
+                chip.Click += (_, _) => { s.Drafts[key] = c; s.ShowPage("converter"); };
+                flow.Children.Add(chip);
+            }
+            var other = new AutoCompleteBox { ItemsSource = rates.Currencies.ToArray(), PlaceholderText = str["OtherCurrency"], MinimumPrefixLength = 1, Width = 110, FilterMode = AutoCompleteFilterMode.StartsWith };
+            other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) { s.Drafts[key] = c; s.ShowPage("converter"); } };
+            flow.Children.Add(other);
+            return flow;
+        }
+        var swap = Ui.Button(str["SwapCurrencies"], "refresh-cw", "ghost");
+        swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.ShowPage("converter"); };
+        Show();
+        return Frame(s, str["Converter"],
+            Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
+                Ui.Text(to, "overline"), result, Chips("converter.to", to)), 16).Margin(16, 0),
+            Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString("d MMM yyyy", CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0));
     }
 
     private static Control Task(MobileSession s, Entity task, LocalDate? due, bool late)

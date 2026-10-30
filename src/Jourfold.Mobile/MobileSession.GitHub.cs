@@ -205,6 +205,8 @@ public sealed partial class MobileSession
             }
             await workspace.ReloadAsync(ct);
             Settings.LastSync[Path.GetFileName(workspace.Repository.Root)] = DateTimeOffset.Now; Settings.Save();
+            // With a network at hand, the exchange rates come along.
+            _ = FetchRatesAsync(ct: CancellationToken.None);
         }
         catch (Exception ex) when (ex is DomainException or HttpRequestException or IOException)
         {

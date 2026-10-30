@@ -68,6 +68,8 @@ try
         s.Select(teamLab.Item.Id);
         await Capture("map-selected");
         await Capture("tablet-map", 1194, 834);
+        s.ShowDate(new LocalDate(2027, 5, 15));
+        await Capture("map-shared-pin");
         s.ShowDate(new LocalDate(2027, 5, 16));
         s.ShowPage("places");
         await Capture("places");

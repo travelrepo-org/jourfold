@@ -136,29 +136,35 @@ public sealed class MapPage : UserControl
     {
         markers.Children.Clear();
         if (!built) return;
-        foreach (var stop in stops.Where(x => x.At is not null).OrderBy(x => x.Entry.Item.Id == s.SelectedItem))
+        // Stops at the same place, such as checking in and exploring from the hotel, share one pin: "1·2".
+        var groups = stops.Where(x => x.At is not null).GroupBy(x => (Math.Round(x.At!.Value.Lat, 5), Math.Round(x.At!.Value.Lon, 5))).Select(g => g.ToArray());
+        foreach (var group in groups.OrderBy(g => g.Any(x => x.Entry.Item.Id == s.SelectedItem)))
         {
-            var point = surface.ToScreen(stop.At!.Value);
+            var point = surface.ToScreen(group[0].At!.Value);
             if (point.X < -40 || point.Y < -40 || point.X > Bounds.Width + 40 || point.Y > Bounds.Height + 40) continue;
-            var selected = stop.Entry.Item.Id == s.SelectedItem;
-            var size = selected ? 38 : 30;
-            var key = "Kind." + Visuals.KindKey(stop.Entry.Kind);
+            var chosen = group.FirstOrDefault(x => x.Entry.Item.Id == s.SelectedItem);
+            var shown = chosen ?? group[0];
+            var numbers = string.Join("·", group.Select(x => x.Number.ToString(CultureInfo.InvariantCulture)));
+            var size = chosen is not null ? 38 : 30;
+            var key = "Kind." + Visuals.KindKey(shown.Entry.Kind);
             var pin = new Border
             {
-                Width = size,
+                MinWidth = size,
                 Height = size,
                 CornerRadius = new CornerRadius(size / 2),
-                BorderThickness = new Thickness(selected ? 3 : 2),
-                Child = Ui.Text(stop.Number.ToString(CultureInfo.InvariantCulture), "strong").Also(t => { t.Foreground = Brushes.White; t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }),
+                BorderThickness = new Thickness(chosen is not null ? 3 : 2),
+                Padding = new Thickness(group.Length > 1 ? 8 : 0, 0),
+                Child = Ui.Text(numbers, "strong").Also(t => { t.Foreground = Brushes.White; t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }),
                 BoxShadow = BoxShadows.Parse("0 2 6 0 #400F2A3D")
-            }.Res(Border.BackgroundProperty, key + ".Bar").Res(Border.BorderBrushProperty, selected ? "Accent" : "Bg.Surface");
+            }.Res(Border.BackgroundProperty, key + ".Bar").Res(Border.BorderBrushProperty, chosen is not null ? "Accent" : "Bg.Surface");
             var content = Ui.V(3, pin.Also(p => p.HorizontalAlignment = HorizontalAlignment.Center));
-            if (selected) content.Children.Add(new Border { Child = Ui.Text(stop.Entry.Item.Title, "caption").Also(t => { t.FontWeight = FontWeight.SemiBold; t.TextWrapping = TextWrapping.NoWrap; }), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface"));
+            if (chosen is not null) content.Children.Add(new Border { Child = Ui.Text(chosen.Entry.Item.Title, "caption").Also(t => { t.FontWeight = FontWeight.SemiBold; t.TextWrapping = TextWrapping.NoWrap; }), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface"));
             var button = new Button { Content = content, Padding = new Thickness(0), Background = Brushes.Transparent, BorderThickness = new Thickness(0), MinHeight = 0, Width = 160 };
-            AutomationProperties.SetName(button, stop.Number.ToString(CultureInfo.InvariantCulture) + ". " + stop.Entry.Item.Title);
-            var id = stop.Entry.Item.Id;
-            button.Click += (_, _) => { if (s.SelectedItem != id) s.Select(id); sheet?.Show(1); };
-            Canvas.SetLeft(button, point.X - 80); Canvas.SetTop(button, point.Y - size / 2.0); button.ZIndex = selected ? 2 : 1;
+            AutomationProperties.SetName(button, string.Join(", ", group.Select(x => x.Number.ToString(CultureInfo.InvariantCulture) + ". " + x.Entry.Item.Title)));
+            // A tap selects the first stop of the pin, the next tap the next one.
+            var next = group[(Array.IndexOf(group, chosen) + 1) % group.Length].Entry.Item.Id;
+            button.Click += (_, _) => { s.Select(next); sheet?.Show(1); };
+            Canvas.SetLeft(button, point.X - 80); Canvas.SetTop(button, point.Y - size / 2.0); button.ZIndex = chosen is not null ? 2 : 1;
             markers.Children.Add(button);
         }
     }

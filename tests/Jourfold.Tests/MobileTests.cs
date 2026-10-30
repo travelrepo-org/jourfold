@@ -241,6 +241,34 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APhoneCanShowTheDayAsATimetable()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string?> Names() { Probe.Layout(); return window.GetVisualDescendants().OfType<Button>().Select(AutomationProperties.GetName); }
+            session.ShowTab(MobileTab.Plan);
+            // The list comes first; the switch next to it turns the day into a time grid.
+            Assert.False(PlanView.DayTimetable(session, WidthClass.Phone));
+            Probe.Layout();
+            Probe.Click(window, "Timetable");
+            Assert.Equal("timetable", session.Settings.Values["plan.day"]);
+            Assert.True(PlanView.DayTimetable(session, WidthClass.Phone));
+            Assert.Contains("Senso-ji and Asakusa, 11:00 – 13:00", Names());
+            // The larger screens keep their own choice, and the date strip still changes the day.
+            Assert.False(session.Settings.Values.ContainsKey("plan.mode"));
+            Assert.False(PlanView.DayTimetable(session, WidthClass.Tablet));
+            Probe.Click(window, "Monday 17 May");
+            Assert.Equal(new LocalDate(2027, 5, 17), session.SelectedDate);
+            Assert.DoesNotContain("Senso-ji and Asakusa, 11:00 – 13:00", Names());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheMapShowsTheDaysStopsInOrder()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

@@ -11,11 +11,12 @@ using TravelRepo.Core;
 namespace Jourfold.Mobile.Views;
 
 /// <summary>
-/// Several days side by side on a time grid, for tablets and wide windows (design spec: multi-day timetable). It reads
-/// like the desktop's timetable, a little calmer and with larger targets for touch: all-day plans in a strip above the
-/// grid, stays as bars over their nights in a band below it, check-in and check-out as thin markers that take no room
-/// (a line at a fixed hour, a soft band for the check-in hours), plans as tinted blocks with their kind's icon, time and
-/// title, dashed when only an idea or a part of the day. As many days as fit, never a fixed number; each day keeps its
+/// Several days side by side on a time grid, for tablets and wide windows (design spec: multi-day timetable); on the phone
+/// the same grid shows one day when the user chooses it. It reads like the desktop's timetable, a little calmer and with
+/// larger targets for touch: all-day plans in a strip above the grid, stays as bars over their nights in a band below it,
+/// check-in and check-out as thin markers behind the plans that take no room (a line at a fixed hour, a soft band for
+/// the check-in hours), plans as tinted blocks with their kind's icon, time and title, dashed when only an idea or a
+/// part of the day. As many days as fit, never a fixed number; each day keeps its
 /// own local time. A tap opens the details in their column; a long press opens the item's menu.
 /// </summary>
 public static class TimetableView
@@ -33,6 +34,32 @@ public static class TimetableView
         var count = Math.Min(Columns(width), days.Count);
         var first = Math.Clamp(days.ToList().FindIndex(d => d.Date == s.SelectedDate), 0, Math.Max(0, days.Count - count));
         var shown = days.Skip(first).Take(count).ToArray();
+        var (header, allDay, scroll, nights) = Parts(s, shown);
+
+        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]); earlier.IsEnabled = first > 0;
+        earlier.Click += (_, _) => s.ShowDate(days[Math.Max(0, first - count)].Date);
+        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]); later.IsEnabled = first + count < days.Count;
+        later.Click += (_, _) => s.ShowDate(days[Math.Min(days.Count - count, first + count)].Date);
+        var range = Ui.Text(Formats.DateRange(shown[0].Date, shown[^1].Date), "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
+        // One row for the trip, the days shown and the switch, so the grid gets the height.
+        layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
+        layout.Children.Add(header.Row(1));
+        layout.Children.Add(allDay.Row(2));
+        layout.Children.Add(scroll.Row(3));
+        layout.Children.Add(nights.Row(4));
+        return layout;
+    }
+
+    /// <summary>
+    /// The timetable of <paramref name="shown"/>: the days' heads, the all-day strip, the time grid that scrolls, and the
+    /// nights band. The phone shows one day this way, the tablet several. A single day has its date in the date strip
+    /// above, so its head only names the zone when it is not the trip's, and the grid opens at its first plan, or at the
+    /// hour before now on today.
+    /// </summary>
+    internal static (Control Header, Control AllDay, ScrollViewer Grid, Control Nights) Parts(MobileSession s, AgendaDay[] shown)
+    {
+        var count = shown.Length;
         var columns = shown.Select(day => (Day: day, Zone: Zone(s, day), Lines: InGrid(day))).ToArray();
 
         // The hours from the earliest start to the latest end of the days shown, at least twelve.
@@ -61,7 +88,8 @@ public static class TimetableView
             var weekday = Ui.Text(day.Date.ToString("ddd", culture).TrimEnd('.').ToUpper(culture), "small", "muted");
             var date = Ui.Text(day.Date.ToString("d MMM", culture), "strong");
             if (today) { weekday.Res(TextBlock.ForegroundProperty, "Accent"); date.Res(TextBlock.ForegroundProperty, "Accent"); }
-            header.Children.Add(Ui.V(0, weekday, date, zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone), "small", "muted")).Margin(10, 0, 4, 6).Col(i + 1));
+            var place = zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone), "small", "muted");
+            if ((count == 1 ? (Control?)place?.Margin(10, 0, 4, 4) : Ui.V(0, weekday, date, place).Margin(10, 0, 4, 6)) is { } head) header.Children.Add(head.Col(i + 1));
             var lane = new Canvas { ClipToBounds = true };
             grid.Children.Add(new Border { BorderThickness = new Thickness(1, 0, 0, 0), Child = lane }.Res(Border.BorderBrushProperty, "Line").Col(i + 1));
             Markers(s, lane, day, zone, from);
@@ -69,20 +97,16 @@ public static class TimetableView
             if (today) lane.Children.Add(Now(s, zone, from));
         }
 
-        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]); earlier.IsEnabled = first > 0;
-        earlier.Click += (_, _) => s.ShowDate(days[Math.Max(0, first - count)].Date);
-        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]); later.IsEnabled = first + count < days.Count;
-        later.Click += (_, _) => s.ShowDate(days[Math.Min(days.Count - count, first + count)].Date);
-        var range = Ui.Text(Formats.DateRange(shown[0].Date, shown[^1].Date), "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
         var scroll = new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
-        // One row for the trip, the days shown and the switch, so the grid gets the height.
-        layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
-        layout.Children.Add(header.Row(1));
-        layout.Children.Add(Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true).Row(2));
-        layout.Children.Add(scroll.Row(3));
-        layout.Children.Add(Band(s.Strings["NightsBand"], Nights(s, shown), count, top: false).Row(4));
-        return layout;
+        if (count == 1)
+        {
+            var (day, zone, lines) = columns[0];
+            var opens = day.Date == s.PhoneToday ? s.Now.InZone(zone).TimeOfDay.Hour - 1
+                : lines.Where(l => l.Role != AgendaRole.Continued).Select(l => l.Start!.Value.InZone(zone).TimeOfDay.Hour).DefaultIfEmpty(from).Min();
+            var y = Math.Max(0, (opens - from) * HourHeight);
+            if (y > 0) scroll.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => scroll.Offset = new Vector(0, y), Avalonia.Threading.DispatcherPriority.Loaded);
+        }
+        return (header, Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), count, top: false));
     }
 
     /// <summary>The zone where the day's own first line starts; a journey continuing from the day before does not count.</summary>
@@ -180,7 +204,7 @@ public static class TimetableView
     /// <summary>
     /// Check-in and check-out as on the desktop, taking no room: a dashed line with a tag at a fixed hour, a soft band
     /// for the check-in hours when the arrival has no fixed hour, and the latest check-out when the departure has none.
-    /// They take no taps, so plans under them stay reachable.
+    /// They lie behind the plans and take no taps, so plans over them stay readable and reachable.
     /// </summary>
     private static void Markers(MobileSession s, Canvas lane, AgendaDay day, DateTimeZone zone, int from)
     {
@@ -190,7 +214,7 @@ public static class TimetableView
         {
             var tag = new Border { Padding = new Thickness(5, 1), CornerRadius = new CornerRadius(4), IsHitTestVisible = false, Child = Ui.H(3, Ui.Icon("bed-double", 11, "Kind.Accommodation.Fg"), Ui.Text(text, "small").Also(t => t.TextWrapping = TextWrapping.NoWrap)) }
                 .Res(Border.BackgroundProperty, "Kind.Accommodation.Bg");
-            Canvas.SetTop(tag, y - 9); tag.ZIndex = 1; lane.Children.Add(tag);
+            Canvas.SetTop(tag, y - 9); lane.Children.Add(tag);
             lane.SizeChanged += (_, e) => { tag.Measure(Size.Infinity); Canvas.SetLeft(tag, Math.Max(2, e.NewSize.Width - tag.DesiredSize.Width - 4)); };
         }
         void Line(double y)
@@ -277,7 +301,8 @@ public static class TimetableView
             bar.Margin = new Thickness(4, 3, 4, 3); Grid.SetColumn(bar, from + 1); Grid.SetColumnSpan(bar, to - from + 1); Grid.SetRow(bar, row);
             band.Children.Add(bar);
         }
-        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 8, 0); Grid.SetRowSpan(t, band.RowDefinitions.Count); }));
+        // The name fits the time column in one line, also a long one such as "Ganztägig".
+        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.FontSize = 10.5; t.TextWrapping = TextWrapping.NoWrap; t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 5, 0); Grid.SetRowSpan(t, band.RowDefinitions.Count); }));
         return new Border { Child = band, Padding = new Thickness(0, 4), BorderThickness = top ? new Thickness(0, 1, 0, 1) : new Thickness(0, 1, 0, 0) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface");
     }
 

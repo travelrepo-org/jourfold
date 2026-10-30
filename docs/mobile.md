@@ -88,7 +88,11 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
   nights in a band below it, check-in and check-out as thin markers instead of blocks (a dashed line at a fixed
   hour, a soft band with "Check-in 15:00–19:00" for the check-in hours when the arrival has no fixed hour, "Check-out
   by 11:00" for the latest departure), and plans as tinted blocks with icon, time and title, dashed for ideas and
-  parts of the day.
+  parts of the day. The markers lie behind the plans.
+- Where the timetable of several days does not fit, the switch offers the same grid for one day, under the date
+  strip; a sideways swipe changes the day as in the list. It opens at the day's first plan, on today at the hour
+  before now. The list stays the first choice, and the choice is kept apart from the larger screens', so a foldable
+  can show the list closed and the timetable open.
 
 With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),
 and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+1 to

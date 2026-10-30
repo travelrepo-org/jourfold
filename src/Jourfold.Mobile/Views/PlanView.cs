@@ -36,19 +36,29 @@ public static class PlanView
     public static bool Timetable(MobileSession s, WidthClass width, double height = double.PositiveInfinity) =>
         Offers(width, height) && (s.Settings.Values.GetValueOrDefault("plan.mode") ?? (width == WidthClass.Wide ? "timetable" : "list")) == "timetable";
 
+    /// <summary>
+    /// Whether a window too small for the timetable of several days shows one day on a time grid instead of the list.
+    /// The list comes first; the choice is kept apart from the larger screens', so a foldable can show the list closed
+    /// and the timetable open.
+    /// </summary>
+    public static bool DayTimetable(MobileSession s, WidthClass width, double height = double.PositiveInfinity) =>
+        !Offers(width, height) && s.Settings.Values.GetValueOrDefault("plan.day") == "timetable";
+
     /// <param name="pixels">The width the page gets, for how many days the timetable shows.</param>
     /// <param name="height">The height the page gets; the timetable needs at least 600 dp.</param>
     public static Control Build(MobileSession s, WidthClass width, double pixels = 0, double height = double.PositiveInfinity)
     {
         if (Timetable(s, width, height))
         {
-            return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, timetable: true));
+            return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, "plan.mode", timetable: true));
         }
         var day = s.Agenda.Find(s.SelectedDate) ?? s.Agenda.Days.FirstOrDefault();
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
+        var key = Offers(width, height) ? "plan.mode" : "plan.day";
+        if (day is not null && DayTimetable(s, width, height)) return OneDay(s, day, strip, Modes(s, key, timetable: true));
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
-        var page = Ui.V(6, Lines.TripHeader(s), Offers(width, height) ? Modes(s, timetable: false).Margin(16, 0, 16, 4) : null, strip, content);
+        var page = Ui.V(6, Lines.TripHeader(s), Modes(s, key, timetable: false).Margin(16, 0, 16, 4), strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
         var scroll = new ScrollViewer { Content = page, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Sticky(s, scroll, strip, day?.Date);
@@ -56,16 +66,39 @@ public static class PlanView
         return scroll;
     }
 
-    /// <summary>The switch between the day list and the timetable, offered from 840 dp.</summary>
-    private static Control Modes(MobileSession s, bool timetable)
+    /// <summary>
+    /// The switch between the day list and the timetable: of several days from 840 dp (<c>plan.mode</c>), of one day
+    /// below (<c>plan.day</c>).
+    /// </summary>
+    private static Control Modes(MobileSession s, string key, bool timetable)
     {
         Button Mode(string label, string icon, bool selected, string value)
         {
             var chip = Ui.Choice(s.Strings[label], icon, selected, "chip");
-            chip.Click += (_, _) => { s.Settings.Values["plan.mode"] = value; s.Settings.Save(); s.ShowDate(s.SelectedDate); };
+            chip.Click += (_, _) => { s.Settings.Values[key] = value; s.Settings.Save(); s.ShowDate(s.SelectedDate); };
             return chip;
         }
         return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
+    }
+
+    /// <summary>
+    /// One day on the time grid for the phone, drawn as the tablet's timetable: the date strip above it, all-day plans
+    /// over the grid and the night below it. Swipe sideways to change day, as in the list.
+    /// </summary>
+    private static Control OneDay(MobileSession s, AgendaDay day, Border strip, Control modes)
+    {
+        shown = (s.Workspace?.Repository.Root, day.Date); offset = 0;
+        var (header, allDay, grid, nights) = TimetableView.Parts(s, [day]);
+        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), grid.Row(2), nights.Row(3) } };
+        // The swipe is read on a frame that stays put while the day moves inside it.
+        var area = new Border { Child = body, ClipToBounds = true, Background = Brushes.Transparent };
+        Swipeable(s, area, strip, body);
+        strip.Padding = new Thickness(0, 4, 0, 2);
+        return new Grid
+        {
+            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"),
+            Children = { Lines.TripHeader(s), modes.Margin(16, 6, 16, 4).Row(1), strip.Row(2), area.Row(3) },
+        };
     }
 
     private static Control Day(MobileSession s, AgendaDay day)
@@ -181,7 +214,7 @@ public static class PlanView
     /// A sideways swipe over the day moves it with the finger and, once far or fast enough, slides it out while the
     /// next day slides in from the other side. Vertical scrolling is left alone, and the date strip scrolls by itself.
     /// </summary>
-    private static void Swipeable(MobileSession s, ScrollViewer scroll, Control strip, Control content)
+    private static void Swipeable(MobileSession s, Control scroll, Control strip, Control content)
     {
         var move = new TranslateTransform();
         content.RenderTransform = move;

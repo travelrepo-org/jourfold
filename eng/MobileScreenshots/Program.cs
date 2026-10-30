@@ -67,6 +67,13 @@ try
         await Capture("plan-nested");
         s.ShowDate(new LocalDate(2027, 5, 14));
         await Capture("plan-flight");
+        // The day as a timetable, chosen with the switch above the date strip.
+        s.Settings.Values["plan.day"] = "timetable";
+        await Capture("plan-day-timetable-arrival");
+        s.ShowDate(new LocalDate(2027, 5, 16));
+        await Capture("plan-day-timetable");
+        await Capture("plan-day-timetable-dark", theme: ThemeVariant.Dark);
+        s.Settings.Values.Remove("plan.day");
         s.ShowTab(MobileTab.Map); s.ShowDate(new LocalDate(2027, 5, 16));
         await Capture("map");
         s.Select(teamLab.Item.Id);

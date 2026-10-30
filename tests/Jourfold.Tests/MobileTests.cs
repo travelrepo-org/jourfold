@@ -214,6 +214,8 @@ public sealed class MobileTests : IDisposable
             shell.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.D2, KeyModifiers = Avalonia.Input.KeyModifiers.Control, Source = shell });
             Assert.Equal(MobileTab.Plan, session.Tab);
             Assert.True(PlanView.Timetable(session, WidthClass.Wide));
+            // A phone held sideways is wide but low: it keeps the list and offers no timetable.
+            Assert.False(PlanView.Offers(WidthClass.Tablet, 412)); Assert.False(PlanView.Timetable(session, WidthClass.Wide, 500));
             var days = TimetableView.Columns(1440 - 232);
             Assert.InRange(days, 4, 7);
             IEnumerable<string?> Names() { Probe.Layout(); return window.GetVisualDescendants().OfType<Button>().Select(AutomationProperties.GetName); }

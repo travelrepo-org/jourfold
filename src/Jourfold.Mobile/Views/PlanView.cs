@@ -26,14 +26,21 @@ public static class PlanView
     private static (string? Trip, LocalDate Date) shown;
     private static int enter;
 
-    /// <summary>Whether Plan shows the timetable: chosen with the switch from 840 dp, and the first choice from 1200 dp.</summary>
-    public static bool Timetable(MobileSession s, WidthClass width) =>
-        width >= WidthClass.Tablet && (s.Settings.Values.GetValueOrDefault("plan.mode") ?? (width == WidthClass.Wide ? "timetable" : "list")) == "timetable";
+    /// <summary>
+    /// Whether the window has room for the timetable: from 840 dp wide and 600 dp high. A phone held sideways is wide
+    /// enough but shows only a few hours, so it keeps the list.
+    /// </summary>
+    public static bool Offers(WidthClass width, double height) => width >= WidthClass.Tablet && height >= 600;
+
+    /// <summary>Whether Plan shows the timetable: chosen with the switch where it is offered, and the first choice from 1200 dp.</summary>
+    public static bool Timetable(MobileSession s, WidthClass width, double height = double.PositiveInfinity) =>
+        Offers(width, height) && (s.Settings.Values.GetValueOrDefault("plan.mode") ?? (width == WidthClass.Wide ? "timetable" : "list")) == "timetable";
 
     /// <param name="pixels">The width the page gets, for how many days the timetable shows.</param>
-    public static Control Build(MobileSession s, WidthClass width, double pixels = 0)
+    /// <param name="height">The height the page gets; the timetable needs at least 600 dp.</param>
+    public static Control Build(MobileSession s, WidthClass width, double pixels = 0, double height = double.PositiveInfinity)
     {
-        if (Timetable(s, width))
+        if (Timetable(s, width, height))
         {
             return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, timetable: true));
         }
@@ -41,7 +48,7 @@ public static class PlanView
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
-        var page = Ui.V(6, Lines.TripHeader(s), width >= WidthClass.Tablet ? Modes(s, timetable: false).Margin(16, 0, 16, 4) : null, strip, content);
+        var page = Ui.V(6, Lines.TripHeader(s), Offers(width, height) ? Modes(s, timetable: false).Margin(16, 0, 16, 4) : null, strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
         var scroll = new ScrollViewer { Content = page, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Sticky(s, scroll, strip, day?.Date);

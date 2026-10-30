@@ -47,7 +47,8 @@ public sealed class AppShell : UserControl
         AddHandler(Button.ClickEvent, (_, _) => acting = true, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(GotFocusEvent, (_, e) => { if (e.Source is TextBox) acting = false; }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(LostFocusEvent, (_, _) => Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background), RoutingStrategies.Bubble, handledEventsToo: true);
-        SizeChanged += (_, e) => { if (Classify(e.NewSize.Width) != Breakpoint) Render(); };
+        // A new width class changes the layout, and so does crossing the height the timetable needs.
+        SizeChanged += (_, e) => { if (Classify(e.NewSize.Width) != Breakpoint || e.PreviousSize.Height >= 600 != e.NewSize.Height >= 600) Render(); };
         // With a mouse, as on Samsung DeX or a tablet with a trackpad, rows and cards show where the pointer is;
         // with a finger they do not, or the last tapped row would stay highlighted.
         AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
@@ -171,7 +172,7 @@ public sealed class AppShell : UserControl
         var page = Session.Tab switch
         {
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
-            MobileTab.Plan => PlanView.Build(Session, Breakpoint, PageWidth()),
+            MobileTab.Plan => PlanView.Build(Session, Breakpoint, PageWidth(), Bounds.Height > 0 ? Bounds.Height : 915),
             MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };

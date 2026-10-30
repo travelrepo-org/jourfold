@@ -878,6 +878,28 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task WeatherIsAskedForOnceAndWorksWithoutANetwork()
+    {
+        var asked = new List<string>();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => Tokyo, "en", new MemorySecrets(), new Answer(asked, "not json")));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            // Nothing is asked of a weather service before the user says yes.
+            Assert.Contains("Show weather", Texts()); Assert.Empty(asked);
+            Probe.Click(window, "Show weather");
+            await Until(() => asked.Count > 0);
+            // A service that answers nonsense leaves the trip without weather, and nothing breaks.
+            Assert.True(session.WeatherOn); Assert.DoesNotContain("Show weather", Texts());
+            await session.SetWeatherAsync(false);
+            Assert.Empty(session.Weather.Days);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>A web server that answers every request with the same text and notes what was asked.</summary>
     private sealed class Answer(List<string> asked, string body) : HttpMessageHandler
     {

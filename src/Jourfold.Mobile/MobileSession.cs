@@ -125,6 +125,7 @@ public sealed partial class MobileSession : IDisposable
         Changed?.Invoke();
         // Others may have changed the trip since it was last open here.
         if (GitHubLogin is not null && Remote is not null) _ = SyncAsync(quiet: true, CancellationToken.None);
+        _ = UpdateWeatherAsync(CancellationToken.None);
     }
 
     /// <summary>Back to the trip list. Open changes are saved as a version first.</summary>

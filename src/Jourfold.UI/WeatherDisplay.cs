@@ -3,7 +3,7 @@ using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Providers.Weather;
 
-namespace Jourfold.Desktop;
+namespace Jourfold.UI;
 
 /// <summary>Icons and short texts for weather. The data and the rules come from TravelRepo.Providers.Weather.</summary>
 public static class WeatherDisplay

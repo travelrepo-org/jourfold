@@ -1447,6 +1447,7 @@
   "PlanTimetable": "Timetable",
   "EarlierDays": "Earlier days",
   "LaterDays": "Later days",
+  "NoticeWeather": "Weather: {0}",
   "Converter": "Currency converter",
   "RatesAllow": "Fetch exchange rates",
   "RatesTitle": "Exchange rates from the European Central Bank",

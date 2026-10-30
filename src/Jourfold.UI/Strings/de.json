@@ -1447,6 +1447,7 @@
   "PlanTimetable": "Zeitleiste",
   "EarlierDays": "Frühere Tage",
   "LaterDays": "Spätere Tage",
+  "NoticeWeather": "Wetter: {0}",
   "Converter": "Währungsrechner",
   "RatesAllow": "Wechselkurse laden",
   "RatesTitle": "Wechselkurse der Europäischen Zentralbank",

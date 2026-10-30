@@ -43,6 +43,21 @@ public static class Lines
         return ScheduleQueries.PrimaryPlace(trip, item)?.Title ?? "";
     }
 
+    /// <summary>The day's weather in one line, such as "☁ 18° / 9° · Rain 60 %", or null without a forecast.</summary>
+    public static Control? DayWeather(MobileSession s, LocalDate date)
+    {
+        if (!s.Weather.Days.TryGetValue(date, out var day)) return null;
+        return Ui.H(6, Ui.Icon(WeatherDisplay.Icon(day.Outlook), 16, "Text.Muted"), Ui.Text(WeatherDisplay.Summary(day.Outlook, s.Strings, imperial: false), "caption"))
+            .Also(h => AutomationProperties.SetName(h, s.Strings["Weather"]));
+    }
+
+    /// <summary>What the weather means for a plan, such as rain on a hike; null when nothing matters.</summary>
+    public static Control? ItemWeather(MobileSession s, Guid item)
+    {
+        if (!s.Weather.Items.TryGetValue(item, out var weather) || weather.Concerns.Count == 0) return null;
+        return Ui.H(6, Ui.Icon(WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind), 14, "Warning"), Ui.Text(WeatherDisplay.Concerns(weather.Concerns, s.Strings, imperial: false), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+    }
+
     public static string? BookingReference(TripSnapshot trip, Entity item)
     {
         var reference = item.Data["components"]?["booking"]?["ref"] ?? item.Data["components"]?["accommodation"]?["booking"];

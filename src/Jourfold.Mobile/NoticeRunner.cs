@@ -57,6 +57,9 @@ public static class NoticeRunner
             var now = host.Clock.GetCurrentInstant(); var phone = host.PhoneZone(); var strings = new Localization(host.Language) { Device = host.Device };
             var shownPath = Path.Combine(host.DataRoot, "notices-shown.json");
             var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
+            // Weather warnings come from the forecasts kept on the device; nothing is fetched here.
+            var weather = settings.Values.GetValueOrDefault("weather.online") == "on"
+                ? new TravelRepo.Providers.Weather.WeatherService([], null, new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
             Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>();
             foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
             {
@@ -70,7 +73,7 @@ public static class NoticeRunner
                     if (ScheduleQueries.Span(trip, journey) is { IsPlaced: true, Start: { } start, End: { } end } && end > now - Duration.FromHours(1) && start < now + Duration.FromDays(1) && Tickets.For(trip, journey).Count > 0)
                         shortcuts.Add((start, new(string.Format(System.Globalization.CultureInfo.CurrentCulture, strings["TicketFor"], journey.Title), folder, journey.Id)));
                 if (live is null && current is not null) live = (current, folder);
-                foreach (var notice in TravelNotices.Plan(trip, me, now, phone, strings))
+                foreach (var notice in TravelNotices.Plan(trip, me, now, phone, strings, weather?.Cached(trip)))
                 {
                     var due = notice.At <= now || zoneChanged && notice.Kind == NoticeKind.Arrival && notice.At - now <= Duration.FromHours(3);
                     // The travel day's notification already says when a journey leaves; it announces itself once instead.

@@ -13,6 +13,17 @@ namespace Jourfold.Mobile.Views;
 /// </summary>
 public static class TodayView
 {
+    /// <summary>Asks once whether to show forecasts; the answer can be changed in Settings.</summary>
+    private static Control? WeatherPrompt(MobileSession s)
+    {
+        if (s.WeatherOn || s.Settings.Values.ContainsKey("weather.online")) return null;
+        var yes = Ui.Button(s.Strings["WeatherTurnOn"], "cloud-sun", "soft");
+        yes.Click += async (_, _) => await s.SetWeatherAsync(true);
+        var no = Ui.Button(s.Strings["NotNow"], null, "ghost");
+        no.Click += async (_, _) => await s.SetWeatherAsync(false);
+        return Ui.Card(Ui.V(8, Ui.Text(s.Strings["WeatherPrompt"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), Ui.H(8, yes, no)), 14).Margin(16, 0);
+    }
+
     /// <summary>Asks once who the user is in the trip, so reminders cover their own plans.</summary>
     private static Control? WhoAmI(MobileSession s)
     {
@@ -33,7 +44,8 @@ public static class TodayView
         var current = lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start <= now && (l.End ?? l.Start) > now)
             ?? lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start > now);
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
-            Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone)).Margin(16, 0));
+            Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone), Lines.DayWeather(s, today)).Margin(16, 0));
+        if (WeatherPrompt(s) is { } prompt) page.Children.Add(prompt);
         var next = current is null ? null : NextCard(s, current, now, phone);
         var rail = Ui.V(10);
         var nowShown = false;
@@ -81,6 +93,7 @@ public static class TodayView
         var content = Ui.V(10,
             Ui.Text(happening ? s.Strings["NowLabel"] : s.Strings["NextUp"], "overline"),
             Ui.V(2, Ui.Text(e.Item.Title, "h3"), Ui.Text(string.Join(" · ", new[] { time.Primary, place }.Where(t => t.Length > 0)), "muted"), time.Other is { } other ? Ui.Text(other, "caption") : null),
+            Lines.ItemWeather(s, e.Item.Id),
             Ui.Columns("*,Auto", Ui.H(6, Ui.Icon("clock", 16, "Accent"), Ui.Text(when, "strong")), navigate),
             DetailView.TicketButton(s, e.Item)?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
         return Ui.Card(content, 16).Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent");

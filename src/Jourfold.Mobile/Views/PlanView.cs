@@ -105,7 +105,7 @@ public static class PlanView
     {
         var zone = ScheduleQueries.TripZone(s.Trip!);
         var body = Ui.V(12, Ui.V(2, Ui.Text(Lines.DayTitle(day.Date, s), "h2"),
-            Lines.ClockLine(s, string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number) + " · " + TimeText.LocalHeading(day, zone, s.Strings, s.Trip), zone)).Margin(16, 6, 16, 0));
+            Lines.ClockLine(s, string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number) + " · " + TimeText.LocalHeading(day, zone, s.Strings, s.Trip), zone), Lines.DayWeather(s, day.Date)).Margin(16, 6, 16, 0));
 
         // On the phone's today, the item happening now or next shows its context; every other card stays compact.
         var now = s.Now;

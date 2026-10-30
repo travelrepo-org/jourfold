@@ -572,6 +572,8 @@ public static class MorePages
             Ui.V(8, Ui.Text(str["YouOnThisPhone"], "overline").Margin(20, 0),
                 Ui.Card(Ui.V(12, Ui.Text(str["YouOnThisPhoneHint"], "caption"), Ui.Field(str["Name"], name), Ui.Field(str["Email"], email), save), 14).Margin(16, 0)),
             Notices(s),
+            Ui.V(8, Ui.Text(str["Weather"], "overline").Margin(20, 0), Ui.Card(new ToggleSwitch { IsChecked = s.WeatherOn, OnContent = str["WeatherTurnOn"], OffContent = str["WeatherTurnOn"] }
+                .Also(t => { AutomationProperties.SetName(t, str["WeatherTurnOn"]); t.IsCheckedChanged += async (_, _) => await s.SetWeatherAsync(t.IsChecked == true); }), 14).Margin(16, 0)),
             Calendar(s),
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),

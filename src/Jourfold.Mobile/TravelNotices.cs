@@ -8,7 +8,7 @@ using TravelRepo.Core;
 namespace Jourfold.Mobile;
 
 /// <summary>What a notification is about; each kind has its own channel, so users can silence one in the system.</summary>
-public enum NoticeKind { Departure, Connection, Arrival, Stay, CheckOut, LeaveBy, Deadline, TaskDue, Packing }
+public enum NoticeKind { Departure, Connection, Arrival, Stay, CheckOut, LeaveBy, Deadline, TaskDue, Packing, Weather }
 
 /// <summary>
 /// A notification at a moment, worked out from the plan. <see cref="Key"/> stays the same while the plan does, so a
@@ -39,7 +39,8 @@ public static class TravelNotices
     public static readonly Duration Late = Duration.FromMinutes(30);
     private const double WalkMetresPerMinute = 75, DetourFactor = 1.3, LongestWalkMetres = 3_000;
 
-    public static IReadOnlyList<TravelNotice> Plan(TripSnapshot trip, Entity? me, Instant now, DateTimeZone phone, Localization s)
+    /// <param name="weather">The forecasts kept on the device, for warnings on the morning of a plan; null without weather.</param>
+    public static IReadOnlyList<TravelNotice> Plan(TripSnapshot trip, Entity? me, Instant now, DateTimeZone phone, Localization s, TravelRepo.Providers.Weather.TripWeather? weather = null)
     {
         var notices = new List<TravelNotice>();
         var connections = Connections.In(trip);
@@ -120,6 +121,15 @@ public static class TravelNotices
             if (task is not null && me is not null && task.Data["assigned_to"] is System.Text.Json.Nodes.JsonArray { Count: > 0 } assigned && !assigned.Any(a => a?.ToString() == me.Id.ToString())) continue;
             notices.Add(new(reminder.Key, NoticeKind.TaskDue, phone.AtLeniently(reminder.Dates[0].At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticeTask"], reminder.Title), "", reminder.Entity));
         }
+
+        // Weather that matters for a plan, on the morning of its day, or two hours before when that is earlier.
+        if (weather is not null)
+            foreach (var warning in TravelRepo.Providers.Weather.WeatherAdvice.Reminders(trip, weather, now).Where(r => r.Moment is not null && r.Entity is { } id && trip.Find(id) is { } item && TripMe.Concerns(trip, item, me)))
+            {
+                var start = warning.Moment!.Value; var morning = phone.AtLeniently(start.InZone(phone).Date.At(new LocalTime(7, 30))).ToInstant();
+                var concerns = weather.Items.TryGetValue(warning.Entity!.Value, out var w) ? WeatherDisplay.Concerns(w.Concerns, s, imperial: false) : "";
+                notices.Add(new("weather:" + warning.Key, NoticeKind.Weather, Instant.Min(morning, start - Duration.FromHours(2)), Format(s["NoticeWeather"], warning.Title), concerns, warning.Entity));
+            }
 
         // The evening before the trip: what is left to pack.
         if (TripQueries.EffectiveDates(trip).Start is { } first)

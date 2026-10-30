@@ -207,6 +207,7 @@ public sealed partial class MobileSession
             Settings.LastSync[Path.GetFileName(workspace.Repository.Root)] = DateTimeOffset.Now; Settings.Save();
             // With a network at hand, the exchange rates come along.
             _ = FetchRatesAsync(ct: CancellationToken.None);
+            _ = UpdateWeatherAsync(CancellationToken.None);
         }
         catch (Exception ex) when (ex is DomainException or HttpRequestException or IOException)
         {

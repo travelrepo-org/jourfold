@@ -13,11 +13,20 @@ namespace Jourfold.Mobile.Views;
 /// </summary>
 public static class TodayView
 {
+    /// <summary>Asks once who the user is in the trip, so reminders cover their own plans.</summary>
+    private static Control? WhoAmI(MobileSession s)
+    {
+        if (!s.AskWhoAmI) return null;
+        var choose = Ui.Button(s.Strings["ChooseWhoIAm"], "user-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        choose.Click += (_, _) => { s.ShowTab(MobileTab.More); s.ShowPage("travellers"); };
+        return Ui.Card(Ui.V(8, Ui.Text(s.Strings["WhoAmITitle"], "strong"), Ui.Text(s.Strings["WhoAmIPhone"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), choose), 14).Margin(16, 0);
+    }
+
     public static Control Build(MobileSession s, WidthClass width)
     {
         var now = s.Now; var phone = s.PhoneZone; var today = s.PhoneToday;
         var day = s.Agenda.Find(today);
-        var page = Ui.V(16, Lines.TripHeader(s));
+        var page = Ui.V(16, Lines.TripHeader(s), WhoAmI(s));
         if (day is null) { page.Children.Add(OutsideTrip(s, today)); return Ui.Scroll(page); }
 
         var lines = DayLines(s, day, today, phone);

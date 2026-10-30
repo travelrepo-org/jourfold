@@ -25,12 +25,13 @@ namespace Jourfold.Mobile;
 /// The device's current position, asked for only when the user taps "Where I am"; it may ask for the permission first.
 /// Null when the device cannot tell or the user declines; the delegate itself is null where the platform has none.
 /// </param>
+/// <param name="Notices">The device's notifications; null where the platform has none.</param>
 /// <param name="Calendar">The device's calendar app, where trips can appear; null where the platform has none.</param>
 /// <param name="OpenFile">
 /// Hands a file in <see cref="SharedRoot"/> to another app that can show it, such as a PDF viewer, with its media type.
 /// False when no app can; null where the platform cannot do it.
 /// </param>
-public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null)
+public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null)
 {
     /// <summary>Copies of files handed to other apps. Emptied each time, so they do not pile up.</summary>
     public string SharedRoot => Path.Combine(DataRoot, "shared");

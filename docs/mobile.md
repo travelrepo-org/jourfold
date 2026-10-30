@@ -143,6 +143,36 @@ the changes are combined on the phone. When both changed the same thing, the pho
 user to open the trip on a computer, where both can be compared. Without a network the app says so quietly and
 tries again after the next change.
 
+## On the road without a computer
+
+Phone and tablet edit everything needed while travelling: a journey's arrival in its own zone, carrier, number,
+terminals, gate and seat; a stay's first night, nights, check-in and check-out hours, rooms and access; booking
+numbers (a booking is added when there is none); tasks with a due day. When a sync finds that both sides changed the
+same thing, the sync waits and Sync → "Choose what applies" lists each change with this device's and GitHub's
+version, and "keep both" for items; the choices are merged and sent (`MergeAnswers`, shared with the desktop).
+
+"Me" works as on the desktop (`TripMe`): chosen per trip on the device under More → Travellers, or found by GitHub
+login and e-mail; choosing saves the user's e-mail and GitHub name on that person, so their other devices recognise
+them. Today asks once when nobody matches.
+
+## Notifications
+
+Settings → Notifications → "Remind me on the trip" (off until turned on, asks for the permission; "On time to the
+minute" asks Android for exact alarms). `TravelNotices` works out from the plan alone, offline: departures (three
+hours before a flight, 45 minutes before other journeys), changes between journeys (TravelRepo's `Connections`:
+the next journey leaves within 24 hours from the place the last one arrived, airports of one city count as one
+place), arrivals with the local time and what comes next, the stay on its arrival day with its hours and access, the
+check-out the evening before, when to leave for a plan (walking time from the distance to the place before, with a
+detour factor; 20 minutes when it is too far to walk or unknown), free cancellation two days before it ends, tasks
+on the morning they are due and the packing list the evening before the trip. Only plans that concern the user
+count: those naming them, and those naming nobody.
+
+On Android each kind has a channel. The travel day is one ongoing notification with a countdown to the departure,
+the progress to the arrival, or the time left during a change; Android 16 promotes it to a Live Update. `NoticeRunner`
+shows what is due once, and an alarm wakes it for the next notice; it also runs after a restart, when the time or
+time zone changes (an arrival up to three hours early is shown on the zone change after landing), and after edits
+and syncs. A tap opens the plan, "Show ticket" its first ticket.
+
 ## Trips in the calendar app
 
 Settings → Calendar → "Show trips in the calendar app" (off until turned on, asks for the calendar permission) puts

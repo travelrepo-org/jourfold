@@ -45,10 +45,13 @@ public sealed partial class MobileSession
         CalendarProblem = null;
     }
 
-    /// <summary>Updates the calendars once the trips have been quiet for a moment, so typing does not write each letter.</summary>
+    /// <summary>
+    /// Updates the calendars and the notifications once the trips have been quiet for a moment, so typing does not
+    /// write each letter.
+    /// </summary>
     private void UpdateCalendarSoon()
     {
-        if (Host.Calendar is null || !CalendarOn) return;
+        if ((Host.Calendar is null || !CalendarOn) && (Host.Notices is null || !NoticesOn)) return;
         calendarWait?.Cancel(); var wait = calendarWait = new CancellationTokenSource();
         _ = Later();
         async Task Later()
@@ -57,6 +60,7 @@ public sealed partial class MobileSession
             {
                 await Task.Delay(TimeSpan.FromSeconds(2), wait.Token);
                 await UpdateCalendarAsync(wait.Token);
+                if (NoticesOn) await NoticeRunner.RunAsync(Host, ct: wait.Token);
             }
             catch (OperationCanceledException) { }
             catch (Exception) { CalendarProblem = Strings["CalendarFailed"]; }

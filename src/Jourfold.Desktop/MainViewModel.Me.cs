@@ -11,7 +11,7 @@ namespace Jourfold.Desktop;
 /// </summary>
 public partial class MainViewModel
 {
-    private const string NotInTrip = "none";
+    private const string NotInTrip = Jourfold.Application.TripMe.NotInTrip;
     private string? MeKey => Workspace is null ? null : "me:" + Workspace.Repository.Root;
     private string? MeChoice => MeKey is { } key ? Store.Get(key) : null;
 
@@ -21,12 +21,7 @@ public partial class MainViewModel
         get
         {
             if (Trip is not { } trip) return null;
-            var choice = MeChoice;
-            if (choice == NotInTrip) return null;
-            if (Guid.TryParse(choice, out var id) && trip.Find(id) is { Type: "person" } chosen) return chosen;
-            if (TripPeople.Match(trip, GitHubLogin, Store.Get("identity.email"))?.Person is { } matched) return matched;
-            // In the sample trip, whoever explores it plays its organizer.
-            return Jourfold.Application.SampleTrip.IsSample(trip) ? trip.Entities.Values.FirstOrDefault(e => e.Type == "person" && e.Data["roles"] is JsonArray roles && roles.Any(r => r?.ToString() == "organizer")) : null;
+            return Jourfold.Application.TripMe.Resolve(trip, MeChoice, GitHubLogin, Store.Get("identity.email"));
         }
     }
 

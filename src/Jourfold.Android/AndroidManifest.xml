@@ -7,6 +7,13 @@
   <!-- Only when the user turns on "Show trips in the calendar app": the trip calendars are written, never read for anything else. -->
   <uses-permission android:name="android.permission.READ_CALENDAR"/>
   <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
+  <!-- Reminders on the trip, only after the user turns them on: notifications, the travel day as a Live Update, alarms
+       that wake the app at the time of the next reminder (on time to the minute when the user allows it), and setting
+       them again after a restart. -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
   <!-- The trip calendars' account syncs only when the user asks; these set that up. -->
   <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
   <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>

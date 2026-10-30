@@ -26,7 +26,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
-            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this));
+            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()));
         base.OnCreate();
     }
 
@@ -79,8 +79,25 @@ public sealed class MainActivity : AvaloniaMainActivity
 
     private void Share(Intent? intent)
     {
+        // A tap on a notification opens its trip and plan.
+        if (intent?.GetStringExtra(AndroidNotices.ExtraTrip) is { } trip)
+        {
+            var item = Guid.TryParse(intent.GetStringExtra(AndroidNotices.ExtraItem), out var id) ? id : (Guid?)null;
+            var ticket = intent.GetBooleanExtra(AndroidNotices.ExtraTicket, false);
+            OpenNotice(trip, item, ticket, tries: 25);
+            return;
+        }
         if (AndroidSharing.Read(this, intent) is { } shared) Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.Session?.Receive(shared));
     }
+
+    /// <summary>Opens what a notification is about once the app is ready; after a cold start that takes a moment.</summary>
+    private static void OpenNotice(string trip, Guid? item, bool ticket, int tries) => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+    {
+        if (MobileApp.Session is { } session) { await session.OpenNoticeAsync(trip, item, ticket); return; }
+        if (tries == 0) return;
+        await Task.Delay(200);
+        OpenNotice(trip, item, ticket, tries - 1);
+    });
 
     protected override void OnDestroy() { if (Current == this) Current = null; base.OnDestroy(); }
 
@@ -89,6 +106,7 @@ public sealed class MainActivity : AvaloniaMainActivity
         base.OnRequestPermissionsResult(requestCode, permissions, grantResults);
         AndroidLocation.Answered(requestCode, grantResults);
         AndroidCalendar.Answered(requestCode, grantResults);
+        AndroidNotices.Answered(requestCode, grantResults);
     }
 
     /// <summary>Leaving the app turns open changes into a version right away; Android may stop the app at any time after.</summary>

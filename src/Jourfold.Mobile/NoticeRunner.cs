@@ -1,0 +1,87 @@
+using System.Text.Json;
+using Jourfold.Application;
+using Jourfold.UI;
+using NodaTime;
+using TravelRepo.Core;
+using TravelRepo.Repository;
+
+namespace Jourfold.Mobile;
+
+/// <summary>
+/// The device's notifications, as the platform shows them. Jourfold works out what to show and when to wake up again;
+/// the platform shows it and wakes the app at that time, also when it is not running.
+/// </summary>
+public interface ISystemNotices
+{
+    /// <summary>Whether the app may show notifications; with <paramref name="ask"/> the user is asked first if needed.</summary>
+    Task<bool> AllowAsync(bool ask, CancellationToken ct = default);
+    /// <summary>Whether reminders come on time to the minute; without the permission the system may delay them a little.</summary>
+    bool OnTime { get; }
+    /// <summary>Opens the system page where the user allows reminders on time.</summary>
+    void AskOnTime();
+    /// <summary>Opens the system page where the user chooses which kinds of notifications to get.</summary>
+    void OpenSettings();
+    void Show(TravelNotice notice, string tripFolder);
+    /// <summary>Shows, updates or (with null) removes the travel day's ongoing notification.</summary>
+    void ShowLive(LiveNotice? live, string? tripFolder);
+    /// <summary>Wakes the app at <paramref name="at"/> to run <see cref="NoticeRunner.RunAsync"/>; null cancels.</summary>
+    void WakeAt(Instant? at);
+}
+
+/// <summary>
+/// Shows the notifications that are due across the trips on the device, each once, keeps the travel day's
+/// notification up to date, and asks to be woken for the next one. It runs when the app starts, after the trips
+/// change, when the time zone changes, after a restart and when it woke itself.
+/// </summary>
+public static class NoticeRunner
+{
+    private static readonly SemaphoreSlim Running = new(1, 1);
+
+    public static bool On(MobileSettings settings) => settings.Values.GetValueOrDefault("notices") == "on";
+
+    /// <param name="zoneChanged">The phone's time zone just changed, as after a long flight: an arrival up to three hours
+    /// ahead of plan is shown now.</param>
+    public static async Task RunAsync(MobileHost host, bool zoneChanged = false, CancellationToken ct = default)
+    {
+        if (host.Notices is not { } notices) return;
+        await Running.WaitAsync(ct);
+        try
+        {
+            var settings = MobileSettings.Load(Path.Combine(host.DataRoot, "settings.json"));
+            if (!On(settings) || !await notices.AllowAsync(ask: false, ct)) { notices.ShowLive(null, null); notices.WakeAt(null); return; }
+            var now = host.Clock.GetCurrentInstant(); var phone = host.PhoneZone(); var strings = new Localization(host.Language) { Device = host.Device };
+            var shownPath = Path.Combine(host.DataRoot, "notices-shown.json");
+            var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
+            Instant? next = null; (LiveNotice Live, string Folder)? live = null;
+            foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
+            {
+                TripSnapshot trip;
+                try { trip = (await new TravelRepository(folder, Path.Combine(host.RecoveryRoot, Path.GetFileName(folder))).ReadAsync(ct)).Trip; }
+                catch (DomainException) { continue; }
+                var me = TripMe.Resolve(trip, settings.Values.GetValueOrDefault(MobileSession.MeSetting(folder)), settings.GitHubLogin, settings.Email);
+                var current = TravelNotices.Live(trip, me, now, phone, strings);
+                if (live is null && current is not null) live = (current, folder);
+                foreach (var notice in TravelNotices.Plan(trip, me, now, phone, strings))
+                {
+                    var due = notice.At <= now || zoneChanged && notice.Kind == NoticeKind.Arrival && notice.At - now <= Duration.FromHours(3);
+                    // The travel day's notification already says when a journey leaves; it announces itself once instead.
+                    var covered = current is not null && notice.Kind is NoticeKind.Departure or NoticeKind.Connection && notice.Item == current.Item;
+                    if (due && !shown.ContainsKey(notice.Key)) { if (!covered) notices.Show(notice, folder); shown[notice.Key] = now.ToUnixTimeMilliseconds(); }
+                    else if (notice.At > now && (next is null || notice.At < next)) next = notice.At;
+                }
+            }
+            notices.ShowLive(live?.Live, live?.Folder);
+            // While travelling the progress is redrawn every few minutes; otherwise the plan is read again twice a day.
+            var wake = new[] { next, live?.Live.Changes, now + (live is null ? Duration.FromHours(12) : Duration.FromMinutes(5)) }.OfType<Instant>().Where(t => t > now).Min();
+            notices.WakeAt(wake);
+            File.WriteAllText(shownPath, JsonSerializer.Serialize(shown));
+        }
+        finally { Running.Release(); }
+    }
+
+    private static Dictionary<string, long> Read(string path)
+    {
+        try { return File.Exists(path) ? JsonSerializer.Deserialize<Dictionary<string, long>>(File.ReadAllText(path)) ?? [] : []; }
+        catch (JsonException) { return []; }
+    }
+}

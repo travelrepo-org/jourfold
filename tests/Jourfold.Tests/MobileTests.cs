@@ -714,6 +714,54 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TheTravelDayIsWorkedOutFromThePlan()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 1, 0, 0)), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var trip = session.Trip!;
+        Instant At(int day, int hour, int minute, DateTimeZone zone) => new LocalDateTime(2027, 5, day, hour, minute).InZoneStrictly(zone).ToInstant();
+        var morning = At(14, 8, 0, Berlin);
+        var notices = TravelNotices.Plan(trip, session.Me, morning, Berlin, English);
+        // Three hours before the flight, with what the plan knows about it; a phone in Berlin needs no place name.
+        var departure = notices.Single(n => n.Kind == NoticeKind.Departure && n.Title.StartsWith("Flight to Tokyo", StringComparison.Ordinal));
+        Assert.Equal(("Flight to Tokyo · departs 13:20", At(14, 10, 20, Berlin)), (departure.Title, departure.At));
+        Assert.Contains("Seat 32A, 32C", departure.Text);
+        // Landing says the local time and what comes next; the stay follows with its hours.
+        var arrival = notices.Single(n => n.Kind == NoticeKind.Arrival && n.Item == departure.Item);
+        Assert.StartsWith("Arrived: ", arrival.Title); Assert.Contains("Arrival 08:35 local time", arrival.Text); Assert.Contains("Next: Hotel Gracery Shinjuku", arrival.Text);
+        Assert.Contains(notices, n => n.Kind == NoticeKind.Stay && n.Title == "Today: Hotel Gracery Shinjuku");
+        // Nothing is planned further than the horizon.
+        Assert.All(notices, n => Assert.InRange(n.At, morning - TravelNotices.Late, morning + TravelNotices.Horizon));
+
+        // The ongoing notification counts down to the departure, then shows the way to the arrival.
+        var before = TravelNotices.Live(trip, session.Me, At(14, 12, 0, Berlin), Berlin, English)!;
+        Assert.Equal(("Flight to Tokyo · departs 13:20", At(14, 13, 20, Berlin)), (before.Title, before.Until!.Value));
+        var flying = TravelNotices.Live(trip, session.Me, At(14, 20, 0, Berlin), Berlin, English)!;
+        Assert.Equal("Flight to Tokyo · arrives 08:35 Tokyo", flying.Title); Assert.Equal(At(14, 13, 20, Berlin), flying.From);
+        Assert.Null(TravelNotices.Live(trip, session.Me, At(14, 6, 0, Berlin), Berlin, English));
+
+        // Plans for someone else do not remind the user.
+        var sam = trip.Entities.Values.First(e => e.Type == "person" && e.Title.StartsWith("Sam", StringComparison.Ordinal));
+        var dinner = trip.Entities.Values.First(e => e.Title == "Dinner at Omoide Yokocho").Copy();
+        dinner.Data["participants"] = new JsonObject { ["inherit"] = false, ["values"] = new JsonArray(sam.Id.ToString()) };
+        await session.SaveDetailsAsync([new(dinner.Id, dinner)]);
+        var mine = TravelNotices.Plan(session.Trip!, session.Me, At(15, 8, 0, Tokyo), Tokyo, English);
+        Assert.NotEqual(sam.Id, session.Me!.Id);
+        Assert.DoesNotContain(mine, n => n.Item == dinner.Id);
+        Assert.Contains(mine, n => n.Kind == NoticeKind.LeaveBy && n.Title == "Time to go: Explore Shinjuku");
+
+        // Choosing who one is on this phone: then Sam's dinner reminds, the user's own plans for others do not.
+        await session.SaveSettingsAsync("Sam", "sam@example.invalid");
+        await session.SetMeAsync(sam.Id);
+        Assert.Equal(sam.Id, session.Me!.Id);
+        Assert.Contains("sam@example.invalid", Jourfold.Application.DetailEdits.Get(session.Trip!.Find(sam.Id)!, "identities")!.ToJsonString());
+        Assert.Contains(TravelNotices.Plan(session.Trip!, session.Me, At(15, 8, 0, Tokyo), Tokyo, English), n => n.Item == dinner.Id);
+        await session.SetMeAsync(null);
+        Assert.Null(session.Me); Assert.False(session.AskWhoAmI);
+        session.Dispose();
+    }
+
     private static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 100 && !condition(); i++) { await Task.Delay(50); Avalonia.Threading.Dispatcher.UIThread.RunJobs(); }

@@ -295,14 +295,34 @@ public static class MorePages
         var trip = s.Trip!; var str = s.Strings;
         var people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(p => p.Title, StringComparer.CurrentCulture).ToArray();
         if (people.Length == 0) return Frame(s, str["Travellers"], Empty("users", str["NoTravellersTitle"], str["NoTravellersBody"]));
-        return Frame(s, str["Travellers"], Group(string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people.Length), people.Select(p =>
+        var me = s.Me;
+        // A tap says who the user is; it decides which plans remind them.
+        var rows = people.Select(p =>
         {
             var email = p.Data["email"]?.ToString() ?? (p.Data["identities"]?["git"] as JsonArray)?.FirstOrDefault()?["email"]?.ToString();
             var items = TripSummaries.ReferencesTo(trip, p.Id).Count(e => e.Type is "schedule_item" or "booking");
             var detail = string.Join(" · ", new[] { email, items > 0 ? string.Format(CultureInfo.CurrentCulture, str["CountPlans"], items) : null }.Where(t => !string.IsNullOrEmpty(t)));
-            return (Control)Ui.Columns("Auto,*", Ui.Avatar(p.Title, 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), detail.Length == 0 ? null : Ui.Text(detail, "caption")))
-                .Also(g => { g.MinHeight = 64; g.Margin = new Thickness(16, 8); });
-        }).ToArray()));
+            var isMe = me?.Id == p.Id;
+            var row = new Button
+            {
+                Content = Ui.Columns("Auto,*,Auto", Ui.Avatar(p.Title, 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), detail.Length == 0 ? null : Ui.Text(detail, "caption")),
+                    isMe ? new Border { Child = Ui.Text(str["MeBadge"], "small"), Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(8) }.Res(Border.BackgroundProperty, "Accent.Soft") : null),
+                MinHeight = 64,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+            }.Classed("row");
+            AutomationProperties.SetName(row, p.Title + (isMe ? ", " + str["MeBadge"] : ""));
+            row.Click += (_, _) => s.ShowMenu(new ActionMenu(p.Title, null, [isMe
+                ? new MenuAction(str["NotMe"], "x", _ => s.SetMeAsync(null))
+                : new MenuAction(str["ThisIsMe"], "user-check", _ => s.SetMeAsync(p.Id))]));
+            return (Control)row;
+        }).ToArray();
+        var notInTrip = Ui.Button(str["NotPartOfTrip"], "x", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        notInTrip.Click += async (_, _) => await s.SetMeAsync(null);
+        return Frame(s, str["Travellers"],
+            Ui.Text(me is null ? str["WhoAmIPhone"] : string.Format(CultureInfo.CurrentCulture, str["YouAreNow"], me.Title), "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0),
+            Group(string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people.Length), rows),
+            me is null ? null : notInTrip.Margin(12, 0));
     }
 
     // Sync and versions
@@ -389,6 +409,31 @@ public static class MorePages
             s.SyncProblem is { } problem && !s.Syncing ? Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }).Margin(20, 0) : null);
     }
 
+    /// <summary>Reminders on the trip: on or off, on time to the minute, and the kinds in the system settings.</summary>
+    private static Control? Notices(MobileSession s)
+    {
+        if (s.Host.Notices is not { } notices) return null;
+        var str = s.Strings;
+        var show = new ToggleSwitch { IsChecked = s.NoticesOn, OnContent = str["NoticesShow"], OffContent = str["NoticesShow"] }.Also(t => AutomationProperties.SetName(t, str["NoticesShow"]));
+        show.IsCheckedChanged += async (_, _) => await s.SetNoticesAsync(show.IsChecked == true);
+        Control Hint(string text) => Ui.Text(text, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        var body = Ui.V(12, show, Hint(str["NoticesHint"]));
+        if (s.NoticesOn)
+        {
+            if (!notices.OnTime)
+            {
+                var exact = Ui.Button(str["NoticesExact"], "clock", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+                exact.Click += (_, _) => notices.AskOnTime();
+                body.Children.Add(Ui.V(6, exact, Hint(str["NoticesExactHint"])));
+            }
+            var kinds = Ui.Button(str["NoticesKinds"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            kinds.Click += (_, _) => notices.OpenSettings();
+            body.Children.Add(kinds);
+        }
+        if (s.NoticesProblem is { } problem) body.Children.Add(Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }));
+        return Ui.V(8, Ui.Text(str["NoticesSection"], "overline").Margin(20, 0), Ui.Card(body, 14).Margin(16, 0));
+    }
+
     /// <summary>The trips in the calendar app: on or off, one calendar per trip or per kind. Only where the platform has it.</summary>
     private static Control? Calendar(MobileSession s)
     {
@@ -424,6 +469,7 @@ public static class MorePages
         return Frame(s, str["Settings"],
             Ui.V(8, Ui.Text(str["YouOnThisPhone"], "overline").Margin(20, 0),
                 Ui.Card(Ui.V(12, Ui.Text(str["YouOnThisPhoneHint"], "caption"), Ui.Field(str["Name"], name), Ui.Field(str["Email"], email), save), 14).Margin(16, 0)),
+            Notices(s),
             Calendar(s),
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),

@@ -42,6 +42,8 @@ Selecting anything opens the details panel on the right. Changes are saved as so
 - **Status**, **Category** and **Who** are one click each.
 - Transport has a mode, from and to places, carrier, number, seat, terminal and distance. When the next journey leaves from the same place or one close by within a day, such as a layover, both journeys say how long there is to change and where. Stays have check-in and check-out, guests and rooms.
 - **Show ticket** opens a boarding pass or ticket attached to the plan or its booking. Wallet passes (`.pkpass`) show their barcode in Jourfold's document window, large enough to scan from the screen.
+- Places have a name and address in the local script, such as Japanese, with a **Taxi card** that shows them large enough to read from the screen.
+- Expenses keep their receipts and other files, like a receipt photographed on the phone.
 - **Booking** links the plan to a booking; the booking then lists the plan too, and a plan moved to another booking leaves the old one.
 - **Steps** groups several items, such as the parts of a day trip. Add a new step or take in a plan that already exists; a plan belongs to one group, and **Take out of the group** makes it stand on its own again. Steps can share the group's people.
 - **Notes** holds Markdown notes, links, attached files and links to other items.

@@ -130,4 +130,22 @@ public sealed class DesktopTravelTests : IDisposable
         }
         finally { await m.SetRatesAsync(false); w.Close(); }
     }
+
+    [AvaloniaFact]
+    public async Task APlaceHasItsLocalScriptAndATaxiCardAndAnExpenseItsReceipt()
+    {
+        var w = await OpenAsync(); var m = w.Model;
+        try
+        {
+            var hotel = Place("Lakeside Hotel", 35.68, 139.77); hotel.Data["local_name"] = "湖畔ホテル"; hotel.Data["address"] = new JsonObject { ["formatted"] = "1 Lake Road", ["local"] = "湖畔通り1" };
+            var lunch = Entity.Create("expense", "Lunch"); lunch.Data["amount"] = new JsonObject { ["value"] = "12.00", ["currency"] = "EUR" }; lunch.Data["estimated"] = false;
+            await m.Workspace!.ApplyAsync([new(hotel.Id, hotel), new(lunch.Id, lunch)]);
+            m.Navigate("Places"); m.Selected = m.Trip!.Find(hotel.Id); Probe.ShowDetails(w);
+            await Probe.Until(() => Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Any(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Taxi card"));
+            Assert.Contains(Probe.All<TextBox>(w.FindControl<Control>("InspectorHost")!), t => t.Text == "湖畔通り1");
+            m.Navigate("Costs"); m.Selected = m.Trip!.Find(lunch.Id); Probe.ShowDetails(w);
+            await Probe.Until(() => Texts(w).Contains("Choose file") || Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Any(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Choose file"));
+        }
+        finally { w.Close(); }
+    }
 }

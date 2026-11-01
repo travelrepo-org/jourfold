@@ -1,3 +1,4 @@
+using Avalonia.Controls.Primitives;
 using Jourfold.Application;
 using System.Globalization;
 using System.Text;
@@ -203,6 +204,8 @@ public static class InspectorView
                     body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["EstimatedToggle"], e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est));
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
                     body.Children.Add(Field(s["Related"], Related(w, e)));
+                    // A receipt photographed on the phone, or one dropped here.
+                    Add(body, s["Files"], Confirmations(w, e));
                     if (e.Data["converted"] is JsonObject converted) body.Children.Add(Field(s["Converted"], Ui.Text(converted["value"] + " " + converted["currency"] + " · " + string.Format(s["RateOn"], converted["rate"], converted["rate_date"]), "muted")));
                 }
                 else body.Children.Add(Field(s["BudgetScope"], Editors.Choice(w, e.Id, "scope", s["BudgetScope"], e.Data["scope"]?.ToString(), ["trip", "category", "participant", "collection"])));
@@ -372,6 +375,25 @@ public static class InspectorView
             Child = Ui.V(4, Ui.Columns("Auto,*", Ui.Icon("route", 14, "Accent"), Ui.Text(time, "strong").Margin(8, 0, 0, 0)),
                 Ui.Columns("Auto,*", Ui.Text(s[onward ? "ConnectsTo" : "ConnectsFrom"], "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Link(w, onward ? c.Departing : c.Arriving).Margin(6, 0, 0, 0)))
         }.Res(Border.BackgroundProperty, "Bg.Subtle");
+    }
+
+    /// <summary>
+    /// A taxi card: the place's name and address in the local script, large enough to show from the screen, with the
+    /// usual spelling and the phone number below. Null when there is nothing to show.
+    /// </summary>
+    private static Button? TaxiCard(MainViewModel m, Entity place)
+    {
+        var s = m.Strings; var local = Places.LocalName(place); var localAddress = Places.LocalAddress(place);
+        if ((local ?? localAddress ?? Places.Address(place)) is null) return null;
+        var card = Ui.V(14,
+            Ui.Text(s["TaxiCardHint"], "overline"),
+            Ui.Text(local ?? place.Title, "h1").Also(t => { t.FontSize = 36; t.TextWrapping = TextWrapping.Wrap; }),
+            (localAddress ?? Places.Address(place)) is { } shown ? new SelectableTextBlock { Text = shown, FontSize = 24, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap } : null,
+            local is not null || localAddress is not null ? Ui.V(2, Ui.Text(place.Title, "strong"), Places.Address(place) is { } usual ? Ui.Text(usual, "muted").Also(t => t.TextWrapping = TextWrapping.Wrap) : null) : null,
+            Places.Contact(place)?.Phone is { Length: > 0 } phone ? new SelectableTextBlock { Text = phone, FontSize = 20 } : null);
+        var button = Ui.Button(s["TaxiCard"], "car-taxi-front", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        button.Flyout = new Flyout { Content = new Border { MaxWidth = 560, Padding = new Thickness(12), Child = card }, Placement = PlacementMode.LeftEdgeAlignedTop };
+        return button;
     }
 
     /// <summary>"Show ticket" when the plan or its booking has a boarding pass or ticket; with several, a choice.</summary>
@@ -609,7 +631,7 @@ public static class InspectorView
             var created = m.Trip!.Find(picked.Id);
             if (created?.Data["location"] is JsonObject loc)
             {
-                await m.UpdateAsync(e.Id, x => { x.Data["location"] = loc.DeepClone(); if (created.Data["address"] is JsonObject a) x.Data["address"] = a.DeepClone(); if (created.Data["external_ids"] is JsonObject ids) x.Data["external_ids"] = ids.DeepClone(); });
+                await m.UpdateAsync(e.Id, x => { x.Data["location"] = loc.DeepClone(); if (created.Data["address"] is JsonObject a) x.Data["address"] = a.DeepClone(); if (created.Data["external_ids"] is JsonObject ids) x.Data["external_ids"] = ids.DeepClone(); if (created.Data["local_name"] is { } local) x.Data["local_name"] = local.DeepClone(); });
                 if (TripSummaries.ReferencesTo(m.Trip!, picked.Id).Count == 0 && picked.Id != e.Id) await m.RunEditAsync(() => m.Workspace!.ApplyAsync([new(picked.Id, null)]));
                 m.Selected = m.Trip!.Find(e.Id);
             }
@@ -617,6 +639,10 @@ public static class InspectorView
         var show = Ui.Button(s["ShowOnMap"], "map"); show.IsEnabled = coords is not null; show.Click += (_, _) => m.Navigate("Map");
         Add(body, s["Location"], Ui.V(10, location, Ui.Flow(8, find, show), m.OnlineMaps ? null : Ui.Text(s["EnableOnlineSearchHint"], "caption")));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "timezone", s["Timezone"], e.Data["timezone"]?.ToString(), FieldOptions.Timezones)));
+        // The name and address in the local script, for a taxi driver or a passer-by.
+        body.Children.Add(Field(s["LocalName"], Editors.Text(w, e.Id, "local_name", s["LocalName"], e.Data["local_name"]?.ToString())));
+        body.Children.Add(Field(s["LocalAddress"], Editors.Text(w, e.Id, "address/local", s["LocalAddress"], e.Data["address"]?["local"]?.ToString(), multiline: true)));
+        if (TaxiCard(m, e) is { } taxi) body.Children.Add(taxi);
         var contact = e.Data["contact"]; var ps = w.Model.Strings;
         body.Children.Add(Ui.Columns("*,*", Field(ps["Phone"], Editors.Text(w, e.Id, "contact/phone", ps["Phone"], contact?["phone"]?.ToString())), Field(ps["Email"], Editors.Text(w, e.Id, "contact/email", ps["Email"], contact?["email"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Field(ps["Website"], Editors.Text(w, e.Id, "contact/website", ps["Website"], contact?["website"]?.ToString())));

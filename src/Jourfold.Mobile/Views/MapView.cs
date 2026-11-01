@@ -237,7 +237,7 @@ public sealed class MapPage : UserControl
         if (stops.Length == 0 && day is not null) page.Children.Add(Ui.Text(str["NoPlacesThisDay"], "muted"));
         if (stops.Any(x => x.At is null))
         {
-            var places = Ui.Button(str["Places"], "map-pin", "ghost", "compact"); places.Click += (_, _) => s.ShowPage("places");
+            var places = Ui.Button(str["Places"], "map-pin", "ghost", "compact"); places.Click += (_, _) => s.OpenPage("places");
             page.Children.Add(Ui.V(4, Ui.Text(str["PlacesWithoutPosition"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), places.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)));
         }
         return page.Margin(16, 0, 16, 24);

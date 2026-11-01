@@ -121,7 +121,7 @@ public static class GitHubView
         if (s.PendingMerge is not null && !s.Syncing)
         {
             var choose = Ui.Button(str["MergeChoose"], "git-compare", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
-            choose.Click += (_, _) => s.ShowPage("merge");
+            choose.Click += (_, _) => s.OpenPage("merge");
             return Ui.Card(Ui.V(12, state, choose), 16);
         }
         return Ui.Card(Ui.V(12, state, sync), 16);

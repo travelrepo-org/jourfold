@@ -13,6 +13,7 @@ public partial class MainViewModel
 {
     private ExchangeRates? rates;
     private bool fetchingRates;
+    private readonly RateSchedule rateSchedule = new();
 
     /// <summary>Fetches rates; tests and screenshots replace it with one that never goes online.</summary>
     public Func<CancellationToken, Task<ExchangeRates>>? RatesSource { get; set; }
@@ -36,10 +37,10 @@ public partial class MainViewModel
         if (enabled) await FetchRatesAsync(force: true); else ContentChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Fetches today's rates when allowed and not fetched today.</summary>
+    /// <summary>Fetches the newest rates when allowed and due; see <see cref="RateSchedule"/>.</summary>
     public async Task FetchRatesAsync(bool force = false)
     {
-        if (!RatesOn || fetchingRates || !force && Rates?.Date >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1))) return;
+        if (!RatesOn || fetchingRates || !rateSchedule.Begin(Rates, RatesFile(Store), force)) return;
         fetchingRates = true;
         try
         {

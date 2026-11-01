@@ -1586,7 +1586,7 @@
   "FirstJourney": "Anreise",
   "FirstStay": "Erste Unterkunft",
   "FirstActivity": "Erster Programmpunkt",
-  "OpenTasksBeforeTrip": "Offene Aufgaben vor der Reise: {0}",
+  "BeforeTheTrip": "Vor der Reise",
   "GitHubSignInEnded": "GitHub akzeptiert die Anmeldung nicht mehr, zum Beispiel weil Jourfold aus Ihrem GitHub-Konto entfernt wurde. Melden Sie sich erneut an.",
   "ListingRepositories": "Repositorys werden gesucht …",
   "CheckingRepositories": "Repositorys werden geprüft: {0} von {1}",

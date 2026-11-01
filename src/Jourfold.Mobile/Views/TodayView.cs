@@ -29,7 +29,7 @@ public static class TodayView
     {
         if (!s.AskWhoAmI) return null;
         var choose = Ui.Button(s.Strings["ChooseWhoIAm"], "user-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-        choose.Click += (_, _) => { s.ShowTab(MobileTab.More); s.ShowPage("travellers"); };
+        choose.Click += (_, _) => s.OpenPage("travellers");
         return Ui.Card(Ui.V(8, Ui.Text(s.Strings["WhoAmITitle"], "strong"), Ui.Text(s.Strings["WhoAmIPhone"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), choose), 14).Margin(16, 0);
     }
 
@@ -128,6 +128,7 @@ public static class TodayView
         var page = Ui.V(16, Ui.Text(text, "h2").Margin(16, 8, 16, 0));
         if (before)
         {
+            page.Children.Add(Preparation(s));
             var starts = Starts(s);
             if (starts.Count > 0)
             {
@@ -141,22 +142,33 @@ public static class TodayView
                 }
                 page.Children.Add(list.Margin(16, 0));
             }
-            if (MoreView.OpenTasks(s.Trip!) is > 0 and var open)
-            {
-                var tasks = Ui.Button(string.Format(CultureInfo.CurrentCulture, s.Strings["OpenTasksBeforeTrip"], open), "square-check", "ghost");
-                tasks.Click += (_, _) => s.ShowPage("tasks");
-                page.Children.Add(tasks.Margin(8, 0));
-            }
-            // Before the trip, what is left to pack is one tap away.
-            if (PackingLists.All(s.Trip!).Count > 0)
-            {
-                var packing = Ui.Button(s.OpenPacking > 0 ? string.Format(CultureInfo.CurrentCulture, s.Strings["PackingOpen"], s.OpenPacking) : s.Strings["PackingAllDone"], "backpack", "soft");
-                packing.Click += (_, _) => { s.ShowTab(MobileTab.More); s.ShowPage("packing"); };
-                page.Children.Add(packing.Margin(16, 0));
-            }
         }
         page.Children.Add(plan.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(16, 0, 16, 24));
         return page;
+    }
+
+    /// <summary>
+    /// What to get ready before the trip, at the top: the packing lists, always, so they are easy to find even before
+    /// the first list exists, and the open tasks. Back from either returns to Today.
+    /// </summary>
+    private static Control Preparation(MobileSession s)
+    {
+        var str = s.Strings;
+        Control Row(string page, string icon, string title, string detail)
+        {
+            var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.V(1, Ui.Text(title, "strong"), Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle")).Also(g => g.MinHeight = 40) }.Classed("row");
+            Avalonia.Automation.AutomationProperties.SetName(row, title);
+            row.Click += (_, _) => s.OpenPage(page);
+            return row;
+        }
+        var packing = PackingLists.All(s.Trip!).Count == 0 ? str["NoPackingListsTitle"] : s.OpenPacking > 0 ? string.Format(CultureInfo.CurrentCulture, str["PackingOpen"], s.OpenPacking) : str["PackingAllDone"];
+        var list = Ui.V(0, Row("packing", "backpack", str["Packing"], packing));
+        if (MoreView.OpenTasks(s.Trip!) is > 0 and var open)
+        {
+            list.Children.Add(Ui.Divider().Margin(52, 0, 0, 0));
+            list.Children.Add(Row("tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], open)));
+        }
+        return Ui.V(8, Ui.Text(str["BeforeTheTrip"], "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
     }
 
     /// <summary>The first journey, the first stay and the first activity of the trip, in time order. Ideas and cancelled items are left out.</summary>

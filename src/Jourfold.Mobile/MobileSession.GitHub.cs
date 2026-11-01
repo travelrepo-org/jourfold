@@ -243,7 +243,8 @@ public sealed partial class MobileSession
             PendingMerge = null;
             await workspace.ReloadAsync(ct);
             Settings.LastSync[Path.GetFileName(workspace.Repository.Root)] = DateTimeOffset.Now; Settings.Save();
-            if (Page == "merge") Page = "sync";
+            // Back on the sync page the merge was opened from, without it waiting behind back.
+            if (Page == "merge") { if (trail.Count > 0 && trail[^1] == (MobileTab.More, "sync")) trail.RemoveAt(trail.Count - 1); Page = "sync"; }
         }
         catch (DomainException ex) when (ex.Code == "merge.stale") { Syncing = false; PendingMerge = null; await SyncAsync(quiet: false, ct); return; }
         catch (Exception ex) when (ex is DomainException or HttpRequestException or IOException) { SyncProblem = Problem(ex); }

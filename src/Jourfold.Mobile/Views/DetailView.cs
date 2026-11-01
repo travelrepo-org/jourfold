@@ -19,13 +19,17 @@ public static class DetailView
 {
     public static Control Header(MobileSession s, Entity item, Action close)
     {
-        var trip = s.Trip!; var kind = ScheduleCategories.Classify(trip, item); var key = Visuals.KindKey(kind);
-        var label = s.Strings.Optional("kind." + kind);
+        var trip = s.Trip!; var kind = ScheduleCategories.Classify(trip, item);
+        // A plan shows its kind; anything else, such as a booking, what it is.
+        var (icon, key) = Visuals.For(trip, item);
+        var label = item.Type == "schedule_item" ? s.Strings.Optional("kind." + kind) : s.Strings.Optional(item.Type);
         var shut = Ui.IconButton("x", s.Strings["Close"]); shut.Click += (_, _) => close();
-        return Ui.Columns("Auto,*,Auto",
-            Ui.Tile(Visuals.KindIcon(kind, ScheduleCategories.TransportType(item)), key, 40).Margin(0, 0, 12, 0),
+        // Back appears only when these details were opened from others, such as a booking from its stay; close always closes.
+        var back = s.CanGoBackInDetails ? Ui.IconButton("arrow-left", s.Strings["Back"]).Also(b => b.Click += (_, _) => s.DetailsBack()) : null;
+        return Ui.Columns("Auto,*,Auto,Auto",
+            Ui.Tile(icon, key, 40).Margin(0, 0, 12, 0),
             Ui.V(2, Ui.Text(item.Title, "h3").Copies(s), Ui.Text(label, "caption")),
-            shut).Margin(16, 2, 8, 10);
+            back, shut).Margin(16, 2, 8, 10);
     }
 
     public static Control Body(MobileSession s, Entity item)
@@ -72,6 +76,7 @@ public static class DetailView
         if (tasks.Length > 0) page.Children.Add(Section(str["OpenTasks"], Ui.V(4, tasks.Select(t => (Control)TaskRow(s, t)).ToArray())));
 
         if (item.Type == "schedule_item" && Group(s, item) is { } group) page.Children.Add(group);
+        if (item.Type == "booking" && Booked(s, item) is { } booked) page.Children.Add(booked);
 
         // Expanded
         var people = ScheduleQueries.Participants(trip, item).Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
@@ -79,9 +84,17 @@ public static class DetailView
         if (booking is not null)
         {
             var price = TripSummaries.Money(booking.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : null;
-            page.Children.Add(Section(str["Booking"], Ui.Card(Ui.V(4, Ui.Text(booking.Title, "strong").Copies(s),
-                Ui.Text(string.Join(" · ", new[] { Provider(booking), booking.Data["reference"]?.ToString(), str.Optional(booking.Data["status"]?.ToString() ?? ""), price }.Where(t => !string.IsNullOrWhiteSpace(t))), "caption")
-                    .Copies(s, booking.Data["reference"]?.ToString() is { Length: > 0 } code ? code : null)), 12)));
+            var summary = Ui.V(4, Ui.Text(booking.Title, "strong"),
+                Ui.Text(string.Join(" · ", new[] { Provider(booking), booking.Data["reference"]?.ToString(), str.Optional(booking.Data["status"]?.ToString() ?? ""), price }.Where(t => !string.IsNullOrWhiteSpace(t))), "caption"));
+            if (booking.Id == item.Id) page.Children.Add(Section(str["Booking"], Ui.Card(summary, 12)));
+            else
+            {
+                // The booking opens its own details, where it can be edited; back returns here.
+                var open = new Button { Content = Ui.Columns("*,Auto", summary, Ui.Icon("chevron-right", 18, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center)), Padding = new Thickness(12) }.Classed("row", "card");
+                AutomationProperties.SetName(open, str["Booking"] + ": " + booking.Title);
+                open.Click += (_, _) => s.FollowDetails(booking.Id);
+                page.Children.Add(Section(str["Booking"], open));
+            }
         }
         var costs = Linked(trip, item, "expense").Concat(booking is null ? [] : Linked(trip, booking, "expense")).DistinctBy(e => e.Id).ToArray();
         foreach (var cost in costs)
@@ -96,6 +109,24 @@ public static class DetailView
         page.Children.Add(Ui.Columns("*,12,*", edit.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch), null, delete.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch).Col(2)));
         page.Margin = new Thickness(16, 0, 16, 32);
         return page;
+    }
+
+    /// <summary>What a booking is for, each opening its details; back returns to the booking.</summary>
+    private static Control? Booked(MobileSession s, Entity booking)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var items = TripCommands.BookedItems(trip, booking.Id).Select(trip.Find).OfType<Entity>().OrderBy(e => s.Entry(e.Id)?.Start ?? NodaTime.Instant.MaxValue).ToArray();
+        if (items.Length == 0) return null;
+        var list = Ui.V(4);
+        foreach (var plan in items)
+        {
+            var when = s.Entry(plan.Id) is { } entry && TimeText.Local(entry, s.PhoneZone, str, trip) is { Start.Length: > 0 } t ? (entry.Day is { } d ? Lines.DayShort(d, str) + " · " : "") + t.Primary : null;
+            var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(Visuals.KindIcon(ScheduleCategories.Classify(trip, plan), ScheduleCategories.TransportType(plan)), 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.V(0, Ui.Text(plan.Title), when is null ? null : Ui.Text(when, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(0, 6) }.Classed("row");
+            AutomationProperties.SetName(row, plan.Title);
+            row.Click += (_, _) => s.FollowDetails(plan.Id);
+            list.Children.Add(row);
+        }
+        return Section(str["BookedItems"], list);
     }
 
     /// <summary>
@@ -115,7 +146,7 @@ public static class DetailView
         {
             var open = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon("layers", 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StepOf"], parent.Title)), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(0, 6) }.Classed("row");
             AutomationProperties.SetName(open, string.Format(CultureInfo.CurrentCulture, str["StepOf"], parent.Title));
-            open.Click += (_, _) => s.ShowDetails(parent.Id);
+            open.Click += (_, _) => s.FollowDetails(parent.Id);
             var leave = Ui.Button(str["LeaveGroup"], "x", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             leave.Click += async (_, _) => await s.NestAsync(item.Id, null);
             section.Children.Add(open); section.Children.Add(leave);
@@ -126,7 +157,7 @@ public static class DetailView
             var when = s.Entry(step.Id) is { } entry && TimeText.Local(entry, s.PhoneZone, str, trip) is { Start.Length: > 0 } t ? t.Primary : null;
             var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(Visuals.KindIcon(ScheduleCategories.Classify(trip, step), ScheduleCategories.TransportType(step)), 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.V(0, Ui.Text(step.Title), when is null ? null : Ui.Text(when, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(0, 6) }.Classed("row");
             AutomationProperties.SetName(row, step.Title);
-            row.Click += (_, _) => s.ShowDetails(step.Id);
+            row.Click += (_, _) => s.FollowDetails(step.Id);
             section.Children.Add(row);
         }
         var newStep = new MenuAction(str["NewStep"], "plus", _ => { s.ShowQuickAdd(null, item.Id); return Task.CompletedTask; });

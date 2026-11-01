@@ -220,7 +220,7 @@ public static class Editors
         var button = new Button { Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, FontWeight = FontWeight.Normal, Tag = path }.Named(label);
         button.Flyout = Picker(w, type, current is null ? [] : [current.Id], multi: false, picked => save is not null ? save(picked?.Id) : m.UpdateAsync(id, e => EditorModel.Set(e, path, picked is null ? null : JsonValue.Create(picked.Id.ToString()))), allowCreate, allowClear: current is not null);
         if (current is null) return button;
-        var open = Ui.IconButton("arrow-up-right", string.Format(m.Strings["OpenItem"], current.Title), "small"); open.Click += (_, _) => m.Selected = current;
+        var open = Ui.IconButton("arrow-up-right", string.Format(m.Strings["OpenItem"], current.Title), "small"); open.Click += (_, _) => m.Follow(current);
         return Ui.Columns("*,Auto", button, open.Margin(4, 0, 0, 0));
     }
 
@@ -237,7 +237,7 @@ public static class Editors
             Control avatar = target.Type == "person" ? Ui.Avatar(target.Title, 20) : Ui.Icon(Visuals.For(trip, target).Icon, 13);
             var remove = Ui.IconButton("x", string.Format(m.Strings["RemoveNamed"], target.Title), "small"); remove.Padding = new Thickness(2); remove.MinWidth = 20; remove.MinHeight = 20;
             remove.Click += (_, _) => _ = save is not null ? save(values.Where(v => v != refId).ToArray()) : m.UpdateAsync(id, e => { var next = new JsonArray(values.Where(v => v != refId).Select(v => (JsonNode?)JsonValue.Create(v.ToString())).ToArray()); if (write is not null) write(e, next); else EditorModel.Set(e, path, next); });
-            var open = new Button { Content = Ui.Line(target.Title), Padding = new Thickness(4, 0), MinHeight = 0, FontWeight = FontWeight.Medium }.Classed("ghost"); open.Click += (_, _) => m.Selected = target;
+            var open = new Button { Content = Ui.Line(target.Title), Padding = new Thickness(4, 0), MinHeight = 0, FontWeight = FontWeight.Medium }.Classed("ghost"); open.Click += (_, _) => m.Follow(target);
             panel.Children.Add(new Border { Child = Ui.H(2, avatar, open, remove), Padding = new Thickness(4, 2), CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1) }.Res(Border.BackgroundProperty, "Bg.Subtle").Res(Border.BorderBrushProperty, "Line"));
         }
         var add = Ui.Button(m.Strings["Add"], "plus", "chip").Named(string.Format(m.Strings["AddTo"], label));

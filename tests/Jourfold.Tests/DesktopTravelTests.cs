@@ -76,6 +76,36 @@ public sealed class DesktopTravelTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task DetailsOpenedFromDetailsHaveAWayBackAndCloseStillCloses()
+    {
+        var w = await OpenAsync(); var m = w.Model;
+        try
+        {
+            var stay = Entity.Create("schedule_item", "Lake hotel"); var booking = Entity.Create("booking", "Hotel booking");
+            await m.Workspace!.ApplyAsync([new(stay.Id, stay), new(booking.Id, booking)]);
+            await m.SetBookingAsync(stay.Id, booking.Id);
+            m.Navigate("Plan"); m.Selected = m.Trip!.Find(stay.Id); Probe.ShowDetails(w);
+            Button? Back() { Probe.Layout(); return Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b)?.StartsWith("Back", StringComparison.Ordinal) == true); }
+            Assert.Null(Back());
+
+            m.Follow(m.Trip!.Find(booking.Id)!); Probe.ShowDetails(w);
+            await Probe.Until(() => Back() is not null);
+            Back()!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(stay.Id, m.Selected?.Id);
+            Assert.False(m.CanGoBackInDetails);
+
+            // Close closes even with a way back; choosing something from the plan starts afresh.
+            m.Follow(m.Trip!.Find(booking.Id)!);
+            m.Selected = null;
+            Assert.False(m.CanGoBackInDetails);
+            m.Selected = m.Trip!.Find(stay.Id); m.Follow(m.Trip!.Find(booking.Id)!);
+            m.Selected = m.Trip!.Find(stay.Id);
+            Assert.False(m.CanGoBackInDetails);
+        }
+        finally { w.Close(); }
+    }
+
     private static byte[] Pass()
     {
         using var stream = new MemoryStream();

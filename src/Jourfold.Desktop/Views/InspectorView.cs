@@ -31,9 +31,12 @@ public static class InspectorView
         titleBox.Classes.Add("inline"); titleBox.Classes.Add("heading"); titleBox.TextWrapping = TextWrapping.Wrap; titleBox.IsReadOnly = e.Type == "comment";
         var close = Ui.IconButton("x", s["CloseDetails"], "small"); close.Click += (_, _) => m.Selected = null;
         var more = Ui.IconButton("ellipsis", s["More"], "small"); more.Flyout = ItemMenu(w, e);
+        // Back appears only when these details were opened from others, such as a booking from its stay; close always closes.
+        var back = m.CanGoBackInDetails ? Ui.IconButton("arrow-left", s["Back"] + " (" + Shortcuts.Label("Alt+Left") + ")", "small") : null;
+        if (back is not null) back.Click += (_, _) => m.DetailsBack();
         var typeLabel = e.Type == "schedule_item" ? s["kind." + ScheduleCategories.Classify(trip, e)] : s[e.Type];
         var subtitle = Subtitle(m, e);
-        var header = Ui.V(10, Ui.Columns("Auto,*,Auto,Auto", Ui.Tile(icon, kind, 40), Ui.V(0, Ui.Text(typeLabel.ToUpper(CultureInfo.CurrentCulture), "overline"), subtitle is null ? null : Ui.Line(subtitle, "caption")).Margin(12, 0, 4, 0), e.Type == "trip" ? null : more, close), titleBox.Margin(-6, 0, 0, 0));
+        var header = Ui.V(10, Ui.Columns("Auto,*,Auto,Auto,Auto", Ui.Tile(icon, kind, 40), Ui.V(0, Ui.Text(typeLabel.ToUpper(CultureInfo.CurrentCulture), "overline"), subtitle is null ? null : Ui.Line(subtitle, "caption")).Margin(12, 0, 4, 0), back, e.Type == "trip" ? null : more, close), titleBox.Margin(-6, 0, 0, 0));
         var tabs = Tabs(w, e);
         var top = Ui.V(12, header, tabs); top.Margin = new Thickness(20, 18, 16, 8);
         var body = new StackPanel { Name = "Inspector", Spacing = 18, Margin = new Thickness(20, 8, 20, 28) };
@@ -215,7 +218,7 @@ public static class InspectorView
             case "comment":
                 body.Children.Add(new MarkdownView(e.Data["body"]?.ToString() ?? ""));
                 body.Children.Add(Field(s["Body"], Editors.Text(w, e.Id, "body", s["Body"], e.Data["body"]?.ToString(), multiline: true)));
-                if (Guid.TryParse(e.Data["target"]?["id"]?.ToString(), out var target) && trip.Find(target) is { } t) { var open = Ui.Button(t.Title, "arrow-up-right"); open.Click += (_, _) => m.Selected = t; body.Children.Add(Field(s["Target"], open)); }
+                if (Guid.TryParse(e.Data["target"]?["id"]?.ToString(), out var target) && trip.Find(target) is { } t) { var open = Ui.Button(t.Title, "arrow-up-right"); open.Click += (_, _) => m.Follow(t); body.Children.Add(Field(s["Target"], open)); }
                 body.Children.Add(Field(s["Author"], Editors.Reference(w, e.Id, "author", s["Author"], "person", allowCreate: false)));
                 break;
             default:
@@ -234,7 +237,7 @@ public static class InspectorView
     {
         var trip = w.Model.Trip!; var (icon, kind) = Visuals.For(trip, target);
         var button = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 14, "Kind." + kind + ".Fg"), Ui.Line(target.Title).Margin(8, 0), Ui.Icon("chevron-right", 13, "Text.Subtle")) }.Classed("row").Named(target.Title);
-        button.Padding = new Thickness(8, 6); button.Click += (_, _) => w.Model.Selected = target; return button;
+        button.Padding = new Thickness(8, 6); button.Click += (_, _) => w.Model.Follow(target); return button;
     }
 
     private static Control Related(MainWindow w, Entity e) => Editors.References(w, e.Id, "related", w.Model.Strings["Related"], null,
@@ -343,7 +346,7 @@ public static class InspectorView
         var addChild = Ui.Button(s["AddSubItem"], "plus", "link"); addChild.Click += async (_, _) =>
         {
             var title = await m.Interaction.PromptAsync(s["AddSubItem"]); if (string.IsNullOrWhiteSpace(title)) return;
-            await m.RunEditAsync(async () => { var child = Entity.Create("schedule_item", title.Trim()); child.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() }; var copy = m.Workspace!.State.Trip.Find(e.Id)!.Copy(); var list = copy.Data["children"] as JsonArray ?? new JsonArray(); copy.Data["children"] = list; list.Add(child.Id.ToString()); await m.Workspace.ApplyAsync([new(child.Id, child), new(copy.Id, copy)]); m.Selected = m.Workspace.State.Trip.Find(child.Id); });
+            await m.RunEditAsync(async () => { var child = Entity.Create("schedule_item", title.Trim()); child.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() }; var copy = m.Workspace!.State.Trip.Find(e.Id)!.Copy(); var list = copy.Data["children"] as JsonArray ?? new JsonArray(); copy.Data["children"] = list; list.Add(child.Id.ToString()); await m.Workspace.ApplyAsync([new(child.Id, child), new(copy.Id, copy)]); m.Follow(m.Workspace.State.Trip.Find(child.Id)!); });
         };
         // An existing plan joins as a step; it leaves the group it was in.
         var takeIn = Ui.Button(s["TakeInPlan"], "layers", "link"); takeIn.Click += async (_, _) =>

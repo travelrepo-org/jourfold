@@ -174,10 +174,7 @@ public partial class MainViewModel
     });
 
     /// <summary>The plans a booking is for, from either side.</summary>
-    public static IReadOnlyList<Guid> BookedItems(TripSnapshot trip, Guid booking) =>
-        ((trip.Find(booking)?.Data["items"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty)
-            .Concat(trip.Entities.Values.Where(e => e.Type == "schedule_item" && TripCommands.BookingOf(e) == booking).Select(e => e.Id)))
-        .Where(id => trip.Find(id) is { Type: "schedule_item" }).Distinct().ToArray();
+    public static IReadOnlyList<Guid> BookedItems(TripSnapshot trip, Guid booking) => TripCommands.BookedItems(trip, booking);
 
     /// <summary>Makes a plan a step of a group, or with no group takes it out of its group.</summary>
     public Task NestAsync(Guid step, Guid? group) => RunEditAsync(async () =>

@@ -1586,7 +1586,7 @@
   "FirstJourney": "Getting there",
   "FirstStay": "First stay",
   "FirstActivity": "First activity",
-  "OpenTasksBeforeTrip": "Open tasks before the trip: {0}",
+  "BeforeTheTrip": "Before the trip",
   "GitHubSignInEnded": "GitHub no longer accepts the sign-in, for example because Jourfold was removed from your GitHub account. Sign in again.",
   "ListingRepositories": "Looking for repositories…",
   "CheckingRepositories": "Checking repositories: {0} of {1}",

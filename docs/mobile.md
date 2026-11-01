@@ -97,6 +97,12 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
 With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),
 and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+1 to
 Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and Map, and Escape to go back.
+
+Back, by gesture, Escape or the button at the top of a page, returns to where something was opened from. A page
+opened from Today, such as the packing lists, goes back to Today; one opened from More, the rail or the sidebar goes
+back to More. Details opened from other details, such as a stay's booking, a booking's plans or a group's steps, get
+an arrow next to the close button that leads back to them; the close button always closes. Cancelling the editor
+returns to the details it was opened from, and deleting a booking opened from its stay returns to the stay.
 Layouts that follow a foldable's hinge are not built yet.
 
 ## Sharing to Jourfold
@@ -124,6 +130,9 @@ when Android stopped the app become a version soon after the trip opens again. S
 lets the user create a version with their own description and shows the recent ones. The name and email under
 Settings are used for versions made on the phone; they are kept in `settings.json` in the app's private folder,
 never in a trip. The phone app does not use Git words such as commit or branch.
+
+Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and
+TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source notices.
 
 Removing a trip from the phone deletes its folder. A trip that is only on the phone is gone after that; the question
 before says so.
@@ -205,11 +214,13 @@ usual spelling and the phone number below.
 ## Packing, money, weather and sharing
 
 - **Packing lists** (More → Packing lists): the user's items to tick off, what others bring, what nobody brings yet,
-  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Before the trip, Today and
-  More say how much is left to pack, and a notification comes the evening before.
+  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Before the trip, Today starts
+  with "Before the trip": the packing lists, with how much is left to pack or a way to start the first list, and the
+  open tasks. More says the same, and a notification comes the evening before.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.
-  Fetching asks once; afterwards the rates come with every sync, at most once a day, and nothing about the trip is
-  sent.
+  Fetching asks once; afterwards the rates come with every sync and when the converter opens, and nothing about the
+  trip is sent. Rates fetched in the last 12 hours count as new, because the bank publishes on working days only, and
+  a failed attempt waits 30 minutes, so an offline phone does not keep trying.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold
   needs no camera permission); the photo is turned upright, made at most 1600 pixels on the longer side and attached
   to the expense, which the user paid unless the form says otherwise. There is no text recognition (ML Kit would

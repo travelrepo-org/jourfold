@@ -26,8 +26,19 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
-            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText);
+            Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText,
+            AppVersion: InstalledVersion());
         base.OnCreate();
+    }
+
+    /// <summary>The version name of the installed app, such as a preview's, which the assemblies do not carry.</summary>
+    private string? InstalledVersion()
+    {
+        if (PackageManager is not { } packages || PackageName is not { } name) return null;
+        if (OperatingSystem.IsAndroidVersionAtLeast(33)) return packages.GetPackageInfo(name, PackageManager.PackageInfoFlags.Of(0L)).VersionName;
+#pragma warning disable CA1422 // Replaced by the overload above from Android 13.
+        return packages.GetPackageInfo(name, 0)?.VersionName;
+#pragma warning restore CA1422
     }
 
     /// <summary>

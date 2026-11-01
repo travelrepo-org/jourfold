@@ -91,6 +91,7 @@ public partial class MainWindow : Window
         if (DialogLayer.Children.Count > 0 || e.Handled) return;
         var typing = FocusManager?.GetFocusedElement() is TextBox or AutoCompleteBox or NumericUpDown;
         if (e.Key == Key.Escape && Model.Selected is not null && !typing) { Model.Selected = null; e.Handled = true; }
+        if (e.Key == Key.Left && e.KeyModifiers == KeyModifiers.Alt && Model.CanGoBackInDetails && !typing) { Model.DetailsBack(); e.Handled = true; }
         if (e.Key == Key.Delete && Model.Selected is { Type: not "trip" } && !typing) { _ = Model.DeleteAsync(Model.Selected.Id); e.Handled = true; }
         if (e.Key == Key.I && e.KeyModifiers == Shortcuts.Command && Model.HasTrip) { Model.InboxOpen = !Model.InboxOpen; e.Handled = true; }
         if (e.KeyModifiers == KeyModifiers.Alt && Model.HasTrip && e.Key is >= Key.D1 and <= Key.D9)

@@ -122,15 +122,18 @@ public sealed class AppShell : UserControl
         base.OnDetachedFromVisualTree(e);
     }
 
-    /// <summary>The system back gesture: out of a page under More, then back to Today, then back to the trip list, then out of the app.</summary>
+    /// <summary>
+    /// The system back gesture: back through the details opened from other details, then out of a page to where it was
+    /// opened from, then back to Today, then back to the trip list, then out of the app.
+    /// </summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
         if (Session.Asking is not null || Session.Menu is not null) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.TaxiCard is not null) { Session.ShowTaxiCard(null); e.Handled = true; return; }
         if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
-        if (Session.Showing != Overlay.None) { Session.CloseOverlay(); e.Handled = true; return; }
+        if (Session.Showing != Overlay.None) { if (Session.CanGoBackInDetails) Session.DetailsBack(); else Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.Workspace is null) { if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; } return; }
-        if (Session.Page is not null) Session.ShowPage(null);
+        if (Session.GoBack()) { }
         else if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today);
         else Session.Close();
         e.Handled = true;

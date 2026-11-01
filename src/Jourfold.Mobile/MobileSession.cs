@@ -115,7 +115,7 @@ public sealed partial class MobileSession : IDisposable
         if (Settings.Name is { Length: > 0 } name && Settings.Email is { Length: > 0 } email) await workspace.Git.SetIdentityAsync(name, email, ct);
         Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
         Agenda = TripAgenda.Build(workspace.State.Trip);
-        Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false;
+        Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
         SelectedDate = Agenda.Find(PhoneToday) is not null ? PhoneToday : Agenda.Days.FirstOrDefault()?.Date ?? PhoneToday;
         await RefreshRemoteAsync(ct);
         // Changes left from the last time, for example when Android stopped the app, become a version soon.
@@ -139,7 +139,7 @@ public sealed partial class MobileSession : IDisposable
 
     private void Reset()
     {
-        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
         viewing.Clear(); FileProblem = null; TaxiCard = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
@@ -162,15 +162,59 @@ public sealed partial class MobileSession : IDisposable
         UpdateCalendarSoon();
     }
 
-    public void ShowTab(MobileTab tab) { Tab = tab; Page = null; Changed?.Invoke(); }
+    /// <summary>Goes to a tab from the bottom bar, rail or sidebar; the way back starts there.</summary>
+    public void ShowTab(MobileTab tab) { Tab = tab; Page = null; trail.Clear(); Changed?.Invoke(); }
 
-    /// <summary>Opens a page under More. The sync page appears once its versions are read, so it is drawn only once.</summary>
-    public void ShowPage(string? page)
+    /// <summary>
+    /// Opens a page under More as a place of its own, from More, the rail or the sidebar: back leads to More. The sync
+    /// page appears once its versions are read, so it is drawn only once.
+    /// </summary>
+    public void ShowPage(string? page) { trail.Clear(); Go(page); }
+
+    /// <summary>Opens a page under More from somewhere else, such as Today or another page; back returns there.</summary>
+    public void OpenPage(string page)
+    {
+        if ((Tab, Page) != (MobileTab.More, page)) trail.Add((Tab, Page));
+        Go(page);
+    }
+
+    private void Go(string? page)
     {
         Tab = MobileTab.More; Page = page;
         if (page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true);
         else Changed?.Invoke();
+        if (page == "converter") _ = FetchRatesAsync();
     }
+
+    /// <summary>Draws the page again, for example after choosing a currency.</summary>
+    public void Redraw() => Changed?.Invoke();
+
+    /// <summary>Where the pages opened from, most recent last.</summary>
+    private readonly List<(MobileTab Tab, string? Page)> trail = [];
+
+    /// <summary>Back from a page: to where it was opened from, otherwise to More. False on a tab itself.</summary>
+    public bool GoBack()
+    {
+        if (trail.Count > 0)
+        {
+            (Tab, Page) = trail[^1]; trail.RemoveAt(trail.Count - 1);
+            if (Page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true); else Changed?.Invoke();
+            return true;
+        }
+        if (Page is null) return false;
+        Go(null);
+        return true;
+    }
+
+    /// <summary>What the back button of a page says: the tab it returns to, More, or plain Back for another page.</summary>
+    public string BackLabel => trail.Count == 0 ? Strings["More"] : trail[^1] switch
+    {
+        (_, not null) => Strings["Back"],
+        (MobileTab.Today, _) => Strings["Today"],
+        (MobileTab.Plan, _) => Strings["Plan"],
+        (MobileTab.Map, _) => Strings["Map"],
+        _ => Strings["More"]
+    };
 
     /// <summary>Saves name and email; versions made from now on carry them.</summary>
     public async Task SaveSettingsAsync(string? name, string? email, CancellationToken ct = default)
@@ -272,21 +316,56 @@ public sealed partial class MobileSession : IDisposable
     public AgendaEntry? Entry(Guid id) => Agenda.Days.SelectMany(d => d.Entries).SelectMany(e => e.Steps.Prepend(e)).Concat(Agenda.Unscheduled)
         .FirstOrDefault(e => e.Item.Id == id && e.Role == AgendaRole.Item);
 
-    public void ShowDetails(Guid id) { Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
+    /// <summary>Opens an item's details from a list, the plan or a page. The way back through linked items starts here.</summary>
+    public void ShowDetails(Guid id) { detailTrail.Clear(); Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
+
+    /// <summary>Opens an item linked from the details on show, such as its booking or a step; back returns to them.</summary>
+    public void FollowDetails(Guid id)
+    {
+        if (Showing == Overlay.Details && OverlayItem is { } from && from != id) detailTrail.Add(from);
+        else if (Showing != Overlay.Details) detailTrail.Clear();
+        Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke();
+    }
+
+    /// <summary>The details opened before the ones on show, most recent last.</summary>
+    private readonly List<Guid> detailTrail = [];
+    /// <summary>The details the editor was opened from; cancelling returns to them.</summary>
+    private Guid? editorFrom;
+
+    /// <summary>Whether the details on show were opened from other details that still exist.</summary>
+    public bool CanGoBackInDetails => Showing == Overlay.Details && detailTrail.Any(id => Trip?.Find(id) is not null);
+
+    /// <summary>Back to the details these were opened from, skipping deleted items; closes the details when there are none.</summary>
+    public void DetailsBack()
+    {
+        while (detailTrail.Count > 0)
+        {
+            var id = detailTrail[^1]; detailTrail.RemoveAt(detailTrail.Count - 1);
+            if (Trip?.Find(id) is null) continue;
+            Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke();
+            return;
+        }
+        CloseOverlay();
+    }
+
     /// <summary>Opens Quick Add; <paramref name="kind"/> picks what to add, <paramref name="into"/> the group a new step joins.</summary>
     public void ShowQuickAdd(string? kind = null, Guid? into = null) { QuickAddKind = kind; QuickAddInto = into; Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
     /// <summary>What Quick Add was opened for, such as a booking from the bookings page.</summary>
     public string? QuickAddKind { get; private set; }
     /// <summary>The group a step added in Quick Add joins.</summary>
     public Guid? QuickAddInto { get; private set; }
-    public void ShowEditor(Guid id) { Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
-    /// <summary>Closes what is on top: a question or menu first, otherwise the sheet. A place opened from an item's details goes back to them.</summary>
+    public void ShowEditor(Guid id) { editorFrom = Showing == Overlay.Details ? OverlayItem : null; Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
+    /// <summary>
+    /// Closes what is on top: a question or menu first, otherwise the sheet. A place or the editor opened from an item's
+    /// details goes back to them; details close for good, with the way back through linked items.
+    /// </summary>
     public void CloseOverlay()
     {
         if (Asking is not null || Menu is not null) { Asking = null; Menu = null; }
         else if (Showing == Overlay.Place && PlaceFor is { } from) { Showing = Overlay.Details; OverlayItem = from.Item; PlaceFor = null; }
+        else if (Showing == Overlay.Editor && editorFrom is { } back && Trip?.Find(back) is not null) { Showing = Overlay.Details; OverlayItem = back; editorFrom = null; }
         else if (Showing == Overlay.Share) { Incoming = null; Showing = Overlay.None; }
-        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; PlaceFor = null; }
+        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; PlaceFor = null; editorFrom = null; detailTrail.Clear(); }
         else return;
         Changed?.Invoke();
     }
@@ -488,8 +567,10 @@ public sealed partial class MobileSession : IDisposable
 
     public async Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        Showing = Overlay.None; OverlayItem = null; SelectedItem = null;
+        Showing = Overlay.None; OverlayItem = null; SelectedItem = null; editorFrom = null;
         await (Workspace ?? throw new InvalidOperationException("No trip is open.")).DeleteAsync(id, ct); NoteChange();
+        // Deleting a booking opened from a stay returns to the stay.
+        if (detailTrail.Count > 0) DetailsBack();
     }
 
     /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>

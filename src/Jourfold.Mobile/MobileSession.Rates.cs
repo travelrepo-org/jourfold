@@ -6,6 +6,7 @@ namespace Jourfold.Mobile;
 public sealed partial class MobileSession
 {
     private ExchangeRates? rates;
+    private readonly RateSchedule rateSchedule = new();
     private string RatesPath => Path.Combine(Host.DataRoot, "rates.json");
 
     /// <summary>Whether exchange rates are fetched from the European Central Bank; off until the user says yes once.</summary>
@@ -21,10 +22,10 @@ public sealed partial class MobileSession
         await FetchRatesAsync(force: true, ct);
     }
 
-    /// <summary>Fetches today's rates when allowed and not fetched today; with every sync and when the converter opens.</summary>
+    /// <summary>Fetches the newest rates when allowed and due, with every sync and when the converter opens; see <see cref="RateSchedule"/>.</summary>
     public async Task FetchRatesAsync(bool force = false, CancellationToken ct = default)
     {
-        if (!RatesOn || FetchingRates || !force && Rates?.Date >= DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-1))) return;
+        if (!RatesOn || FetchingRates || !rateSchedule.Begin(Rates, RatesPath, force)) return;
         FetchingRates = true; Changed?.Invoke();
         try
         {

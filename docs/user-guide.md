@@ -36,7 +36,7 @@ The **Inbox** collects things without a time: ideas, notes and files you have no
 
 ### Details
 
-Selecting anything opens the details panel on the right. Changes are saved as soon as you leave a field. Everything can be undone with Ctrl+Z and redone with Ctrl+Shift+Z.
+Selecting anything opens the details panel on the right. Opening a linked item from the details, such as a plan's booking, a booking's plan or a group's step, shows it in the same panel with an arrow next to the menu that leads back to where you came from (also Alt+Left). The cross always closes the panel. Changes are saved as soon as you leave a field. Everything can be undone with Ctrl+Z and redone with Ctrl+Shift+Z.
 
 - **When** opens the time editor. Besides exact times you can choose an approximate time, a time window, a part of the day, all day, or no time yet. Daylight-saving gaps are explained; repeated hours ask which one you mean.
 - **Status**, **Category** and **Who** are one click each.
@@ -69,7 +69,7 @@ The bell next to the people in the header counts reminders: free cancellation de
 
 ## Bookings, costs, tasks and files
 
-**Bookings** lists reservations with their reference (click the copy icon), price, travellers and status. Bookings and plans have a **Confirmations and files** section: drag a confirmation e-mail or PDF onto it, or choose a file. Thunderbird, eM Client and Apple Mail let you drag an e-mail directly; Gmail and Outlook on the web download it as an `.eml` file first, and classic Outlook can print it to PDF. The help button next to the area explains each. Click a confirmation to open it in Jourfold's document window, which stays open beside the plan. It shows PDFs page by page with zoom and search (Ctrl+F), and e-mails with sender, date, attachments and the message in its original layout; **Text** shows the plain text instead, and Jourfold remembers your choice. An attachment can be opened there or added to the trip next to the e-mail. Scripts, forms and frames in an e-mail are removed, and images from the internet are only loaded when you choose **Load images** for that e-mail, because loading them tells the sender that you opened it. Links ask before they open and show where they really go. **Costs** totals expenses per currency and compares them with budgets. Amounts stay in their own currency. The **Currency converter** below the totals works offline with the European Central Bank's reference rates, which Jourfold fetches once a day after you allow it (also under Settings, **Weather**); nothing about the trip is sent. A booking lists the plans it is for; adding or removing one there changes the plan as well. **Tasks** works like a checklist; type a task and press Enter. Packing lists have their own page (see below). **Files** shows attached tickets, PDFs and photos. Drop files anywhere on the window to add them.
+**Bookings** lists reservations with their reference (click the copy icon), price, travellers and status. Bookings and plans have a **Confirmations and files** section: drag a confirmation e-mail or PDF onto it, or choose a file. Thunderbird, eM Client and Apple Mail let you drag an e-mail directly; Gmail and Outlook on the web download it as an `.eml` file first, and classic Outlook can print it to PDF. The help button next to the area explains each. Click a confirmation to open it in Jourfold's document window, which stays open beside the plan. It shows PDFs page by page with zoom and search (Ctrl+F), and e-mails with sender, date, attachments and the message in its original layout; **Text** shows the plain text instead, and Jourfold remembers your choice. An attachment can be opened there or added to the trip next to the e-mail. Scripts, forms and frames in an e-mail are removed, and images from the internet are only loaded when you choose **Load images** for that e-mail, because loading them tells the sender that you opened it. Links ask before they open and show where they really go. **Costs** totals expenses per currency and compares them with budgets. Amounts stay in their own currency. The **Currency converter** below the totals works offline with the European Central Bank's reference rates, which Jourfold fetches at most twice a day after you allow it (also under Settings, **Weather**); nothing about the trip is sent. A booking lists the plans it is for; adding or removing one there changes the plan as well. **Tasks** works like a checklist; type a task and press Enter. Packing lists have their own page (see below). **Files** shows attached tickets, PDFs and photos. Drop files anywhere on the window to add them.
 
 ### Packing lists
 
@@ -107,7 +107,7 @@ When sync or another Git step fails, Jourfold says what happened in plain words 
 
 ## Search and keyboard
 
-Ctrl+K opens search and commands. It finds items in the trip and runs actions such as creating a version or switching views. Alt+1 to Alt+9 jump between the main sections. Escape closes the details panel or a dialog. All buttons and fields are reachable with Tab.
+Ctrl+K opens search and commands. It finds items in the trip and runs actions such as creating a version or switching views. Alt+1 to Alt+9 jump between the main sections. Alt+Left goes back to the details you came from, and Escape closes the details panel or a dialog. All buttons and fields are reachable with Tab.
 
 ## Settings and privacy
 

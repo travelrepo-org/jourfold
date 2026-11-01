@@ -73,7 +73,9 @@ public sealed class MobileTests : IDisposable
             Assert.Contains(texts, t => t.StartsWith("First stay · Saturday 5 June", StringComparison.Ordinal));
             Assert.Contains(texts, t => t.StartsWith("First activity · Saturday 5 June", StringComparison.Ordinal));
             Assert.Contains("Flight to Tokyo", texts); Assert.Contains("Hotel Gracery Shinjuku", texts);
-            Assert.Contains("Open tasks before the trip: 2", texts);
+            // Getting ready comes first: packing and the open tasks.
+            Assert.True(texts.IndexOf("Before the trip") < texts.IndexOf("How it starts"));
+            Assert.Contains("2 open", texts);
         }
         finally { window.Close(); session.Dispose(); }
     }

@@ -30,14 +30,18 @@ public static class MorePages
         "sync" => Sync(s),
         "merge" => Merge(s),
         "settings" => Settings(s),
+        "about" => About(s),
+        "license.jourfold" => Text(s, string.Format(CultureInfo.CurrentCulture, s.Strings["LicenseTitle"], "GPL-3.0-or-later"), "Jourfold.LICENSE"),
+        "license.travelrepo" => Text(s, string.Format(CultureInfo.CurrentCulture, s.Strings["LicenseTitle"], "Apache-2.0"), "TravelRepo.LICENSE"),
+        "notices" => Text(s, s.Strings["OpenSourceComponents"], "Jourfold.NOTICES"),
         _ => MoreView.Build(s, width)
     };
 
-    /// <summary>A page with a way back to More and a large title.</summary>
+    /// <summary>A page with a way back to where it was opened from and a large title.</summary>
     private static Control Frame(MobileSession s, string title, params Control?[] body)
     {
-        var back = Ui.Button(s.Strings["More"], "chevron-left", "ghost").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.Padding = new Thickness(8, 8, 12, 8); });
-        back.Click += (_, _) => s.ShowPage(null);
+        var back = Ui.Button(s.BackLabel, "chevron-left", "ghost").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.Padding = new Thickness(8, 8, 12, 8); });
+        back.Click += (_, _) => s.GoBack();
         var page = Ui.V(16, Ui.V(4, back, Ui.Text(title, "h1").Margin(16, 0)));
         foreach (var part in body) if (part is not null) page.Children.Add(part);
         page.Margin = new Thickness(0, 4, 0, 32);
@@ -223,7 +227,7 @@ public static class MorePages
         var parts = new List<Control?> { Ui.Text(str["PackingHint"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0) };
         if (me is null && trip.Entities.Values.Any(e => e.Type == "person"))
         {
-            var who = Ui.Button(str["ChooseWhoIAm"], "user-check", "soft"); who.Click += (_, _) => s.ShowPage("travellers");
+            var who = Ui.Button(str["ChooseWhoIAm"], "user-check", "soft"); who.Click += (_, _) => s.OpenPage("travellers");
             parts.Add(Ui.Card(Ui.V(8, Ui.Text(str["PackingWhoAmI"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), who), 14).Margin(16, 0));
         }
         if (lists.Count == 0) parts.Add(Empty("backpack", str["NoPackingListsTitle"], str["NoPackingListsBody"]));
@@ -265,7 +269,6 @@ public static class MorePages
     private static Control Converter(MobileSession s)
     {
         var str = s.Strings;
-        _ = s.FetchRatesAsync();
         if (!s.RatesOn)
         {
             var allow = Ui.Button(str["RatesAllow"], "globe", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
@@ -292,16 +295,16 @@ public static class MorePages
             foreach (var code in currencies.Append(chosen).Distinct())
             {
                 var chip = Ui.Choice(code, null, code == chosen, "chip"); var c = code;
-                chip.Click += (_, _) => { s.Drafts[key] = c; s.ShowPage("converter"); };
+                chip.Click += (_, _) => { s.Drafts[key] = c; s.Redraw(); };
                 flow.Children.Add(chip);
             }
             var other = new AutoCompleteBox { ItemsSource = rates.Currencies.ToArray(), PlaceholderText = str["OtherCurrency"], MinimumPrefixLength = 1, Width = 110, FilterMode = AutoCompleteFilterMode.StartsWith };
-            other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) { s.Drafts[key] = c; s.ShowPage("converter"); } };
+            other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) { s.Drafts[key] = c; s.Redraw(); } };
             flow.Children.Add(other);
             return flow;
         }
         var swap = Ui.Button(str["SwapCurrencies"], "refresh-cw", "ghost");
-        swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.ShowPage("converter"); };
+        swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.Redraw(); };
         Show();
         return Frame(s, str["Converter"],
             Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
@@ -603,7 +606,7 @@ public static class MorePages
         save.Click += async (_, _) =>
         {
             problem.IsVisible = false;
-            try { await s.SaveTripAsync(title.Text ?? "", Date(start), Date(end)); s.Drafts.Remove("trip.title"); s.ShowPage(null); }
+            try { await s.SaveTripAsync(title.Text ?? "", Date(start), Date(end)); s.Drafts.Remove("trip.title"); s.GoBack(); }
             catch (DomainException ex) { problem.Text = ex.Message; problem.IsVisible = true; }
         };
         return Frame(s, str["TripDetails"],
@@ -617,14 +620,15 @@ public static class MorePages
         var email = Draft(s, "email", new TextBox { Text = s.Settings.Email, PlaceholderText = "name@example.com" }); AutomationProperties.SetName(email, str["Email"]);
         var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
         save.Click += async (_, _) => { s.Drafts.Remove("name"); s.Drafts.Remove("email"); await s.SaveSettingsAsync(name.Text, email.Text); };
-        var version = typeof(MorePages).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "";
         long size = 0;
         try { size = new DirectoryInfo(s.Host.DataRoot).EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length); }
         catch (IOException) { }
         catch (UnauthorizedAccessException) { }
         Control Info(string icon, string title, string value) => Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(title), Ui.Text(value, "caption"))
             .Also(g => { g.MinHeight = 52; g.Margin = new Thickness(16, 4); });
+        var about = new Button { Content = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("info", 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(str["About"]), Ui.Text(AppVersion(s), "caption").Margin(0, 0, 8, 0), Ui.Icon("chevron-right", 18, "Text.Subtle")).Also(g => g.MinHeight = 44) }.Classed("row");
+        AutomationProperties.SetName(about, str["About"]);
+        about.Click += (_, _) => s.OpenPage("about");
         return Frame(s, str["Settings"],
             Ui.V(8, Ui.Text(str["YouOnThisPhone"], "overline").Margin(20, 0),
                 Ui.Card(Ui.V(12, Ui.Text(str["YouOnThisPhoneHint"], "caption"), Ui.Field(str["Name"], name), Ui.Field(str["Email"], email), save), 14).Margin(16, 0)),
@@ -635,6 +639,50 @@ public static class MorePages
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),
                 Info("folder", str["StorageUsed"], Formats.Bytes(size)),
-                Info("info", str["About"], version)]));
+                about]));
+    }
+
+    /// <summary>The installed app's version, such as a preview's; the assembly's where the platform does not say.</summary>
+    private static string AppVersion(MobileSession s) => s.Host.AppVersion ?? typeof(MorePages).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "";
+
+    /// <summary>
+    /// About Jourfold, as on the desktop: versions, the licenses of Jourfold and TravelRepo, where the source is, and the
+    /// open-source parts the app is built from.
+    /// </summary>
+    private static Control About(MobileSession s)
+    {
+        var str = s.Strings;
+        var mark = new Image { Width = 56, Height = 56, VerticalAlignment = VerticalAlignment.Center };
+        mark.Bind(Image.SourceProperty, mark.GetResourceObservable("Brand.Mark"));
+        var header = Ui.Columns("Auto,*", mark, Ui.V(2, Ui.Text("Jourfold", "h2"), Ui.Text(string.Format(CultureInfo.CurrentCulture, str["AboutVersion"], AppVersion(s)), "muted").Copies(s), Ui.Text(str["WelcomeTitle"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))
+            .Also(v => { v.Margin = new Thickness(16, 0, 0, 0); v.VerticalAlignment = VerticalAlignment.Center; })).Margin(20, 0);
+        Button Link(string key, Uri uri)
+        {
+            var b = Ui.Button(str[key], "external-link", "ghost", "compact");
+            b.Click += async (_, _) => { if (TopLevel.GetTopLevel(b)?.Launcher is { } launcher) await launcher.LaunchUriAsync(uri); };
+            return b;
+        }
+        Button Read(string key, string page) { var b = Ui.Button(str[key], "file-text", "ghost", "compact"); b.Click += (_, _) => s.OpenPage(page); return b; }
+        Control Wrap(string text, string style) => Ui.Text(text, style).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        Control Card(string title, string? detail, string body, string? meta, params Control?[] actions) => Ui.Card(Ui.V(6,
+            Ui.Text(title, "strong"), detail is null ? null : Ui.Text(detail, "caption"), Wrap(body, "muted"), meta is null ? null : Ui.Text(meta, "caption"),
+            Ui.Flow(4, actions).Margin(-8, 2, 0, 0)), 14).Margin(16, 0);
+        var jourfold = typeof(MorePages).Assembly;
+        Uri? Meta(string key) => TravelRepoInfo.Metadata(jourfold, key);
+        return Frame(s, str["About"], header,
+            Card("Jourfold", null, str["AboutJourfoldLicense"], null, Meta("WebsiteUrl") is { } site ? Link("Website", site) : null, Read("ViewLicense", "license.jourfold"), Meta("RepositoryUrl") is { } source ? Link("SourceCode", source) : null),
+            Card("TravelRepo", string.Format(CultureInfo.CurrentCulture, str["AboutTravelRepoVersion"], TravelRepoInfo.Version, TravelRepoInfo.FormatVersion), str["AboutTravelRepo"], str["AboutTravelRepoLicense"],
+                Read("ViewLicense", "license.travelrepo"), TravelRepoInfo.RepositoryUrl is { } repo ? Link("SourceCode", repo) : null),
+            Card(str["OpenSourceComponents"], null, str["OpenSourceComponentsHint"], null, Read("ViewNotices", "notices")),
+            Wrap(System.Runtime.InteropServices.RuntimeInformation.OSDescription.Trim() + ", .NET " + Environment.Version, "caption").Margin(20, 0));
+    }
+
+    /// <summary>A license or notice text that comes with the app, to read and copy.</summary>
+    private static Control Text(MobileSession s, string title, string resource)
+    {
+        using var stream = typeof(MorePages).Assembly.GetManifestResourceStream(resource);
+        var text = stream is null ? "" : new StreamReader(stream).ReadToEnd();
+        return Frame(s, title, new SelectableTextBlock { Text = text, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontFamily = Avalonia.Media.FontFamily.Parse("monospace"), FontSize = 12, Margin = new Thickness(20, 0) });
     }
 }

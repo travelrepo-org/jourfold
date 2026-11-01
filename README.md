@@ -53,7 +53,7 @@ The [user guide](docs/user-guide.md) explains the main workflows.
 
 ## Development
 
-Requires .NET SDK 10.0.401, Git and Python 3. Place TravelRepo at `../travelrepo` for workspace builds.
+Requires a .NET 10 SDK (any feature band; CI and releases use 10.0.401), Git and Python 3. Place TravelRepo at `../travelrepo` for workspace builds.
 
 ```sh
 dotnet build Jourfold.sln

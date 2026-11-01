@@ -6,7 +6,7 @@ The capture tool creates the same sample trip that **Explore a sample trip** off
 
 ## Regenerate
 
-From the Jourfold repository, with .NET SDK 10.0.401, Git 2.34 or newer and the sibling TravelRepo checkout:
+From the Jourfold repository, with a .NET 10 SDK, Git 2.34 or newer and the sibling TravelRepo checkout:
 
 ```sh
 dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode

@@ -136,9 +136,12 @@ jobs:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
           ref: ${{ needs.version.outputs.travelrepo }}
           path: travelrepo
+      - name: Use the pinned SDK
+        shell: bash
+        run: cp eng/sdk.json global.json
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: jourfold/global.json
+          global-json-file: jourfold/eng/sdk.json
           cache: true
           cache-dependency-path: '**/packages.lock.json'
       - uses: actions/setup-python@v5

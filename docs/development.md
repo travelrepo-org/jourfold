@@ -1,6 +1,6 @@
 # Building Jourfold
 
-Install .NET SDK 10.0.401, Git and Python 3. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves the TravelRepo packages named by `TravelRepoVersion` in `Directory.Build.props` from configured NuGet sources.
+Install a .NET 10 SDK, Git and Python 3. `global.json` accepts any .NET 10 SDK from 10.0.100 on and uses the newest one installed; CI and releases use exactly 10.0.401 from `eng/sdk.json`, so published builds stay reproducible. With an SDK from another feature band, building for Android may update `src/Jourfold.Android/packages.lock.json` (the trimming tools follow the SDK); leave that change out of commits. `dotnet format` from older feature bands indents a few lines differently; the CI check with 10.0.401 decides. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves the TravelRepo packages named by `TravelRepoVersion` in `Directory.Build.props` from configured NuGet sources.
 
 ```sh
 dotnet restore --locked-mode

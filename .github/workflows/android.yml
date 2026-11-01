@@ -34,9 +34,12 @@ jobs:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
           ref: ${{ env.TRAVELREPO_REF }}
           path: travelrepo
+      - name: Use the pinned SDK
+        shell: bash
+        run: cp eng/sdk.json global.json
       - uses: actions/setup-dotnet@v4
         with:
-          global-json-file: jourfold/global.json
+          global-json-file: jourfold/eng/sdk.json
       - uses: actions/setup-java@v4
         with:
           distribution: temurin

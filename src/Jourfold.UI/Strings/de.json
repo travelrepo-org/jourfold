@@ -1247,6 +1247,7 @@
   "AddPackingItemPlaceholder": "Eintrag eingeben und Enter drücken, z. B.: Grill @Sam #Kochen (@alle für alle)",
   "EverythingAssigned": "Für alles ist jemand eingeteilt.",
   "PackingListEmpty": "Diese Liste ist leer. Fügen Sie oben den ersten Eintrag hinzu.",
+  "PackingListEmptyBelow": "Diese Liste ist leer. Fügen Sie unten den ersten Eintrag hinzu.",
   "NoGroup": "Sonstiges",
   "MarkPacked": "Gepackt: {0}",
   "Assign": "Wer bringt es mit?",

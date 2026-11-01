@@ -42,7 +42,7 @@ says what was copied. Only the item happening now or next on the phone's today s
 stay's check-in says how many nights it has; the night line under the day appears only on the other nights.
 
 A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,
-move to another day and delete. A long press on a trip in the trip list removes it from the phone after a question
+move to another day and delete. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
 that says whether it is still on GitHub. Everything in these menus can also be reached without the gesture.
 
 ## Places and the map
@@ -214,7 +214,9 @@ usual spelling and the phone number below.
 ## Packing, money, weather and sharing
 
 - **Packing lists** (More → Packing lists): the user's items to tick off, what others bring, what nobody brings yet,
-  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Before the trip, Today starts
+  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Groups are headings in each
+  list. **Mine**, **All** and **Nobody yet** filter the lists; once the phone knows who the user is, it starts with
+  Mine and then keeps the last choice. Before the trip, Today starts
   with "Before the trip": the packing lists, with how much is left to pack or a way to start the first list, and the
   open tasks. More says the same, and a notification comes the evening before.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.

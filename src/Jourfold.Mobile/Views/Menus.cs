@@ -2,6 +2,7 @@ using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -28,13 +29,20 @@ public static class Menus
         {
             held = false; Stop();
             if (e.Pointer.Type == PointerType.Mouse) return;
-            from = e.GetPosition(button);
-            timer = DispatcherTimer.RunOnce(() => { timer = null; from = null; held = true; open(); }, TimeSpan.FromMilliseconds(500));
+            from = e.GetPosition(button); var pointer = e.Pointer;
+            timer = DispatcherTimer.RunOnce(() =>
+            {
+                timer = null; from = null;
+                // A swipe that took the finger over, or a page that changed meanwhile, is not a long press here.
+                if (!button.IsAttachedToVisualTree() || pointer.Captured is Visual taken && taken != button && !button.IsVisualAncestorOf(taken)) return;
+                held = true; open();
+            }, TimeSpan.FromMilliseconds(500));
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         // Moving the finger is a scroll or a swipe, not a long press.
         button.AddHandler(InputElement.PointerMovedEvent, (_, e) => { if (from is { } start && Point.Distance(start, e.GetPosition(button)) > 10) Stop(); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Stop(), RoutingStrategies.Tunnel, handledEventsToo: true);
         button.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Stop(), RoutingStrategies.Bubble, handledEventsToo: true);
+        button.DetachedFromVisualTree += (_, _) => Stop();
         button.ContextRequested += (_, e) => { if (!held) open(); e.Handled = true; };
         button.AddHandler(Button.ClickEvent, (_, e) => { if (held) { held = false; e.Handled = true; } });
     }

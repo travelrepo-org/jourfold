@@ -51,7 +51,8 @@ public static class MorePages
     private static Control Group(string title, IReadOnlyList<Control> rows)
     {
         var list = Ui.V(0);
-        for (var i = 0; i < rows.Count; i++) { if (i > 0) list.Children.Add(Ui.Divider()); list.Children.Add(rows[i]); }
+        // A heading inside the card belongs to the rows below it, so no line separates them.
+        for (var i = 0; i < rows.Count; i++) { if (i > 0 && !rows[i - 1].Classes.Contains("h3")) list.Children.Add(Ui.Divider()); list.Children.Add(rows[i]); }
         return Ui.V(8, Ui.Text(title, "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
     }
 
@@ -231,24 +232,56 @@ public static class MorePages
             parts.Add(Ui.Card(Ui.V(8, Ui.Text(str["PackingWhoAmI"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), who), 14).Margin(16, 0));
         }
         if (lists.Count == 0) parts.Add(Empty("backpack", str["NoPackingListsTitle"], str["NoPackingListsBody"]));
+        // Mine first when the app knows who the user is, as on the desktop: all, mine, and what nobody brings yet.
+        var filter = s.Settings.Values.GetValueOrDefault("packing.filter") is { } chosen && chosen is "all" or "unassigned" or "mine" ? chosen : "mine";
+        if (me is null && filter == "mine") filter = "all";
+        if (lists.Count > 0)
+        {
+            Button Filter(string value, string label, string icon)
+            {
+                var chip = Ui.Choice(label, icon, filter == value, "chip");
+                chip.Click += (_, _) => { s.Settings.Values["packing.filter"] = value; s.Settings.Save(); s.Redraw(); };
+                return chip;
+            }
+            var unassigned = lists.Sum(l => PackingLists.Unassigned(l).Count);
+            var filters = new WrapPanel { ItemSpacing = 8, LineSpacing = 8, Margin = new Thickness(16, 0) };
+            if (me is not null) filters.Children.Add(Filter("mine", str["MyItems"], "user-check"));
+            filters.Children.Add(Filter("all", str["All"], "list"));
+            filters.Children.Add(Filter("unassigned", unassigned > 0 ? string.Format(CultureInfo.CurrentCulture, str["UnassignedCount"], unassigned) : str["Unassigned"], "user"));
+            parts.Add(filters);
+        }
         foreach (var list in lists)
         {
             var rows = new List<Control>();
-            Control Caption(PackingItem item) => Ui.Text(string.Join(" · ", new[] { item.Group, item.Quantity,
+            Control Caption(PackingItem item) => Ui.Text(string.Join(" · ", new[] { item.Quantity,
                 item.Everyone ? str["EveryoneBringsOwn"] : item.Assignees.Count > 1 ? string.Join(", ", item.Assignees.Select(a => a.Title)) : null }.Where(t => !string.IsNullOrEmpty(t))), "caption");
-            foreach (var item in list.Items.Where(i => me is not null && i.IsFor(me.Id)).OrderBy(i => i.Group, StringComparer.CurrentCulture))
+            Control Row(PackingItem item)
             {
-                var box = new CheckBox { IsChecked = item.IsPackedBy(me!.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 52, Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(16, 2) };
-                AutomationProperties.SetName(box, item.Task.Title);
-                box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(item.Task.Id, box.IsChecked == true);
-                rows.Add(box);
-            }
-            foreach (var item in list.Items.Where(i => me is null || !i.IsFor(me.Id)))
-            {
+                if (me is not null && item.IsFor(me.Id))
+                {
+                    var box = new CheckBox { IsChecked = item.IsPackedBy(me.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 52, Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(16, 2) };
+                    AutomationProperties.SetName(box, item.Task.Title);
+                    box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(item.Task.Id, box.IsChecked == true);
+                    return box;
+                }
                 var who = item.Unassigned ? str["Unassigned"] : string.Join(", ", item.Assignees.Select(a => a.Title + (item.IsPackedBy(a.Id) ? " ✓" : "")));
-                var row = Ui.Columns("Auto,*", Ui.Icon(item.Done ? "circle-check" : "circle", 18, item.Done ? "Success" : "Text.Muted").Margin(0, 0, 12, 0), Ui.V(2, Ui.Text(item.Task.Title), Ui.Text(who, "caption")))
+                return Ui.Columns("Auto,*", Ui.Icon(item.Done ? "circle-check" : "circle", 18, item.Done ? "Success" : "Text.Muted").Margin(0, 0, 12, 0), Ui.V(2, Ui.Text(item.Task.Title), Ui.Text(who, "caption")))
                     .Also(g => { g.MinHeight = 48; g.Margin = new Thickness(18, 4); });
-                rows.Add(row);
+            }
+            var items = filter switch
+            {
+                "mine" => PackingLists.For(list, me!.Id),
+                "unassigned" => PackingLists.Unassigned(list),
+                _ => list.Items,
+            };
+            if (items.Count == 0)
+                rows.Add(Ui.Text(filter == "unassigned" ? str["EverythingAssigned"] : list.Items.Count == 0 ? str["PackingListEmptyBelow"] : str["NothingHere"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(16, 12));
+            // The groups are headings, in the order the list has them; without any group the items are one block.
+            var groups = PackingLists.Groups(items);
+            foreach (var (group, members) in groups)
+            {
+                if (group is not null || groups.Count > 1) rows.Add(Ui.Text(group ?? str["NoGroup"], "h3").Margin(16, 12, 16, 2));
+                foreach (var item in members) rows.Add(Row(item));
             }
             var add = Draft(s, "packing:" + list.Collection.Id, new TextBox { PlaceholderText = str["AddPackingItemPlaceholder"] }); AutomationProperties.SetName(add, str["AddPackingItem"]);
             var plus = Ui.IconButton("plus", str["AddPackingItem"]);

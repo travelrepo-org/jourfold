@@ -846,6 +846,13 @@ public sealed class MobileTests : IDisposable
             Probe.Layout();
             var boxes = window.GetVisualDescendants().OfType<CheckBox>().ToDictionary(b => AutomationProperties.GetName(b) ?? "", b => b.IsChecked);
             Assert.Equal(true, boxes["Plug adapter"]); Assert.Equal(false, boxes["Neck pillow"]); Assert.False(boxes.ContainsKey("Travel umbrella"));
+            // The user's own items come first, under their groups; everything else is one tap away.
+            bool Shows(string text) { Probe.Layout(); return Probe.All<TextBlock>(window).Any(t => t.Text == text && t.IsEffectivelyVisible); }
+            Assert.True(Shows("Comfort")); Assert.True(Shows("Other"));
+            Assert.False(Shows("Travel umbrella"));
+            Probe.Click(window, "All");
+            Assert.True(Shows("Travel umbrella"));
+            Assert.Equal("all", session.Settings.Values["packing.filter"]);
         }
         finally { window.Close(); session.Dispose(); }
     }

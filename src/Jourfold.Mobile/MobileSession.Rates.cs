@@ -1,4 +1,5 @@
 using Jourfold.Application;
+using TravelRepo.Core;
 
 namespace Jourfold.Mobile;
 
@@ -27,7 +28,7 @@ public sealed partial class MobileSession
         FetchingRates = true; Changed?.Invoke();
         try
         {
-            var fresh = await ExchangeRates.FetchAsync(MapsHttp, ct);
+            var fresh = await ExchangeRates.FetchAsync(MapsHttp, OnlineIdentity.UserAgent, ct);
             fresh.Save(RatesPath); rates = fresh;
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or System.Xml.XmlException or FormatException or InvalidOperationException) { }

@@ -1650,5 +1650,9 @@
   "FromThePlans": "Follow the plans",
   "TripDatesHint": "Without dates of its own, the trip runs from its first to its last plan.",
   "LinkPlanOrBooking": "Link to a plan or booking",
-  "RemoveLink": "Remove the link"
+  "RemoveLink": "Remove the link",
+  "LayoverAt": "{0} to change at {1}",
+  "Layover": "{0} to change",
+  "ConnectsTo": "Continues with",
+  "ConnectsFrom": "Comes from"
 }

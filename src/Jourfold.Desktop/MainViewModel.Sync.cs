@@ -111,7 +111,7 @@ public partial class MainViewModel
             {
                 syncTicks = 0;
                 // Reminders depend on the time of day too, so they are checked once a minute, like expired forecasts.
-                await UpdateRemindersAsync(); _ = UpdateWeatherAsync();
+                await UpdateRemindersAsync(); _ = UpdateWeatherAsync(); _ = FetchRatesAsync();
                 if (await PreferredRemote(ask: false) is not null)
                 {
                     Busy = true;

@@ -150,6 +150,44 @@ public partial class MainViewModel
         await Workspace.EditAsync(copy);
     });
 
+    /// <summary>Links a booking to exactly these plans; the booking and each plan point to each other.</summary>
+    public Task LinkBookingAsync(Guid booking, IReadOnlyCollection<Guid> items) => RunEditAsync(async () =>
+    {
+        if (Workspace is null) return;
+        var changed = TripCommands.LinkBooking(Workspace.State.Trip, booking, items);
+        if (changed.Count > 0) await Workspace.ApplyAsync(changed.Select(e => new EntityEdit(e.Id, e)).ToArray());
+    });
+
+    /// <summary>Gives a plan the booking it belongs to, or none; it leaves the booking it had.</summary>
+    public Task SetBookingAsync(Guid item, Guid? booking) => RunEditAsync(async () =>
+    {
+        if (Workspace is null) return;
+        var trip = Workspace.State.Trip; var edits = new Dictionary<Guid, Entity>();
+        void Apply(IEnumerable<Entity> changed) { foreach (var e in changed) edits[e.Id] = e; }
+        if (trip.Find(item) is { } plan && TripCommands.BookingOf(plan) is { } old && old != booking && trip.Find(old) is { Type: "booking" })
+        {
+            Apply(TripCommands.LinkBooking(trip, old, BookedItems(trip, old).Where(i => i != item).ToArray()));
+            trip = trip with { Entities = trip.Entities.Values.Select(e => edits.GetValueOrDefault(e.Id, e)).ToDictionary(e => e.Id) };
+        }
+        if (booking is { } chosen) Apply(TripCommands.LinkBooking(trip, chosen, BookedItems(trip, chosen).Append(item).Distinct().ToArray()));
+        if (edits.Count > 0) await Workspace.ApplyAsync(edits.Values.Select(e => new EntityEdit(e.Id, e)).ToArray());
+    });
+
+    /// <summary>The plans a booking is for, from either side.</summary>
+    public static IReadOnlyList<Guid> BookedItems(TripSnapshot trip, Guid booking) =>
+        ((trip.Find(booking)?.Data["items"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty)
+            .Concat(trip.Entities.Values.Where(e => e.Type == "schedule_item" && TripCommands.BookingOf(e) == booking).Select(e => e.Id)))
+        .Where(id => trip.Find(id) is { Type: "schedule_item" }).Distinct().ToArray();
+
+    /// <summary>Makes a plan a step of a group, or with no group takes it out of its group.</summary>
+    public Task NestAsync(Guid step, Guid? group) => RunEditAsync(async () =>
+    {
+        if (Workspace is null) return;
+        var trip = Workspace.State.Trip;
+        var changed = group is { } g ? TripCommands.Nest(trip, g, step) : TripCommands.Unnest(trip, step);
+        if (changed.Count > 0) await Workspace.ApplyAsync(changed.Select(e => new EntityEdit(e.Id, e)).ToArray());
+    });
+
     public Task ToggleTaskAsync(Guid id) => UpdateAsync(id, task => task.Data["status"] = task.Data["status"]?.ToString() == "completed" ? "open" : "completed");
 
     [RelayCommand] private Task AddFile() => AddFilesAsync(null);

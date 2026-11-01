@@ -212,19 +212,21 @@ public static class Editors
         .DistinctBy(r => r.ISOCurrencySymbol).Where(r => r.ISOCurrencySymbol.Length == 3).OrderBy(r => r.ISOCurrencySymbol).Select(r => new Choice(r.ISOCurrencySymbol, r.ISOCurrencySymbol + " " + r.CurrencySymbol)).ToArray();
 
     /// <summary>A button showing the current reference; opens a searchable picker that can also create entities.</summary>
-    public static Control Reference(MainWindow w, Guid id, string path, string label, string? type, bool allowCreate = true)
+    /// <param name="save">Saves the choice in place of setting the path, for a reference that needs more than one change.</param>
+    public static Control Reference(MainWindow w, Guid id, string path, string label, string? type, bool allowCreate = true, Func<Guid?, Task>? save = null)
     {
         var m = w.Model; var trip = m.Trip!; var current = Guid.TryParse(EditorModel.Get(trip.Find(id)!, path)?.ToString(), out var refId) ? trip.Find(refId) : null;
         Control content = current is null ? Ui.H(6, Ui.Icon("plus", 14, "Text.Subtle"), Ui.Text(m.Strings["Choose"], "subtle")) : Ui.H(8, Ui.Icon(Visuals.For(trip, current).Icon, 14, "Kind." + Visuals.For(trip, current).KindKey + ".Fg"), Ui.Line(current.Title));
         var button = new Button { Content = content, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left, FontWeight = FontWeight.Normal, Tag = path }.Named(label);
-        button.Flyout = Picker(w, type, current is null ? [] : [current.Id], multi: false, picked => m.UpdateAsync(id, e => EditorModel.Set(e, path, picked is null ? null : JsonValue.Create(picked.Id.ToString()))), allowCreate, allowClear: current is not null);
+        button.Flyout = Picker(w, type, current is null ? [] : [current.Id], multi: false, picked => save is not null ? save(picked?.Id) : m.UpdateAsync(id, e => EditorModel.Set(e, path, picked is null ? null : JsonValue.Create(picked.Id.ToString()))), allowCreate, allowClear: current is not null);
         if (current is null) return button;
         var open = Ui.IconButton("arrow-up-right", string.Format(m.Strings["OpenItem"], current.Title), "small"); open.Click += (_, _) => m.Selected = current;
         return Ui.Columns("*,Auto", button, open.Margin(4, 0, 0, 0));
     }
 
     /// <summary>A set of references (people, items, documents) as chips with an add picker.</summary>
-    public static Control References(MainWindow w, Guid id, string path, string label, string? type, Func<Entity, JsonArray?>? read = null, Action<Entity, JsonArray>? write = null)
+    /// <param name="save">Saves the new list in place of setting the path, for references that change other entities too.</param>
+    public static Control References(MainWindow w, Guid id, string path, string label, string? type, Func<Entity, JsonArray?>? read = null, Action<Entity, JsonArray>? write = null, Func<IReadOnlyList<Guid>, Task>? save = null)
     {
         var m = w.Model; var trip = m.Trip!; var entity = trip.Find(id)!;
         var values = (read?.Invoke(entity) ?? EditorModel.Get(entity, path) as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList();
@@ -234,7 +236,7 @@ public static class Editors
             if (trip.Find(refId) is not { } target) continue;
             Control avatar = target.Type == "person" ? Ui.Avatar(target.Title, 20) : Ui.Icon(Visuals.For(trip, target).Icon, 13);
             var remove = Ui.IconButton("x", string.Format(m.Strings["RemoveNamed"], target.Title), "small"); remove.Padding = new Thickness(2); remove.MinWidth = 20; remove.MinHeight = 20;
-            remove.Click += (_, _) => _ = m.UpdateAsync(id, e => { var next = new JsonArray(values.Where(v => v != refId).Select(v => (JsonNode?)JsonValue.Create(v.ToString())).ToArray()); if (write is not null) write(e, next); else EditorModel.Set(e, path, next); });
+            remove.Click += (_, _) => _ = save is not null ? save(values.Where(v => v != refId).ToArray()) : m.UpdateAsync(id, e => { var next = new JsonArray(values.Where(v => v != refId).Select(v => (JsonNode?)JsonValue.Create(v.ToString())).ToArray()); if (write is not null) write(e, next); else EditorModel.Set(e, path, next); });
             var open = new Button { Content = Ui.Line(target.Title), Padding = new Thickness(4, 0), MinHeight = 0, FontWeight = FontWeight.Medium }.Classed("ghost"); open.Click += (_, _) => m.Selected = target;
             panel.Children.Add(new Border { Child = Ui.H(2, avatar, open, remove), Padding = new Thickness(4, 2), CornerRadius = new CornerRadius(14), BorderThickness = new Thickness(1) }.Res(Border.BackgroundProperty, "Bg.Subtle").Res(Border.BorderBrushProperty, "Line"));
         }
@@ -242,6 +244,7 @@ public static class Editors
         add.Flyout = Picker(w, type, values, multi: true, picked =>
         {
             if (picked is null) return Task.CompletedTask;
+            if (save is not null) return save(values.Append(picked.Id).Distinct().ToArray());
             return m.UpdateAsync(id, e => { var next = new JsonArray(values.Append(picked.Id).Distinct().Select(v => (JsonNode?)JsonValue.Create(v.ToString())).ToArray()); if (write is not null) write(e, next); else EditorModel.Set(e, path, next); });
         }, allowCreate: type is "person" or "place", allowClear: false);
         panel.Children.Add(add);

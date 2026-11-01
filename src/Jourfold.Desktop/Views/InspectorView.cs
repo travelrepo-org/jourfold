@@ -1,3 +1,4 @@
+using Jourfold.Application;
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -251,6 +252,7 @@ public static class InspectorView
         var whenBlock = Ui.V(6, when, precision is null && zoneNote is null && endNote is null && travel is null ? null : Ui.H(10, precision is null ? null : Ui.Pill(precision, "timer", "Bg.Subtle", "Text.Muted"), Ui.Text(string.Join(" · ", new[] { zoneNote, endNote, travel }.Where(x => x is not null)), "caption")));
         if (span.Derived) whenBlock.Children.Add(Ui.Text(s["DerivedFromItems"], "caption"));
         if (!span.IsPlaced) whenBlock.Children.Add(Field(s["DurationMinutes"], Editors.Number(w, e.Id, "duration", s["DurationMinutes"], ScheduleQueries.PlannedDuration(e)?.TotalMinutes, s["MinutesShort"], v => JsonValue.Create(PeriodPattern.NormalizingIso.Format(Period.FromMinutes((long)v)))!, 15)));
+        if (TicketButton(w, e) is { } ticket) whenBlock.Children.Add(ticket);
         Add(body, s["When"], whenBlock);
         Add(body, s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ScheduleCategories.Statuses));
 
@@ -268,6 +270,9 @@ public static class InspectorView
                 Ui.Columns("*,*", Field(s["Carrier"], Editors.Text(w, e.Id, "components/transport/carrier", s["Carrier"], transport["carrier"]?.ToString())), Field(s["Number"], Editors.Text(w, e.Id, "components/transport/flight_number", s["Number"], transport["flight_number"]?.ToString())).Margin(10, 0, 0, 0)),
                 Ui.Columns("*,*,*", Field(s["Seat"], Editors.Text(w, e.Id, "components/transport/seat", s["Seat"], transport["seat"]?.ToString())), Field(s["Terminal"], Editors.Text(w, e.Id, "components/transport/departure/terminal", s["Terminal"], transport["departure"]?["terminal"]?.ToString())).Margin(8, 0), Field(s["Gate"], Editors.Text(w, e.Id, "components/transport/departure/gate", s["Gate"], transport["departure"]?["gate"]?.ToString()))),
                 Field(s["Distance"] + " (" + (m.Store.Get("units") == "Imperial" ? "mi" : "km") + ")", Editors.Number(w, e.Id, "components/transport/distance_m", s["Distance"], transport["distance_m"] is JsonValue dist && double.TryParse(dist.ToString(), CultureInfo.InvariantCulture, out var meters) ? Math.Round(meters / (m.Store.Get("units") == "Imperial" ? 1609.344 : 1000), 2) : null, null, v => JsonValue.Create(Math.Round(v * (m.Store.Get("units") == "Imperial" ? 1609.344 : 1000)))!)));
+            // A change to the next journey or from the one before, with the time there is, across time zones.
+            foreach (var c in Connections.In(trip).Where(c => c.Arriving.Id == e.Id || c.Departing.Id == e.Id))
+                route.Children.Add(ConnectionLine(w, c, onward: c.Arriving.Id == e.Id));
             Add(body, s["Journey"], route);
         }
         else if (stay is JsonObject)
@@ -315,8 +320,10 @@ public static class InspectorView
         Add(body, s["Who"], who);
 
         // Booking
-        var booking = Guid.TryParse(e.Data["components"]?["booking"]?["ref"]?.ToString(), out var bookingId) ? trip.Find(bookingId) : null;
-        Add(body, s["Booking"], Ui.V(6, Editors.Reference(w, e.Id, "components/booking/ref", s["Booking"], "booking"),
+        var booking = TripCommands.BookingOf(e) is { } bookingId ? trip.Find(bookingId) : null;
+        // A stay may keep its booking in its accommodation; either way the booking lists the plan too.
+        var bookingPath = e.Data["components"]?["accommodation"]?["booking"] is not null ? "components/accommodation/booking" : "components/booking/ref";
+        Add(body, s["Booking"], Ui.V(6, Editors.Reference(w, e.Id, bookingPath, s["Booking"], "booking", save: chosen => m.SetBookingAsync(e.Id, chosen)),
             booking is null ? null : Ui.H(8, booking.Data["reference"]?.ToString() is { } reference ? Ui.Pill(reference, "ticket", "Bg.Subtle", "Text") : null, Ui.Pill(s[booking.Data["status"]?.ToString() ?? "pending"], Visuals.Status(booking.Data["status"]?.ToString()).Icon, Visuals.Status(booking.Data["status"]?.ToString()).Background, Visuals.Status(booking.Data["status"]?.ToString()).Foreground))));
         Add(body, s["Confirmations"], Confirmations(w, e));
 
@@ -324,19 +331,61 @@ public static class InspectorView
         var parent = TripQueries.Parent(trip, e.Id);
         var children = (e.Data["children"] as JsonArray ?? []).Select(c => Guid.TryParse(c?.ToString(), out var g) ? trip.Find(g) : null).OfType<Entity>().ToArray();
         var nest = Ui.V(4);
-        if (parent is not null) nest.Children.Add(Ui.H(6, Ui.Text(s["PartOf"], "caption"), Link(w, parent)));
+        if (parent is not null)
+        {
+            var leave = Ui.Button(s["LeaveGroup"], "x", "link"); leave.Click += (_, _) => _ = m.NestAsync(e.Id, null);
+            nest.Children.Add(Ui.H(6, Ui.Text(s["PartOf"], "caption"), Link(w, parent), leave));
+        }
         foreach (var child in children) nest.Children.Add(Link(w, child));
         var addChild = Ui.Button(s["AddSubItem"], "plus", "link"); addChild.Click += async (_, _) =>
         {
             var title = await m.Interaction.PromptAsync(s["AddSubItem"]); if (string.IsNullOrWhiteSpace(title)) return;
             await m.RunEditAsync(async () => { var child = Entity.Create("schedule_item", title.Trim()); child.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() }; var copy = m.Workspace!.State.Trip.Find(e.Id)!.Copy(); var list = copy.Data["children"] as JsonArray ?? new JsonArray(); copy.Data["children"] = list; list.Add(child.Id.ToString()); await m.Workspace.ApplyAsync([new(child.Id, child), new(copy.Id, copy)]); m.Selected = m.Workspace.State.Trip.Find(child.Id); });
         };
-        nest.Children.Add(addChild);
+        // An existing plan joins as a step; it leaves the group it was in.
+        var takeIn = Ui.Button(s["TakeInPlan"], "layers", "link"); takeIn.Click += async (_, _) =>
+        {
+            var current = m.Trip!; var above = new HashSet<Guid>();
+            for (var x = (Entity?)current.Find(e.Id); x is not null; x = TripQueries.Parent(current, x.Id)) above.Add(x.Id);
+            var choices = current.Entities.Values.Where(x => x.Type == "schedule_item" && !above.Contains(x.Id) && !Stays.IsStay(x) && TripQueries.Parent(current, x.Id)?.Id != e.Id && x.Data["children"] is not JsonArray { Count: > 0 })
+                .OrderBy(x => ScheduleQueries.Span(current, x).Start ?? Instant.MaxValue).ThenBy(x => x.Title, StringComparer.CurrentCulture)
+                .Select(x => new Choice(x.Id.ToString(), x.Title, Visuals.For(current, x).Icon, Subtitle(m, x))).ToArray();
+            if (await m.Interaction.ChooseAsync(s["TakeInPlan"], choices) is { } picked) await m.NestAsync(Guid.Parse(picked), e.Id);
+        };
+        nest.Children.Add(Ui.Flow(8, addChild, stay is JsonObject ? null : takeIn));
         if (span.Derived && span.Length is { } total) nest.Children.Add(Ui.Text(string.Format(s["TotalDuration"], Formats.Duration(total, s)), "caption"));
         Add(body, s["NestedItems"], nest);
 
         Add(body, s["Tags"], ListText(w, e, "tags", s["Tags"]));
         Add(body, s["Constraints"], Constraints(w, e));
+    }
+
+    /// <summary>"8 h 20 min to change at Hub airport", and the journey before or after it, to open.</summary>
+    private static Control ConnectionLine(MainWindow w, Connection c, bool onward)
+    {
+        var s = w.Model.Strings;
+        var time = c.Place is { } place ? string.Format(s["LayoverAt"], Formats.Duration(c.Layover, s), place.Title) : string.Format(s["Layover"], Formats.Duration(c.Layover, s));
+        return new Border
+        {
+            Padding = new Thickness(10, 8),
+            CornerRadius = new CornerRadius(8),
+            Child = Ui.V(4, Ui.Columns("Auto,*", Ui.Icon("route", 14, "Accent"), Ui.Text(time, "strong").Margin(8, 0, 0, 0)),
+                Ui.Columns("Auto,*", Ui.Text(s[onward ? "ConnectsTo" : "ConnectsFrom"], "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Link(w, onward ? c.Departing : c.Arriving).Margin(6, 0, 0, 0)))
+        }.Res(Border.BackgroundProperty, "Bg.Subtle");
+    }
+
+    /// <summary>"Show ticket" when the plan or its booking has a boarding pass or ticket; with several, a choice.</summary>
+    private static Button? TicketButton(MainWindow w, Entity e)
+    {
+        var m = w.Model; var tickets = Tickets.For(m.Trip!, e);
+        if (tickets.Count == 0) return null;
+        var button = Ui.Button(m.Strings["ShowTicket"], "ticket", "soft", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        button.Click += async (_, _) =>
+        {
+            var ticket = tickets.Count == 1 ? tickets[0] : await m.Interaction.ChooseAsync(m.Strings["ShowTicket"], tickets.Select(t => new Choice(t.Id.ToString(), t.Title, "ticket")).ToArray()) is { } id ? m.Trip!.Find(Guid.Parse(id)) : null;
+            if (ticket is not null) OpenDocument(m, ticket);
+        };
+        return button;
     }
 
     /// <summary>
@@ -581,7 +630,10 @@ public static class InspectorView
         body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["Reference"], Editors.Text(w, e.Id, "reference", s["Reference"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
-        body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item")));
+        // The plans and the booking point to each other; a plan leaves the booking it had.
+        body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item",
+            read: x => new JsonArray(MainViewModel.BookedItems(m.Trip!, x.Id).Select(i => (JsonNode?)JsonValue.Create(i.ToString())).ToArray()),
+            save: items => m.LinkBookingAsync(e.Id, items.ToArray()))));
         var fields = EditorModel.Fields(e);
         var free = Stays.Zoned(e.Data["cancellation"]?["free_until"]) is { } until && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(until.Local).TryGetValue(default, out var freeLocal) ? Formats.LongDay(freeLocal.Date) + " · " + Formats.Time(freeLocal.TimeOfDay) : s["Choose"];
         body.Children.Add(Ui.Columns("*,*",
@@ -603,7 +655,7 @@ public static class InspectorView
         {
             Control preview = DocumentPreviews.PdfThumbnail(m, document, 72) is { } thumbnail
                 ? new Border { Width = 36, Height = 46, ClipToBounds = true, CornerRadius = new CornerRadius(3), BorderThickness = new Thickness(1), Child = new Image { Source = thumbnail, Stretch = Stretch.UniformToFill } }.Res(Border.BorderBrushProperty, "Line")
-                : Ui.Tile(DocumentPreviews.IsMail(document) ? "mail" : DocumentPreviews.IsImage(document) ? "image" : DocumentPreviews.IsPdf(document) ? "file-text" : "file", "Transport", 36);
+                : Ui.Tile(DocumentPreviews.IsMail(document) ? "mail" : DocumentPreviews.IsPass(document) ? "ticket" : DocumentPreviews.IsImage(document) ? "image" : DocumentPreviews.IsPdf(document) ? "file-text" : "file", "Transport", 36);
             var title = DocumentPreviews.Title(m, document);
             var card = new Button { Content = Ui.Columns("Auto,*,Auto", preview, Ui.V(1, Ui.Line(title, "title"), Ui.Line(DocumentPreviews.Summary(m, document), "caption")).Margin(10, 0), Ui.Icon("eye", 14, "Text.Subtle")), Padding = new Thickness(8, 6), HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("card").Named(title);
             card.Click += (_, _) => OpenDocument(m, document);

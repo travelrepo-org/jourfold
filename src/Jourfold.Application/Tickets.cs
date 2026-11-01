@@ -1,6 +1,6 @@
 using TravelRepo.Core;
 
-namespace Jourfold.Mobile;
+namespace Jourfold.Application;
 
 /// <summary>
 /// The tickets of a plan: documents attached to it or to its booking that can be shown at a gate or to a conductor,
@@ -12,7 +12,7 @@ public static class Tickets
 
     public static IReadOnlyList<Entity> For(TripSnapshot trip, Entity item)
     {
-        var booking = Views.DetailView.Booking(trip, item);
+        var booking = item.Type == "booking" ? item : TripCommands.BookingOf(item) is { } id ? trip.Find(id) : null;
         return TripCommands.AttachedDocuments(trip, item).Concat(booking is null || booking.Id == item.Id ? [] : TripCommands.AttachedDocuments(trip, booking))
             .Where(d => IsTicket(d.Data["media_type"]?.ToString())).DistinctBy(d => d.Id).ToArray();
     }

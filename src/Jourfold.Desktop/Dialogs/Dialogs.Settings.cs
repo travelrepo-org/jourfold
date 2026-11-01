@@ -157,6 +157,9 @@ public sealed partial class Dialogs
                         }
                         Row(s["ClearWeatherCache"], string.Format(s["WeatherCacheSize"], Formats.Bytes(model.WeatherServices.Cache.Size)), Ui.Button(s["ClearWeatherCache"], "trash-2").Also(b => b.Click += (_, _) => { model.ClearWeatherCache(); Toast(s["WeatherCacheCleared"]); Render(); }));
                         page.Children.Add(Ui.Text(s["WeatherFallbackHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap).Margin(0, 12, 0, 0));
+                        // Exchange rates go online the same way: only after a yes, and without anything from the trip.
+                        page.Children.Add(Ui.Text(s["Converter"], "h3").Margin(0, 20, 0, 0));
+                        Row(s["RatesAllow"], s["RatesBody"], Toggle(model.RatesOn, v => _ = model.SetRatesAsync(v), s["RatesAllow"]));
                         break;
                     }
                 case "Providers":

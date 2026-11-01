@@ -1650,5 +1650,9 @@
   "FromThePlans": "Nach den Plänen",
   "TripDatesHint": "Ohne eigene Daten reicht die Reise vom ersten bis zum letzten Plan.",
   "LinkPlanOrBooking": "Mit Plan oder Buchung verknüpfen",
-  "RemoveLink": "Verknüpfung entfernen"
+  "RemoveLink": "Verknüpfung entfernen",
+  "LayoverAt": "{0} zum Umsteigen in {1}",
+  "Layover": "{0} zum Umsteigen",
+  "ConnectsTo": "Weiter mit",
+  "ConnectsFrom": "Kommt von"
 }

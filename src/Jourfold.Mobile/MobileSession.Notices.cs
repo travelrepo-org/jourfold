@@ -1,3 +1,4 @@
+using Jourfold.Application;
 namespace Jourfold.Mobile;
 
 public sealed partial class MobileSession

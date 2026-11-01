@@ -59,6 +59,13 @@ public static class DetailView
             page.Children.Add(Row(Visuals.TransportIcon(ScheduleCategories.TransportType(item)), service.Length > 0 ? service : str["Journey"], transport?["seat"]?.ToString() is { } seat ? string.Format(CultureInfo.CurrentCulture, str["SeatsAre"], seat) : null,
                 // The flight or train number alone is what goes into a tracking app.
                 s, transport?["flight_number"]?.ToString() is { Length: > 0 } number ? number : service.Length > 0 ? service : "", transport?["seat"]?.ToString()));
+        // A change to the next journey or from the one before, with the time there is.
+        foreach (var c in Connections.In(trip).Where(c => c.Arriving.Id == item.Id || c.Departing.Id == item.Id))
+        {
+            var onward = c.Arriving.Id == item.Id;
+            var change = c.Place is { } at ? string.Format(CultureInfo.CurrentCulture, str["LayoverAt"], Formats.Duration(c.Layover, str), at.Title) : string.Format(CultureInfo.CurrentCulture, str["Layover"], Formats.Duration(c.Layover, str));
+            page.Children.Add(Row("route", change, str[onward ? "ConnectsTo" : "ConnectsFrom"] + " " + (onward ? c.Departing : c.Arriving).Title, s));
+        }
         var notes = ExportText.Notes(trip, item).Concat(new[] { item.Data["body"]?.ToString(), item.Data["description"]?.ToString() }.OfType<string>()).Where(n => n.Length > 0).Distinct().ToArray();
         if (notes.Length > 0) page.Children.Add(Section(str["Notes"], Ui.V(6, notes.Select(n => (Control)Ui.Text(n).Copies(s)).ToArray())));
         var tasks = Linked(trip, item, "task").Where(t => t.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled")).ToArray();

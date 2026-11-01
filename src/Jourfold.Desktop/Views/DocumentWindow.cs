@@ -10,6 +10,7 @@ using Jourfold.Infrastructure;
 using TravelRepo.Core;
 using TravelRepo.Documents;
 using Jourfold.Application;
+using Jourfold.UI.Controls;
 
 namespace Jourfold.Desktop;
 
@@ -97,6 +98,7 @@ public sealed class DocumentWindow : Window
             {
                 "application/pdf" when PdfiumDocument.IsAvailable => PdfView(shown.Bytes),
                 Mail.MediaType => MailView(shown),
+                WalletPass.MediaType when WalletPass.Read(shown.Bytes, S.Language) is { } pass => PassView(pass),
                 var type when type.StartsWith("image/", StringComparison.Ordinal) => ImageView(shown.Bytes),
                 _ => Unsupported()
             };
@@ -124,6 +126,10 @@ public sealed class DocumentWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { M.Interaction.Toast(S["CannotOpen"]); }
     }
+
+    /// <summary>A boarding pass or ticket from a .pkpass file, with its barcode to scan from the screen.</summary>
+    private static Control PassView(WalletPass pass) =>
+        new ScrollViewer { Content = new Border { MaxWidth = 520, Padding = new Thickness(24), Child = PassCard.Build(pass), HorizontalAlignment = HorizontalAlignment.Center } }.Res(BackgroundProperty, "Bg.Subtle");
 
     // Images ----------------------------------------------------------------------------------------------
 

@@ -21,7 +21,7 @@ internal static class Program
     private static int ServeAssistant(string[] args)
     {
         if (args.Skip(1).FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal)) is not { } trip) { Console.Error.WriteLine("Usage: --mcp TRIP-FOLDER [--read-only]"); return 2; }
-        try { TravelRepo.Mcp.TripServer.RunStdioAsync(trip, new(ReadOnly: args.Contains("--read-only"), ClientName: "Jourfold", Weather: () => MainViewModel.CachedWeatherForAssistants())).GetAwaiter().GetResult(); return 0; }
+        try { TravelRepo.Mcp.TripServer.RunStdioAsync(trip, new(ReadOnly: args.Contains("--read-only"), ClientName: "Jourfold", Weather: () => MainViewModel.CachedWeatherForAssistants(), ExchangeRates: () => MainViewModel.RatesForAssistants())).GetAwaiter().GetResult(); return 0; }
         catch (TravelRepo.Core.DomainException ex) { Console.Error.WriteLine(ex.Message); return 2; }
     }
     public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<App>().With(new X11PlatformOptions { WmClass = "Jourfold", OverlayPopups = true }).UsePlatformDetect().LogToTrace();

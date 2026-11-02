@@ -76,6 +76,10 @@ public sealed class QuickAddView
     private readonly TextBox otherCurrency = new() { MaxLength = 3, Width = 96, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly TextBlock problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
     private readonly StackPanel form = Ui.V(14);
+    // The kinds and the title stay in place while the rest of the form is drawn again, so the title keeps the focus
+    // and the keyboard stays open when the kind changes.
+    private readonly WrapPanel kinds = Ui.Flow(8);
+    private readonly StackPanel rest = Ui.V(14);
 
     public Control View { get; }
     public Control Header { get; }
@@ -229,9 +233,19 @@ public sealed class QuickAddView
 
     private void Render()
     {
-        var str = s.Strings; form.Children.Clear();
+        // A field below the title that had the focus gets it back, so a chip tapped while typing keeps the keyboard.
+        var focused = TopLevel.GetTopLevel(form)?.FocusManager?.GetFocusedElement() as TextBox;
+        Draw();
+        if (focused is not null && !ReferenceEquals(focused, title) && Avalonia.VisualTree.VisualExtensions.IsAttachedToVisualTree(focused)) focused.Focus();
+    }
+
+    private void Draw()
+    {
+        var str = s.Strings;
+        if (form.Children.Count == 0) { if (editing is null) form.Children.Add(kinds); form.Children.Add(title); form.Children.Add(rest); }
+        rest.Children.Clear();
         // The fields keep what was typed between draws; they leave the layout of the last draw first.
-        foreach (var field in new Control[] { title, start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency }.Concat(details.Values.Select(d => d.Box)))
+        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency }.Concat(details.Values.Select(d => d.Box)))
             switch (field.Parent)
             {
                 case Panel panel: panel.Children.Remove(field); break;
@@ -240,11 +254,11 @@ public sealed class QuickAddView
             }
         if (editing is null)
         {
-            var kinds = Ui.Flow(8);
+            kinds.Children.Clear();
             // A step of a group is a plan.
             foreach (var (k, icon, label) in Kinds.Where(k => into is null || k.Kind is "activity" or "food" or "transport" or "idea"))
             {
-                var chip = Ui.Choice(str[label], icon, k == kind, "chip"); var chosen = k;
+                var chip = Chip(str[label], icon, k == kind, "chip"); var chosen = k;
                 chip.Click += (_, _) =>
                 {
                     kind = chosen;
@@ -255,62 +269,63 @@ public sealed class QuickAddView
                 };
                 kinds.Children.Add(chip);
             }
-            form.Children.Add(kinds);
         }
-        form.Children.Add(title);
-        if (kind == "note") { form.Children.Add(body); return; }
+        if (kind == "note") { rest.Children.Add(body); return; }
         if (kind == "task")
         {
-            form.Children.Add(Field(str["Due"], Days()));
-            if (PeopleField(str["Assignees"]) is { } assignees) form.Children.Add(assignees);
-            if (editing is not null) form.Children.Add(Field(str["Notes"], body));
+            rest.Children.Add(Field(str["Due"], Days()));
+            if (PeopleField(str["Assignees"]) is { } assignees) rest.Children.Add(assignees);
+            if (editing is not null) rest.Children.Add(Field(str["Notes"], body));
             return;
         }
         if (kind == "booking") { BookingFields(); return; }
-        if (Scheduled) form.Children.Add(Field(Stay ? str["FirstNight"] : str["DayLabel"], Days()));
+        if (Scheduled) rest.Children.Add(Field(Stay ? str["FirstNight"] : str["DayLabel"], Days()));
         if (Scheduled)
         {
-            form.Children.Add(Field(Stay ? str["CheckIn"] : Journey ? str["DepartureTime"] : str["StartTime"], Optional(start)));
+            rest.Children.Add(Field(Stay ? str["CheckIn"] : Journey ? str["DepartureTime"] : str["StartTime"], Optional(start)));
             if (Stay)
             {
-                form.Children.Add(Field(str["Nights"], Stepper(nights, 1, 60, n => nights = n)));
-                form.Children.Add(Field(str["CheckOut"], Optional(checkOut)));
+                rest.Children.Add(Field(str["Nights"], Stepper(nights, 1, 60, n => nights = n)));
+                rest.Children.Add(Field(str["CheckOut"], Optional(checkOut)));
             }
-            else if (Journey) form.Children.Add(Field(str["ArrivalTime"], ArrivalControls()));
-            else form.Children.Add(Field(str["EndTime"], end));
-            if (Journey) { form.Children.Add(Field(str["From"], from)); form.Children.Add(Field(str["To"], place)); }
-            else form.Children.Add(Field(str["Place"], place));
-            if (PeopleField(Stay ? str["Guests"] : str["WhoIsGoing"]) is { } who) form.Children.Add(who);
-            if (kind != "idea") form.Children.Add(idea);
+            else if (Journey) rest.Children.Add(Field(str["ArrivalTime"], ArrivalControls()));
+            else rest.Children.Add(Field(str["EndTime"], end));
+            if (Journey) { rest.Children.Add(Field(str["From"], from)); rest.Children.Add(Field(str["To"], place)); }
+            else rest.Children.Add(Field(str["Place"], place));
+            if (PeopleField(Stay ? str["Guests"] : str["WhoIsGoing"]) is { } who) rest.Children.Add(who);
+            if (kind != "idea") rest.Children.Add(idea);
             // The details travellers look up on the way, offered once the item exists.
             if (editing is not null && Journey)
             {
-                foreach (var (path, label, _) in JourneyFields) if (details.TryGetValue(path, out var d)) form.Children.Add(Field(str[label], d.Box));
-                form.Children.Add(Field(str["BookingNumber"], reference));
+                foreach (var (path, label, _) in JourneyFields) if (details.TryGetValue(path, out var d)) rest.Children.Add(Field(str[label], d.Box));
+                rest.Children.Add(Field(str["BookingNumber"], reference));
             }
             if (editing is not null && Stay)
             {
-                form.Children.Add(Field(str["CheckInHours"], Ui.V(6, Ui.Text(str["WindowFrom"], "caption"), Optional(windowFrom), Ui.Text(str["WindowUntil"], "caption"), Optional(windowUntil))));
-                form.Children.Add(Field(str["LatestCheckOut"], Optional(latestOut)));
-                foreach (var (path, label, _) in StayFields) if (details.TryGetValue(path, out var d)) form.Children.Add(Field(str[label], d.Box));
-                form.Children.Add(Field(str["BookingNumber"], reference));
+                rest.Children.Add(Field(str["CheckInHours"], Ui.V(6, Ui.Text(str["WindowFrom"], "caption"), Optional(windowFrom), Ui.Text(str["WindowUntil"], "caption"), Optional(windowUntil))));
+                rest.Children.Add(Field(str["LatestCheckOut"], Optional(latestOut)));
+                foreach (var (path, label, _) in StayFields) if (details.TryGetValue(path, out var d)) rest.Children.Add(Field(str[label], d.Box));
+                rest.Children.Add(Field(str["BookingNumber"], reference));
             }
         }
         if (kind == "expense")
         {
-            form.Children.Add(Field(str["Amount"], Money()));
-            form.Children.Add(estimated);
-            if (PeopleField(str["Payer"]) is { } payers) form.Children.Add(payers);
-            form.Children.Add(Field(str["BelongsTo"], RelatedControls()));
+            rest.Children.Add(Field(str["Amount"], Money()));
+            rest.Children.Add(estimated);
+            if (PeopleField(str["Payer"]) is { } payers) rest.Children.Add(payers);
+            rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
                 photo.Click += async (_, _) => { if (await take(CancellationToken.None) is { } taken) { receipt = taken; Render(); } };
-                form.Children.Add(photo);
+                rest.Children.Add(photo);
             }
         }
-        if (editing is not null) form.Children.Add(Field(str["Notes"], body));
+        if (editing is not null) rest.Children.Add(Field(str["Notes"], body));
     }
+
+    /// <summary>A choice that leaves the focus where it is, so the keyboard stays open while choosing.</summary>
+    private static ChoiceButton Chip(string text, string? icon, bool selected, params string[] classes) => Ui.Choice(text, icon, selected, classes).Also(c => c.Focusable = false);
 
     private static Control Field(string label, Control value) => Ui.V(6, Ui.Text(label, "overline"), value);
 
@@ -330,7 +345,7 @@ public sealed class QuickAddView
         var chips = Ui.Flow(8);
         void Option(string text, string icon, PeopleChoice choice)
         {
-            var chip = Ui.Choice(text, icon, peopleChoice == choice, "chip");
+            var chip = Chip(text, icon, peopleChoice == choice, "chip");
             chip.Click += (_, _) => { peopleChoice = choice; people.Clear(); Render(); };
             chips.Children.Add(chip);
         }
@@ -340,7 +355,7 @@ public sealed class QuickAddView
         foreach (var person in everyone)
         {
             var id = person.Id;
-            var chip = Ui.Choice(person.Title + (s.Me?.Id == id ? " (" + str["MeBadge"] + ")" : ""), null, peopleChoice == PeopleChoice.Chosen && people.Contains(id), "chip");
+            var chip = Chip(person.Title + (s.Me?.Id == id ? " (" + str["MeBadge"] + ")" : ""), null, peopleChoice == PeopleChoice.Chosen && people.Contains(id), "chip");
             chip.Click += (_, _) =>
             {
                 if (peopleChoice != PeopleChoice.Chosen) { people.Clear(); peopleChoice = PeopleChoice.Chosen; }
@@ -362,7 +377,7 @@ public sealed class QuickAddView
         var offered = TripSummaries.Costs(s.Trip!).Select(t => t.Currency).Prepend(currency).Append("EUR").Distinct().ToArray();
         foreach (var c in offered)
         {
-            var chip = Ui.Choice(c, null, c == currency && string.IsNullOrWhiteSpace(otherCurrency.Text), "chip"); var chosen = c;
+            var chip = Chip(c, null, c == currency && string.IsNullOrWhiteSpace(otherCurrency.Text), "chip"); var chosen = c;
             chip.Click += (_, _) => { currency = chosen; otherCurrency.Text = ""; Render(); };
             currencies.Children.Add(chip);
         }
@@ -377,22 +392,22 @@ public sealed class QuickAddView
     private void BookingFields()
     {
         var str = s.Strings;
-        form.Children.Add(Field(str["Provider"], provider));
-        form.Children.Add(Field(str["BookingNumber"], reference));
+        rest.Children.Add(Field(str["Provider"], provider));
+        rest.Children.Add(Field(str["BookingNumber"], reference));
         var statuses = Ui.Flow(8);
         foreach (var (status, icon) in BookingStatuses)
         {
-            var chip = Ui.Choice(str[status], icon, status == bookingStatus, "chip"); var chosen = status;
+            var chip = Chip(str[status], icon, status == bookingStatus, "chip"); var chosen = status;
             chip.Click += (_, _) => { bookingStatus = chosen; Render(); };
             statuses.Children.Add(chip);
         }
-        form.Children.Add(Field(str["Status"], statuses));
-        form.Children.Add(Field(str["Price"], Money()));
+        rest.Children.Add(Field(str["Status"], statuses));
+        rest.Children.Add(Field(str["Price"], Money()));
         var clearDay = Ui.IconButton("x", str["NoFreeCancellation"]); clearDay.Click += (_, _) => { cancelDay.SelectedDate = null; cancelTime.SelectedTime = null; };
-        form.Children.Add(Field(str["FreeCancellationUntil"], Ui.V(6, Ui.Columns("*,Auto", cancelDay, clearDay), Optional(cancelTime))));
-        if (PeopleField(str["Travellers"]) is { } travellers) form.Children.Add(travellers);
-        form.Children.Add(Field(str["PlansOfBooking"], PlanControls()));
-        if (editing is not null) form.Children.Add(Field(str["Notes"], body));
+        rest.Children.Add(Field(str["FreeCancellationUntil"], Ui.V(6, Ui.Columns("*,Auto", cancelDay, clearDay), Optional(cancelTime))));
+        if (PeopleField(str["Travellers"]) is { } travellers) rest.Children.Add(travellers);
+        rest.Children.Add(Field(str["PlansOfBooking"], PlanControls()));
+        if (editing is not null) rest.Children.Add(Field(str["Notes"], body));
     }
 
     /// <summary>The plans a booking is for, each with a button to unlink it, and a button to link another.</summary>
@@ -460,14 +475,14 @@ public sealed class QuickAddView
         for (var i = 0; i <= 2; i++)
         {
             var offset = i;
-            var chip = Ui.Choice(i == 0 ? str["SameDay"] : i == 1 ? str["OneDayLater"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
+            var chip = Chip(i == 0 ? str["SameDay"] : i == 1 ? str["OneDayLater"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
             chip.Click += (_, _) => { arrivalDays = offset; Render(); };
             days.Children.Add(chip);
         }
         var zones = Ui.Flow(6);
         foreach (var zone in ArrivalZones())
         {
-            var chip = Ui.Choice(TimeText.Place(DateTimeZoneProviders.Tzdb[zone]), null, zone == (arrivalZone ?? ArrivalZones().First()), "chip"); var chosen = zone;
+            var chip = Chip(TimeText.Place(DateTimeZoneProviders.Tzdb[zone]), null, zone == (arrivalZone ?? ArrivalZones().First()), "chip"); var chosen = zone;
             chip.Click += (_, _) => { arrivalZone = chosen; Render(); };
             zones.Children.Add(chip);
         }
@@ -504,7 +519,7 @@ public sealed class QuickAddView
         var chips = Ui.H(6);
         foreach (var d in s.Agenda.Days)
         {
-            var chip = Ui.Choice(d.Date.ToString("ddd d", culture), null, d.Date == day, "chip"); var chosen = d.Date;
+            var chip = Chip(d.Date.ToString("ddd d", culture), null, d.Date == day, "chip"); var chosen = d.Date;
             chip.Click += (_, _) => { day = day == chosen ? null : chosen; Render(); };
             chips.Children.Add(chip);
         }

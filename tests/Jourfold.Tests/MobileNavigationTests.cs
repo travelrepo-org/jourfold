@@ -144,6 +144,26 @@ public sealed class MobileNavigationTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task ChoosingAKindInQuickAddKeepsTheTitleAndItsFocus()
+    {
+        var (session, window) = await OpenAsync(new LocalDate(2027, 5, 14));
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            var title = Probe.All<TextBox>(window).First(t => t.IsEffectivelyVisible);
+            title.Focus(); title.Text = "Lunch"; Probe.Layout();
+            var lost = 0; title.LostFocus += (_, _) => lost++;
+            Probe.Click(window, "Expense"); Probe.Layout();
+            // The same field never lost the focus, so the keyboard has no reason to close and open again.
+            Assert.Equal(0, lost); Assert.True(title.IsFocused); Assert.Equal("Lunch", title.Text);
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Amount" || t.Text == "AMOUNT");
+            Probe.Click(window, "Activity"); Probe.Layout();
+            Assert.Equal(0, lost);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [Fact]
     public void RatesAreFetchedOnceInAWhileEvenWhenTheirDateIsAWeekendOld()
     {

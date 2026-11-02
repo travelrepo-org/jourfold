@@ -43,6 +43,9 @@ public sealed class PackingTests : IDisposable
         Assert.Equal(["Grill", "Drinks", "Plates"], list.Items.Select(i => i.Task.Title));
         Assert.Equal([ana.Id], list.Items[0].Assignees.Select(a => a.Id)); Assert.Equal("Cooking", list.Items[0].Group);
         Assert.True(list.Items[1].Everyone); Assert.True(list.Items[2].Unassigned);
+        // A name nobody in the trip has is not added, as on the phone.
+        Assert.Equal(["Zoe"], (await m.AddPackingItemAsync(list.Collection.Id, "Cups @Zoe"))!.Unknown);
+        Assert.Equal(3, m.CurrentPackingList!.Items.Count);
 
         // Plates: Ben is chosen in the dialog.
         interaction.Pick = (choices, _) => { Assert.Equal("everyone", choices[0].Id); return [ben.Id.ToString()]; };

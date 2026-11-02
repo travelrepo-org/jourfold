@@ -72,15 +72,18 @@ public sealed partial class MobileSession
         if (Page == "packing.list") GoBack();
     }, ct);
 
-    /// <summary>Adds an item from one line, such as "Charger #Electronics @all"; without "@" it is the user's own.</summary>
-    public Task AddPackingItemAsync(Guid list, string text, CancellationToken ct = default) => ChangeAsync(async () =>
+    /// <summary>
+    /// Adds an item from one line, such as "2x Charger #Electronics @all"; without "@" it is the user's own. A line
+    /// with a name nobody or several people have is not added; <paramref name="addPeople"/> adds the missing people.
+    /// </summary>
+    public Task<PackingLine?> AddPackingItemAsync(Guid list, string text, bool addPeople = false, CancellationToken ct = default) => ChangeAsync<PackingLine?>(async () =>
     {
-        if (Workspace is not { } workspace || workspace.State.Trip.Find(list) is not { } collection || !PackingLists.IsList(collection)) return;
-        var (title, group, people, everyone) = PackingInput.Parse(workspace.State.Trip, text);
-        if (title.Length == 0) return;
-        if (people.Count == 0 && !everyone && Me is { } me) people = [me.Id];
-        var (item, updated) = PackingLists.AddItem(collection, title, group, null, people, everyone);
-        await workspace.ApplyAsync([new(item.Id, item), new(updated.Id, updated)], ct); NoteChange();
+        if (Workspace is not { } workspace) return null;
+        var (line, edits) = PackingInput.Add(workspace.State.Trip, list, text, Me?.Id, addPeople);
+        if (edits.Length == 0) return line;
+        await workspace.ApplyAsync(edits, ct); NoteChange();
+        Drafts.Remove("packing:" + list);
+        return line;
     }, ct);
 
     /// <summary>Adds a packing list, ready for its first item.</summary>

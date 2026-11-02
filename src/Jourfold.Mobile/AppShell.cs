@@ -216,7 +216,7 @@ public sealed class AppShell : UserControl
             Dispatcher.UIThread.Post(() =>
             {
                 if (Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(main).OfType<TextBox>().FirstOrDefault(b => b.Name == target) is not { } field) return;
-                field.Focus();
+                field.Focus(); field.CaretIndex = field.Text?.Length ?? 0;
                 // The keyboard stayed open, but Android reported it closed while the old field went away, and does not
                 // report it open again. Its room is read here, so the field shows above it.
                 DispatcherTimer.RunOnce(() =>

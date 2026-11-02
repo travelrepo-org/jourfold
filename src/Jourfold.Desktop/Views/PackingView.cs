@@ -54,14 +54,23 @@ public static class PackingView
         var who = me is null ? Ui.Button(s["WhoAmITitle"], "user", "link").Also(b => b.Click += async (_, _) => await m.ChooseMeCommand.ExecuteAsync(null)) : null;
         panel.Children.Add(Ui.Columns("Auto,*,Auto", ViewToolbar.Segmented(segments, filter, v => m.PackingFilter = v), new Border(), who));
 
-        var input = new TextBox { PlaceholderText = s["AddPackingItemPlaceholder"] }; AutomationProperties.SetName(input, s["AddPackingItem"]);
-        input.KeyDown += async (_, e) =>
+        // The line that adds items, with "@" and "#" suggestions; the same as on the phone. After adding, the view is
+        // drawn again and the new line gets the focus for the next item.
+        var name = "PackingLine:" + list.Collection.Id;
+        var input = new TextBox { Name = name };
+        var listId = list.Collection.Id;
+        panel.Children.Add(new PackingLineInput(s, input, () => m.Trip, async (text, people) =>
         {
-            if (e.Key != Key.Enter || string.IsNullOrWhiteSpace(input.Text)) return;
-            var text = input.Text; input.Text = ""; e.Handled = true;
-            await m.AddPackingItemAsync(list.Collection.Id, text);
-        };
-        panel.Children.Add(input);
+            var read = await m.AddPackingItemAsync(listId, text, people);
+            if (read is { CanAdd: true })
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(w).OfType<TextBox>().FirstOrDefault(t => t.Name == name) is not { } next) return;
+                    if (ReferenceEquals(next, input)) input.Text = "";
+                    next.Focus();
+                }, Avalonia.Threading.DispatcherPriority.Background);
+            return read;
+        }));
 
         var items = filter switch
         {

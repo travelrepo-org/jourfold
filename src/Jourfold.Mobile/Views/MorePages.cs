@@ -311,12 +311,18 @@ public static class MorePages
                 if (group is not null || groups.Count > 1) rows.Add(Ui.Text(group ?? str["NoGroup"], "h3").Margin(16, 12, 16, 2));
                 foreach (var item in members) rows.Add(Row(item));
             }
-            var add = Draft(s, "packing:" + list.Collection.Id, new TextBox { PlaceholderText = str["AddPackingItemPlaceholder"] }); AutomationProperties.SetName(add, str["AddPackingItem"]);
-            var plus = Ui.IconButton("plus", str["AddPackingItem"]);
-            async Task Add() { var text = add.Text; s.Drafts.Remove("packing:" + list.Collection.Id); if (!string.IsNullOrWhiteSpace(text)) await s.AddPackingItemAsync(list.Collection.Id, text); }
-            plus.Click += async (_, _) => await Add();
-            add.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; await Add(); } };
-            rows.Add(Ui.Columns("*,Auto", add, plus).Margin(16, 6));
+            // The line that adds items, with "@" and "#" suggestions; the same as on the desktop.
+            var collectionId = list.Collection.Id; var refused = "packing.refused:" + collectionId;
+            var add = Draft(s, "packing:" + collectionId, new TextBox { PlaceholderText = str["AddPackingItemPlaceholder"] });
+            var line = new PackingLineInput(str, add, () => s.Trip, async (text, people) =>
+            {
+                var read = await s.AddPackingItemAsync(collectionId, text, people);
+                // A refused line is drawn again with what was wrong, and its field keeps the focus.
+                if (read is { CanAdd: false }) { s.Drafts[refused] = text; s.Redraw(); }
+                else s.Drafts.Remove(refused);
+                return read;
+            }, s.Drafts.GetValueOrDefault(refused));
+            rows.Add(line.Margin(16, 6));
             var edit = Ui.IconButton("pencil", string.Format(CultureInfo.CurrentCulture, str["EditPackingList"], list.Collection.Title), "small");
             var listId = list.Collection.Id; edit.Click += (_, _) => s.ShowPacking(listId);
             parts.Add(Group(string.Format(CultureInfo.CurrentCulture, str["PackingListProgress"], list.Collection.Title, list.DoneCount, list.Items.Count), rows, edit));

@@ -214,7 +214,8 @@ usual spelling and the phone number below.
 ## Packing, money, weather and sharing
 
 - **Packing lists** (More → Packing lists): the user's items to tick off, what others bring, what nobody brings yet,
-  and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Groups are headings in each
+  and a line per list to add items with "@name", "@all", "#group" and "2x" as on the desktop, with the same
+  suggestions while typing and the same refusal of names nobody in the trip has (with a way to add them). Groups are headings in each
   list. **Mine**, **All** and **Nobody yet** filter the lists; once the phone knows who the user is, it starts with
   Mine and then keeps the last choice. New lists are added under the lists, by name; the new list's first line then
   has the focus. Enter adds an item and keeps the keyboard open for the next one. The pencil next to a list renames

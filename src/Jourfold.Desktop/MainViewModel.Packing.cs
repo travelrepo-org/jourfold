@@ -1,3 +1,4 @@
+using Jourfold.Application;
 using System.Text.Json.Nodes;
 using TravelRepo.Core;
 using TravelRepo.Repository;
@@ -43,20 +44,22 @@ public partial class MainViewModel
     });
 
     /// <summary>
-    /// Adds an item from one line of text. "@name" assigns a person, "@all" (or "@alle") everyone, and "#group" sets the
-    /// group, for example "Grill @Sam #Cooking". Without "@" the item is unassigned, or the local user's in "Mine".
+    /// Adds an item from one line of text, read by <see cref="PackingInput"/> as on the phone, for example
+    /// "2x Grill @Sam #Cooking". Without "@" the item is nobody's yet, or the local user's in "Mine". A line with a
+    /// name nobody or several people have is not added; <paramref name="addPeople"/> adds the missing people.
     /// </summary>
-    public Task AddPackingItemAsync(Guid listId, string text) => RunEditAsync(async () =>
+    public async Task<PackingLine?> AddPackingItemAsync(Guid listId, string text, bool addPeople = false)
     {
-        if (Workspace is null || Workspace.State.Trip.Find(listId) is not { } list || !PackingLists.IsList(list)) return;
-        var (title, group, people, everyone) = ParsePackingLine(Workspace.State.Trip, text);
-        if (title.Length == 0) return;
-        if (people.Count == 0 && !everyone && PackingFilter == "mine" && Me is { } me) people = [me.Id];
-        var (item, updated) = PackingLists.AddItem(list, title, group, null, people, everyone);
-        await Workspace.ApplyAsync([new(item.Id, item), new(updated.Id, updated)]);
-    });
-
-    public static (string Title, string? Group, IReadOnlyList<Guid> People, bool Everyone) ParsePackingLine(TripSnapshot trip, string text) => Jourfold.Application.PackingInput.Parse(trip, text);
+        PackingLine? read = null;
+        await RunEditAsync(async () =>
+        {
+            if (Workspace is null) return;
+            var (line, edits) = PackingInput.Add(Workspace.State.Trip, listId, text, PackingFilter == "mine" ? Me?.Id : null, addPeople);
+            read = line;
+            if (edits.Length > 0) await Workspace.ApplyAsync(edits);
+        });
+        return read;
+    }
 
     /// <summary>Asks who brings an item: some of the travellers, or everyone.</summary>
     public Task AssignPackingItemAsync(Guid itemId) => RunEditAsync(async () =>

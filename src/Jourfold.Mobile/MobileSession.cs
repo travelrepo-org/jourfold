@@ -211,6 +211,7 @@ public sealed partial class MobileSession : IDisposable
     /// <summary>What the back button of a page says: the tab it returns to, More, or plain Back for another page.</summary>
     public string BackLabel => trail.Count == 0 ? Strings["More"] : trail[^1] switch
     {
+        (_, "packing") => Strings["Packing"],
         (_, not null) => Strings["Back"],
         (MobileTab.Today, _) => Strings["Today"],
         (MobileTab.Plan, _) => Strings["Plan"],

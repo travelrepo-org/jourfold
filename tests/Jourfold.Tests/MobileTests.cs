@@ -875,6 +875,59 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PackingItemsAndListsAreChangedOnThePhone()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 1, 9, 0)), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            PackingItem Item(string title) => PackingLists.All(session.Trip!).SelectMany(l => l.Items).Single(i => i.Task.Title == title);
+            Button Named(string name) { Probe.Layout(); return Probe.All<Button>(window).First(b => AutomationProperties.GetName(b) == name); }
+            void Click(string name) { Named(name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout(); }
+            var sam = session.Trip!.Entities.Values.First(e => e.Type == "person" && e.Title.StartsWith("Sam", StringComparison.Ordinal));
+            await session.AddPackingListAsync("Beach");
+            var beach = PackingLists.All(session.Trip!).Single(l => l.Collection.Title == "Beach").Collection.Id;
+            session.ShowTab(MobileTab.More); session.ShowPage("packing"); session.Settings.Values["packing.filter"] = "all"; Probe.Layout();
+
+            // What nobody brings yet is taken on with one tap.
+            var snacks = Item("Snacks for the Shinkansen");
+            Assert.True(snacks.Unassigned);
+            Click("I'll bring “Snacks for the Shinkansen”");
+            await Probe.Until(() => Item("Snacks for the Shinkansen").IsFor(session.Me!.Id));
+
+            // Someone else's item opens its page: ticked for Sam at once, then changed and moved to the beach list.
+            Click("“Printed JR Pass exchange orders”: details");
+            Assert.Equal("packing.item", session.Page);
+            var orders = Item("Printed JR Pass exchange orders");
+            var box = Probe.All<CheckBox>(window).Single(b => AutomationProperties.GetName(b) == sam.Title + " has packed it");
+            box.IsChecked = !box.IsChecked;
+            await Probe.Until(() => Item("Printed JR Pass exchange orders").IsPackedBy(sam.Id) != orders.IsPackedBy(sam.Id));
+            Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Title").Text = "JR Pass orders";
+            Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Quantity").Text = "2";
+            Click("Everyone");
+            Click("Beach");
+            Click("Save");
+            await Probe.Until(() => session.Page == "packing");
+            var moved = Item("JR Pass orders");
+            Assert.True(moved.Everyone); Assert.Equal("2", moved.Quantity);
+            Assert.Contains(PackingLists.All(session.Trip!).Single(l => l.Collection.Id == beach).Items, i => i.Task.Id == moved.Task.Id);
+
+            // The list's page renames it and deletes it with its items.
+            Click("Edit “Beach”");
+            Assert.Equal("packing.list", session.Page);
+            Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Name").Text = "Seaside";
+            Click("Save");
+            await Probe.Until(() => session.Trip!.Find(beach)!.Title == "Seaside" && session.Page == "packing");
+            await session.DeletePackingItemAsync(moved.Task.Id);
+            Assert.Empty(PackingLists.All(session.Trip!).Single(l => l.Collection.Id == beach).Items);
+            await session.DeletePackingListAsync(beach);
+            Assert.DoesNotContain(PackingLists.All(session.Trip!), l => l.Collection.Id == beach);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task QuickChangesOneAfterAnotherAllArrive()
     {
         var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 1, 9, 0)), () => Berlin, "en", new MemorySecrets()));

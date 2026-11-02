@@ -22,6 +22,8 @@ public static class MorePages
         "bookings" => Bookings(s),
         "tasks" => Tasks(s),
         "packing" => Packing(s),
+        "packing.list" => PackingListPage(s),
+        "packing.item" => PackingItemPage(s),
         "converter" => Converter(s),
         "places" => Places(s),
         "files" => Files(s),
@@ -48,12 +50,13 @@ public static class MorePages
         return Ui.Scroll(page);
     }
 
-    private static Control Group(string title, IReadOnlyList<Control> rows)
+    private static Control Group(string title, IReadOnlyList<Control> rows, Control? action = null)
     {
         var list = Ui.V(0);
         // A heading inside the card belongs to the rows below it, so no line separates them.
         for (var i = 0; i < rows.Count; i++) { if (i > 0 && !rows[i - 1].Classes.Contains("h3")) list.Children.Add(Ui.Divider()); list.Children.Add(rows[i]); }
-        return Ui.V(8, Ui.Text(title, "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
+        Control heading = action is null ? Ui.Text(title, "overline").Margin(20, 0) : Ui.Columns("*,Auto", Ui.Text(title, "overline"), action).Margin(20, 0, 12, 0);
+        return Ui.V(action is null ? 8 : 2, heading, new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
     }
 
     /// <summary>A row that unfolds its details below itself when tapped.</summary>
@@ -261,18 +264,37 @@ public static class MorePages
             var rows = new List<Control>();
             Control? Caption(PackingItem item) => string.Join(" · ", new[] { item.Quantity,
                 item.Everyone ? str["EveryoneBringsOwn"] : item.Assignees.Count > 1 ? string.Join(", ", item.Assignees.Select(a => a.Title)) : null }.Where(t => !string.IsNullOrEmpty(t))) is { Length: > 0 } caption ? Ui.Text(caption, "caption") : null;
+            // The user's own items have a check box; the arrow, or a tap on anyone else's item, opens the item's page.
             Control Row(PackingItem item)
             {
+                var id = item.Task.Id;
                 if (me is not null && item.IsFor(me.Id))
                 {
-                    var box = new CheckBox { IsChecked = item.IsPackedBy(me.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 40, VerticalContentAlignment = VerticalAlignment.Top, Padding = new Thickness(12, 5, 0, 0), Margin = new Thickness(16, 6) };
+                    var box = new CheckBox { IsChecked = item.IsPackedBy(me.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 40, VerticalContentAlignment = VerticalAlignment.Top, Padding = new Thickness(12, 5, 0, 0), Margin = new Thickness(16, 6, 0, 6) };
                     AutomationProperties.SetName(box, item.Task.Title);
-                    box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(item.Task.Id, box.IsChecked == true);
-                    return box;
+                    box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(id, box.IsChecked == true);
+                    var open = Ui.IconButton("chevron-right", string.Format(CultureInfo.CurrentCulture, str["PackingItemDetails"], item.Task.Title));
+                    open.Click += (_, _) => s.ShowPacking(id);
+                    return Ui.Columns("*,Auto", box, open.Margin(4, 0, 8, 0));
                 }
                 var who = item.Unassigned ? str["Unassigned"] : string.Join(", ", item.Assignees.Select(a => a.Title + (item.IsPackedBy(a.Id) ? " ✓" : "")));
-                return Ui.Columns("Auto,*", Ui.Icon(item.Done ? "circle-check" : "circle", 18, item.Done ? "Success" : "Text.Muted").Margin(0, 0, 12, 0), Ui.V(2, Ui.Text(item.Task.Title), Ui.Text(who, "caption")))
-                    .Also(g => { g.MinHeight = 48; g.Margin = new Thickness(18, 4); });
+                var row = new Button
+                {
+                    Content = Ui.Columns("Auto,*,Auto", Ui.Icon(item.Done ? "circle-check" : "circle", 18, item.Done ? "Success" : "Text.Muted").Margin(0, 0, 12, 0),
+                        Ui.V(2, Ui.Text(item.Task.Title), Ui.Text(who, "caption")), Ui.Icon("chevron-right", 18, "Text.Muted")),
+                    MinHeight = 52,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Padding = new Thickness(18, 6, 18, 6),
+                }.Classed("row");
+                AutomationProperties.SetName(row, string.Format(CultureInfo.CurrentCulture, str["PackingItemDetails"], item.Task.Title));
+                row.Click += (_, _) => s.ShowPacking(id);
+                // What nobody brings yet can be taken on with one tap.
+                if (!item.Unassigned || me is null) return row;
+                var take = Ui.Button(str["TakeIt"], "user-plus", "soft", "compact");
+                AutomationProperties.SetName(take, string.Format(CultureInfo.CurrentCulture, str["TakeItOf"], item.Task.Title));
+                take.Click += async (_, _) => await s.TakePackingItemAsync(id);
+                return Ui.Columns("*,Auto", row, take.Margin(4, 0, 12, 0));
             }
             var items = filter switch
             {
@@ -295,11 +317,130 @@ public static class MorePages
             plus.Click += async (_, _) => await Add();
             add.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; await Add(); } };
             rows.Add(Ui.Columns("*,Auto", add, plus).Margin(16, 6));
-            parts.Add(Group(string.Format(CultureInfo.CurrentCulture, str["PackingListProgress"], list.Collection.Title, list.DoneCount, list.Items.Count), rows));
+            var edit = Ui.IconButton("pencil", string.Format(CultureInfo.CurrentCulture, str["EditPackingList"], list.Collection.Title), "small");
+            var listId = list.Collection.Id; edit.Click += (_, _) => s.ShowPacking(listId);
+            parts.Add(Group(string.Format(CultureInfo.CurrentCulture, str["PackingListProgress"], list.Collection.Title, list.DoneCount, list.Items.Count), rows, edit));
         }
         // A new list has its own heading, so its field does not read as part of the list above it.
         parts.Add(Ui.V(8, Ui.Text(str["NewPackingList"], "overline").Margin(20, 8, 20, 0), Ui.Columns("*,Auto", newList, create).Margin(16, 0)));
         return Frame(s, str["Packing"], [.. parts]);
+    }
+
+    /// <summary>A packing list's name, and deleting the list with its items.</summary>
+    private static Control PackingListPage(MobileSession s)
+    {
+        var str = s.Strings;
+        if (s.PackingShown is not { } id || s.Trip?.Find(id) is not { } list || !PackingLists.IsList(list)) return Frame(s, str["Packing"]);
+        var name = Draft(s, "packing.edit.name", new TextBox { Text = list.Title }); AutomationProperties.SetName(name, str["Name"]);
+        var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
+        var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        save.Click += async (_, _) =>
+        {
+            problem.IsVisible = false;
+            try { await s.RenamePackingListAsync(id, name.Text ?? ""); }
+            catch (DomainException) { problem.Text = str["EnterTitle"]; problem.IsVisible = true; }
+        };
+        var count = PackingLists.Resolve(s.Trip!, list).Items.Count;
+        var delete = Ui.Button(str["DeletePackingList"], "trash-2", "ghost").Also(b => b.Res(Button.ForegroundProperty, "Danger"));
+        var question = count == 0 ? string.Format(CultureInfo.CurrentCulture, str["DeleteEmptyPackingList"], list.Title) : string.Format(CultureInfo.CurrentCulture, str["DeletePackingListBody"], list.Title, count);
+        delete.Click += (_, _) => s.Confirm(question, str["Delete"], () => s.DeletePackingListAsync(id));
+        return Frame(s, list.Title, Ui.Card(Ui.V(12, Ui.Field(str["Name"], name), problem, save), 14).Margin(16, 0), delete.Margin(16, 0));
+    }
+
+    /// <summary>
+    /// Everything about one packing item: its title, group and quantity, who brings it and on which list, saved
+    /// together; who has packed it, ticked at once, so one phone can keep the list for everyone; and deleting it.
+    /// </summary>
+    private static Control PackingItemPage(MobileSession s)
+    {
+        var str = s.Strings; var trip = s.Trip;
+        if (s.PackingShown is not { } id || trip?.Find(id) is not { } task || !PackingLists.IsItem(task)) return Frame(s, str["Packing"]);
+        var item = PackingLists.Item(trip, task);
+        var lists = PackingLists.All(trip);
+        var title = Draft(s, "packing.edit.title", new TextBox { Text = task.Title }); AutomationProperties.SetName(title, str["Title"]);
+        var group = Draft(s, "packing.edit.group", new TextBox { Text = item.Group, PlaceholderText = str["PackingGroupHint"] }); AutomationProperties.SetName(group, str["PackingGroup"]);
+        var quantity = Draft(s, "packing.edit.quantity", new TextBox { Text = item.Quantity }); AutomationProperties.SetName(quantity, str["Quantity"]);
+
+        // The groups already used, one tap away.
+        var used = lists.SelectMany(l => l.Items).Select(i => i.Group).OfType<string>().Distinct(StringComparer.CurrentCultureIgnoreCase).Order(StringComparer.CurrentCulture).ToArray();
+        var groups = Ui.Flow(8);
+        foreach (var name in used)
+        {
+            var chip = Ui.Choice(name, null, string.Equals(group.Text, name, StringComparison.CurrentCultureIgnoreCase), "chip");
+            chip.Click += (_, _) => { group.Text = name; s.Redraw(); };
+            groups.Children.Add(chip);
+        }
+
+        // Who brings it and the list are kept as drafts too, so they survive the page being drawn again.
+        var who = s.Drafts.TryGetValue("packing.edit.who", out var kept) ? kept ?? "" : item.Everyone ? "everyone" : string.Join(",", item.Assignees.Select(a => a.Id));
+        var everyone = who == "everyone";
+        var chosen = everyone ? [] : who.Split(',', StringSplitOptions.RemoveEmptyEntries).Select(Guid.Parse).ToHashSet();
+        var people = Ui.Flow(8);
+        var all = Ui.Choice(str["Everyone"], "users", everyone, "chip");
+        all.Click += (_, _) => { s.Drafts["packing.edit.who"] = everyone ? "" : "everyone"; s.Redraw(); };
+        people.Children.Add(all);
+        foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(p => p.Title, StringComparer.CurrentCulture))
+        {
+            var pid = person.Id;
+            var chip = Ui.Choice(person.Title + (s.Me?.Id == pid ? " (" + str["MeBadge"] + ")" : ""), null, chosen.Contains(pid), "chip");
+            chip.Click += (_, _) =>
+            {
+                var next = new HashSet<Guid>(chosen); if (!next.Remove(pid)) next.Add(pid);
+                s.Drafts["packing.edit.who"] = string.Join(",", next); s.Redraw();
+            };
+            people.Children.Add(chip);
+        }
+        var hint = everyone ? str["EveryoneHint"] : chosen.Count == 0 ? str["NobodyChosenHint"] : chosen.Count > 1 ? str["SharedItemHint"] : null;
+        var whoHint = hint is null ? null : Ui.Text(hint, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+
+        var current = lists.FirstOrDefault(l => l.Items.Any(i => i.Task.Id == id))?.Collection.Id;
+        var target = s.Drafts.TryGetValue("packing.edit.list", out var listDraft) && Guid.TryParse(listDraft, out var picked) ? picked : current ?? Guid.Empty;
+        Control? listField = null;
+        if (lists.Count > 1)
+        {
+            var listChips = Ui.Flow(8);
+            foreach (var list in lists)
+            {
+                var lid = list.Collection.Id;
+                var chip = Ui.Choice(list.Collection.Title, "list", lid == target, "chip");
+                chip.Click += (_, _) => { s.Drafts["packing.edit.list"] = lid.ToString(); s.Redraw(); };
+                listChips.Children.Add(chip);
+            }
+            listField = Ui.Field(str["List"], listChips);
+        }
+
+        var problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
+        var save = Ui.Button(str["Save"], "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        save.Click += async (_, _) =>
+        {
+            problem.IsVisible = false;
+            try { await s.SavePackingItemAsync(id, title.Text ?? "", group.Text, quantity.Text, [.. chosen], everyone, target == Guid.Empty ? current ?? Guid.Empty : target); }
+            catch (DomainException) { problem.Text = str["EnterTitle"]; problem.IsVisible = true; }
+        };
+
+        // Who has packed it changes at once, as the check box in the list does.
+        Control? packed = null;
+        if (item.Assignees.Count > 0)
+        {
+            var boxes = Ui.V(4);
+            foreach (var person in item.Assignees)
+            {
+                var pid = person.Id;
+                var box = new CheckBox { IsChecked = item.IsPackedBy(pid), Content = Ui.Text(person.Title + (s.Me?.Id == pid ? " (" + str["MeBadge"] + ")" : "")) };
+                AutomationProperties.SetName(box, string.Format(CultureInfo.CurrentCulture, str["PackedBy"], person.Title));
+                box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(id, pid, box.IsChecked == true);
+                boxes.Children.Add(box);
+            }
+            packed = Ui.Card(Ui.V(8, Ui.Text(str["PackedSection"], "overline"), boxes), 14).Margin(16, 0);
+        }
+
+        var delete = Ui.Button(str["Delete"], "trash-2", "ghost").Also(b => b.Res(Button.ForegroundProperty, "Danger"));
+        delete.Click += (_, _) => s.Confirm(string.Format(CultureInfo.CurrentCulture, str["DeleteItemQuestion"], task.Title), str["Delete"], () => s.DeletePackingItemAsync(id));
+        return Frame(s, task.Title,
+            packed,
+            Ui.Card(Ui.V(12, Ui.Field(str["Title"], title), Ui.Field(str["PackingGroup"], Ui.V(8, group, used.Length > 0 ? groups : null)), Ui.Field(str["Quantity"], quantity),
+                Ui.Field(str["WhoBringsIt"], Ui.V(6, people, whoHint)), listField, problem, save), 14).Margin(16, 0),
+            delete.Margin(16, 0));
     }
 
     /// <summary>

@@ -93,14 +93,9 @@ public partial class MainViewModel
     {
         if (Workspace is null || Workspace.State.Trip.Find(listId) is not { } list || !PackingLists.IsList(list)) return;
         var trip = Workspace.State.Trip; var resolved = PackingLists.Resolve(trip, list);
-        if (!await Interaction.ConfirmAsync(Strings["DeletePackingList"], string.Format(Strings["DeletePackingListBody"], list.Title, resolved.Items.Count), Strings["Delete"], danger: true)) return;
-        var elsewhere = PackingLists.All(trip).Where(l => l.Collection.Id != listId).SelectMany(l => l.Items).Select(i => i.Task.Id).ToHashSet();
-        var removed = resolved.Items.Select(i => i.Task.Id).Where(id => !elsewhere.Contains(id)).Append(listId).ToHashSet();
-        // Anything else that links to the removed entities, such as comments, loses the link.
-        var edits = removed.Select(id => new EntityEdit(id, null)).ToList();
-        foreach (var source in trip.Entities.Values.Where(e => !removed.Contains(e.Id) && TripReferences.From(e).Any(r => removed.Contains(r.Target))))
-            edits.Add(new(source.Id, TripReferences.Detach(source, removed)));
-        await Workspace.ApplyAsync([.. edits]);
+        if (!await Interaction.ConfirmAsync(Strings["DeletePackingList"], resolved.Items.Count == 0 ? string.Format(Strings["DeleteEmptyPackingList"], list.Title) : string.Format(Strings["DeletePackingListBody"], list.Title, resolved.Items.Count), Strings["Delete"], danger: true)) return;
+        var (removed, updated) = PackingLists.DeleteList(trip, listId);
+        await Workspace.ApplyAsync([.. removed.Select(id => new EntityEdit(id, null)), .. updated.Select(e => new EntityEdit(e.Id, e))]);
         if (Selected is { } selected && removed.Contains(selected.Id)) Selected = null;
         Interaction.Toast(string.Format(Strings["PackingListDeleted"], list.Title), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
     });

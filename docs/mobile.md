@@ -217,7 +217,10 @@ usual spelling and the phone number below.
   and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Groups are headings in each
   list. **Mine**, **All** and **Nobody yet** filter the lists; once the phone knows who the user is, it starts with
   Mine and then keeps the last choice. New lists are added under the lists, by name; the new list's first line then
-  has the focus. Enter adds an item and keeps the keyboard open for the next one. Before the trip, Today starts
+  has the focus. Enter adds an item and keeps the keyboard open for the next one. The pencil next to a list renames
+  or deletes it (items also on another list stay there). An item's arrow, or a tap on someone else's item, opens
+  its page: title, group, quantity, who brings it and the list it is on, saved together; who has packed it, ticked
+  at once for any of the people who bring it; and Delete. "I'll bring it" takes on an item nobody brings yet. Before the trip, Today starts
   with "Before the trip": the packing lists, with how much is left to pack or a way to start the first list, and the
   open tasks. More says the same, and a notification comes the evening before.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.

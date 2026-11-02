@@ -77,7 +77,17 @@ public sealed class PackingInputTests : IDisposable
         {
             Probe.Layout();
             var line = Probe.All<PackingLineInput>(window).First(); var box = line.Box;
-            box.Focus(); box.Text = "Kite @Sa"; box.CaretIndex = box.Text.Length; Probe.Layout();
+            // In use, the empty line shows how it works: the chips put the shorthand in.
+            box.Focus(); Probe.Layout();
+            Probe.Click(line, "2x Quantity"); Probe.Layout();
+            Assert.Equal(("2x ", 0, 1), (box.Text, box.SelectionStart, box.SelectionEnd));
+            Assert.DoesNotContain(Probe.All<Button>(line), b => AutomationProperties.GetName(b) == "2x Quantity");
+            box.CaretIndex = box.Text!.Length; box.Text += "Kite"; box.CaretIndex = box.Text.Length; Probe.Layout();
+            Probe.Click(line, "@ Person"); Probe.Layout();
+            Assert.Equal("2x Kite @", box.Text);
+            Assert.Contains(Probe.All<Button>(line), b => AutomationProperties.GetName(b) == "Everyone" && b.IsEffectivelyVisible);
+            Assert.Contains(Probe.All<TextBlock>(line), t => t.Text!.StartsWith("Write spaces", StringComparison.Ordinal) && t.IsEffectivelyVisible);
+            box.Text = "Kite @Sa"; box.CaretIndex = box.Text.Length; Probe.Layout();
             var chip = Probe.All<Button>(line).Single(b => AutomationProperties.GetName(b)?.StartsWith("Sam", StringComparison.Ordinal) == true);
             chip.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             Assert.StartsWith("Kite @Sam", box.Text);

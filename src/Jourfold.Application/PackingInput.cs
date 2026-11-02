@@ -120,6 +120,9 @@ public static partial class PackingInput
         return (result, start + suggestion.Insert.Length + 1);
     }
 
+    /// <summary>Whether the caret is in a word that starts with "@" or "#".</summary>
+    public static bool InShorthand(string text, int caret) => WordAt(text, caret).Length > 0;
+
     /// <summary>The "@" or "#" word that ends at the caret; empty when the caret is not in such a word.</summary>
     private static (int Start, int Length) WordAt(string text, int caret)
     {

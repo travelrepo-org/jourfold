@@ -116,7 +116,8 @@ public static class Lines
         var button = new Button { Content = visual }.Classed("card");
         AutomationProperties.SetName(button, e.Item.Title + (details.Length > 0 ? ", " + details : ""));
         Menus.OnHold(button, () => s.ShowMenu(Menus.Item(s, e.Item)));
-        button.Click += (_, _) => onTap();
+        // A button on the card, such as Navigate, does only its own thing.
+        button.Click += (_, args) => { if (args.Source == button) onTap(); };
         return button;
     }
 

@@ -57,14 +57,15 @@ public static class EntityMenu
 
     /// <summary>
     /// Makes a button stand for an entity: it carries the entity ID as Tag, shows whether it is selected, selects it
-    /// on click and offers the entity menu on right-click.
+    /// on click and offers the entity menu on right-click. A click on a button inside it, such as a check box, a chip
+    /// or "…", does only what that button does.
     /// </summary>
     public static T Bind<T>(this T button, MainWindow w, Entity e) where T : Button
     {
         var m = w.Model;
         button.Tag = e.Id;
         if (m.Selected?.Id == e.Id) button.Classes.Add("selected");
-        button.Click += (_, _) => m.Selected = m.Workspace?.State.Trip.Find(e.Id);
+        button.Click += (_, args) => { if (args.Source == button) m.Selected = m.Workspace?.State.Trip.Find(e.Id); };
         button.ContextMenu = Context(w, e);
         return button;
     }

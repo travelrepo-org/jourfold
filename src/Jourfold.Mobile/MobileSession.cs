@@ -48,6 +48,8 @@ public sealed partial class MobileSession : IDisposable
     public MobileSettings Settings { get; }
     /// <summary>Text typed into fields on pages, by field, so it survives the page being drawn again.</summary>
     public Dictionary<string, string?> Drafts { get; } = [];
+    /// <summary>The draft key of the field to give the focus once the page is drawn again, such as a new list's first line.</summary>
+    public string? FocusDraft { get; set; }
     /// <summary>A page under More, such as "bookings" or "sync"; null for More itself.</summary>
     public string? Page { get; private set; }
     public IReadOnlyList<TravelRepo.Git.VersionEntry> History { get; private set; } = [];
@@ -429,7 +431,7 @@ public sealed partial class MobileSession : IDisposable
     /// <summary>Adds what Quick Add collected, with the same rules as the desktop; an idea stays tentative.</summary>
     /// <returns>The new item, such as an expense to attach its receipt to.</returns>
     /// <param name="into">A group the new plan becomes a step of.</param>
-    public async Task<Guid> AddAsync(QuickAddDraft draft, bool idea, Guid? into = null, CancellationToken ct = default)
+    public Task<Guid> AddAsync(QuickAddDraft draft, bool idea, Guid? into = null, CancellationToken ct = default) => ChangeAsync<Guid>(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         // An expense on the road was paid by the user, unless the form said otherwise.
@@ -450,25 +452,51 @@ public sealed partial class MobileSession : IDisposable
         if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
         Changed?.Invoke();
         return main.Id;
+    }, ct);
+
+    // Changes to the trip run one at a time, each built from the trip as the change before left it. Two quick ticks in
+    // the packing list, or Enter pressed again right away, would otherwise both start from the same trip, and the
+    // second would be refused. A trip changed underneath, such as by a sync, is read again and the change built anew.
+    private readonly SemaphoreSlim changing = new(1, 1);
+    private readonly AsyncLocal<bool> inChange = new();
+
+    private async Task<T> ChangeAsync<T>(Func<Task<T>> change, CancellationToken ct)
+    {
+        // A change made as part of another one is already in turn.
+        if (inChange.Value) return await change();
+        await changing.WaitAsync(ct);
+        try
+        {
+            inChange.Value = true;
+            try { return await change(); }
+            catch (DomainException ex) when (ex.Code == "repository.changed" && Workspace is { } workspace)
+            {
+                await workspace.ReloadAsync(ct);
+                return await change();
+            }
+        }
+        finally { changing.Release(); }
     }
 
-    private async Task UpdateAsync(Guid id, Action<Entity> change, CancellationToken ct = default)
+    private Task ChangeAsync(Func<Task> change, CancellationToken ct) => ChangeAsync(async () => { await change(); return true; }, ct);
+
+    private Task UpdateAsync(Guid id, Action<Entity> change, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var copy = workspace.State.Trip.Find(id)?.Copy() ?? throw new DomainException("entity.missing", "Item not found.");
         change(copy); await workspace.EditAsync(copy, ct); NoteChange();
-    }
+    }, ct);
 
     /// <summary>Saves edits the editor built from the open trip, such as an item and its booking, as one change.</summary>
-    public async Task SaveDetailsAsync(IReadOnlyList<EntityEdit> edits, CancellationToken ct = default)
+    public Task SaveDetailsAsync(IReadOnlyList<EntityEdit> edits, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         if (edits.Count == 0) return;
         await workspace.ApplyAsync([.. edits], ct); NoteChange();
-    }
+    }, ct);
 
     /// <summary>Makes a plan a step of a group, or with no group takes it out of its group.</summary>
-    public async Task NestAsync(Guid step, Guid? group, CancellationToken ct = default)
+    public Task NestAsync(Guid step, Guid? group, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var trip = workspace.State.Trip;
@@ -476,10 +504,10 @@ public sealed partial class MobileSession : IDisposable
         if (changed.Count == 0) return;
         await workspace.ApplyAsync(changed.Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>The trip's title and its dates; without dates the trip's days follow its plans.</summary>
-    public async Task SaveTripAsync(string title, LocalDate? start, LocalDate? end, CancellationToken ct = default)
+    public Task SaveTripAsync(string title, LocalDate? start, LocalDate? end, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         if (string.IsNullOrWhiteSpace(title)) throw new DomainException("mobile.title", Strings["EnterTitle"]);
         if (start is { } a && end is { } b && b < a) throw new DomainException("mobile.dates", Strings["EndBeforeStart"]);
@@ -490,10 +518,10 @@ public sealed partial class MobileSession : IDisposable
         manifest.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = Day(start), ["end"] = Day(end) };
         await workspace.EditAsync(manifest, ct); NoteChange();
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>Adds a traveller to the trip, who can then be chosen for plans, costs and tasks.</summary>
-    public async Task<Guid> AddPersonAsync(string name, CancellationToken ct = default)
+    public Task<Guid> AddPersonAsync(string name, CancellationToken ct = default) => ChangeAsync<Guid>(async () =>
     {
         if (string.IsNullOrWhiteSpace(name)) throw new DomainException("mobile.title", Strings["EnterName"]);
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
@@ -501,22 +529,22 @@ public sealed partial class MobileSession : IDisposable
         await workspace.ApplyAsync(edits, ct); NoteChange();
         Changed?.Invoke();
         return person.Id;
-    }
+    }, ct);
 
     public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);
     public Task SetTaskDoneAsync(Guid id, bool done, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = done ? "completed" : "open", ct);
 
     /// <summary>Adds a copy of an item and what it contains, named as a copy, on the same day.</summary>
-    public async Task DuplicateAsync(Guid id, CancellationToken ct = default)
+    public Task DuplicateAsync(Guid id, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var copies = TripCommands.DuplicateSubtree(workspace.State.Trip, id);
         var root = copies[0]; root.Data[root.Data.ContainsKey("name") && !root.Data.ContainsKey("title") ? "name" : "title"] = string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["CopyOf"], root.Title);
         await workspace.ApplyAsync(copies.Select(c => new EntityEdit(c.Id, c)).ToArray(), ct); NoteChange();
-    }
+    }, ct);
 
     /// <summary>Moves an item to another day at the same local time; an item without a time keeps its kind of day.</summary>
-    public async Task MoveToDayAsync(Guid id, LocalDate day, CancellationToken ct = default)
+    public Task MoveToDayAsync(Guid id, LocalDate day, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var entry = Entry(id);
@@ -534,7 +562,7 @@ public sealed partial class MobileSession : IDisposable
         }, ct);
         if (Agenda.Find(day) is not null) SelectedDate = day;
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>
     /// Removes a trip from this phone. A trip shared on GitHub stays there and can be fetched again; one that was only
@@ -565,18 +593,18 @@ public sealed partial class MobileSession : IDisposable
         catch (DomainException) { return false; }
     }
 
-    public async Task DeleteAsync(Guid id, CancellationToken ct = default)
+    public Task DeleteAsync(Guid id, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         Showing = Overlay.None; OverlayItem = null; SelectedItem = null; editorFrom = null;
         await (Workspace ?? throw new InvalidOperationException("No trip is open.")).DeleteAsync(id, ct); NoteChange();
         // Deleting a booking opened from a stay returns to the stay.
         if (detailTrail.Count > 0) DetailsBack();
-    }
+    }, ct);
 
     /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>
     /// <param name="amount">For an expense, the new amount in its currency.</param>
     /// <param name="task">For a task, <paramref name="day"/> is when it is due; null clears it.</param>
-    public async Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default)
+    public Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var entry = Entry(id);
@@ -602,7 +630,7 @@ public sealed partial class MobileSession : IDisposable
             await workspace.ScheduleAsync(id, new ZonedTime(d.At(t).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zone), length ?? previous, ct);
         }
         Showing = Overlay.Details; Changed?.Invoke();
-    }
+    }, ct);
 
     public void Dispose() => Close();
 }

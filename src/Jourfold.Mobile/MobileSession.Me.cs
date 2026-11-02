@@ -20,7 +20,7 @@ public sealed partial class MobileSession
     /// Remembers which person the user is, or that they are not part of the trip (null). The user's GitHub login and
     /// e-mail are saved on that person when it has no other, so their other devices recognise them.
     /// </summary>
-    public async Task SetMeAsync(Guid? person, CancellationToken ct = default)
+    public Task SetMeAsync(Guid? person, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         if (Workspace is not { } workspace || MeKey is not { } key) return;
         Settings.Values[key] = person?.ToString() ?? TripMe.NotInTrip; Settings.Save();
@@ -32,5 +32,5 @@ public sealed partial class MobileSession
         }
         Changed?.Invoke();
         UpdateCalendarSoon();
-    }
+    }, ct);
 }

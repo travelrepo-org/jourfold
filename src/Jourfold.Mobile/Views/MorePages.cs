@@ -66,12 +66,16 @@ public static class MorePages
         return open ? Ui.V(0, button, details().Margin(16, 0, 16, 16)) : button;
     }
 
+    /// <summary>Starts the name of a field made by <see cref="Draft"/>, so the shell can find it again after drawing the page.</summary>
+    public const string DraftPrefix = "draft:";
+
     /// <summary>
     /// A field that keeps what was typed when the page is drawn again, for example after tapping Sync now. The shell
-    /// does not redraw while a field has the focus, so this is only about the text.
+    /// does not redraw while a field has the focus, except after Enter, which gives the focus back to the field.
     /// </summary>
     public static TextBox Draft(MobileSession s, string key, TextBox box)
     {
+        box.Name ??= DraftPrefix + key;
         if (s.Drafts.TryGetValue(key, out var text)) box.Text = text;
         box.TextChanged += (_, _) => s.Drafts[key] = box.Text;
         return box;
@@ -221,9 +225,11 @@ public static class MorePages
     private static Control Packing(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings; var me = s.Me;
-        var newList = Draft(s, "packing-list", new TextBox { PlaceholderText = str["NewPackingList"] }); AutomationProperties.SetName(newList, str["NewPackingList"]);
-        var create = Ui.Button(str["NewPackingList"], "plus", "soft");
-        create.Click += async (_, _) => { var title = newList.Text; s.Drafts.Remove("packing-list"); await s.AddPackingListAsync(title ?? ""); };
+        var newList = Draft(s, "packing-list", new TextBox { PlaceholderText = str["NewPackingListPlaceholder"] }); AutomationProperties.SetName(newList, str["NewPackingList"]);
+        var create = Ui.IconButton("plus", str["NewPackingList"]);
+        async Task Create() { var title = newList.Text; s.Drafts.Remove("packing-list"); if (!string.IsNullOrWhiteSpace(title)) await s.AddPackingListAsync(title); }
+        create.Click += async (_, _) => await Create();
+        newList.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; await Create(); } };
         var lists = PackingLists.All(trip);
         var parts = new List<Control?> { Ui.Text(str["PackingHint"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0) };
         if (me is null && trip.Entities.Values.Any(e => e.Type == "person"))
@@ -253,13 +259,13 @@ public static class MorePages
         foreach (var list in lists)
         {
             var rows = new List<Control>();
-            Control Caption(PackingItem item) => Ui.Text(string.Join(" · ", new[] { item.Quantity,
-                item.Everyone ? str["EveryoneBringsOwn"] : item.Assignees.Count > 1 ? string.Join(", ", item.Assignees.Select(a => a.Title)) : null }.Where(t => !string.IsNullOrEmpty(t))), "caption");
+            Control? Caption(PackingItem item) => string.Join(" · ", new[] { item.Quantity,
+                item.Everyone ? str["EveryoneBringsOwn"] : item.Assignees.Count > 1 ? string.Join(", ", item.Assignees.Select(a => a.Title)) : null }.Where(t => !string.IsNullOrEmpty(t))) is { Length: > 0 } caption ? Ui.Text(caption, "caption") : null;
             Control Row(PackingItem item)
             {
                 if (me is not null && item.IsFor(me.Id))
                 {
-                    var box = new CheckBox { IsChecked = item.IsPackedBy(me.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 52, Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(16, 2) };
+                    var box = new CheckBox { IsChecked = item.IsPackedBy(me.Id), Content = Ui.V(2, Ui.Text(item.Task.Title), Caption(item)), MinHeight = 40, VerticalContentAlignment = VerticalAlignment.Top, Padding = new Thickness(12, 5, 0, 0), Margin = new Thickness(16, 6) };
                     AutomationProperties.SetName(box, item.Task.Title);
                     box.IsCheckedChanged += async (_, _) => await s.SetPackedAsync(item.Task.Id, box.IsChecked == true);
                     return box;
@@ -275,7 +281,7 @@ public static class MorePages
                 _ => list.Items,
             };
             if (items.Count == 0)
-                rows.Add(Ui.Text(filter == "unassigned" ? str["EverythingAssigned"] : list.Items.Count == 0 ? str["PackingListEmptyBelow"] : str["NothingHere"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(16, 12));
+                rows.Add(Ui.Text(list.Items.Count == 0 ? str["PackingListEmptyBelow"] : filter == "unassigned" ? str["EverythingAssigned"] : str["NothingHere"], "muted").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(16, 12));
             // The groups are headings, in the order the list has them; without any group the items are one block.
             var groups = PackingLists.Groups(items);
             foreach (var (group, members) in groups)
@@ -291,7 +297,8 @@ public static class MorePages
             rows.Add(Ui.Columns("*,Auto", add, plus).Margin(16, 6));
             parts.Add(Group(string.Format(CultureInfo.CurrentCulture, str["PackingListProgress"], list.Collection.Title, list.DoneCount, list.Items.Count), rows));
         }
-        parts.Add(Ui.Columns("*,Auto", newList, create.Margin(8, 0, 0, 0)).Margin(16, 0));
+        // A new list has its own heading, so its field does not read as part of the list above it.
+        parts.Add(Ui.V(8, Ui.Text(str["NewPackingList"], "overline").Margin(20, 8, 20, 0), Ui.Columns("*,Auto", newList, create).Margin(16, 0)));
         return Frame(s, str["Packing"], [.. parts]);
     }
 

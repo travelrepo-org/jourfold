@@ -35,6 +35,8 @@ public sealed class AppShell : UserControl
     // Redrawing replaces every control on the page, so a text field being typed in would lose its focus and the
     // keyboard would close. While someone types, redraws that only refresh data wait until the field is left.
     private bool pending, acting, keyboard;
+    // A field that was sent with Enter gets the focus back once the page shows what it added.
+    private string? refocus;
     private object? drawnAt;
 
     public AppShell(MobileSession session)
@@ -54,6 +56,12 @@ public sealed class AppShell : UserControl
         AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerPressedEvent, (_, e) => { if (e.Pointer.Type != Avalonia.Input.PointerType.Mouse) Classes.Remove("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
+        // Enter in a one-line field sends it, as its button would, so what it added shows at once.
+        AddHandler(KeyDownEvent, (_, e) =>
+        {
+            if (e.Key == Avalonia.Input.Key.Enter && e.Source is TextBox { AcceptsReturn: false, Name: { } name } box && name.StartsWith(MorePages.DraftPrefix, StringComparison.Ordinal) && !string.IsNullOrWhiteSpace(box.Text))
+            { acting = true; refocus = name; }
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
         Render();
     }
 
@@ -103,17 +111,23 @@ public sealed class AppShell : UserControl
         if (top.InputPane is { } pane)
             pane.StateChanged += (_, args) =>
             {
-                // The bottom bar steps aside while typing, as on other Android apps.
-                keyboard = args.NewState == Avalonia.Controls.Platform.InputPaneState.Open;
-                if (bottomBar is not null) bottomBar.IsVisible = !keyboard;
-                // With the bottom bar the page reaches the screen's edge; without it the safe area is already left free.
-                var edge = bottomBar is not null ? 0 : safeArea.Bottom;
-                main.Margin = new Thickness(0, 0, 0, keyboard ? Math.Max(0, args.EndRect.Height - edge) : 0);
+                Keyboard(args.NewState == Avalonia.Controls.Platform.InputPaneState.Open, args.EndRect.Height);
                 if (args.NewState == Avalonia.Controls.Platform.InputPaneState.Open)
                     Dispatcher.UIThread.Post(() => (top.FocusManager?.GetFocusedElement() as Control)?.BringIntoView(), DispatcherPriority.Background);
                 else Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background);
             };
         if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
+    }
+
+    /// <summary>Leaves room for the on-screen keyboard, or takes it back.</summary>
+    private void Keyboard(bool open, double height)
+    {
+        // The bottom bar steps aside while typing, as on other Android apps.
+        keyboard = open;
+        if (bottomBar is not null) bottomBar.IsVisible = !keyboard;
+        // With the bottom bar the page reaches the screen's edge; without it the safe area is already left free.
+        var edge = bottomBar is not null ? 0 : safeArea.Bottom;
+        main.Margin = new Thickness(0, 0, 0, keyboard ? Math.Max(0, height - edge) : 0);
     }
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
@@ -196,6 +210,24 @@ public sealed class AppShell : UserControl
             main.Child = docked ? Ui.Columns("Auto,*,400", side, page, DetailColumn()) : Ui.Columns("Auto,*", side, page);
         }
         Overlays(docked);
+        if ((Session.FocusDraft is { } key ? MorePages.DraftPrefix + key : refocus) is { } target)
+        {
+            Session.FocusDraft = null; refocus = null;
+            Dispatcher.UIThread.Post(() =>
+            {
+                if (Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(main).OfType<TextBox>().FirstOrDefault(b => b.Name == target) is not { } field) return;
+                field.Focus();
+                // The keyboard stayed open, but Android reported it closed while the old field went away, and does not
+                // report it open again. Its room is read here, so the field shows above it.
+                DispatcherTimer.RunOnce(() =>
+                {
+                    if (!field.IsFocused) return;
+                    // Measured from the window's bottom, as the keyboard's own reports are.
+                    if (TopLevel.GetTopLevel(this) is { InputPane: { State: Avalonia.Controls.Platform.InputPaneState.Open } pane } top) Keyboard(true, top.Bounds.Height - pane.OccludedRect.Y);
+                    Dispatcher.UIThread.Post(() => field.BringIntoView(), DispatcherPriority.Background);
+                }, TimeSpan.FromMilliseconds(150));
+            }, DispatcherPriority.Loaded);
+        }
     }
 
     /// <summary>The width left for the page beside the rail or sidebar and an open details column.</summary>

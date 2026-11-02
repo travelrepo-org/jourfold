@@ -31,18 +31,18 @@ public sealed partial class MobileSession
     }
 
     /// <summary>Puts a place into a slot of an item, or takes it out without a choice.</summary>
-    public async Task AssignPlaceAsync(Guid item, PlaceSlot slot, PlaceChoice? choice, CancellationToken ct = default)
+    public Task AssignPlaceAsync(Guid item, PlaceSlot slot, PlaceChoice? choice, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         await workspace.ApplyAsync(PlaceEdits.Assign(workspace.State.Trip, item, slot, choice), ct); NoteChange();
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>
     /// Saves a place's name, address and position, or adds it when <paramref name="id"/> is null. A new place opened
     /// from an item's details becomes that item's place, and the details come back.
     /// </summary>
-    public async Task<Guid> SavePlaceAsync(Guid? id, string name, string? address, double? latitude, double? longitude, string? localName = null, string? localAddress = null, CancellationToken ct = default)
+    public Task<Guid> SavePlaceAsync(Guid? id, string name, string? address, double? latitude, double? longitude, string? localName = null, string? localAddress = null, CancellationToken ct = default) => ChangeAsync<Guid>(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         if (string.IsNullOrWhiteSpace(name)) throw new DomainException("mobile.title", Strings["EnterTitle"]);
@@ -59,7 +59,7 @@ public sealed partial class MobileSession
         else if (Showing == Overlay.Place) { Showing = Overlay.None; OverlayItem = null; }
         Changed?.Invoke();
         return place.Id;
-    }
+    }, ct);
 
     /// <summary>A found place's address as written locally, for the taxi card; null without online maps or when it is the same.</summary>
     public async Task<string?> LocalAddressAsync(PlaceResult result, CancellationToken ct = default) =>

@@ -853,8 +853,44 @@ public sealed class MobileTests : IDisposable
             Probe.Click(window, "All");
             Assert.True(Shows("Travel umbrella"));
             Assert.Equal("all", session.Settings.Values["packing.filter"]);
+
+            // Enter adds at once although the field keeps the focus, and the field is ready for the next item.
+            TextBox Field() => Probe.All<TextBox>(window).First(t => AutomationProperties.GetName(t) == "Add an item");
+            var field = Field(); field.Focus(); field.Text = "Sun hat #Comfort"; Probe.Layout();
+            field.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter, Source = field });
+            await Probe.Until(() => Shows("Sun hat"));
+            Probe.Layout();
+            Assert.True(Field().IsFocused); Assert.Equal("", Field().Text ?? "");
+
+            var lists = PackingLists.All(session.Trip!).Count;
+            var name = Probe.All<TextBox>(window).First(t => AutomationProperties.GetName(t) == "New packing list"); name.Focus(); name.Text = "Beach";
+            name.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter, Source = name });
+            await Probe.Until(() => Shows("Beach: 0 of 0 done"));
+            Assert.Equal(lists + 1, PackingLists.All(session.Trip!).Count);
+            // The new list's first line has the focus, ready for its first item.
+            var beach = PackingLists.All(session.Trip!).Single(l => l.Collection.Title == "Beach").Collection.Id;
+            await Probe.Until(() => Probe.All<TextBox>(window).Any(t => t.Name == MorePages.DraftPrefix + "packing:" + beach && t.IsFocused));
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task QuickChangesOneAfterAnotherAllArrive()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 1, 9, 0)), () => Berlin, "en", new MemorySecrets()));
+        try
+        {
+            await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+            await session.AddPackingListAsync("Beach");
+            var list = PackingLists.All(session.Trip!).Single(l => l.Collection.Title == "Beach").Collection.Id;
+            // Started before the one before has finished, as with a fast Enter or two quick ticks.
+            await Task.WhenAll(session.AddPackingItemAsync(list, "Towel"), session.AddPackingItemAsync(list, "Snorkel"), session.AddPackingItemAsync(list, "Sunscreen"));
+            var items = PackingLists.All(session.Trip!).Single(l => l.Collection.Id == list).Items;
+            Assert.Equal(["Towel", "Snorkel", "Sunscreen"], items.Select(i => i.Task.Title));
+            await Task.WhenAll(items.Select(i => session.SetPackedAsync(i.Task.Id, true)));
+            Assert.All(PackingLists.All(session.Trip!).Single(l => l.Collection.Id == list).Items, i => Assert.True(i.IsPackedBy(session.Me!.Id)));
+        }
+        finally { session.Dispose(); }
     }
 
     [AvaloniaFact]

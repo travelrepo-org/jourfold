@@ -1234,6 +1234,7 @@
   "Packing": "Packlisten",
   "PackingHint": "Was mit muss und wer es mitbringt. „Alle“ heißt: Jede Person packt ihr eigenes, auch wer später dazukommt.",
   "NewPackingList": "Neue Packliste",
+  "NewPackingListPlaceholder": "Name eingeben und Enter drücken, z. B. Camping oder Strand",
   "NoPackingListsTitle": "Noch keine Packlisten",
   "NoPackingListsBody": "Legen Sie eine Liste für das Grillen, die Campingausrüstung oder die Dokumente an und wählen Sie, wer was mitbringt.",
   "PackingListProgress": "{0}: {1} von {2} erledigt",

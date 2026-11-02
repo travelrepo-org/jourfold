@@ -1234,6 +1234,7 @@
   "Packing": "Packing lists",
   "PackingHint": "What to bring and who brings it. \"Everyone\" means each traveller packs their own, including people who join later.",
   "NewPackingList": "New packing list",
+  "NewPackingListPlaceholder": "Type a name and press Enter, for example Camping or Beach",
   "NoPackingListsTitle": "No packing lists yet",
   "NoPackingListsBody": "Make a list for the barbecue, the camping gear or the documents, and choose who brings what.",
   "PackingListProgress": "{0}: {1} of {2} done",

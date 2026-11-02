@@ -216,7 +216,8 @@ usual spelling and the phone number below.
 - **Packing lists** (More → Packing lists): the user's items to tick off, what others bring, what nobody brings yet,
   and a line per list to add items with "@name", "@all" and "#group" as on the desktop. Groups are headings in each
   list. **Mine**, **All** and **Nobody yet** filter the lists; once the phone knows who the user is, it starts with
-  Mine and then keeps the last choice. Before the trip, Today starts
+  Mine and then keeps the last choice. New lists are added under the lists, by name; the new list's first line then
+  has the focus. Enter adds an item and keeps the keyboard open for the next one. Before the trip, Today starts
   with "Before the trip": the packing lists, with how much is left to pack or a way to start the first list, and the
   open tasks. More says the same, and a notification comes the evening before.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.

@@ -51,7 +51,7 @@ public sealed partial class MobileSession
     /// Adds files to the trip, attached to <paramref name="attachTo"/> or only kept with its files. Files above 25 MB
     /// stay out, as the desktop asks before adding those to the trip's history.
     /// </summary>
-    public async Task AddFilesAsync(IReadOnlyList<SharedFile> files, Guid? attachTo, CancellationToken ct = default)
+    public Task AddFilesAsync(IReadOnlyList<SharedFile> files, Guid? attachTo, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         if (files.Any(f => f.Bytes.Length > 25 * 1024 * 1024)) throw new DomainException("asset.large", Strings["FileTooLarge"]);
@@ -66,16 +66,16 @@ public sealed partial class MobileSession
         if (owner is not null) edits.Add(new(owner.Id, owner));
         await workspace.ApplyAsync(edits.ToArray(), ct, resources.ToArray()); NoteChange();
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>Saves shared text as a note of the trip.</summary>
-    public async Task AddNoteAsync(string title, string body, CancellationToken ct = default)
+    public Task AddNoteAsync(string title, string body, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var (_, edits) = QuickAdd.Build(new QuickAddDraft("note", title) { Body = body }, workspace.State.Trip);
         await workspace.ApplyAsync(edits, ct); NoteChange();
         Changed?.Invoke();
-    }
+    }, ct);
 
     /// <summary>Adds shared text to the end of an item's notes.</summary>
     public Task AppendNoteAsync(Guid item, string text, CancellationToken ct = default) => UpdateAsync(item, e =>

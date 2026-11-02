@@ -62,10 +62,9 @@ public static class TimetableView
         var count = shown.Length;
         var columns = shown.Select(day => (Day: day, Zone: Zone(s, day), Lines: InGrid(day))).ToArray();
 
-        // The hours from the earliest start to the latest end of the days shown, at least twelve.
-        var starts = columns.SelectMany(c => c.Lines.Where(l => l.Role != AgendaRole.Continued).Select(l => l.Start!.Value.InZone(c.Zone).TimeOfDay.Hour)).DefaultIfEmpty(8).ToArray();
-        var ends = columns.SelectMany(c => c.Lines.Select(l => End(l, c.Day, c.Zone))).DefaultIfEmpty(20).ToArray();
-        var from = Math.Max(0, Math.Min(starts.Min(), 8)); var to = Math.Min(24, Math.Max(ends.Max(), from + 12));
+        // The whole day, midnight to midnight, so a night flight or an early start is always reachable; the grid opens
+        // at the first plan instead (see below).
+        const int from = 0, to = 24;
 
         var spec = Gutter.ToString(CultureInfo.InvariantCulture) + "," + string.Join(',', Enumerable.Repeat("*", count));
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions(spec) };
@@ -98,14 +97,12 @@ public static class TimetableView
         }
 
         var scroll = new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
-        if (count == 1)
-        {
-            var (day, zone, lines) = columns[0];
-            var opens = day.Date == s.PhoneToday ? s.Now.InZone(zone).TimeOfDay.Hour - 1
-                : lines.Where(l => l.Role != AgendaRole.Continued).Select(l => l.Start!.Value.InZone(zone).TimeOfDay.Hour).DefaultIfEmpty(from).Min();
-            var y = Math.Max(0, (opens - from) * HourHeight);
-            if (y > 0) scroll.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => scroll.Offset = new Vector(0, y), Avalonia.Threading.DispatcherPriority.Loaded);
-        }
+        // It opens an hour before now on today, otherwise at the first plan of the days shown (a journey from the day
+        // before counts from midnight), or at eight without any.
+        var opens = columns.Any(c => c.Day.Date == s.PhoneToday) ? s.Now.InZone(columns.First(c => c.Day.Date == s.PhoneToday).Zone).TimeOfDay.Hour - 1
+            : columns.SelectMany(c => c.Lines.Select(l => l.Role == AgendaRole.Continued ? 0 : l.Start!.Value.InZone(c.Zone).TimeOfDay.Hour)).DefaultIfEmpty(8).Min();
+        var opening = Math.Max(0, (opens - from) * HourHeight);
+        if (opening > 0) scroll.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => scroll.Offset = new Vector(0, opening), Avalonia.Threading.DispatcherPriority.Loaded);
         return (header, Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), count, top: false));
     }
 

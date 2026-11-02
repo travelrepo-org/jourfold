@@ -98,7 +98,8 @@ public static class Lines
         var details = string.Join(" · ", new[] { role, place, arrival, TravelTime(e, s.Strings) ?? "", e.IsGroup ? string.Format(CultureInfo.CurrentCulture, s.Strings["StepsCount"], e.Steps.Count) : "", reference ?? "" }.Where(t => t.Length > 0));
         var header = Ui.Columns("Auto,*,Auto",
             Ui.Icon(icon, 18, "Kind." + key + ".Fg").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 10, 0),
-            Ui.V(2, title, details.Length > 0 ? Ui.Text(details, "caption") : null, time?.Other is { } other ? Ui.Text(other, "caption", "subtle") : null),
+            // The other zone's time, unless a second time zone is chosen: that one stands beside the card instead.
+            Ui.V(2, title, details.Length > 0 ? Ui.Text(details, "caption") : null, time?.Other is { } other && s.SecondZone is null ? Ui.Text(other, "caption", "subtle") : null),
             e.IsGroup ? Ui.Icon(expandedGroup ? "chevron-up" : "chevron-down", 18, "Text.Muted").Margin(8, 0, 0, 0) : StatusChip(e.Status, s)?.Also(c => { c.VerticalAlignment = VerticalAlignment.Top; c.Margin = new Thickness(8, 0, 0, 0); }));
         var body = Ui.V(8, header, extra);
         var idea = e.IsIdea;

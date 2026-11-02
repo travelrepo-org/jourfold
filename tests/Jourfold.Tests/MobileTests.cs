@@ -1088,10 +1088,14 @@ public sealed class MobileTests : IDisposable
             session.ShowTab(MobileTab.Plan); session.ShowDate(new LocalDate(2027, 5, 15));
             Assert.Contains(Texts(), t => t.StartsWith("Arrival", StringComparison.Ordinal));
             Assert.Contains("Day 2 · Local time Tokyo", Texts());
-            // The stay's check-in says how many nights; the night line is not repeated under it.
+            // The stay's check-in says how many nights, and the night line closes this day as every other.
             Assert.Contains("3 nights", Texts());
-            Assert.DoesNotContain(Texts(), t => t.Contains("Night 1 of", StringComparison.Ordinal));
+            Assert.Contains(Texts(), t => t.Contains("Night 1 of 3", StringComparison.Ordinal));
             Assert.Contains(Texts(), t => t.StartsWith("Berlin: ", StringComparison.Ordinal));
+            // A chosen second time stands beside the cards and replaces the other zone's time in them.
+            session.SetSecondZone("Europe/Berlin");
+            Assert.DoesNotContain(Texts(), t => t.StartsWith("Berlin: ", StringComparison.Ordinal));
+            session.SetSecondZone(null);
             // Today follows the phone and shows the flight once, with its own times.
             session.ShowTab(MobileTab.Today);
             Assert.Contains("Times as on your phone (Berlin)", Texts());

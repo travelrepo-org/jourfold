@@ -129,6 +129,21 @@ public sealed class MobileNavigationTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TheDayOnTheTimeGridGoesFromMidnightToMidnight()
+    {
+        var (session, window) = await OpenAsync(new LocalDate(2027, 5, 14));
+        try
+        {
+            session.Settings.Values["plan.day"] = "timetable"; session.ShowTab(MobileTab.Plan);
+            // The day the night flight lands: its hours after midnight are on the grid, as are the late ones.
+            session.ShowDate(new LocalDate(2027, 5, 15)); Probe.Layout();
+            var hours = Probe.All<TextBlock>(window).Select(t => t.Text).ToHashSet();
+            Assert.Contains("00:00", hours); Assert.Contains("06:00", hours); Assert.Contains("23:00", hours); Assert.Contains("24:00", hours);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [Fact]
     public void RatesAreFetchedOnceInAWhileEvenWhenTheirDateIsAWeekendOld()
     {

@@ -23,7 +23,8 @@ rules and `MobileTests` checks them.
 
 A tap on that line chooses a second time zone for the trip, from the phone's zone and the zones of the trip and its
 items. Its times then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day),
-and not where both zones show the same time. The choice stays on this phone, per trip. Dark mode uses the design
+and not where both zones show the same time. It replaces the other zone's time inside the cards ("Berlin: 02:00"),
+which only shows while no second time is chosen. The choice stays on this phone, per trip. Dark mode uses the design
 spec's navy tokens, which `Jourfold.UI` shares with the desktop.
 
 An item that runs past midnight, such as a night flight, appears again on the days after it starts: on the day it
@@ -33,13 +34,16 @@ ends as its arrival or end, on the days between as running all day. TravelRepo's
 ## Plan, details and long press
 
 The date strip stays at the top while the day scrolls. A sideways swipe moves the day with the finger and slides the
-next one in; the strip scrolls on its own. A tap on an item opens its details at the smallest step (time, place,
+next one in; the strip scrolls on its own. At the end of a day, pulling on upwards lifts the page a little and fades in
+"Next day" with an arrow; once it turns to the accent colour, letting go opens the next day. Pulling down at the
+start of a day leads to the day before in the same way. The pull only counts when the finger is put down at the end or
+the start, so scrolling fast through a day stops there. The same works on the one-day time grid. A tap on an item opens its details at the smallest step (time, place,
 booking reference, Navigate). Below the top step the content does not scroll, so a drag anywhere on the sheet moves
 it; at the top step the content scrolls, and dragging down at its top lowers the sheet again. Journeys show their
 travel time. A long press on a line of the details copies it, such as the flight number, the seats, the
 address or the booking reference. Android 13 and later confirm a copy themselves; on older versions a short notice
 says what was copied. Only the item happening now or next on the phone's today shows extra context in the plan. A
-stay's check-in says how many nights it has; the night line under the day appears only on the other nights.
+stay's check-in says how many nights it has, and the night line closes every day, the day of the check-in too.
 
 A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,
 move to another day and delete. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
@@ -90,8 +94,9 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
   by 11:00" for the latest departure), and plans as tinted blocks with icon, time and title, dashed for ideas and
   parts of the day. The markers lie behind the plans.
 - Where the timetable of several days does not fit, the switch offers the same grid for one day, under the date
-  strip; a sideways swipe changes the day as in the list. It opens at the day's first plan, on today at the hour
-  before now. The list stays the first choice, and the choice is kept apart from the larger screens', so a foldable
+  strip; a sideways swipe changes the day as in the list. The grids always run from midnight to midnight, so a night
+  flight or an early start is reachable; they open at the first plan of the days shown (a journey from the day before
+  counts from midnight), on today at the hour before now, and otherwise at eight. The list stays the first choice, and the choice is kept apart from the larger screens', so a foldable
   can show the list closed and the timetable open.
 
 With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),

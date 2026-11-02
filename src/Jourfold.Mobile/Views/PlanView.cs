@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
+using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -63,7 +64,7 @@ public static class PlanView
         var scroll = new ScrollViewer { Content = page, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Sticky(s, scroll, strip, day?.Date);
         if (day is not null) Swipeable(s, scroll, strip, content);
-        return scroll;
+        return day is null ? scroll : PullForDay(s, scroll);
     }
 
     /// <summary>
@@ -89,7 +90,7 @@ public static class PlanView
     {
         shown = (s.Workspace?.Repository.Root, day.Date); offset = 0;
         var (header, allDay, grid, nights) = TimetableView.Parts(s, [day]);
-        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), grid.Row(2), nights.Row(3) } };
+        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
         // The swipe is read on a frame that stays put while the day moves inside it.
         var area = new Border { Child = body, ClipToBounds = true, Background = Brushes.Transparent };
         Swipeable(s, area, strip, body);
@@ -127,8 +128,8 @@ public static class PlanView
             list.Children.Add(Ui.Columns("64,*", Lines.TimeColumn(time, LineState.Normal, TimeText.Second(entry, s.SecondZone, local)), card));
         }
         if (day.Entries.Count == 0) list.Children.Add(Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(0, 8));
-        // The night closes the day, unless the stay's check-in on this day already says where it is.
-        foreach (var night in day.Nights.Where(n => !day.Entries.Any(e => e.Role == AgendaRole.CheckIn && n.Run.Stays.Any(x => x.Item.Id == e.Item.Id))).Take(1))
+        // The night always closes the day, also on the day of the check-in, so every day says where it ends.
+        foreach (var night in day.Nights.Take(1))
             list.Children.Add(Ui.Columns("64,*", Ui.Icon("moon", 18, "Kind.Accommodation.Fg").Also(i => i.HorizontalAlignment = HorizontalAlignment.Left).Margin(0, 0, 8, 0),
                 Ui.Text(night.Run.Main.Item.Title + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["NightOf"], night.Number, night.Run.Nights), "caption")).Margin(0, 4));
         body.Children.Add(list.Margin(16, 0));
@@ -210,6 +211,93 @@ public static class PlanView
             list.Children.Add(Lines.Card(s, idea, LineState.Normal, () => s.ShowDetails(idea.Item.Id), length is null ? null : Ui.Text(length, "caption")));
         }
         return list;
+    }
+
+    /// <summary>
+    /// Pulling on past the end of the day leads to the next day, and past its start to the day before: the page follows
+    /// the finger a little, and an arrow with the day fades in. Let go once it is fully there to change the day; let go
+    /// earlier and nothing happens.
+    /// </summary>
+    private static Control PullForDay(MobileSession s, ScrollViewer scroll)
+    {
+        const double Full = 110;
+        var days = s.Agenda.Days.ToList(); var index = days.FindIndex(d => d.Date == s.SelectedDate);
+        AgendaDay? Neighbour(int direction) => index + direction >= 0 && index + direction < days.Count ? days[index + direction] : null;
+        var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
+        Border Sign(int direction, string text, string icon) => new Border
+        {
+            Child = direction > 0 ? Ui.H(8, Ui.Text(text, "strong"), Ui.Icon(icon, 18)) : Ui.H(8, Ui.Icon(icon, 18), Ui.Text(text, "strong")),
+            Padding = new Thickness(16, 10),
+            CornerRadius = new CornerRadius(20),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = direction > 0 ? VerticalAlignment.Bottom : VerticalAlignment.Top,
+            Margin = new Thickness(0, 12),
+            Opacity = 0,
+            IsHitTestVisible = false,
+        }.Classed("card");
+        string Label(int direction) => Neighbour(direction) is { } d
+            ? string.Format(CultureInfo.CurrentCulture, s.Strings[direction > 0 ? "NextDayPull" : "PreviousDayPull"], d.Date.ToString(s.Strings["PullDayFormat"], culture))
+            : "";
+        var next = Sign(1, Label(1), "arrow-right"); var previous = Sign(-1, Label(-1), "arrow-left");
+        var follow = new TranslateTransform(); scroll.RenderTransform = follow;
+        var back = new DoubleTransition { Property = TranslateTransform.YProperty, Duration = TimeSpan.FromMilliseconds(160), Easing = new CubicEaseOut() };
+
+        Point? start = null; double? anchor = null; double lastY = 0; var direction = 0; var pull = 0.0;
+        // Only a pull that starts at the end or the start counts, so scrolling fast through the day stops at its end.
+        bool pressedAtEnd = false, pressedAtStart = false;
+        bool AtEnd() => scroll.Offset.Y >= scroll.Extent.Height - scroll.Viewport.Height - 1;
+        bool AtStart() => scroll.Offset.Y <= 1;
+        var ready = false; var accent = new List<IDisposable>();
+        void Show()
+        {
+            var shown = Math.Clamp(pull / Full, 0, 1);
+            next.Opacity = direction > 0 ? shown : 0; previous.Opacity = direction < 0 ? shown : 0;
+            follow.Y = -direction * Math.Min(pull, Full) * 0.5;
+            // Fully pulled, the sign turns to the accent colour: letting go now changes the day.
+            if (pull >= Full == ready) return;
+            ready = pull >= Full;
+            foreach (var binding in accent) binding.Dispose();
+            accent.Clear();
+            if (ready)
+                foreach (var sign in new[] { next, previous })
+                {
+                    accent.Add(sign.Bind(Border.BackgroundProperty, sign.GetResourceObservable("Accent")));
+                    accent.Add(sign.Bind(TextElement.ForegroundProperty, sign.GetResourceObservable("Text.OnAccent")));
+                }
+        }
+        void Reset() { start = null; anchor = null; direction = 0; pull = 0; follow.Transitions = [back]; Show(); }
+        scroll.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            if (e.Pointer.Type == PointerType.Mouse) return;
+            start = e.GetPosition(scroll); lastY = start.Value.Y; anchor = null; direction = 0; pull = 0; follow.Transitions = null;
+            pressedAtEnd = AtEnd(); pressedAtStart = AtStart();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+        {
+            if (start is not { } from) return;
+            var at = e.GetPosition(scroll);
+            if (anchor is null)
+            {
+                // Only an up-and-down pull at the very end or start of the scrolling, not a sideways swipe.
+                var vertical = Math.Abs(at.Y - from.Y) > Math.Abs(at.X - from.X);
+                if (vertical && pressedAtEnd && AtEnd() && at.Y < lastY && Neighbour(1) is not null) { anchor = at.Y; direction = 1; }
+                else if (vertical && pressedAtStart && AtStart() && at.Y > lastY && Neighbour(-1) is not null) { anchor = at.Y; direction = -1; }
+            }
+            else
+            {
+                pull = direction > 0 ? anchor.Value - at.Y : at.Y - anchor.Value;
+                if (pull <= 0) { anchor = null; direction = 0; pull = 0; }
+                Show();
+            }
+            lastY = at.Y;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(InputElement.PointerReleasedEvent, (_, _) =>
+        {
+            if (direction != 0 && pull >= Full) { var to = direction; Reset(); enter = to; s.StepDay(to); return; }
+            Reset();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        scroll.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (pull < Full) Reset(); }, RoutingStrategies.Bubble, handledEventsToo: true);
+        return new Grid { ClipToBounds = true, Children = { scroll, next, previous } };
     }
 
     /// <summary>

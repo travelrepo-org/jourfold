@@ -101,6 +101,75 @@ public sealed class ExportTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task CommentsGoIntoPlanAndPackingPdfsWhenChosen()
+    {
+        var (m, interaction, store, ana, ben) = await Open();
+        using var _ = m; using var __ = store;
+        var w = m.Workspace!;
+        var hike = Entity.Create("schedule_item", "Ridge hike");
+        hike.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-06-05T09:00:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-06-05T15:00:00", "Europe/Berlin").ToJson() };
+        var list = PackingLists.CreateList("Barbecue");
+        (var grill, list) = PackingLists.AddItem(list, "Grill", "Cooking", "1", [ana.Id]);
+        (var coal, list) = PackingLists.AddItem(list, "Charcoal", "Cooking", "2 bags", [ben.Id]);
+        (var drinks, list) = PackingLists.AddItem(list, "Drinks", everyone: true);
+        var day = 0;
+        Entity Comment(Entity on, Entity author, string body)
+        {
+            var c = Entity.Create("comment", "Comment"); c.Data.Remove("title");
+            c.Data["target"] = new JsonObject { ["type"] = on.Type, ["id"] = on.Id.ToString() }; c.Data["author"] = author.Id.ToString();
+            c.Data["created_at"] = new NodaTime.LocalDate(2027, 5, 1).PlusDays(day++).AtMidnight().InUtc().ToInstant().ToString(); c.Data["body"] = body;
+            return c;
+        }
+        var comments = new[]
+        {
+            Comment(hike, ana, "Start at the upper car park, it saves an hour. **Bring** poles."),
+            Comment(list, ben, "Everything packed by Thursday evening, please."),
+            Comment(grill, ana, "The small one fits in the boot."), Comment(grill, ben, "Then I bring the big tongs."), Comment(grill, ana, "Deal."),
+            Comment(coal, ben, string.Join(" ", Enumerable.Repeat("The shop by the lake sells it too, but only until six, so better bring it from home.", 4))),
+            Comment(drinks, ana, "No glass bottles on the beach."),
+        };
+        await w.ApplyAsync([new(hike.Id, hike), new(list.Id, list), new(grill.Id, grill), new(coal.Id, coal), new(drinks.Id, drinks), .. comments.Select(c => new EntityEdit(c.Id, c))]);
+
+        var plain = Path.Combine(root, "plain.pdf");
+        interaction.Export = setup => { Assert.False(setup.Initial.Options.Comments); return setup.Initial; };
+        interaction.Answers.Enqueue(plain);
+        await m.ExportCommand.ExecuteAsync(null);
+        Assert.DoesNotContain("upper car park", Text(plain));
+
+        var plan = Path.Combine(root, "plan.pdf");
+        interaction.Export = setup => setup.Initial with { Options = setup.Initial.Options with { Parts = ExportParts.Standard | ExportParts.Packing, Comments = true } };
+        interaction.Answers.Enqueue(plan);
+        await m.ExportCommand.ExecuteAsync(null);
+        var text = Text(plan);
+        // The day has one comment, so it stands below the hike; the packing list has a thread, so its comments get cards at its end.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(text, "COMMENTS"));
+        Assert.True(text.IndexOf("Bring poles.", StringComparison.Ordinal) is var below and > 0 && below < text.IndexOf("Barbecue", StringComparison.Ordinal));
+        Assert.Contains("1 May 2027", text); Assert.Contains("Everything packed by Thursday", text);
+        Assert.True(text.IndexOf("COMMENTS", StringComparison.Ordinal) < text.IndexOf("No glass bottles", StringComparison.Ordinal));
+        Capture(plan);
+
+        // The choice is remembered and applies to packing lists, here in German.
+        var packing = Path.Combine(root, "packing.pdf");
+        interaction.Export = setup => { Assert.True(setup.Initial.Options.Comments); return setup.Initial with { Kind = "packing", Format = "pdf", People = [], Language = "de" }; };
+        interaction.Answers.Enqueue(packing);
+        await m.ExportCommand.ExecuteAsync(null);
+        text = Text(packing);
+        Assert.Contains("KOMMENTARE", text); Assert.Contains("Then I bring the big tongs.", text); Assert.Contains("only until six", text);
+        Capture(packing);
+
+        // With at most one comment per item, they stand below their items.
+        await w.ApplyAsync(comments.Where(c => c.Data["body"]!.ToString() is "Then I bring the big tongs." or "Deal.").Select(c => new EntityEdit(c.Id, null)).ToArray());
+        var single = Path.Combine(root, "single.pdf");
+        interaction.Export = setup => setup.Initial with { Kind = "packing", Format = "pdf", People = [], Language = "en" };
+        interaction.Answers.Enqueue(single);
+        await m.ExportCommand.ExecuteAsync(null);
+        text = Text(single);
+        Assert.DoesNotContain("COMMENTS", text);
+        Assert.True(text.IndexOf("The small one fits", StringComparison.Ordinal) is var first and > 0 && first < text.IndexOf("Charcoal", StringComparison.Ordinal));
+        Capture(single);
+    }
+
+    [AvaloniaFact]
     public async Task PackingListsGoOutPerPersonAsTextAndAsCsv()
     {
         var (m, interaction, store, ana, ben) = await Open();

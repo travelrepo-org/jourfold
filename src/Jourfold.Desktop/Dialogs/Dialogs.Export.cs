@@ -19,7 +19,7 @@ public sealed partial class Dialogs
     {
         var s = S; var initial = setup.Initial;
         var kind = initial.Kind; var format = initial.Format == "copy" ? "pdf" : initial.Format;
-        var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person; var timeline = initial.Options.Timeline;
+        var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person; var timeline = initial.Options.Timeline; var comments = initial.Options.Comments;
         LocalDate? from = initial.Options.From ?? setup.Start, to = initial.Options.To ?? setup.End;
         var language = initial.Language;
         var lists = initial.Lists.ToHashSet(); var people = initial.People.ToHashSet();
@@ -73,9 +73,12 @@ public sealed partial class Dialogs
                     foreach (var (part, key) in new[] { (ExportParts.Schedule, "Schedule"), (ExportParts.Stays, "ExportStays"), (ExportParts.Bookings, "Bookings"), (ExportParts.Contacts, "ExportContacts"), (ExportParts.Costs, "Costs"), (ExportParts.Tasks, "Tasks"), (ExportParts.Notes, "Notes"), (ExportParts.Packing, "ExportPackingLists") })
                         if (part != ExportParts.Packing || setup.Lists.Count > 0) contents.Children.Add(Check(s[key], (parts & part) == part, on => parts = on ? parts | part : parts & ~part));
                     options.Children.Add(Row(s["ExportContents"], contents));
+                    var extras = Ui.Flow(4);
                     if (format == "pdf")
-                        options.Children.Add(Row("", Ui.Flow(4, Check(s["ExportTimeline"], timeline, on => timeline = on), Check(s["ExportMap"], (parts & ExportParts.Map) != 0, on => parts = on ? parts | ExportParts.Map : parts & ~ExportParts.Map),
-                            Check(s["ExportAttachments"], (parts & ExportParts.Attachments) != 0, on => parts = on ? parts | ExportParts.Attachments : parts & ~ExportParts.Attachments))));
+                        extras.Children.AddRange([Check(s["ExportTimeline"], timeline, on => timeline = on), Check(s["ExportMap"], (parts & ExportParts.Map) != 0, on => parts = on ? parts | ExportParts.Map : parts & ~ExportParts.Map),
+                            Check(s["ExportAttachments"], (parts & ExportParts.Attachments) != 0, on => parts = on ? parts | ExportParts.Attachments : parts & ~ExportParts.Attachments)]);
+                    extras.Children.Add(Check(s["ExportComments"], comments, on => comments = on));
+                    options.Children.Add(Row("", extras));
                     options.Children.Add(Row(s["ExportDetail"], ViewToolbar.Segmented([("detailed", s["ExportDetailed"], null), ("compact", s["Compact"], null)], detail == ExportDetail.Compact ? "compact" : "detailed", v => { detail = v == "compact" ? ExportDetail.Compact : ExportDetail.Detailed; Render(); })));
                     if (format == "pdf") options.Children.Add(Paper());
                     options.Children.Add(Language());
@@ -101,6 +104,8 @@ public sealed partial class Dialogs
                 }
                 who.Children.Add(Radio("unassigned", s["ExportForUnassigned"]));
                 options.Children.Add(Row(s["ExportFor"], who));
+                // A spreadsheet has one row per item, so comments go only into PDF and text files.
+                if (format != "csv") options.Children.Add(Row("", Check(s["ExportComments"], comments, on => comments = on)));
                 if (format == "pdf") options.Children.Add(Paper());
                 options.Children.Add(Language());
             }
@@ -131,7 +136,8 @@ public sealed partial class Dialogs
                 Person = person,
                 Detail = detail,
                 Paper = paper,
-                Timeline = timeline
+                Timeline = timeline,
+                Comments = comments && format != "ics" && (kind == "plan" || format != "csv")
             };
             return new(kind, chosenFormat, options, language, setup.Lists.Where(l => lists.Contains(l.Collection.Id)).Select(l => l.Collection.Id).ToArray(),
                 packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned");

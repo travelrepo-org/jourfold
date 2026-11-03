@@ -57,7 +57,7 @@ public static class InspectorView
     {
         if (e.Type is "trip" or "comment" or "document") return null;
         var s = w.Model.Strings; var trip = w.Model.Trip!;
-        var comments = trip.Entities.Values.Count(c => c.Type == "comment" && c.Data["target"]?["id"]?.ToString() == e.Id.ToString());
+        var comments = TripComments.On(trip, e.Id).Count;
         var notes = (e.Data["content"] as JsonArray)?.Count ?? 0;
         var items = new List<(string, string, string?)> { ("Details", s["Details"], null) };
         if (SupportsNotes(e)) items.Add(("Notes", notes > 0 ? s["Notes"] + " · " + notes : s["Notes"], null));
@@ -832,15 +832,15 @@ public static class InspectorView
     private static void CommentsTab(MainWindow w, Entity e, StackPanel body)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var comments = trip.Entities.Values.Where(c => c.Type == "comment" && c.Data["target"]?["id"]?.ToString() == e.Id.ToString()).OrderBy(c => c.Data["created_at"]?.ToString()).ToArray();
+        var comments = TripComments.On(trip, e.Id);
         foreach (var comment in comments)
         {
-            var author = Guid.TryParse(comment.Data["author"]?.ToString(), out var authorId) ? trip.Find(authorId)?.Title ?? s["Someone"] : s["Someone"];
+            var author = TripComments.Author(trip, comment)?.Title ?? s["Someone"];
             var when = DateTimeOffset.TryParse(comment.Data["created_at"]?.ToString(), CultureInfo.InvariantCulture, out var at) ? Formats.Relative(at, s) : "";
             var remove = Ui.IconButton("trash-2", s["Delete"], "small"); remove.Click += (_, _) => _ = m.DeleteAsync(comment.Id);
             body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(author, 30).Also(a => a.VerticalAlignment = VerticalAlignment.Top), Ui.V(4, Ui.Columns("*,Auto", Ui.H(8, Ui.Text(author, "title"), Ui.Text(when, "caption")), remove), new MarkdownView(comment.Data["body"]?.ToString() ?? "")).Margin(10, 0, 0, 0)));
         }
-        if (comments.Length == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
+        if (comments.Count == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
         var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, PlaceholderText = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);
         var send = Ui.Button(s["Comment"], "message-square", "primary", "compact");
         send.Click += async (_, _) => { if (!string.IsNullOrWhiteSpace(box.Text)) { var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };

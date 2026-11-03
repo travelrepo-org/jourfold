@@ -1369,6 +1369,7 @@
   "ShareCopyText": "Copy plan as text",
   "ShareMoreOptions": "More export options…",
   "ExportTimeline": "Timeline beside each day",
+  "ExportComments": "Include comments",
   "ExportCheckInAt": "Check-in · {0}",
   "ExportCheckOutAt": "Check-out · {0}",
   "ExportNightAt": "Night: {0}",

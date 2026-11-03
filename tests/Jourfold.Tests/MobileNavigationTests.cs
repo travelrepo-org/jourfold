@@ -164,6 +164,34 @@ public sealed class MobileNavigationTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TickingSomethingOffKeepsThePageWhereItWasScrolled()
+    {
+        var (session, window) = await OpenAsync(new LocalDate(2027, 6, 1));
+        try
+        {
+            window.Height = 480; session.Settings.Values["packing.filter"] = "all";
+            session.ShowTab(MobileTab.More); session.ShowPage("packing"); Probe.Layout();
+            ScrollViewer Page() => Probe.All<ScrollViewer>(window).First(v => Probe.All<CheckBox>(v).Any());
+            var scroll = Page();
+            Assert.True(scroll.Extent.Height - scroll.Viewport.Height > 100, "the packing page should scroll");
+            scroll.Offset = new Avalonia.Vector(0, scroll.Extent.Height - scroll.Viewport.Height); Probe.Layout();
+            var at = scroll.Offset.Y;
+
+            var box = Probe.All<CheckBox>(scroll).Last(b => b.IsEffectivelyVisible);
+            var packed = box.IsChecked == true; var name = AutomationProperties.GetName(box);
+            box.IsChecked = !packed;
+            await Probe.Until(() => Probe.All<CheckBox>(window).FirstOrDefault(b => AutomationProperties.GetName(b) == name) is { } again && again != box && again.IsChecked == !packed);
+            await Task.Delay(50); Probe.Layout();
+            Assert.Equal(at, Page().Offset.Y, 1);
+
+            // Another page starts at the top.
+            session.ShowPage("tasks"); Probe.Layout(); await Task.Delay(50); Probe.Layout();
+            Assert.Equal(0, Probe.All<ScrollViewer>(window).First().Offset.Y);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [Fact]
     public void RatesAreFetchedOnceInAWhileEvenWhenTheirDateIsAWeekendOld()
     {

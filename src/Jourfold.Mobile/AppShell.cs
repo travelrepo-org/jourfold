@@ -4,6 +4,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using Jourfold.Mobile.Controls;
@@ -38,6 +39,9 @@ public sealed class AppShell : UserControl
     // A field that was sent with Enter gets the focus back once the page shows what it added.
     private string? refocus;
     private object? drawnAt;
+    // The page drawn last and where it was, so drawing the same page again keeps how far it was scrolled.
+    private Control? drawnPage;
+    private object? pageAt;
 
     public AppShell(MobileSession session)
     {
@@ -187,6 +191,10 @@ public sealed class AppShell : UserControl
         bottomBar = null;
         Inset();
         if (Session.Workspace is null) { main.Child = TripListView.Build(Session, Breakpoint); Overlays(docked: false); return; }
+        // Ticking something off, or any change that draws the page again, leaves it where it was scrolled to. The plan
+        // keeps its own place per day, and the map has none.
+        var here = (Session.Workspace, Session.Tab, Session.Page);
+        var scrolled = Session.Tab is MobileTab.Today or MobileTab.More && Equals(here, pageAt) && PageScroll(drawnPage) is { } before ? before.Offset : (Vector?)null;
         var page = Session.Tab switch
         {
             MobileTab.Today => TodayView.Build(Session, Breakpoint),
@@ -194,6 +202,9 @@ public sealed class AppShell : UserControl
             MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };
+        drawnPage = page; pageAt = here;
+        if (scrolled is { } offset && PageScroll(page) is { } after)
+            after.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => after.Offset = offset, DispatcherPriority.Loaded);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
         // page, whatever it holds, so the way back stays where it was; a stretched element narrower than the room is centred.
         if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760 };
@@ -230,6 +241,10 @@ public sealed class AppShell : UserControl
             }, DispatcherPriority.Loaded);
         }
     }
+
+    /// <summary>The scrolling part of a page: the page itself, or the first one inside it.</summary>
+    private static ScrollViewer? PageScroll(Control? page) =>
+        page as ScrollViewer ?? page?.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault();
 
     /// <summary>The width left for the page beside the rail or sidebar and an open details column.</summary>
     private double PageWidth()

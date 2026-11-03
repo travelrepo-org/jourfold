@@ -84,15 +84,17 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
 - From 600 dp: a rail on the left; the trip list shows two or three trips in a row.
 - From 840 dp: details as a fixed column; Today puts what comes next and tonight's stay beside the day; Plan
   switches between the day list and a timetable when the window is also at least 600 dp high (a phone held sideways
-  keeps the list); pages under More keep a readable width.
+  keeps the list); pages under More share one column of readable width, so the way back stays in the same place.
 - From 1200 dp: a sidebar as on the desktop, with the trip, the places with their names, the trip's pages (bookings,
-  tasks, costs, places, files, travellers) and where the trip is kept, which folds into the rail; Plan starts as
+  tasks, costs, places, files, travellers) and where the trip is kept, which folds into the rail with the button in the bottom left corner, the same place
+  in both; Plan starts as
   the timetable, with as many days as fit (three to seven), each in its own local time and a line at the current
   time. It reads like the desktop's timetable: all-day plans in a strip above the grid, stays as bars over their
   nights in a band below it, check-in and check-out as thin markers instead of blocks (a dashed line at a fixed
   hour, a soft band with "Check-in 15:00–19:00" for the check-in hours when the arrival has no fixed hour, "Check-out
   by 11:00" for the latest departure), and plans as tinted blocks with icon, time and title, dashed for ideas and
-  parts of the day. The markers lie behind the plans.
+  parts of the day. The markers lie behind the plans. A sideways swipe, like the arrows, moves to the days before
+  or after.
 - Where the timetable of several days does not fit, the switch offers the same grid for one day, under the date
   strip; a sideways swipe changes the day as in the list. The grids always run from midnight to midnight, so a night
   flight or an early start is reachable; they open at the first plan of the days shown (a journey from the day before

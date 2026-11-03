@@ -17,7 +17,8 @@ namespace Jourfold.Mobile.Views;
 /// check-in and check-out as thin markers behind the plans that take no room (a line at a fixed hour, a soft band for
 /// the check-in hours), plans as tinted blocks with their kind's icon, time and title, dashed when only an idea or a
 /// part of the day. As many days as fit, never a fixed number; each day keeps its
-/// own local time. A tap opens the details in their column; a long press opens the item's menu.
+/// own local time. A tap opens the details in their column; a long press opens the item's menu. A sideways swipe
+/// moves to the days before or after, as the arrows do.
 /// </summary>
 public static class TimetableView
 {
@@ -36,18 +37,22 @@ public static class TimetableView
         var shown = days.Skip(first).Take(count).ToArray();
         var (header, allDay, scroll, nights) = Parts(s, shown);
 
-        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]); earlier.IsEnabled = first > 0;
-        earlier.Click += (_, _) => s.ShowDate(days[Math.Max(0, first - count)].Date);
-        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]); later.IsEnabled = first + count < days.Count;
-        later.Click += (_, _) => s.ShowDate(days[Math.Min(days.Count - count, first + count)].Date);
+        // The arrows and a sideways swipe both move by the days shown.
+        bool Can(int direction) => direction < 0 ? first > 0 : first + count < days.Count;
+        void Step(int direction) => s.ShowDate(days[Math.Clamp(first + direction * count, 0, days.Count - count)].Date);
+        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]); earlier.IsEnabled = Can(-1);
+        earlier.Click += (_, _) => Step(-1);
+        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]); later.IsEnabled = Can(1);
+        later.Click += (_, _) => Step(1);
         var range = Ui.Text(Formats.DateRange(shown[0].Date, shown[^1].Date), "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
-        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*,Auto") };
+        var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         // One row for the trip, the days shown and the switch, so the grid gets the height.
         layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
-        layout.Children.Add(header.Row(1));
-        layout.Children.Add(allDay.Row(2));
-        layout.Children.Add(scroll.Row(3));
-        layout.Children.Add(nights.Row(4));
+        // The days move with the finger inside a frame that stays put, as the phone's day does.
+        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), scroll.Row(2), nights.Row(3) } };
+        var area = new Border { Child = body, ClipToBounds = true, Background = Brushes.Transparent };
+        PlanView.Swipeable(area, null, body, Can, Step);
+        layout.Children.Add(area.Row(1));
         return layout;
     }
 

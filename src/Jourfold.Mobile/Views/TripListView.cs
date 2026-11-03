@@ -42,7 +42,7 @@ public static class TripListView
         if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
         else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
         // On wide screens the list keeps a readable width in the middle.
-        if (width >= WidthClass.Tablet) { page.MaxWidth = 1100; page.HorizontalAlignment = HorizontalAlignment.Center; }
+        if (width >= WidthClass.Tablet) page.MaxWidth = 1100;
         return Ui.Scroll(page);
     }
 

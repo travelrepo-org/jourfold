@@ -306,10 +306,20 @@ public static class PlanView
     /// </summary>
     private static void Swipeable(MobileSession s, Control scroll, Control strip, Control content)
     {
+        var index = s.Agenda.Days.ToList().FindIndex(d => d.Date == s.SelectedDate);
+        Swipeable(scroll, strip, content, direction => index + direction >= 0 && index + direction < s.Agenda.Days.Count, s.StepDay);
+    }
+
+    /// <summary>
+    /// The swipe for any page of days, such as the timetable's several: <paramref name="can"/> says whether there is
+    /// more in a direction (1 is later), and <paramref name="step"/> goes there once the page has slid out.
+    /// </summary>
+    /// <param name="strip">A part that scrolls sideways by itself and takes no swipe, or null.</param>
+    internal static void Swipeable(Control scroll, Control? strip, Control content, Func<int, bool> can, Action<int> step)
+    {
         var move = new TranslateTransform();
         content.RenderTransform = move;
-        var index = s.Agenda.Days.ToList().FindIndex(d => d.Date == s.SelectedDate);
-        bool Can(int direction) => index + direction >= 0 && index + direction < s.Agenda.Days.Count;
+        bool Can(int direction) => can(direction);
         var slide = new DoubleTransition { Property = TranslateTransform.XProperty, Duration = TimeSpan.FromMilliseconds(160), Easing = new CubicEaseOut() };
 
         // The day that was just chosen comes in from the side it was swiped from.
@@ -329,7 +339,7 @@ public static class PlanView
         void Back() { move.Transitions = [slide]; move.X = 0; content.Opacity = 1; sideways = null; start = null; }
         scroll.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
-            var inStrip = e.Source is Visual v && (v == strip || Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(v).Contains(strip));
+            var inStrip = strip is not null && e.Source is Visual v && (v == strip || Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(v).Contains(strip));
             start = inStrip ? null : e.GetPosition(scroll); sideways = null; speed = 0; lastTime = e.Timestamp; lastX = start?.X ?? 0;
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         scroll.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
@@ -358,7 +368,7 @@ public static class PlanView
             e.Handled = true; e.Pointer.Capture(null);
             if (!far || !Can(direction)) { Back(); return; }
             move.Transitions = [slide]; move.X = -direction * scroll.Bounds.Width; content.Opacity = 0.3;
-            DispatcherTimer.RunOnce(() => { enter = direction; s.StepDay(direction); }, TimeSpan.FromMilliseconds(150));
+            DispatcherTimer.RunOnce(() => { enter = direction; step(direction); }, TimeSpan.FromMilliseconds(150));
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         scroll.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (sideways == true) Back(); }, RoutingStrategies.Bubble, handledEventsToo: true);
     }

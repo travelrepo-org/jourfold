@@ -194,8 +194,9 @@ public sealed class AppShell : UserControl
             MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };
-        // Lists and forms under More read better in a column than across a wide screen.
-        if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760, HorizontalAlignment = HorizontalAlignment.Center };
+        // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
+        // page, whatever it holds, so the way back stays where it was; a stretched element narrower than the room is centred.
+        if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760 };
         // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
         var docked = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details && Session.OverlayItem is { } shown && Session.Trip?.Find(shown) is not null;
         if (Breakpoint == WidthClass.Phone)
@@ -394,13 +395,17 @@ public sealed class AppShell : UserControl
         return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
     }
 
-    /// <summary>The rail on tablets: the plus on top, then the four places. On wide screens it opens into the sidebar.</summary>
+    /// <summary>
+    /// The rail on tablets: the plus on top, then the four places. On wide screens it opens into the sidebar with the
+    /// button in the bottom left corner, where the sidebar has it to fold again.
+    /// </summary>
     private Control Rail()
     {
         var items = Ui.V(4, Plus().Also(p => p.HorizontalAlignment = HorizontalAlignment.Center).Margin(0, 12, 0, 16));
         foreach (var (tab, icon, label) in Places) items.Children.Add(Place(tab, icon, label).Also(b => b.Width = 80));
-        if (Breakpoint == WidthClass.Wide) items.Children.Add(SidebarToggle(open: true).Also(b => b.HorizontalAlignment = HorizontalAlignment.Center).Margin(0, 12, 0, 0));
-        return new Border { Child = items, Width = 88, BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+        var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Children = { items } };
+        if (Breakpoint == WidthClass.Wide) layout.Children.Add(SidebarToggle(open: true).Row(1));
+        return new Border { Child = layout, Width = 88, BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
     }
 
     /// <summary>
@@ -450,9 +455,11 @@ public sealed class AppShell : UserControl
         var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto") };
         layout.Children.Add(new ScrollViewer { Content = items, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
         layout.Children.Add(state.Margin(0, 8, 0, 4).Row(1));
-        layout.Children.Add(SidebarToggle(open: false).Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(4, 0, 0, 12).Row(2));
-        return new Border { Child = layout, Width = 232, Padding = new Thickness(12, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+        layout.Children.Add(SidebarToggle(open: false, inset: SidebarPadding).Row(2));
+        return new Border { Child = layout, Width = 232, Padding = new Thickness(SidebarPadding, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
     }
+
+    private const double SidebarPadding = 12;
 
     /// <summary>A page of the trip in the sidebar, marked while it is open.</summary>
     private Button PageRow(string page, string icon, string label, string? detail)
@@ -468,10 +475,13 @@ public sealed class AppShell : UserControl
         return row;
     }
 
-    private Button SidebarToggle(bool open)
+    /// <summary>The button that folds and opens the sidebar, at the same place in the bottom left corner either way.</summary>
+    /// <param name="inset">How far in from the screen's edge the panel holding it starts.</param>
+    private Button SidebarToggle(bool open, double inset = 0)
     {
         var label = Session.Strings[open ? "ShowSidebar" : "HideSidebar"];
         var toggle = Ui.IconButton("panel-left", label);
+        toggle.HorizontalAlignment = HorizontalAlignment.Left; toggle.VerticalAlignment = VerticalAlignment.Bottom; toggle.Margin = new Thickness(20 - inset, 0, 0, 12);
         ToolTip.SetTip(toggle, label);
         toggle.Click += (_, _) => { Session.Settings.Values["sidebar"] = open ? "open" : "collapsed"; Session.Settings.Save(); Render(); };
         return toggle;

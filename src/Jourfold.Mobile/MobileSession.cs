@@ -398,6 +398,17 @@ public sealed partial class MobileSession : IDisposable
 
     /// <summary>A short message about something that did not work, shown until the next step.</summary>
     public string? FileProblem { get; private set; }
+    public void ShowFileProblem(string text) { FileProblem = text; Changed?.Invoke(); }
+
+    /// <summary>E-mails, by their content's hash, whose images from the internet the user chose to load, until the app closes.</summary>
+    public HashSet<string> RemoteImagesAllowed { get; } = [];
+
+    /// <summary>Whether e-mails show in their original layout ("original", the default) or as text ("text").</summary>
+    public string MailView
+    {
+        get => Settings.Values.GetValueOrDefault("mail.view") == "text" ? "text" : "original";
+        set { Settings.Values["mail.view"] = value; Settings.Save(); Changed?.Invoke(); }
+    }
 
     /// <summary>
     /// Hands a file to another app on the phone, such as a PDF viewer. The copy it gets is the only one outside the

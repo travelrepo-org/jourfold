@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Jourfold.Application;
+using NodaTime;
 using TravelRepo.Core;
 
 namespace Jourfold.Mobile.Views;
@@ -109,10 +110,16 @@ public sealed class ShareView
 
     private static string Size(long bytes) => bytes < 1024 * 1024 ? (bytes / 1024.0).ToString("0", CultureInfo.CurrentCulture) + " KB" : (bytes / 1024.0 / 1024.0).ToString("0.0", CultureInfo.CurrentCulture) + " MB";
 
-    /// <summary>The plan's items by day, and the bookings, to choose where something goes.</summary>
+    /// <summary>
+    /// The plan's items by day, and the bookings, to choose where something goes. A long trip makes a long list, so
+    /// a search narrows it, and during the trip it starts at today unless the whole trip is chosen.
+    /// </summary>
     private Control Chooser(bool includeBookings, Func<Guid, Task> chosen)
     {
+        var str = s.Strings;
         var list = Ui.V(4);
+        // Each heading with its rows, and what a search finds a row by.
+        var groups = new List<(Control Heading, LocalDate? Date, List<(Button Row, string Text)> Rows)>();
         Button Row(Entity item, string detail, string icon)
         {
             var row = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(icon, 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.V(1, Ui.Text(item.Title, "strong"), detail.Length > 0 ? Ui.Text(detail, "caption") : null)) }.Classed("row");
@@ -122,18 +129,63 @@ public sealed class ShareView
         }
         foreach (var day in s.Agenda.Days.Where(d => d.Entries.Count > 0))
         {
-            list.Children.Add(Ui.Text(Lines.DayTitle(day.Date, s), "caption").Margin(4, 8, 0, 0));
+            var title = Lines.DayTitle(day.Date, s);
+            var rows = new List<(Button, string)>();
             foreach (var entry in day.Entries.Where(e => e.Role is AgendaRole.Item or AgendaRole.CheckIn).SelectMany(e => e.IsGroup ? [e, .. e.Steps] : new[] { e }))
-                list.Children.Add(Row(entry.Item, TimeText.Local(entry, s.PhoneZone, s.Strings, s.Trip).Primary, Visuals.KindIcon(entry.Kind)));
+            {
+                var detail = TimeText.Local(entry, s.PhoneZone, s.Strings, s.Trip).Primary;
+                // Also by its places, so "Kyoto" finds the temple in Kyoto.
+                var places = PlaceEdits.Slots(entry.Item).Select(slot => PlaceEdits.Current(s.Trip!, entry.Item, slot)).OfType<Entity>().SelectMany(p => new[] { p.Title, p.Data["address"]?["formatted"]?.ToString() });
+                rows.Add((Row(entry.Item, detail, Visuals.KindIcon(entry.Kind)), string.Join(' ', [entry.Item.Title, detail, title, entry.Item.Data["notes"]?.ToString(), .. places])));
+            }
+            groups.Add((Ui.Text(title, "caption").Margin(4, 8, 0, 0), day.Date, rows));
         }
         if (includeBookings)
         {
             var bookings = s.Trip!.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
-            if (bookings.Length > 0) list.Children.Add(Ui.Text(s.Strings["Bookings"], "caption").Margin(4, 8, 0, 0));
-            foreach (var booking in bookings) list.Children.Add(Row(booking, booking.Data["reference"]?.ToString() ?? "", "ticket"));
+            if (bookings.Length > 0)
+                groups.Add((Ui.Text(str["Bookings"], "caption").Margin(4, 8, 0, 0), null, [.. bookings.Select(b => (Row(b, b.Data["reference"]?.ToString() ?? "", "ticket"), string.Join(' ', b.Title, b.Data["reference"]?.ToString(), b.Data["provider"]?["name"]?.ToString(), str["Bookings"])))]));
         }
-        return Ui.Card(list, 8);
+        foreach (var (heading, _, rows) in groups) { list.Children.Add(heading); foreach (var (row, _) in rows) list.Children.Add(row); }
+        var nothing = Ui.Text(str["NothingFound"], "muted").Margin(4, 8);
+        list.Children.Add(nothing);
+
+        // During the trip, the days before today are out of the way.
+        var today = s.PhoneToday;
+        var during = groups.Any(g => g.Date < today) && groups.Any(g => g.Date >= today);
+        var whole = !during || s.Drafts.GetValueOrDefault(WholeTripKey) is not null;
+        var search = MorePages.Draft(s, SearchKey, new TextBox { PlaceholderText = includeBookings ? str["ShareSearchWithBookings"] : str["ShareSearch"], InnerLeftContent = Ui.Icon("search", 16, "Text.Muted").Margin(10, 0, 0, 0) });
+        AutomationProperties.SetName(search, str["Search"]);
+        var fromToday = Ui.Choice(str["ShareFromToday"], "calendar", !whole, "chip"); var all = Ui.Choice(str["ShareWholeTrip"], "calendar-days", whole, "chip");
+        foreach (var chip in new[] { fromToday, all }) chip.Focusable = false;
+
+        void Filter()
+        {
+            var words = (search.Text ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var compare = CultureInfo.CurrentCulture.CompareInfo;
+            bool Finds(string text) => words.All(w => compare.IndexOf(text, w, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0);
+            var shown = 0;
+            foreach (var (heading, date, rows) in groups)
+            {
+                // A search looks through the whole trip.
+                var inTime = words.Length > 0 || whole || date is null || date >= today;
+                var any = false;
+                foreach (var (row, text) in rows) { row.IsVisible = inTime && Finds(text); any |= row.IsVisible; }
+                heading.IsVisible = any; if (any) shown++;
+            }
+            nothing.IsVisible = shown == 0;
+            fromToday.IsSelected = !whole; all.IsSelected = whole;
+        }
+        search.TextChanged += (_, _) => Filter();
+        fromToday.Click += (_, _) => { whole = false; s.Drafts.Remove(WholeTripKey); Filter(); };
+        all.Click += (_, _) => { whole = true; s.Drafts[WholeTripKey] = "1"; Filter(); };
+        Filter();
+        var chips = during ? new WrapPanel { ItemSpacing = 6, LineSpacing = 6, Children = { fromToday, all } } : null;
+        return Ui.V(8, search, chips, Ui.Card(list, 8));
     }
+
+    /// <summary>The search and the "whole trip" choice, kept while the sheet is drawn again and forgotten with the share.</summary>
+    internal const string SearchKey = "share.search", WholeTripKey = "share.whole";
 
     private async Task Run(Func<Task> action)
     {

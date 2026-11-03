@@ -13,6 +13,15 @@
           "MicroCom.Runtime": "0.11.6"
         }
       },
+      "Avalonia.HtmlRenderer": {
+        "type": "Direct",
+        "requested": "[12.0.0, )",
+        "resolved": "12.0.0",
+        "contentHash": "JWwvZzECMVI4oPzYgZ3wXi6ybG5CgFpdzV1UaFD7nUQKd+sMLk+xy6NceXzoNFjgc+UkLzQKxIrE5tjqki8NCg==",
+        "dependencies": {
+          "Avalonia": "12.0.0"
+        }
+      },
       "Avalonia.Themes.Fluent": {
         "type": "Direct",
         "requested": "[12.1.4, )",

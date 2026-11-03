@@ -39,7 +39,7 @@ public sealed partial class MobileSession
     public void Receive(SharedContent content)
     {
         if (content.Files.Count == 0 && string.IsNullOrWhiteSpace(content.Text)) return;
-        Incoming = content;
+        Incoming = content; Drafts.Remove(Views.ShareView.SearchKey); Drafts.Remove(Views.ShareView.WholeTripKey);
         if (Workspace is not null) { Showing = Overlay.Share; OverlayItem = null; }
         Changed?.Invoke();
     }

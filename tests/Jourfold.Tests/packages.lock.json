@@ -578,7 +578,6 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Desktop": "[12.1.4, )",
-          "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "CommunityToolkit.Mvvm": "[8.4.0, )",
           "Jourfold.Application": "[0.7.1, )",
@@ -623,6 +622,7 @@
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",
+          "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "Jourfold.Application": "[0.7.1, )",
           "TravelRepo.Documents": "[0.6.0, )",

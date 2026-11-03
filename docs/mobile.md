@@ -120,11 +120,19 @@ position; on request the app asks the maps service where it leads, and sends not
 note or goes to the end of an item's notes. Shared before a trip is open, the trip list asks which trip it belongs
 to. In the details, **Attach a file** picks files on the device.
 
+The list of items and bookings to attach to has a search field. It finds an item by its title, time, day, notes and
+the name or address of its places, and a booking by its title, reference and provider; several words must all match.
+During the trip the list starts at today, with **Whole trip** to show the days before; a search always looks through
+the whole trip.
+
 ## Files
 
-Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date, attachments and their text,
-read by TravelRepo's `Mail` without a network; the original HTML layout is still desktop only. Images show as they
-are. PDFs and other files go to an app on the phone that can show them: on Android through a `FileProvider` that only
+Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date and attachments, read by
+TravelRepo's `Mail` without a network, then the message in its original layout, as on the desktop (`MailPaper` in
+`Jourfold.UI`, cleaned by TravelRepo's `MailHtml`). An e-mail laid out wider than the phone is shrunk to fit instead
+of being cut off. **Text** shows the plain text instead; the choice is kept on the phone. Images from the internet
+load only after **Load images**, for that e-mail until the app closes, and a tapped link asks before it opens in the
+browser. Images show as they are. PDFs and other files go to an app on the phone that can show them: on Android through a `FileProvider` that only
 exposes a copy in the app's `shared` folder, replaced by the next file.
 
 ## Versions on the phone

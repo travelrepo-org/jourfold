@@ -27,6 +27,14 @@
         "resolved": "11.3.2",
         "contentHash": "qHDToxto1e3hci5YqbG9n0Ty8mlp3zBUN5wT66wKqaDVzXyQ0do3EnRILd4Ke9jpvsktaPpgE0YjEk7hornryQ=="
       },
+      "Avalonia.HtmlRenderer": {
+        "type": "Transitive",
+        "resolved": "12.0.0",
+        "contentHash": "JWwvZzECMVI4oPzYgZ3wXi6ybG5CgFpdzV1UaFD7nUQKd+sMLk+xy6NceXzoNFjgc+UkLzQKxIrE5tjqki8NCg==",
+        "dependencies": {
+          "Avalonia": "12.0.0"
+        }
+      },
       "Avalonia.Remote.Protocol": {
         "type": "Transitive",
         "resolved": "12.1.4",
@@ -117,6 +125,7 @@
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",
+          "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "Jourfold.Application": "[0.7.1, )",
           "TravelRepo.Documents": "[0.6.0, )",

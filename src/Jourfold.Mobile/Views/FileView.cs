@@ -23,7 +23,7 @@ public static class FileView
         var back = Ui.IconButton("chevron-left", str["Back"]); back.Click += (_, _) => s.CloseFile();
         var title = file.Name;
         Control body;
-        if (Mail.IsMail(file.MediaType) && Read(file.Bytes) is { } mail) { title = mail.Subject is { Length: > 0 } subject ? subject : file.Name; body = MailBody(s, mail); }
+        if (Mail.IsMail(file.MediaType) && Read(file.Bytes) is { } mail) { title = mail.Subject is { Length: > 0 } subject ? subject : file.Name; body = MailBody(s, mail, file.Bytes); }
         else if (file.MediaType == WalletPass.MediaType && WalletPass.Read(file.Bytes, str.Language) is { } pass) { title = pass.Description ?? file.Name; body = PassBody(pass); }
         else if (file.MediaType.StartsWith("image/", StringComparison.OrdinalIgnoreCase) && Picture(file.Bytes) is { } picture)
             body = new Image { Source = picture, Stretch = Stretch.Uniform, StretchDirection = StretchDirection.DownOnly, HorizontalAlignment = HorizontalAlignment.Center }.Margin(16);
@@ -55,8 +55,11 @@ public static class FileView
         catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or InvalidOperationException) { return null; }
     }
 
-    /// <summary>Who wrote to whom and when, the attachments, then the text. The text is selectable, to copy a code from it.</summary>
-    private static Control MailBody(MobileSession s, MailMessage mail)
+    /// <summary>
+    /// Who wrote to whom and when, the attachments, then the e-mail in its original layout or as text, as on the
+    /// desktop. The text is selectable, to copy a code from it.
+    /// </summary>
+    private static Control MailBody(MobileSession s, MailMessage mail, byte[] bytes)
     {
         var str = s.Strings;
         var headers = Ui.V(6);
@@ -85,8 +88,46 @@ public static class FileView
             }
             page.Children.Add(Ui.V(6, Ui.Text(str["Attachments"], "overline").Margin(4, 0), new Border { Child = list, ClipToBounds = true }.Classed("card")));
         }
-        if (mail.RemoteImages > 0 || mail.TextFromHtml) page.Children.Add(Ui.Text(str["MailShownAsText"], "caption").Margin(4, 0));
-        page.Children.Add(Ui.Card(new SelectableTextBlock { Text = mail.Text.Length > 0 ? mail.Text : str["MailWithoutText"], TextWrapping = TextWrapping.Wrap, LineHeight = 22 }, 16));
+        var original = mail.Html is { Length: > 0 } && s.MailView == "original";
+        if (mail.Html is { Length: > 0 })
+        {
+            var views = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+            foreach (var (view, label, icon) in new[] { ("original", str["MailOriginal"], "mail"), ("text", str["MailText"], "file-text") })
+            {
+                var chip = Ui.Choice(label, icon, s.MailView == view, "chip");
+                chip.Click += (_, _) => s.MailView = view;
+                views.Children.Add(chip);
+            }
+            page.Children.Add(views);
+        }
+        var key = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes));
+        var allowed = s.RemoteImagesAllowed.Contains(key);
+        if (original && mail.RemoteImages > 0)
+        {
+            var note = allowed ? str["RemoteImagesLoaded"] : mail.RemoteImages == 1 ? str["RemoteImageBlocked"] : string.Format(CultureInfo.CurrentCulture, str["RemoteImagesBlocked"], mail.RemoteImages);
+            var notice = Ui.V(8, Ui.Columns("Auto,*", Ui.Icon("shield", 16, "Text.Subtle").Margin(0, 2, 10, 0), Ui.Text(note, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+            if (!allowed)
+            {
+                var load = Ui.Button(str["LoadImages"], "image", "soft", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                load.Click += (_, _) => { s.RemoteImagesAllowed.Add(key); s.Redraw(); };
+                notice.Children.Add(load);
+            }
+            page.Children.Add(notice.Margin(4, 0));
+        }
+        if (original)
+        {
+            Control? paper = null;
+            paper = Jourfold.UI.Controls.MailPaper.Build(mail, allowed, url => Jourfold.UI.Controls.MailPaper.DownloadImageAsync(s.MapsHttp, url),
+                link =>
+                {
+                    var top = TopLevel.GetTopLevel(paper);
+                    s.Confirm(string.Format(CultureInfo.CurrentCulture, str["OpenLinkBody"], link), str["OpenLink"], async () => { if (top?.Launcher is { } launcher) await launcher.LaunchUriAsync(new Uri(link)); });
+                },
+                () => s.ShowFileProblem(str["MailLinkBlocked"]), str["MailOriginal"], fontSize: 11, padding: 4);
+            // Nearly the whole width of the phone, so a wide e-mail needs to shrink less.
+            page.Children.Add(paper.Margin(-12, 0));
+        }
+        else page.Children.Add(Ui.Card(new SelectableTextBlock { Text = mail.Text.Length > 0 ? mail.Text : str["MailWithoutText"], TextWrapping = TextWrapping.Wrap, LineHeight = 22 }, 16));
         return page.Margin(16, 4, 16, 32);
     }
 

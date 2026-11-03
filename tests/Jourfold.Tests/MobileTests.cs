@@ -2,6 +2,7 @@ using Jourfold.Application;
 using System.Text.Json.Nodes;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
 using Jourfold.Mobile;
@@ -171,6 +172,39 @@ public sealed class MobileTests : IDisposable
         await session.AppendNoteAsync(flight.Id, "Gate changes are announced by text.");
         Assert.EndsWith("Gate changes are announced by text.", session.Trip!.Find(flight.Id)!.Data["body"]!.ToString());
         session.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task TheShareSheetFindsWhereANoteGoesInALongTrip()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        session.Receive(new SharedContent([], "Remember the umbrella"));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            bool Shown(string title) { Probe.Layout(); return Probe.All<Button>(window).Any(b => b.Classes.Contains("row") && AutomationProperties.GetName(b) == title && b.IsEffectivelyVisible); }
+            // On the third day of the trip, the list starts at today; the flight on the first day is out of the way.
+            Assert.False(Shown("Flight to Tokyo")); Assert.True(Shown("Ryokan in Gion"));
+            Probe.Click(window, "Whole trip"); Assert.True(Shown("Flight to Tokyo"));
+            Probe.Click(window, "From today"); Assert.False(Shown("Flight to Tokyo"));
+
+            // A search looks through the whole trip and the bookings, by any of its words.
+            var search = Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Search");
+            search.Text = "tokyo flight"; Assert.True(Shown("Flight to Tokyo")); Assert.False(Shown("Ryokan in Gion"));
+            search.Text = "gion"; Assert.True(Shown("Ryokan in Gion"));
+            // An item is found by its place's address too.
+            search.Text = "higashiyama"; Assert.True(Shown("Ryokan in Gion"));
+            search.Text = "zzz"; Probe.Layout(); Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Nothing found" && t.IsEffectivelyVisible);
+
+            // The search stays while the sheet is drawn again, and is gone with the next share.
+            session.Select(null); Probe.Layout();
+            Assert.Equal("zzz", Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Search").Text);
+            session.DropIncoming(); Probe.Layout(); session.Receive(new SharedContent([], "Another note")); Probe.Layout();
+            Assert.True(string.IsNullOrEmpty(Probe.All<TextBox>(window).Single(t => AutomationProperties.GetName(t) == "Search").Text));
+        }
+        finally { window.Close(); session.Dispose(); }
     }
 
     [AvaloniaFact]
@@ -1197,6 +1231,74 @@ public sealed class MobileTests : IDisposable
             Assert.Equal(Overlay.Details, session.Showing);
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AnEmailShowsInItsOriginalLayoutShrunkToThePhone()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var requests = new List<string>();
+        var web = new RecordingHandler(requests);
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(), web));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var bytes = System.Text.Encoding.UTF8.GetBytes("""
+            From: Ryokan <stay@example.invalid>
+            To: Alex <alex@example.invalid>
+            Subject: Your stay in Gion
+            MIME-Version: 1.0
+            Content-Type: multipart/alternative; boundary="b"
+
+            --b
+            Content-Type: text/plain; charset=utf-8
+
+            Check-in from 15:00. Reservation GR-1187.
+            --b
+            Content-Type: text/html; charset=utf-8
+
+            <table width="640" style="width:640px"><tr><td><h1>Your stay</h1><p>Check-in from 15:00. Reservation GR-1187.</p><img src="https://images.example.invalid/logo.png"><p><a href="https://example.invalid/stay">Manage booking</a></p></td></tr></table>
+            --b--
+            """.Replace("\n", "\r\n"));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowFile(new ShownFile("stay.eml", "message/rfc822", bytes)); Probe.Layout();
+            var html = Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(window).Single();
+            // A layout 640 wide is shrunk to the phone instead of being cut off.
+            Assert.True(html.RenderTransform is Avalonia.Media.ScaleTransform { ScaleX: < 1 });
+            Assert.True(html.GetVisualParent<Control>()!.Bounds.Width < 412);
+            // A tapped link asks before it leaves the app.
+            var link = html.Container!.GetLinks().Single();
+            var at = Avalonia.VisualExtensions.TranslatePoint(html, link.Rectangle.Center, window)!.Value;
+            window.MouseDown(at, Avalonia.Input.MouseButton.Left); window.MouseUp(at, Avalonia.Input.MouseButton.Left); Probe.Layout();
+            Assert.Contains("https://example.invalid/stay", session.Asking?.Text);
+            await session.AnswerAsync(false); Probe.Layout();
+            html = Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(window).Single();
+            // Images from the internet wait until the user wants them.
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text?.StartsWith("1 image from the internet was not loaded", StringComparison.Ordinal) == true);
+            Assert.Empty(requests);
+            Probe.Click(window, "Load images"); Probe.Layout();
+            await Probe.Until(() => requests.Count > 0);
+            Assert.Equal("https://images.example.invalid/logo.png", requests.Single());
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text?.StartsWith("Images from the internet are shown", StringComparison.Ordinal) == true);
+
+            // The text instead, and the choice stays on the phone.
+            Probe.Click(window, "Text"); Probe.Layout();
+            Assert.Empty(Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(window));
+            Assert.Contains(Probe.All<SelectableTextBlock>(window), t => t.Text?.Contains("GR-1187", StringComparison.Ordinal) == true);
+            Assert.Equal("text", MobileSettings.Load(Path.Combine(root, "settings.json")).Values["mail.view"]);
+            Probe.Click(window, "Original"); Probe.Layout();
+            Assert.Single(Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(window));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    private sealed class RecordingHandler(List<string> requests) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            requests.Add(request.RequestUri!.ToString());
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.NotFound));
+        }
     }
 
     [AvaloniaFact]

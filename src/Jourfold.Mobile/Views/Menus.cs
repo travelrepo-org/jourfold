@@ -18,18 +18,19 @@ public static class Menus
 {
     /// <summary>
     /// Runs <paramref name="open"/> on a long press or a right click on the control, such as opening a menu. On a
-    /// button the tap that ends a long press does not count as a click, so call this before adding its click handler.
+    /// button neither the tap that ends a long press nor a finger that moved counts as a click, so call this before
+    /// adding its click handler.
     /// </summary>
     public static void OnHold(Control button, Action open)
     {
         // Timed here rather than with Avalonia's holding gesture, which does not fire for touch on Android.
-        var held = false; Point? from = null; IDisposable? timer = null;
+        var held = false; var moved = false; Point? from = null, pressed = null; IDisposable? timer = null;
         void Stop() { timer?.Dispose(); timer = null; from = null; }
         button.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
-            held = false; Stop();
+            held = false; moved = false; pressed = null; Stop();
             if (e.Pointer.Type == PointerType.Mouse) return;
-            from = e.GetPosition(button); var pointer = e.Pointer;
+            from = pressed = e.GetPosition(button); var pointer = e.Pointer;
             timer = DispatcherTimer.RunOnce(() =>
             {
                 timer = null; from = null;
@@ -38,13 +39,20 @@ public static class Menus
                 held = true; open();
             }, TimeSpan.FromMilliseconds(500));
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
-        // Moving the finger is a scroll or a swipe, not a long press.
-        button.AddHandler(InputElement.PointerMovedEvent, (_, e) => { if (from is { } start && Point.Distance(start, e.GetPosition(button)) > 10) Stop(); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // Moving the finger is a scroll or a swipe, not a long press, and not a tap either: where nothing scrolls, such
+        // as at the end of a list, the button keeps the finger and would take letting go over it as a click.
+        button.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+        {
+            if (pressed is not { } start || Point.Distance(start, e.GetPosition(button)) <= 10) return;
+            moved = true; pressed = null; Stop();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
         button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Stop(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        // The button clicks while the release passes it, so afterwards a click from TalkBack or the keyboard counts again.
+        button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => moved = false, RoutingStrategies.Bubble, handledEventsToo: true);
         button.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Stop(), RoutingStrategies.Bubble, handledEventsToo: true);
         button.DetachedFromVisualTree += (_, _) => Stop();
         button.ContextRequested += (_, e) => { if (!held) open(); e.Handled = true; };
-        button.AddHandler(Button.ClickEvent, (_, e) => { if (held) { held = false; e.Handled = true; } });
+        button.AddHandler(Button.ClickEvent, (_, e) => { if (held || moved) { held = false; moved = false; e.Handled = true; } });
     }
 
     /// <summary>

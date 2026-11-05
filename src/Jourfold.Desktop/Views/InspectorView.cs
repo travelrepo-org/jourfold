@@ -1,3 +1,5 @@
+using Avalonia.Controls.Primitives;
+using Jourfold.Application;
 using System.Globalization;
 using System.Text;
 using System.Text.Json.Nodes;
@@ -29,9 +31,12 @@ public static class InspectorView
         titleBox.Classes.Add("inline"); titleBox.Classes.Add("heading"); titleBox.TextWrapping = TextWrapping.Wrap; titleBox.IsReadOnly = e.Type == "comment";
         var close = Ui.IconButton("x", s["CloseDetails"], "small"); close.Click += (_, _) => m.Selected = null;
         var more = Ui.IconButton("ellipsis", s["More"], "small"); more.Flyout = ItemMenu(w, e);
+        // Back appears only when these details were opened from others, such as a booking from its stay; close always closes.
+        var back = m.CanGoBackInDetails ? Ui.IconButton("arrow-left", s["Back"] + " (" + Shortcuts.Label("Alt+Left") + ")", "small") : null;
+        if (back is not null) back.Click += (_, _) => m.DetailsBack();
         var typeLabel = e.Type == "schedule_item" ? s["kind." + ScheduleCategories.Classify(trip, e)] : s[e.Type];
         var subtitle = Subtitle(m, e);
-        var header = Ui.V(10, Ui.Columns("Auto,*,Auto,Auto", Ui.Tile(icon, kind, 40), Ui.V(0, Ui.Text(typeLabel.ToUpper(CultureInfo.CurrentCulture), "overline"), subtitle is null ? null : Ui.Line(subtitle, "caption")).Margin(12, 0, 4, 0), e.Type == "trip" ? null : more, close), titleBox.Margin(-6, 0, 0, 0));
+        var header = Ui.V(10, Ui.Columns("Auto,*,Auto,Auto,Auto", Ui.Tile(icon, kind, 40), Ui.V(0, Ui.Text(typeLabel.ToUpper(CultureInfo.CurrentCulture), "overline"), subtitle is null ? null : Ui.Line(subtitle, "caption")).Margin(12, 0, 4, 0), back, e.Type == "trip" ? null : more, close), titleBox.Margin(-6, 0, 0, 0));
         var tabs = Tabs(w, e);
         var top = Ui.V(12, header, tabs); top.Margin = new Thickness(20, 18, 16, 8);
         var body = new StackPanel { Name = "Inspector", Spacing = 18, Margin = new Thickness(20, 8, 20, 28) };
@@ -52,7 +57,7 @@ public static class InspectorView
     {
         if (e.Type is "trip" or "comment" or "document") return null;
         var s = w.Model.Strings; var trip = w.Model.Trip!;
-        var comments = trip.Entities.Values.Count(c => c.Type == "comment" && c.Data["target"]?["id"]?.ToString() == e.Id.ToString());
+        var comments = TripComments.On(trip, e.Id).Count;
         var notes = (e.Data["content"] as JsonArray)?.Count ?? 0;
         var items = new List<(string, string, string?)> { ("Details", s["Details"], null) };
         if (SupportsNotes(e)) items.Add(("Notes", notes > 0 ? s["Notes"] + " · " + notes : s["Notes"], null));
@@ -202,6 +207,8 @@ public static class InspectorView
                     body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["EstimatedToggle"], e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est));
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
                     body.Children.Add(Field(s["Related"], Related(w, e)));
+                    // A receipt photographed on the phone, or one dropped here.
+                    Add(body, s["Files"], Confirmations(w, e));
                     if (e.Data["converted"] is JsonObject converted) body.Children.Add(Field(s["Converted"], Ui.Text(converted["value"] + " " + converted["currency"] + " · " + string.Format(s["RateOn"], converted["rate"], converted["rate_date"]), "muted")));
                 }
                 else body.Children.Add(Field(s["BudgetScope"], Editors.Choice(w, e.Id, "scope", s["BudgetScope"], e.Data["scope"]?.ToString(), ["trip", "category", "participant", "collection"])));
@@ -211,7 +218,7 @@ public static class InspectorView
             case "comment":
                 body.Children.Add(new MarkdownView(e.Data["body"]?.ToString() ?? ""));
                 body.Children.Add(Field(s["Body"], Editors.Text(w, e.Id, "body", s["Body"], e.Data["body"]?.ToString(), multiline: true)));
-                if (Guid.TryParse(e.Data["target"]?["id"]?.ToString(), out var target) && trip.Find(target) is { } t) { var open = Ui.Button(t.Title, "arrow-up-right"); open.Click += (_, _) => m.Selected = t; body.Children.Add(Field(s["Target"], open)); }
+                if (Guid.TryParse(e.Data["target"]?["id"]?.ToString(), out var target) && trip.Find(target) is { } t) { var open = Ui.Button(t.Title, "arrow-up-right"); open.Click += (_, _) => m.Follow(t); body.Children.Add(Field(s["Target"], open)); }
                 body.Children.Add(Field(s["Author"], Editors.Reference(w, e.Id, "author", s["Author"], "person", allowCreate: false)));
                 break;
             default:
@@ -230,7 +237,7 @@ public static class InspectorView
     {
         var trip = w.Model.Trip!; var (icon, kind) = Visuals.For(trip, target);
         var button = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 14, "Kind." + kind + ".Fg"), Ui.Line(target.Title).Margin(8, 0), Ui.Icon("chevron-right", 13, "Text.Subtle")) }.Classed("row").Named(target.Title);
-        button.Padding = new Thickness(8, 6); button.Click += (_, _) => w.Model.Selected = target; return button;
+        button.Padding = new Thickness(8, 6); button.Click += (_, _) => w.Model.Follow(target); return button;
     }
 
     private static Control Related(MainWindow w, Entity e) => Editors.References(w, e.Id, "related", w.Model.Strings["Related"], null,
@@ -245,10 +252,13 @@ public static class InspectorView
         var precision = span.Precision is TimePrecision.Exact or TimePrecision.Unscheduled ? null : s[span.Precision switch { TimePrecision.Approximate => "approximate", TimePrecision.Window => "window", TimePrecision.DayPart => "day_part", _ => "all_day" }];
         var zoneNote = span.StartZone is { } z && z != ScheduleQueries.TripZone(trip).Id && span.Start is { } st ? string.Format(s["LocalTimeIn"], Formats.Time(st.InZone(DateTimeZoneProviders.Tzdb[z]).TimeOfDay), Formats.ZoneName(z)) : null;
         var endNote = span.EndZone is { } ez && ez != span.StartZone && span.End is { } en ? string.Format(s["ArrivesLocal"], Formats.Time(en.InZone(DateTimeZoneProviders.Tzdb[ez]).TimeOfDay), Formats.ZoneName(ez)) : null;
+        // A journey says how long it takes, which its times in two zones do not show at a glance.
+        var travel = e.Data["components"]?["transport"] is JsonObject && Formats.TravelTime(span.Start, span.End, s) is { } length ? string.Format(s["TravelTime"], length) : null;
         var when = Editors.ValueButton(whenText, span.IsPlaced ? "clock" : "calendar-plus", s["Schedule"], () => m.ScheduleSelectedAsync(), "time");
-        var whenBlock = Ui.V(6, when, precision is null && zoneNote is null && endNote is null ? null : Ui.H(10, precision is null ? null : Ui.Pill(precision, "timer", "Bg.Subtle", "Text.Muted"), Ui.Text(string.Join(" · ", new[] { zoneNote, endNote }.Where(x => x is not null)), "caption")));
+        var whenBlock = Ui.V(6, when, precision is null && zoneNote is null && endNote is null && travel is null ? null : Ui.H(10, precision is null ? null : Ui.Pill(precision, "timer", "Bg.Subtle", "Text.Muted"), Ui.Text(string.Join(" · ", new[] { zoneNote, endNote, travel }.Where(x => x is not null)), "caption")));
         if (span.Derived) whenBlock.Children.Add(Ui.Text(s["DerivedFromItems"], "caption"));
         if (!span.IsPlaced) whenBlock.Children.Add(Field(s["DurationMinutes"], Editors.Number(w, e.Id, "duration", s["DurationMinutes"], ScheduleQueries.PlannedDuration(e)?.TotalMinutes, s["MinutesShort"], v => JsonValue.Create(PeriodPattern.NormalizingIso.Format(Period.FromMinutes((long)v)))!, 15)));
+        if (TicketButton(w, e) is { } ticket) whenBlock.Children.Add(ticket);
         Add(body, s["When"], whenBlock);
         Add(body, s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ScheduleCategories.Statuses));
 
@@ -266,6 +276,9 @@ public static class InspectorView
                 Ui.Columns("*,*", Field(s["Carrier"], Editors.Text(w, e.Id, "components/transport/carrier", s["Carrier"], transport["carrier"]?.ToString())), Field(s["Number"], Editors.Text(w, e.Id, "components/transport/flight_number", s["Number"], transport["flight_number"]?.ToString())).Margin(10, 0, 0, 0)),
                 Ui.Columns("*,*,*", Field(s["Seat"], Editors.Text(w, e.Id, "components/transport/seat", s["Seat"], transport["seat"]?.ToString())), Field(s["Terminal"], Editors.Text(w, e.Id, "components/transport/departure/terminal", s["Terminal"], transport["departure"]?["terminal"]?.ToString())).Margin(8, 0), Field(s["Gate"], Editors.Text(w, e.Id, "components/transport/departure/gate", s["Gate"], transport["departure"]?["gate"]?.ToString()))),
                 Field(s["Distance"] + " (" + (m.Store.Get("units") == "Imperial" ? "mi" : "km") + ")", Editors.Number(w, e.Id, "components/transport/distance_m", s["Distance"], transport["distance_m"] is JsonValue dist && double.TryParse(dist.ToString(), CultureInfo.InvariantCulture, out var meters) ? Math.Round(meters / (m.Store.Get("units") == "Imperial" ? 1609.344 : 1000), 2) : null, null, v => JsonValue.Create(Math.Round(v * (m.Store.Get("units") == "Imperial" ? 1609.344 : 1000)))!)));
+            // A change to the next journey or from the one before, with the time there is, across time zones.
+            foreach (var c in Connections.In(trip).Where(c => c.Arriving.Id == e.Id || c.Departing.Id == e.Id))
+                route.Children.Add(ConnectionLine(w, c, onward: c.Arriving.Id == e.Id));
             Add(body, s["Journey"], route);
         }
         else if (stay is JsonObject)
@@ -313,8 +326,10 @@ public static class InspectorView
         Add(body, s["Who"], who);
 
         // Booking
-        var booking = Guid.TryParse(e.Data["components"]?["booking"]?["ref"]?.ToString(), out var bookingId) ? trip.Find(bookingId) : null;
-        Add(body, s["Booking"], Ui.V(6, Editors.Reference(w, e.Id, "components/booking/ref", s["Booking"], "booking"),
+        var booking = TripCommands.BookingOf(e) is { } bookingId ? trip.Find(bookingId) : null;
+        // A stay may keep its booking in its accommodation; either way the booking lists the plan too.
+        var bookingPath = e.Data["components"]?["accommodation"]?["booking"] is not null ? "components/accommodation/booking" : "components/booking/ref";
+        Add(body, s["Booking"], Ui.V(6, Editors.Reference(w, e.Id, bookingPath, s["Booking"], "booking", save: chosen => m.SetBookingAsync(e.Id, chosen)),
             booking is null ? null : Ui.H(8, booking.Data["reference"]?.ToString() is { } reference ? Ui.Pill(reference, "ticket", "Bg.Subtle", "Text") : null, Ui.Pill(s[booking.Data["status"]?.ToString() ?? "pending"], Visuals.Status(booking.Data["status"]?.ToString()).Icon, Visuals.Status(booking.Data["status"]?.ToString()).Background, Visuals.Status(booking.Data["status"]?.ToString()).Foreground))));
         Add(body, s["Confirmations"], Confirmations(w, e));
 
@@ -322,19 +337,80 @@ public static class InspectorView
         var parent = TripQueries.Parent(trip, e.Id);
         var children = (e.Data["children"] as JsonArray ?? []).Select(c => Guid.TryParse(c?.ToString(), out var g) ? trip.Find(g) : null).OfType<Entity>().ToArray();
         var nest = Ui.V(4);
-        if (parent is not null) nest.Children.Add(Ui.H(6, Ui.Text(s["PartOf"], "caption"), Link(w, parent)));
+        if (parent is not null)
+        {
+            var leave = Ui.Button(s["LeaveGroup"], "x", "link"); leave.Click += (_, _) => _ = m.NestAsync(e.Id, null);
+            nest.Children.Add(Ui.H(6, Ui.Text(s["PartOf"], "caption"), Link(w, parent), leave));
+        }
         foreach (var child in children) nest.Children.Add(Link(w, child));
         var addChild = Ui.Button(s["AddSubItem"], "plus", "link"); addChild.Click += async (_, _) =>
         {
             var title = await m.Interaction.PromptAsync(s["AddSubItem"]); if (string.IsNullOrWhiteSpace(title)) return;
-            await m.RunEditAsync(async () => { var child = Entity.Create("schedule_item", title.Trim()); child.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() }; var copy = m.Workspace!.State.Trip.Find(e.Id)!.Copy(); var list = copy.Data["children"] as JsonArray ?? new JsonArray(); copy.Data["children"] = list; list.Add(child.Id.ToString()); await m.Workspace.ApplyAsync([new(child.Id, child), new(copy.Id, copy)]); m.Selected = m.Workspace.State.Trip.Find(child.Id); });
+            await m.RunEditAsync(async () => { var child = Entity.Create("schedule_item", title.Trim()); child.Data["participants"] = new JsonObject { ["inherit"] = true, ["values"] = new JsonArray() }; var copy = m.Workspace!.State.Trip.Find(e.Id)!.Copy(); var list = copy.Data["children"] as JsonArray ?? new JsonArray(); copy.Data["children"] = list; list.Add(child.Id.ToString()); await m.Workspace.ApplyAsync([new(child.Id, child), new(copy.Id, copy)]); m.Follow(m.Workspace.State.Trip.Find(child.Id)!); });
         };
-        nest.Children.Add(addChild);
+        // An existing plan joins as a step; it leaves the group it was in.
+        var takeIn = Ui.Button(s["TakeInPlan"], "layers", "link"); takeIn.Click += async (_, _) =>
+        {
+            var current = m.Trip!; var above = new HashSet<Guid>();
+            for (var x = (Entity?)current.Find(e.Id); x is not null; x = TripQueries.Parent(current, x.Id)) above.Add(x.Id);
+            var choices = current.Entities.Values.Where(x => x.Type == "schedule_item" && !above.Contains(x.Id) && !Stays.IsStay(x) && TripQueries.Parent(current, x.Id)?.Id != e.Id && x.Data["children"] is not JsonArray { Count: > 0 })
+                .OrderBy(x => ScheduleQueries.Span(current, x).Start ?? Instant.MaxValue).ThenBy(x => x.Title, StringComparer.CurrentCulture)
+                .Select(x => new Choice(x.Id.ToString(), x.Title, Visuals.For(current, x).Icon, Subtitle(m, x))).ToArray();
+            if (await m.Interaction.ChooseAsync(s["TakeInPlan"], choices) is { } picked) await m.NestAsync(Guid.Parse(picked), e.Id);
+        };
+        nest.Children.Add(Ui.Flow(8, addChild, stay is JsonObject ? null : takeIn));
         if (span.Derived && span.Length is { } total) nest.Children.Add(Ui.Text(string.Format(s["TotalDuration"], Formats.Duration(total, s)), "caption"));
         Add(body, s["NestedItems"], nest);
 
         Add(body, s["Tags"], ListText(w, e, "tags", s["Tags"]));
         Add(body, s["Constraints"], Constraints(w, e));
+    }
+
+    /// <summary>"8 h 20 min to change at Hub airport", and the journey before or after it, to open.</summary>
+    private static Control ConnectionLine(MainWindow w, Connection c, bool onward)
+    {
+        var s = w.Model.Strings;
+        var time = c.Place is { } place ? string.Format(s["LayoverAt"], Formats.Duration(c.Layover, s), place.Title) : string.Format(s["Layover"], Formats.Duration(c.Layover, s));
+        return new Border
+        {
+            Padding = new Thickness(10, 8),
+            CornerRadius = new CornerRadius(8),
+            Child = Ui.V(4, Ui.Columns("Auto,*", Ui.Icon("route", 14, "Accent"), Ui.Text(time, "strong").Margin(8, 0, 0, 0)),
+                Ui.Columns("Auto,*", Ui.Text(s[onward ? "ConnectsTo" : "ConnectsFrom"], "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Link(w, onward ? c.Departing : c.Arriving).Margin(6, 0, 0, 0)))
+        }.Res(Border.BackgroundProperty, "Bg.Subtle");
+    }
+
+    /// <summary>
+    /// A taxi card: the place's name and address in the local script, large enough to show from the screen, with the
+    /// usual spelling and the phone number below. Null when there is nothing to show.
+    /// </summary>
+    private static Button? TaxiCard(MainViewModel m, Entity place)
+    {
+        var s = m.Strings; var local = Places.LocalName(place); var localAddress = Places.LocalAddress(place);
+        if ((local ?? localAddress ?? Places.Address(place)) is null) return null;
+        var card = Ui.V(14,
+            Ui.Text(s["TaxiCardHint"], "overline"),
+            Ui.Text(local ?? place.Title, "h1").Also(t => { t.FontSize = 36; t.TextWrapping = TextWrapping.Wrap; }),
+            (localAddress ?? Places.Address(place)) is { } shown ? new SelectableTextBlock { Text = shown, FontSize = 24, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap } : null,
+            local is not null || localAddress is not null ? Ui.V(2, Ui.Text(place.Title, "strong"), Places.Address(place) is { } usual ? Ui.Text(usual, "muted").Also(t => t.TextWrapping = TextWrapping.Wrap) : null) : null,
+            Places.Contact(place)?.Phone is { Length: > 0 } phone ? new SelectableTextBlock { Text = phone, FontSize = 20 } : null);
+        var button = Ui.Button(s["TaxiCard"], "car-taxi-front", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        button.Flyout = new Flyout { Content = new Border { MaxWidth = 560, Padding = new Thickness(12), Child = card }, Placement = PlacementMode.LeftEdgeAlignedTop };
+        return button;
+    }
+
+    /// <summary>"Show ticket" when the plan or its booking has a boarding pass or ticket; with several, a choice.</summary>
+    private static Button? TicketButton(MainWindow w, Entity e)
+    {
+        var m = w.Model; var tickets = Tickets.For(m.Trip!, e);
+        if (tickets.Count == 0) return null;
+        var button = Ui.Button(m.Strings["ShowTicket"], "ticket", "soft", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        button.Click += async (_, _) =>
+        {
+            var ticket = tickets.Count == 1 ? tickets[0] : await m.Interaction.ChooseAsync(m.Strings["ShowTicket"], tickets.Select(t => new Choice(t.Id.ToString(), t.Title, "ticket")).ToArray()) is { } id ? m.Trip!.Find(Guid.Parse(id)) : null;
+            if (ticket is not null) OpenDocument(m, ticket);
+        };
+        return button;
     }
 
     /// <summary>
@@ -444,7 +520,9 @@ public static class InspectorView
         }
         // The lists this item is on.
         var lists = PackingLists.All(m.Trip!).Where(l => l.Items.Any(i => i.Task.Id == e.Id)).ToArray();
-        if (lists.Length > 0) body.Children.Add(Field(s["Packing"], Ui.V(4, lists.Select(l => (Control)Link(w, l.Collection)).ToArray())));
+        Control? move = null;
+        if (m.PackingListsToMoveTo(e.Id).Count > 0) { var button = Ui.Button(s["MoveToPackingList"], "backpack", "link"); button.Click += async (_, _) => await m.MovePackingItemAsync(e.Id); move = button; }
+        if (lists.Length > 0 || move is not null) body.Children.Add(Field(s["Packing"], Ui.V(4, [.. lists.Select(l => (Control)Link(w, l.Collection)), .. move is null ? Array.Empty<Control>() : [move]])));
     }
 
     private static Control ListText(MainWindow w, Entity e, string path, string label)
@@ -558,7 +636,7 @@ public static class InspectorView
             var created = m.Trip!.Find(picked.Id);
             if (created?.Data["location"] is JsonObject loc)
             {
-                await m.UpdateAsync(e.Id, x => { x.Data["location"] = loc.DeepClone(); if (created.Data["address"] is JsonObject a) x.Data["address"] = a.DeepClone(); if (created.Data["external_ids"] is JsonObject ids) x.Data["external_ids"] = ids.DeepClone(); });
+                await m.UpdateAsync(e.Id, x => { x.Data["location"] = loc.DeepClone(); if (created.Data["address"] is JsonObject a) x.Data["address"] = a.DeepClone(); if (created.Data["external_ids"] is JsonObject ids) x.Data["external_ids"] = ids.DeepClone(); if (created.Data["local_name"] is { } local) x.Data["local_name"] = local.DeepClone(); });
                 if (TripSummaries.ReferencesTo(m.Trip!, picked.Id).Count == 0 && picked.Id != e.Id) await m.RunEditAsync(() => m.Workspace!.ApplyAsync([new(picked.Id, null)]));
                 m.Selected = m.Trip!.Find(e.Id);
             }
@@ -566,6 +644,10 @@ public static class InspectorView
         var show = Ui.Button(s["ShowOnMap"], "map"); show.IsEnabled = coords is not null; show.Click += (_, _) => m.Navigate("Map");
         Add(body, s["Location"], Ui.V(10, location, Ui.Flow(8, find, show), m.OnlineMaps ? null : Ui.Text(s["EnableOnlineSearchHint"], "caption")));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "timezone", s["Timezone"], e.Data["timezone"]?.ToString(), FieldOptions.Timezones)));
+        // The name and address in the local script, for a taxi driver or a passer-by.
+        body.Children.Add(Field(s["LocalName"], Editors.Text(w, e.Id, "local_name", s["LocalName"], e.Data["local_name"]?.ToString())));
+        body.Children.Add(Field(s["LocalAddress"], Editors.Text(w, e.Id, "address/local", s["LocalAddress"], e.Data["address"]?["local"]?.ToString(), multiline: true)));
+        if (TaxiCard(m, e) is { } taxi) body.Children.Add(taxi);
         var contact = e.Data["contact"]; var ps = w.Model.Strings;
         body.Children.Add(Ui.Columns("*,*", Field(ps["Phone"], Editors.Text(w, e.Id, "contact/phone", ps["Phone"], contact?["phone"]?.ToString())), Field(ps["Email"], Editors.Text(w, e.Id, "contact/email", ps["Email"], contact?["email"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Field(ps["Website"], Editors.Text(w, e.Id, "contact/website", ps["Website"], contact?["website"]?.ToString())));
@@ -579,7 +661,10 @@ public static class InspectorView
         body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["Reference"], Editors.Text(w, e.Id, "reference", s["Reference"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
-        body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item")));
+        // The plans and the booking point to each other; a plan leaves the booking it had.
+        body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item",
+            read: x => new JsonArray(MainViewModel.BookedItems(m.Trip!, x.Id).Select(i => (JsonNode?)JsonValue.Create(i.ToString())).ToArray()),
+            save: items => m.LinkBookingAsync(e.Id, items.ToArray()))));
         var fields = EditorModel.Fields(e);
         var free = Stays.Zoned(e.Data["cancellation"]?["free_until"]) is { } until && NodaTime.Text.LocalDateTimePattern.ExtendedIso.Parse(until.Local).TryGetValue(default, out var freeLocal) ? Formats.LongDay(freeLocal.Date) + " · " + Formats.Time(freeLocal.TimeOfDay) : s["Choose"];
         body.Children.Add(Ui.Columns("*,*",
@@ -601,7 +686,7 @@ public static class InspectorView
         {
             Control preview = DocumentPreviews.PdfThumbnail(m, document, 72) is { } thumbnail
                 ? new Border { Width = 36, Height = 46, ClipToBounds = true, CornerRadius = new CornerRadius(3), BorderThickness = new Thickness(1), Child = new Image { Source = thumbnail, Stretch = Stretch.UniformToFill } }.Res(Border.BorderBrushProperty, "Line")
-                : Ui.Tile(DocumentPreviews.IsMail(document) ? "mail" : DocumentPreviews.IsImage(document) ? "image" : DocumentPreviews.IsPdf(document) ? "file-text" : "file", "Transport", 36);
+                : Ui.Tile(DocumentPreviews.IsMail(document) ? "mail" : DocumentPreviews.IsPass(document) ? "ticket" : DocumentPreviews.IsImage(document) ? "image" : DocumentPreviews.IsPdf(document) ? "file-text" : "file", "Transport", 36);
             var title = DocumentPreviews.Title(m, document);
             var card = new Button { Content = Ui.Columns("Auto,*,Auto", preview, Ui.V(1, Ui.Line(title, "title"), Ui.Line(DocumentPreviews.Summary(m, document), "caption")).Margin(10, 0), Ui.Icon("eye", 14, "Text.Subtle")), Padding = new Thickness(8, 6), HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("card").Named(title);
             card.Click += (_, _) => OpenDocument(m, document);
@@ -749,15 +834,15 @@ public static class InspectorView
     private static void CommentsTab(MainWindow w, Entity e, StackPanel body)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var comments = trip.Entities.Values.Where(c => c.Type == "comment" && c.Data["target"]?["id"]?.ToString() == e.Id.ToString()).OrderBy(c => c.Data["created_at"]?.ToString()).ToArray();
+        var comments = TripComments.On(trip, e.Id);
         foreach (var comment in comments)
         {
-            var author = Guid.TryParse(comment.Data["author"]?.ToString(), out var authorId) ? trip.Find(authorId)?.Title ?? s["Someone"] : s["Someone"];
+            var author = TripComments.Author(trip, comment)?.Title ?? s["Someone"];
             var when = DateTimeOffset.TryParse(comment.Data["created_at"]?.ToString(), CultureInfo.InvariantCulture, out var at) ? Formats.Relative(at, s) : "";
             var remove = Ui.IconButton("trash-2", s["Delete"], "small"); remove.Click += (_, _) => _ = m.DeleteAsync(comment.Id);
             body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(author, 30).Also(a => a.VerticalAlignment = VerticalAlignment.Top), Ui.V(4, Ui.Columns("*,Auto", Ui.H(8, Ui.Text(author, "title"), Ui.Text(when, "caption")), remove), new MarkdownView(comment.Data["body"]?.ToString() ?? "")).Margin(10, 0, 0, 0)));
         }
-        if (comments.Length == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
+        if (comments.Count == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
         var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, PlaceholderText = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);
         var send = Ui.Button(s["Comment"], "message-square", "primary", "compact");
         send.Click += async (_, _) => { if (!string.IsNullOrWhiteSpace(box.Text)) { var text = box.Text; box.Text = ""; await m.AddCommentAsync(m.Trip!.Find(e.Id), text); } };

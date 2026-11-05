@@ -1,6 +1,6 @@
 # Jourfold
 
-A desktop travel planner for Windows, macOS and Linux, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later. Website: [jourfold.dev](https://jourfold.dev).
+A travel planner for Windows, macOS and Linux and for Android phones and tablets, built with Avalonia on the open TravelRepo format. Every trip is an ordinary folder with readable YAML files and full Git history, so it stays usable with or without Jourfold. GPL-3.0-or-later. Website: [jourfold.dev](https://jourfold.dev).
 
 ![Jourfold timetable with the Inbox open and an activity selected in the inspector](docs/screenshots/planning-light.png)
 
@@ -45,6 +45,8 @@ irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.
 
 The scripts pick the x64 or ARM64 build and verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
 
+Android 10 or newer: download `jourfold-<version>-android.apk` from the [latest release](https://github.com/travelrepo-org/jourfold/releases/latest) on the phone and open it. [Installing Jourfold](docs/install.md#android) has the details, and [the mobile app documentation](docs/mobile.md) describes what the app does on the road.
+
 ## Try it
 
 The Linux archive includes the .NET runtime. See [testing on another Linux PC](docs/try-linux.md). On first start, choose **Explore a sample trip** to look around, or **Plan a trip** to start your own.
@@ -53,7 +55,7 @@ The [user guide](docs/user-guide.md) explains the main workflows.
 
 ## Development
 
-Requires .NET SDK 10.0.401, Git and Python 3. Place TravelRepo at `../travelrepo` for workspace builds.
+Requires a .NET 10 SDK (any feature band; CI and releases use 10.0.401), Git and Python 3. Place TravelRepo at `../travelrepo` for workspace builds.
 
 ```sh
 dotnet build Jourfold.sln

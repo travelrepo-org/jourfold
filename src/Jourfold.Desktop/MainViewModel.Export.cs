@@ -6,6 +6,7 @@ using Jourfold.Infrastructure;
 using TravelRepo.Core;
 using TravelRepo.Documents;
 using TravelRepo.Repository;
+using Jourfold.Application;
 
 namespace Jourfold.Desktop;
 
@@ -68,7 +69,7 @@ public partial class MainViewModel
 
     private async Task ExportPackingAsync(TripSnapshot trip, ExportChoice choice, ExportLabels labels, CultureInfo culture, Localization strings)
     {
-        var options = new PackingExportOptions { Lists = choice.Lists.Count > 0 ? choice.Lists : null, UnassignedOnly = choice.UnassignedOnly };
+        var options = new PackingExportOptions { Lists = choice.Lists.Count > 0 ? choice.Lists : null, UnassignedOnly = choice.UnassignedOnly, Comments = choice.Options.Comments };
         var people = choice.UnassignedOnly ? [] : choice.People.Select(trip.Find).OfType<Entity>().ToArray();
         var title = trip.Manifest.Title + " - " + strings["ExportPackingFile"];
         async Task Write(PackingExportOptions o, string path)
@@ -76,17 +77,17 @@ public partial class MainViewModel
             switch (choice.Format)
             {
                 case "pdf":
-                    var document = PackingExport.Document(trip, o, labels);
+                    var document = PackingExport.Document(trip, o, labels, culture);
                     await PdfExport.WriteAsync(document with { Options = document.Options with { Paper = choice.Options.Paper } }, path, new PdfExportSettings(FontFile)); break;
                 // Spreadsheet programs need the byte order mark to read UTF-8 CSV files.
                 case "csv": await File.WriteAllTextAsync(path, PackingExport.Csv(trip, o, labels, culture), new UTF8Encoding(true)); break;
-                default: await File.WriteAllTextAsync(path, PackingExport.Text(trip, o, labels)); break;
+                default: await File.WriteAllTextAsync(path, PackingExport.Text(trip, o, labels, culture)); break;
             }
         }
         if (people.Length <= 1)
         {
             var single = options with { Person = people.FirstOrDefault()?.Id };
-            if (choice.Format == "copy") { await Interaction.CopyAsync(PackingExport.Text(trip, single, labels)); Interaction.Toast(Strings["Copied"]); return; }
+            if (choice.Format == "copy") { await Interaction.CopyAsync(PackingExport.Text(trip, single, labels, culture)); Interaction.Toast(Strings["Copied"]); return; }
             var path = await Interaction.FileAsync(true, choice.Format, Path.GetFileNameWithoutExtension(PackingExport.FileName(title, people.FirstOrDefault(), choice.Format))); if (path is null) return;
             await Write(single, path); Exported([path]); return;
         }
@@ -163,7 +164,8 @@ public partial class MainViewModel
                 Detail = json["detail"]?.ToString() == "compact" ? ExportDetail.Compact : ExportDetail.Detailed,
                 Paper = json["paper"]?.ToString() == "letter" ? PaperSize.Letter : json["paper"]?.ToString() == "a4" ? PaperSize.A4 : fallback.Options.Paper,
                 Person = Person(json["person"]),
-                Timeline = json["timeline"]?.GetValue<bool>() != false
+                Timeline = json["timeline"]?.GetValue<bool>() != false,
+                Comments = json["comments"]?.GetValue<bool>() == true
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
@@ -185,6 +187,7 @@ public partial class MainViewModel
             ["paper"] = choice.Options.Paper == PaperSize.Letter ? "letter" : "a4",
             ["person"] = choice.Options.Person?.ToString(),
             ["timeline"] = choice.Options.Timeline,
+            ["comments"] = choice.Options.Comments,
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),
@@ -254,6 +257,8 @@ public partial class MainViewModel
             NightAt = s["ExportNightAt"],
             NightOf = s["ExportNightOf"],
             TimeZone = s["ExportTimeZone"],
+            Comments = s["Comments"],
+            Someone = s["Someone"],
             DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => s[k]),
             Statuses = ScheduleCategories.Statuses.Concat(["pending", "open", "in_progress"]).Distinct().ToDictionary(k => k, k => s[k]),
             Access = new[] { "reception", "self", "host" }.ToDictionary(k => k, k => s["ExportAccess." + k]),

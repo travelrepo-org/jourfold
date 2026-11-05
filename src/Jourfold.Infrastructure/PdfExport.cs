@@ -29,7 +29,9 @@ public sealed record PdfExportSettings(string FontFile)
 
 /// <summary>
 /// Renders a TravelRepo <see cref="ExportDocument"/> as a PDF with the bundled Plus Jakarta Sans: sections and rows,
-/// an overview map, and attached files as appendix pages.
+/// an overview map, and attached files as appendix pages. Comments, when the export has them, stand right below their
+/// row while no row of the section has more than one. Otherwise each row is marked with a numbered speech bubble and its
+/// comments follow at the end of the section, one card per row, so a list with many comments stays easy to scan.
 /// </summary>
 public static class PdfExport
 {
@@ -123,6 +125,10 @@ public static class PdfExport
         private XGraphics? g;
         private double y;
         private readonly List<PdfPage> pages = [];
+        /// <summary>The section's rows that have comments, in order, with the number on the row's bubble.</summary>
+        private readonly List<(int Number, string Title, IReadOnlyList<ExportComment> Comments)> notes = [];
+        /// <summary>Whether the section's comments stand below their rows rather than in cards at its end.</summary>
+        private bool inline;
 
         /// <summary>The app's colours for each kind of plan, light theme: background, text and bar.</summary>
         private static readonly Dictionary<string, (XColor Bg, XColor Fg, XColor Bar)> Tones = new()
@@ -210,10 +216,14 @@ public static class PdfExport
                 var timelineHeight = timeline is null ? 0 : TimelineHeight(timeline);
                 Heading(section.Overline is { } o && section.Part != ExportParts.Packing ? o : null, section.Title, timelineHeight);
                 var x = Left; var timelineBottom = 0d; var timelinePage = pages.Count;
+                notes.Clear(); inline = section.Rows.All(r => r.Comments.Count <= 1);
+                // Comments on the whole section, such as on a packing list, come first, like a note on top of the list.
+                if (section.Comments.Count > 0) { y += 2; Card(0, null, section.Comments); }
                 if (timeline is not null) { DrawTimeline(timeline, y + 2); timelineBottom = y + 2 + timelineHeight; x = Left + TimelineWidth + 14; }
                 foreach (var row in section.Rows) Row(section, row, x);
                 // A day's time line stays beside its rows; the next section starts below whichever is longer.
                 if (timeline is not null && pages.Count == timelinePage && y < timelineBottom) y = timelineBottom + 6;
+                Notes();
             }
             g?.Dispose(); g = null;
             Footers();
@@ -251,17 +261,22 @@ public static class PdfExport
             if (section.Part == ExportParts.Attachments && appendices.FirstOrDefault(a => a.Source.Label == row.Lead) is { Included: false })
                 summary = string.Join(" · ", new[] { summary, settings.NotIncluded }.Where(s => s.Length > 0));
             var attachments = row.AttachmentLabels.Count > 0 ? TripExport.AttachmentNote(document, row) : null;
+            var note = row.Comments.Count > 0 && !inline ? notes.Count + 1 : 0;
+            if (note > 0) notes.Add((note, row.Title, row.Comments));
+            var bubble = note > 0 ? BubbleWidth(note) + 5 : 0;
             if (row.Kind == ExportRowKind.Check)
             {
                 const double indent = 17;
-                var title = Wrap(row.Lead.Length > 0 ? row.Title + "  (" + row.Lead + ")" : row.Title, F(10.5, true), width - indent);
+                var title = Wrap(row.Lead.Length > 0 ? row.Title + "  (" + row.Lead + ")" : row.Title, F(10.5, true), width - indent - bubble);
                 var sub = summary.Length > 0 ? Wrap(summary, F(9), width - indent) : [];
-                Need(Height(title.Count, F(10.5, true)) + Height(sub.Count, F(9)) + 6);
+                Need(Height(title.Count, F(10.5, true)) + Height(sub.Count, F(9)) + (inline ? row.Comments.Sum(c => CommentHeight(c, width - indent) + 3) : 0) + 6);
                 var box = new XRect(x, y + 2.2, 9.5, 9.5);
                 g!.DrawRectangle(new XPen(row.Checked ? Accent : Muted, 0.9), row.Checked ? B(Accent) : XBrushes.White, box);
                 if (row.Checked) g.DrawLines(new XPen(XColors.White, 1.4), [new XPoint(box.Left + 2, box.Top + 5), new XPoint(box.Left + 4, box.Top + 7.3), new XPoint(box.Left + 7.6, box.Top + 2.4)]);
                 Lines(title, F(10.5, true), row.Checked ? Muted : Ink, x + indent);
+                if (note > 0) Bubble(note, x + indent + g.MeasureString(title[^1], F(10.5, true)).Width + 5, y - Height(1, F(10.5, true)) + 2.2);
                 Lines(sub, F(9), Muted, x + indent);
+                if (inline) foreach (var c in row.Comments) { y += 3; Comment(c, x + indent, width - indent, false); }
                 y += 5; return;
             }
             var lead = x > Left ? 104 : 120;
@@ -271,11 +286,12 @@ public static class PdfExport
             var leadLines = Wrap(row.Lead, F(9.5), lead - 10);
             // Times with two zones break after the dash, so each end stays on its own line.
             if (leadLines.Count > 1 && row.Lead.Split(" – ") is [var from, var until]) leadLines = [.. Wrap(from + " –", F(9.5), lead - 10), .. Wrap(until, F(9.5), lead - 10)];
-            var titleLines = Wrap(row.Title, F(11, true), width - lead - (pill is null ? 0 : pillWidth + 8));
+            var titleLines = Wrap(row.Title, F(11, true), width - lead - (pill is null ? 0 : pillWidth + 8) - bubble);
             var summaryLines = summary.Length > 0 ? Wrap(summary, F(9), width - lead) : [];
             var detailLines = row.DetailLines.SelectMany(d => Wrap(d, F(9), width - lead)).ToList();
             var attachmentLines = attachments is null ? [] : Wrap(attachments, F(8.5, true), width - lead);
-            var height = Math.Max(Height(leadLines.Count, F(9.5)), Height(titleLines.Count, F(11, true)) + Height(summaryLines.Count + detailLines.Count, F(9)) + Height(attachmentLines.Count, F(8.5, true)));
+            var height = Math.Max(Height(leadLines.Count, F(9.5)), Height(titleLines.Count, F(11, true)) + Height(summaryLines.Count + detailLines.Count, F(9)) + Height(attachmentLines.Count, F(8.5, true))
+                + (inline ? row.Comments.Sum(c => CommentHeight(c, width - lead) + 3) : 0));
             // Rows taller than a page are split; shorter ones move to the next page as a whole.
             Need(Math.Min(height, 160) + 12);
             var top = y;
@@ -288,11 +304,84 @@ public static class PdfExport
                 g.DrawString(pill, F(7.5), B(Muted), box, XStringFormats.Center);
             }
             Lines(titleLines, F(11, true), Ink, x + lead);
+            if (note > 0) Bubble(note, x + lead + g!.MeasureString(titleLines[^1], F(11, true)).Width + 5, y - Height(1, F(11, true)) + 2.6);
             Lines(summaryLines, F(9), Muted, x + lead);
             foreach (var line in detailLines) { Need(14); Lines([line], F(9), Muted, x + lead); }
             Lines(attachmentLines, F(8.5, true), Accent, x + lead);
+            if (inline) foreach (var c in row.Comments) { y += 3; Comment(c, x + lead, width - lead, false); }
             y = Math.Max(Math.Max(y, leadBottom), top + 18) + 5;
             g!.DrawLine(new XPen(Rule, 0.6), x, y, Left + Width, y); y += 6;
+        }
+
+        private static readonly XColor Bubbles = Hex(0xDDF0EE), CardTint = Hex(0xF5F8F8), Thread = Hex(0xB9DCD9);
+
+        private double BubbleWidth(int number) => Math.Max(11, g!.MeasureString(number.ToString(CultureInfo.InvariantCulture), F(6.5, true)).Width + 6);
+
+        /// <summary>A small speech bubble with the number of the row's comment card, its top left at the given point.</summary>
+        private void Bubble(int number, double x, double top)
+        {
+            var box = new XRect(x, top, BubbleWidth(number), 8.6);
+            g!.DrawRoundedRectangle(B(Bubbles), box, new XSize(3.5, 3.5));
+            g.DrawPolygon(B(Bubbles), [new XPoint(box.Left + 2.4, box.Bottom - 0.5), new XPoint(box.Left + 2.4, box.Bottom + 2.6), new XPoint(box.Left + 5.6, box.Bottom - 0.5)], XFillMode.Winding);
+            g.DrawString(number.ToString(CultureInfo.InvariantCulture), F(6.5, true), B(Accent), box, XStringFormats.Center);
+        }
+
+        /// <summary>The comments of a section's rows, after its rows, one card per row.</summary>
+        private void Notes()
+        {
+            if (notes.Count == 0) return;
+            Need(56); y += 8;
+            g!.DrawString(document.Labels.Comments.ToUpper(CultureInfo.CurrentCulture), F(7.5, true), B(Muted), new XPoint(Left, y + 7.5));
+            y += 14;
+            foreach (var (number, title, comments) in notes) Card(number, title, comments);
+        }
+
+        /// <summary>
+        /// A quiet card of comments, headed by the row's bubble and title when it belongs to a row, with each comment's
+        /// author, day and text along a thin line. It moves to the next page as a whole when it fits on one; a longer one
+        /// runs on line by line.
+        /// </summary>
+        private void Card(int number, string? title, IReadOnlyList<ExportComment> comments)
+        {
+            const double pad = 8, gap = 5;
+            var inner = title is null ? pad : 24;
+            var heading = title is null ? [] : Wrap(title, F(9.5, true), Width - inner - pad);
+            var height = pad + (title is null ? 0 : Height(heading.Count, F(9.5, true)) + 3) + comments.Sum(c => CommentHeight(c, Width - inner - pad)) + gap * (comments.Count - 1) + pad;
+            var card = height <= Bottom - Top;
+            if (card && y + height > Bottom) NewPage();
+            else if (!card) Need(pad + Height(heading.Count, F(9.5, true)) + 3 + Height(3, F(9)));
+            if (card) g!.DrawRoundedRectangle(B(CardTint), new XRect(Left, y, Width, height), new XSize(6, 6));
+            var top = y; y += pad;
+            if (number > 0) Bubble(number, Left + pad, y + 1.6);
+            if (title is not null) { Lines(heading, F(9.5, true), Ink, Left + inner); y += 3; }
+            for (var i = 0; i < comments.Count; i++)
+            {
+                Comment(comments[i], Left + inner, Width - inner - pad, card);
+                if (i < comments.Count - 1) y += gap;
+            }
+            y = (card ? top + height : y + pad) + 6;
+        }
+
+        private double CommentHeight(ExportComment comment, double width) => Height(1, F(8.5, true)) + Height(comment.Lines.Sum(l => Wrap(l, F(9), width - 9).Count), F(9));
+
+        /// <summary>
+        /// One comment along a thin line: author and day, then its text. Unless it sits in a card that was already
+        /// placed, it starts on the next page when its first lines do not fit, and runs on line by line.
+        /// </summary>
+        private void Comment(ExportComment comment, double x, double width, bool placed)
+        {
+            var body = comment.Lines.SelectMany(l => Wrap(l, F(9), width - 9)).ToList();
+            if (!placed) Need(Height(1, F(8.5, true)) + Height(Math.Min(2, body.Count), F(9)) + 2);
+            var start = y;
+            g!.DrawString(comment.Author, F(8.5, true), B(Ink), new XPoint(x + 9, y + 8.5));
+            if (comment.When.Length > 0) g.DrawString(comment.When, F(8), B(Muted), new XPoint(x + 9 + g.MeasureString(comment.Author, F(8.5, true)).Width + 6, y + 8.5));
+            y += Height(1, F(8.5, true));
+            foreach (var line in body)
+            {
+                if (!placed && y + 14 > Bottom) { g.DrawLine(new XPen(Thread, 1.4), x + 1, start + 1.5, x + 1, y - 1.5); NewPage(); start = y; }
+                Lines([line], F(9), Ink, x + 9);
+            }
+            g.DrawLine(new XPen(Thread, 1.4), x + 1, start + 1.5, x + 1, y - 1.5);
         }
 
         private const double TimelineWidth = 66;

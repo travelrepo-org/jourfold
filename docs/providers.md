@@ -24,6 +24,13 @@ dotnet build src/Jourfold.Desktop -p:JourfoldGitHubClientId=Iv23li...
 
 MSBuild also reads an environment variable of the same name. A client ID entered in the app takes precedence over a built-in one and stays when you disconnect, so you can sign in with several accounts through the same App. While disconnected, **Settings → Sharing** shows which App is used and offers **Use Jourfold's App**; **Use your own GitHub App** appears there in Advanced mode.
 
+Signing in does not install the App, and an App that is not installed sees no repository. When a search finds no
+installation, Jourfold says so and opens the App's installation page, where the user chooses the repositories. The
+release workflow passes the App's name in its GitHub address (`github.com/apps/<slug>`) from the repository variable
+`JOURFOLD_GITHUB_APP_SLUG` as `JourfoldGitHubAppSlug`; builds without it, and Apps of your own, only explain what to do.
+The search lists the repositories of every installation first and then reads their `travel.yaml` a few at a time, so
+the phone and the desktop show how many of all repositories have been checked, in a bar that can be cancelled.
+
 For development validation, follow the [GitHub App registration walkthrough](github-app-setup.md).
 
 ## Online maps and address search

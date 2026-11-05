@@ -6,7 +6,7 @@ The capture tool creates the same sample trip that **Explore a sample trip** off
 
 ## Regenerate
 
-From the Jourfold repository, with .NET SDK 10.0.401, Git 2.34 or newer and the sibling TravelRepo checkout:
+From the Jourfold repository, with a .NET 10 SDK, Git 2.34 or newer and the sibling TravelRepo checkout:
 
 ```sh
 dotnet restore eng/Screenshots/Screenshots.csproj --locked-mode
@@ -40,9 +40,9 @@ The map before online maps are enabled. Places and routes come from the trip's o
 
 ![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
 
-Costs per currency with budgets:
+Costs per currency with budgets, and the currency converter, which waits for permission to fetch exchange rates:
 
-![Costs page with totals for euros and yen, budget progress and the list of expenses](screenshots/costs.png)
+![Costs page with totals for euros and yen, budget progress, the currency converter asking to fetch exchange rates, and the list of expenses](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 

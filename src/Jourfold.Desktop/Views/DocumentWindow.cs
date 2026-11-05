@@ -9,6 +9,8 @@ using Avalonia.Threading;
 using Jourfold.Infrastructure;
 using TravelRepo.Core;
 using TravelRepo.Documents;
+using Jourfold.Application;
+using Jourfold.UI.Controls;
 
 namespace Jourfold.Desktop;
 
@@ -96,6 +98,7 @@ public sealed class DocumentWindow : Window
             {
                 "application/pdf" when PdfiumDocument.IsAvailable => PdfView(shown.Bytes),
                 Mail.MediaType => MailView(shown),
+                WalletPass.MediaType when WalletPass.Read(shown.Bytes, S.Language) is { } pass => PassView(pass),
                 var type when type.StartsWith("image/", StringComparison.Ordinal) => ImageView(shown.Bytes),
                 _ => Unsupported()
             };
@@ -123,6 +126,10 @@ public sealed class DocumentWindow : Window
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { M.Interaction.Toast(S["CannotOpen"]); }
     }
+
+    /// <summary>A boarding pass or ticket from a .pkpass file, with its barcode to scan from the screen.</summary>
+    private static Control PassView(WalletPass pass) =>
+        new ScrollViewer { Content = new Border { MaxWidth = 520, Padding = new Thickness(24), Child = PassCard.Build(pass), HorizontalAlignment = HorizontalAlignment.Center } }.Res(BackgroundProperty, "Bg.Subtle");
 
     // Images ----------------------------------------------------------------------------------------------
 
@@ -261,22 +268,10 @@ public sealed class DocumentWindow : Window
     /// <summary>Downloads an image from the internet for an e-mail; tests replace it. Returns null when it fails.</summary>
     public static Func<string, Task<byte[]?>> FetchImage { get; set; } = DownloadImageAsync;
     private static readonly HttpClient imageHttp = new() { Timeout = TimeSpan.FromSeconds(15) };
-    private const int MaxImageBytes = 5 * 1024 * 1024;
     // E-mails whose images from the internet the person chose to load, until the window closes.
     private readonly HashSet<string> remoteAllowed = [];
 
-    private static async Task<byte[]?> DownloadImageAsync(string url)
-    {
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Get, url); OnlineIdentity.Apply(request);
-            using var response = await imageHttp.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
-            if (!response.IsSuccessStatusCode || response.Content.Headers.ContentType?.MediaType?.StartsWith("image/", StringComparison.OrdinalIgnoreCase) != true || response.Content.Headers.ContentLength > MaxImageBytes) return null;
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            return bytes.Length > MaxImageBytes ? null : bytes;
-        }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException or UriFormatException) { return null; }
-    }
+    private static Task<byte[]?> DownloadImageAsync(string url) => Jourfold.UI.Controls.MailPaper.DownloadImageAsync(imageHttp, url);
 
     private Control MailView(Shown shown)
     {
@@ -311,44 +306,10 @@ public sealed class DocumentWindow : Window
         return new ScrollViewer { Content = new Border { MaxWidth = 860, Padding = new Thickness(24), Child = content, HorizontalAlignment = HorizontalAlignment.Center } }.Res(BackgroundProperty, "Bg.Subtle");
     }
 
-    /// <summary>
-    /// The e-mail in its original layout, cleaned by TravelRepo's <see cref="MailHtml"/>. It sits on white paper in
-    /// both themes, because e-mails are designed for a white background. Images come from the message itself, and
-    /// from the internet only after the person allowed it; links open in the browser after showing where they go.
-    /// </summary>
-    private Control MailPaper(MailMessage mail, bool remote)
-    {
-        var safe = MailHtml.Sanitize(mail.Html!, remote);
-        var html = new TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel { Text = safe.Html, IsContextMenuEnabled = false, IsSelectionEnabled = true, Background = Brushes.White, AutoSize = false, AutoSizeHeightOnly = true };
-        html.BaseStylesheet = "body { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 10pt; color: #1f2933; margin: 0; } a { color: #0b6e6e; } img { max-width: 100%; }";
-        html.StylesheetLoad += (_, e) => e.Event.SetStyleSheet = "";
-        html.ImageLoad += (_, e) =>
-        {
-            var load = e.Event; load.Handled = true; var src = load.Src?.Trim() ?? "";
-            Bitmap? Decode(byte[] bytes) { try { using var stream = new MemoryStream(bytes); return new Bitmap(stream); } catch (Exception ex) when (ex is ArgumentException or IOException or NotSupportedException or InvalidOperationException) { return null; } }
-            if (src.StartsWith("cid:", StringComparison.OrdinalIgnoreCase))
-            {
-                var id = src[4..].Trim('<', '>');
-                if (mail.InlineImages?.FirstOrDefault(i => string.Equals(i.ContentId, id, StringComparison.OrdinalIgnoreCase)) is { } image && Decode(image.Content) is { } bitmap) load.Callback(bitmap); else load.Callback();
-            }
-            else if (src.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase) && src.IndexOf(";base64,", StringComparison.OrdinalIgnoreCase) is var comma and > 0)
-            {
-                byte[]? bytes = null; try { bytes = Convert.FromBase64String(src[(comma + 8)..]); } catch (FormatException) { }
-                if (bytes is not null && Decode(bytes) is { } bitmap) load.Callback(bitmap); else load.Callback();
-            }
-            else if (remote && (src.StartsWith("https://", StringComparison.OrdinalIgnoreCase) || src.StartsWith("http://", StringComparison.OrdinalIgnoreCase)))
-                _ = FetchImage(src).ContinueWith(t => Dispatcher.UIThread.Post(() => { if (t.Result is { } bytes && Decode(bytes) is { } bitmap) load.Callback(bitmap); else load.Callback(); }), TaskScheduler.Default);
-            else load.Callback();
-        };
-        html.LinkClicked += async (_, e) =>
-        {
-            e.Event.Handled = true; var link = e.Event.Link?.Trim();
-            if (!MailHtml.IsOpenableLink(link)) { M.Interaction.Toast(S["MailLinkBlocked"]); return; }
-            if (await M.Interaction.ConfirmAsync(S["OpenLinkTitle"], string.Format(S["OpenLinkBody"], link), S["OpenLink"])) M.Interaction.Open(link!);
-        };
-        AutomationProperties.SetName(html, S["MailOriginal"] + ": " + (mail.Text.Length > 300 ? mail.Text[..300] : mail.Text));
-        return new Border { Background = Brushes.White, CornerRadius = new CornerRadius(10), Padding = new Thickness(20), Child = html, ClipToBounds = true, BorderThickness = new Thickness(1) }.Res(Border.BorderBrushProperty, "Line");
-    }
+    /// <summary>The e-mail in its original layout (<see cref="Jourfold.UI.Controls.MailPaper"/>); links open in the browser after showing where they go.</summary>
+    private Control MailPaper(MailMessage mail, bool remote) => Jourfold.UI.Controls.MailPaper.Build(mail, remote, FetchImage,
+        async link => { if (await M.Interaction.ConfirmAsync(S["OpenLinkTitle"], string.Format(S["OpenLinkBody"], link), S["OpenLink"])) M.Interaction.Open(link); },
+        () => M.Interaction.Toast(S["MailLinkBlocked"]), S["MailOriginal"]);
 
     private Control Attachments(Shown shown, MailMessage mail)
     {

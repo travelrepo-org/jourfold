@@ -142,8 +142,3 @@ internal static class MacKeychain
     }
 }
 
-public sealed class GitHubCredentialBroker(ISecretStore store) : TravelRepo.Git.ICredentialBroker
-{
-    public async Task<TravelRepo.Git.GitCredential?> GetAsync(Uri origin, CancellationToken ct = default)
-    { if (origin.Host != "github.com") return null; var token = await store.ReadAsync("github.user-token", ct); return token is null ? null : new("x-access-token", token); }
-}

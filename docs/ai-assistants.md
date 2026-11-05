@@ -62,6 +62,8 @@ The assistant's changes appear in Jourfold within a few seconds. They are checke
 
 With weather turned on in Jourfold, the assistant can read the weather Jourfold has already downloaded for the trip (`get_weather`). It is told that this is cached data and how old each forecast is. The assistant cannot make Jourfold download anything: it gets no other places or dates, and the forecasts are only refreshed while the trip is open in Jourfold. When weather is off, the assistant gets no weather at all.
 
+Exchange rates work the same way. With them allowed in Jourfold (Costs, **Currency converter**), the assistant can convert amounts (`convert_currency`) and see the trip's totals in one currency (`get_costs`) with the rates Jourfold downloaded last, and it says their date. It never downloads rates, and amounts in the trip are never converted.
+
 Jourfold itself sends nothing to any service on the assistant's behalf. With an online assistant instead of a local one, what the assistant reads from the trip goes to that assistant's provider.
 
 The server and its tools are described in more detail in the TravelRepo documentation (`docs/mcp.md` in the TravelRepo repository).

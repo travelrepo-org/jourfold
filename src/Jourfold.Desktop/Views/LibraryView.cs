@@ -70,7 +70,7 @@ public static class LibraryView
     private static Control Welcome(MainWindow w)
     {
         var m = w.Model; var s = m.Strings;
-        var art = SidebarView.GeneratedCover("Jourfold", 520, 200, 16);
+        var art = Covers.Generated("Jourfold", 520, 200, 16);
         var mark = new Image { Source = (IImage)w.FindResource("Brand.Mark")!, Width = 72, Height = 72, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var hero = new Panel { Children = { art, new Decoration { Width = 112, Height = 112, CornerRadius = new CornerRadius(28), Child = mark, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center }.Res(Border.BackgroundProperty, "Bg.Surface") }, HorizontalAlignment = HorizontalAlignment.Center };
         var create = Ui.Button(s["CreateFirstTrip"], "plus", "primary"); create.Command = m.NewTripCommand;
@@ -115,7 +115,7 @@ public static class LibraryView
         menu.Items.Add(Item(s["RemoveFromList"], "x", () => m.ForgetRecent(recent)));
         button.ContextMenu = menu;
 
-        cover.Children.Add(SidebarView.GeneratedCover(recent.Title, 300, 136, 0));
+        cover.Children.Add(Covers.Generated(recent.Title, 300, 136, 0));
         if (!Directory.Exists(recent.Path))
         {
             // The folder was moved or deleted. Offer to find it again or forget it instead of failing on open.
@@ -136,7 +136,7 @@ public static class LibraryView
                 var planned = data.Trip.Entities.Values.Count(e => e.Type == "schedule_item");
                 places.Text = string.Join(" · ", TripSummaries.PlaceNames(data.Trip, 3)) is { Length: > 0 } names ? names : planned == 0 ? s["NothingPlannedYet"] : string.Format(s["ItemsCount"], planned);
                 title.Text = data.Trip.Manifest.Title;
-                if (SidebarView.CoverImage(data.Repository, data.Trip) is { } image) { cover.Children.Clear(); cover.Children.Add(new Image { Source = image, Stretch = Stretch.UniformToFill, Height = 136 }); }
+                if (Covers.CoverImage(data.Repository, data.Trip) is { } image) { cover.Children.Clear(); cover.Children.Add(new Image { Source = image, Stretch = Stretch.UniformToFill, Height = 136 }); }
                 if (SampleTrip.IsSample(data.Trip)) cover.Children.Add(Ui.Pill(s["SampleTrip"], "sparkles", "Bg.Surface", "Text").Margin(12));
                 var people = data.Trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
                 if (people.Length > 0) cover.Children.Add(Ui.AvatarStack(people, 26).Also(a => { a.HorizontalAlignment = HorizontalAlignment.Right; a.VerticalAlignment = VerticalAlignment.Bottom; a.Margin = new Thickness(12); }));

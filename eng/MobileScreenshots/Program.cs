@@ -1,0 +1,192 @@
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.Threading;
+using Jourfold.Mobile;
+using NodaTime;
+using TravelRepo.Git;
+
+// Renders the phone and tablet app with the sample trip at a fixed moment: Sunday 16 May 2027, 10:40 in Tokyo, as in
+// the mobile design spec. Usage: dotnet run --project eng/MobileScreenshots -- <output-directory> [--lang de]
+var options = args.Where(a => a.StartsWith("--", StringComparison.Ordinal)).ToArray();
+var output = Path.GetFullPath(args.FirstOrDefault(a => !a.StartsWith("--", StringComparison.Ordinal) && a is not ("de" or "en")) ?? "artifacts/mobile-screenshots");
+var language = args.SkipWhile(a => a != "--lang").Skip(1).FirstOrDefault() ?? "en";
+Directory.CreateDirectory(output);
+var temporary = Path.Combine(Path.GetTempPath(), "jourfold-mobile-screenshots-" + Guid.NewGuid());
+Environment.SetEnvironmentVariable("GIT_CONFIG_GLOBAL", Path.Combine(temporary, "gitconfig"));
+Environment.SetEnvironmentVariable("GIT_CONFIG_NOSYSTEM", "1");
+Directory.CreateDirectory(temporary); File.WriteAllText(Path.Combine(temporary, "gitconfig"), "");
+var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(tokyo).ToInstant();
+MobileApp.Host = new MobileHost(temporary, new GitCliBackend(), new FixedClock(now), () => tokyo, language, new NoSecrets());
+
+try
+{
+    var session = HeadlessUnitTestSession.StartNew(typeof(MobileScreenshotApp));
+    await session.Dispatch(async () =>
+    {
+        var s = MobileApp.Session!;
+        async Task Capture(string name, double width = 412, double height = 915, ThemeVariant? theme = null)
+        {
+            Avalonia.Application.Current!.RequestedThemeVariant = theme ?? ThemeVariant.Light;
+            var window = new Window { Width = width, Height = height, Content = new AppShell(s) };
+            window.Show();
+            for (var i = 0; i < 6; i++) { await Task.Delay(60); Dispatcher.UIThread.RunJobs(); }
+            using var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("No frame.");
+            var path = Path.Combine(output, name + ".png"); frame.Save(path, PngBitmapEncoderOptions.Default); Console.WriteLine(path);
+            window.Close();
+        }
+        await Capture("welcome");
+        await s.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await Capture("trips");
+        await s.OpenAsync(s.Trips[0].Path);
+        await Capture("today");
+        await Capture("today-dark", theme: ThemeVariant.Dark);
+        s.SetSecondZone("Europe/Berlin");
+        await Capture("today-second-time");
+        s.SetSecondZone(null);
+        s.ShowTab(MobileTab.Plan); s.ShowDate(new LocalDate(2027, 5, 16));
+        await Capture("plan");
+        var teamLab = s.Agenda.Find(new LocalDate(2027, 5, 16))!.Entries.First(e => e.Item.Title.StartsWith("teamLab", StringComparison.Ordinal));
+        s.Select(teamLab.Item.Id);
+        await Capture("plan-selected");
+        s.ShowDetails(teamLab.Item.Id);
+        await Capture("detail-teamlab");
+        await Capture("detail-dark", theme: ThemeVariant.Dark);
+        var shinkansen = s.Agenda.Find(new LocalDate(2027, 5, 18))!.Entries.First(e => e.Item.Title.StartsWith("Shinkansen", StringComparison.Ordinal));
+        s.ShowDate(new LocalDate(2027, 5, 18)); s.ShowDetails(shinkansen.Item.Id);
+        await Capture("detail-transport");
+        await Capture("tablet-detail", 1194, 834);
+        s.CloseOverlay(); s.ShowDate(new LocalDate(2027, 5, 16)); s.ShowQuickAdd();
+        await Capture("quick-add");
+        s.CloseOverlay();
+        s.ShowDate(new LocalDate(2027, 5, 17));
+        foreach (var group in s.Agenda.Find(new LocalDate(2027, 5, 17))!.Entries.Where(e => e.IsGroup)) s.ToggleGroup(group.Item.Id);
+        await Capture("plan-nested");
+        s.ShowDate(new LocalDate(2027, 5, 14));
+        await Capture("plan-flight");
+        // The day as a timetable, chosen with the switch above the date strip.
+        s.Settings.Values["plan.day"] = "timetable";
+        await Capture("plan-day-timetable-arrival");
+        s.ShowDate(new LocalDate(2027, 5, 16));
+        await Capture("plan-day-timetable");
+        await Capture("plan-day-timetable-dark", theme: ThemeVariant.Dark);
+        s.Settings.Values.Remove("plan.day");
+        s.ShowTab(MobileTab.Map); s.ShowDate(new LocalDate(2027, 5, 16));
+        await Capture("map");
+        s.Select(teamLab.Item.Id);
+        await Capture("map-selected");
+        await Capture("tablet-map", 1194, 834);
+        s.ShowDate(new LocalDate(2027, 5, 15));
+        await Capture("map-shared-pin");
+        s.ShowDate(new LocalDate(2027, 5, 16));
+        s.ShowPage("places");
+        await Capture("places");
+        s.ShowPlace(s.Trip!.Entities.Values.First(e => e.Type == "place" && e.Title.StartsWith("Hotel Gracery", StringComparison.Ordinal)).Id);
+        await Capture("place");
+        s.CloseOverlay();
+        s.ShowTab(MobileTab.More);
+        await Capture("more");
+        s.ShowPage("bookings");
+        s.ToggleGroup(s.Trip!.Entities.Values.First(e => e.Type == "booking" && e.Title.StartsWith("teamLab", StringComparison.Ordinal)).Id);
+        await Capture("bookings");
+        s.ShowPage("tasks");
+        await Capture("tasks");
+        s.ShowPage("costs");
+        s.ToggleGroup(s.Trip!.Entities.Values.First(e => e.Type == "expense" && e.Title == "Flights").Id);
+        await Capture("costs");
+        s.ShowPage("travellers");
+        await Capture("travellers");
+        s.ShowPage("sync"); await s.RefreshVersionsAsync();
+        await Capture("sync");
+        s.ShowPage("settings");
+        await Capture("settings");
+        // On the road without a computer: editing a journey and a stay, packing, money, a ticket and the taxi card.
+        s.ShowTab(MobileTab.Plan);
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo").Id);
+        await Capture("edit-journey", 412, 1600);
+        s.CloseOverlay();
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && TravelRepo.Core.Stays.IsStay(e)).Id);
+        await Capture("edit-stay", 412, 1500);
+        s.CloseOverlay();
+        // A booking, an expense, a group with its steps and the trip itself.
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Type == "booking" && e.Data["reference"]?.ToString() == "GR-1187").Id);
+        await Capture("edit-booking", 412, 1500);
+        s.CloseOverlay();
+        s.ShowEditor(s.Trip!.Entities.Values.First(e => e.Type == "expense").Id);
+        await Capture("edit-expense", 412, 1200);
+        s.CloseOverlay();
+        s.ShowDetails(s.Trip!.Entities.Values.First(e => e.Data["children"] is System.Text.Json.Nodes.JsonArray { Count: > 0 }).Id);
+        await Capture("detail-group", 412, 1400);
+        s.CloseOverlay();
+        s.ShowTab(MobileTab.More); s.ShowPage("trip");
+        await Capture("trip-details");
+        s.ShowTab(MobileTab.Plan);
+        s.ShowTab(MobileTab.More); s.ShowPage("packing");
+        await Capture("packing", 412, 1200);
+        File.WriteAllText(Path.Combine(MobileApp.Host!.DataRoot, "rates.json"), """{ "Date": "2027-05-14", "PerEuro": { "JPY": 160, "USD": 1.1, "NZD": 1.8 } }""");
+        s.Settings.Values["rates.online"] = "on"; s.Drafts["converter.amount"] = "3200"; s.Drafts["converter.from"] = "JPY"; s.Drafts["converter.to"] = "EUR";
+        s.ShowPage("converter");
+        await Capture("converter");
+        s.Settings.Values.Remove("rates.online");
+        {
+            using var pass = new MemoryStream();
+            using (var zip = new System.IO.Compression.ZipArchive(pass, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            using (var writer = new StreamWriter(zip.CreateEntry("pass.json").Open()))
+                writer.Write("""{ "description": "Boarding pass", "organizationName": "Example Air", "barcode": { "message": "M1SAMPLE/ALEX EABC123 FRAHNDXA 0042 134Y032A0001 100", "format": "PKBarcodeFormatAztec", "messageEncoding": "iso-8859-1", "altText": "ABC123" }, "boardingPass": { "transitType": "PKTransitTypeAir", "primaryFields": [ { "key": "from", "label": "Frankfurt", "value": "FRA" }, { "key": "to", "label": "Tokyo", "value": "HND" } ], "auxiliaryFields": [ { "key": "gate", "label": "Gate", "value": "B44" }, { "key": "boarding", "label": "Boarding", "value": "12:40" }, { "key": "seat", "label": "Seat", "value": "32A" } ] } }""");
+            s.ShowFile(new ShownFile("Boarding pass.pkpass", TravelRepo.Documents.WalletPass.MediaType, pass.ToArray()));
+            await Capture("ticket-pass");
+            s.CloseFile();
+        }
+        s.ShowTab(MobileTab.Today);
+        s.ShowTaxiCard(s.Trip!.Entities.Values.First(e => e.Type == "place" && e.Title == "Hotel Gracery Shinjuku").Id);
+        await Capture("taxi-card");
+        s.ShowTaxiCard(null);
+        s.ShowTab(MobileTab.Plan);
+        await Capture("tablet-plan", 1194, 834);
+        s.ShowDate(new LocalDate(2027, 5, 15));
+        await Capture("wide-timetable", 1440, 900);
+        s.ShowDate(new LocalDate(2027, 5, 14));
+        await Capture("wide-timetable-start", 1440, 900);
+        s.ShowTab(MobileTab.Today);
+        await Capture("tablet-today", 1194, 834);
+        // Check-in hours without a fixed arrival time, as on the desktop: a soft band with "Check-in 15:00–19:00".
+        {
+            var hotel = s.Trip!.Entities.Values.First(e => e.Title == "Hotel Gracery Shinjuku" && TravelRepo.Core.Stays.IsStay(e)).Copy();
+            var stay = (System.Text.Json.Nodes.JsonObject)hotel.Data["components"]!["accommodation"]!;
+            stay["check_in_window"] = new System.Text.Json.Nodes.JsonObject { ["from"] = "15:00", ["until"] = "19:00" };
+            ((System.Text.Json.Nodes.JsonObject)stay["check_in"]!)["approximate"] = true;
+            await s.Workspace!.EditAsync(hotel);
+            s.ShowTab(MobileTab.Plan); s.ShowDate(new LocalDate(2027, 5, 14));
+            await Capture("wide-timetable-check-in", 1440, 900);
+        }
+                // A trip that has not started yet: how it begins.
+        s.Close(); await s.OpenAsync(await s.CreateSampleAsync(new LocalDate(2027, 6, 4)));
+        await Capture("today-before");
+        return true;
+    }, CancellationToken.None);
+    // Dispatch resumes on the session's own thread, and disposing the session there would wait for itself.
+    await Task.Run(session.Dispose).ConfigureAwait(false);
+}
+finally
+{
+    try { Directory.Delete(temporary, recursive: true); } catch (IOException) { }
+}
+
+public sealed class MobileScreenshotApp
+{
+    public static AppBuilder BuildAvaloniaApp() => AppBuilder.Configure<MobileApp>()
+        .UseSkia().UseHarfBuzz().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
+}
+
+sealed class FixedClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
+
+/// <summary>Screenshots never sign in.</summary>
+sealed class NoSecrets : TravelRepo.Providers.ISecretStore
+{
+    public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult<string?>(null);
+    public Task WriteAsync(string key, string value, CancellationToken ct = default) => Task.CompletedTask;
+    public Task DeleteAsync(string key, CancellationToken ct = default) => Task.CompletedTask;
+}

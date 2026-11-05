@@ -558,6 +558,11 @@
         "resolved": "16.3.0",
         "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
       },
+      "ZXing.Net": {
+        "type": "Transitive",
+        "resolved": "0.16.10",
+        "contentHash": "9avtcn21T7Ndcl8PQ1LHR7/wEoCruX1QKKHvO6zBPTsDW9IdvR5vKOmd618AY+DtDWZz8NaFDTkpbZdgaF4l4w=="
+      },
       "jourfold.application": {
         "type": "Project",
         "dependencies": {
@@ -573,11 +578,11 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Desktop": "[12.1.4, )",
-          "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
           "CommunityToolkit.Mvvm": "[8.4.0, )",
-          "Jourfold.Application": "[0.6.0, )",
-          "Jourfold.Infrastructure": "[0.6.0, )",
+          "Jourfold.Application": "[0.7.1, )",
+          "Jourfold.Infrastructure": "[0.7.1, )",
+          "Jourfold.UI": "[0.7.1, )",
           "Markdig": "[1.4.0, )",
           "Microsoft.Extensions.DependencyInjection": "[10.0.0, )",
           "Tmds.DBus.Protocol": "[0.94.1, )",
@@ -593,7 +598,7 @@
       "jourfold.infrastructure": {
         "type": "Project",
         "dependencies": {
-          "Jourfold.Application": "[0.6.0, )",
+          "Jourfold.Application": "[0.7.1, )",
           "Microsoft.Data.Sqlite": "[10.0.9, )",
           "PDFsharp": "[6.2.4, )",
           "SQLitePCLRaw.lib.e_sqlite3": "[3.53.3, )",
@@ -602,6 +607,26 @@
           "bblanchon.PDFium.Linux": "[157.0.8100, )",
           "bblanchon.PDFium.Win32": "[157.0.8100, )",
           "bblanchon.PDFium.macOS": "[157.0.8100, )"
+        }
+      },
+      "jourfold.mobile": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.UI": "[0.7.1, )",
+          "TravelRepo.Documents": "[0.6.0, )"
+        }
+      },
+      "jourfold.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.HtmlRenderer": "[12.0.0, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.Application": "[0.7.1, )",
+          "TravelRepo.Documents": "[0.6.0, )",
+          "ZXing.Net": "[0.16.10, )"
         }
       },
       "travelrepo.core": {

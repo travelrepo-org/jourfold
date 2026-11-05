@@ -1,3 +1,4 @@
+using Avalonia.Automation;
 using System.Globalization;
 using System.Text.Json.Nodes;
 using Avalonia;
@@ -80,7 +81,7 @@ public static class CollectionViews
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
         var actions = new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
-        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0));
+        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)
         {
@@ -114,7 +115,44 @@ public static class CollectionViews
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ConverterCard(w), Ui.Card(list, 6), note), actions);
+    }
+
+    /// <summary>
+    /// Converts an amount offline with the reference rates fetched last, the trip's currencies first. Fetching waits
+    /// for the person's yes once, as on the phone; nothing is converted in the trip itself.
+    /// </summary>
+    private static Control ConverterCard(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings;
+        _ = m.FetchRatesAsync();
+        if (!m.RatesOn)
+        {
+            var allow = Ui.Button(s["RatesAllow"], "globe", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            allow.Click += async (_, _) => await m.SetRatesAsync(true);
+            return Ui.Card(Ui.V(10, Ui.Text(s["Converter"], "h3"), Ui.Text(s["RatesTitle"], "strong"), Ui.Text(s["RatesBody"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), allow), 18);
+        }
+        if (m.Rates is not { } rates) return Ui.Card(Ui.V(8, Ui.Text(s["Converter"], "h3"), Ui.Text(m.FetchingRates ? s["RatesLoading"] : s["RatesNone"], "muted")), 18);
+        var codes = m.TripCurrencies().Where(rates.Knows).Concat(rates.Currencies).Distinct().Select(c => new Choice(c, c)).ToArray();
+        var from = new SearchChoice(codes, m.Store.Get("converter.from") is { Length: 3 } f && rates.Knows(f) ? f : codes.FirstOrDefault(c => c.Id != "EUR")?.Id ?? "USD", s["OtherCurrency"]) { Width = 130 };
+        var to = new SearchChoice(codes, m.Store.Get("converter.to") is { Length: 3 } t && rates.Knows(t) ? t : "EUR", s["OtherCurrency"]) { Width = 130 };
+        var amount = new TextBox { Text = "100", Width = 160 }; AutomationProperties.SetName(amount, s["Amount"]);
+        var result = Ui.Text("–", "h2");
+        void Show()
+        {
+            if (from.Value is { } a) m.Store.Set("converter.from", a);
+            if (to.Value is { } b) m.Store.Set("converter.to", b);
+            result.Text = ExchangeRates.Amount(amount.Text) is { } value && from.Value is { } x && to.Value is { } y && rates.Convert(value, x, y) is { } converted ? Formats.Money(Math.Round(converted, 2), y) : "–";
+        }
+        amount.TextChanged += (_, _) => Show();
+        from.Input.SelectionChanged += (_, _) => Show(); to.Input.SelectionChanged += (_, _) => Show();
+        from.Input.LostFocus += (_, _) => Show(); to.Input.LostFocus += (_, _) => Show();
+        var swap = Ui.IconButton("refresh-cw", s["SwapCurrencies"]);
+        swap.Click += (_, _) => { var a = from.Value; var b = to.Value; from.Select(b); to.Select(a); Show(); };
+        Show();
+        return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
+            Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result),
+            Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)), 18);
     }
 
     private static Control Tasks(MainWindow w)

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.INTERNET"/>
+  <!-- Only for "Where I am" when changing a place; asked for when the user taps it, never in the background. -->
+  <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+  <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+  <!-- Only when the user turns on "Show trips in the calendar app": the trip calendars are written, never read for anything else. -->
+  <uses-permission android:name="android.permission.READ_CALENDAR"/>
+  <uses-permission android:name="android.permission.WRITE_CALENDAR"/>
+  <!-- Reminders on the trip, only after the user turns them on: notifications, the travel day as a Live Update, alarms
+       that wake the app at the time of the next reminder (on time to the minute when the user allows it), and setting
+       them again after a restart. -->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+  <!-- The trip calendars' account syncs only when the user asks; these set that up. -->
+  <uses-permission android:name="android.permission.READ_SYNC_SETTINGS"/>
+  <uses-permission android:name="android.permission.WRITE_SYNC_SETTINGS"/>
+  <application android:allowBackup="false" android:supportsRtl="true">
+    <profileable android:shell="true"/>
+    <!-- Hands a copy of a ticket or PDF to an app that can show it, with read access for that one file. -->
+    <provider android:name="androidx.core.content.FileProvider" android:authorities="dev.jourfold.app.files" android:exported="false" android:grantUriPermissions="true">
+      <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/shared_files"/>
+    </provider>
+  </application>
+  <!-- Navigate hands a geo: link to the user's maps or navigation app. -->
+  <queries>
+    <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="geo"/></intent>
+    <!-- A receipt is photographed with the camera app; Jourfold itself needs no camera permission. -->
+    <intent><action android:name="android.media.action.IMAGE_CAPTURE"/></intent>
+    <!-- Files such as PDFs open in an app that can show them. -->
+    <intent><action android:name="android.intent.action.VIEW"/><data android:mimeType="*/*"/></intent>
+  </queries>
+</manifest>

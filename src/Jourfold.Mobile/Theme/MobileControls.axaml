@@ -1,0 +1,93 @@
+<!--
+  Touch styles for phones and tablets. Same class names as the desktop's Controls.axaml where the meaning is the same,
+  sized for fingers: body text 15 to 16, nothing below 12, targets at least 48 by 48. Colours come from Jourfold.UI tokens.
+-->
+<Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Style Selector="UserControl.shell, TopLevel">
+    <Setter Property="FontFamily" Value="{StaticResource Font.Ui}"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+  </Style>
+  <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="None"/></Style>
+
+  <!-- Typography -->
+  <Style Selector="TextBlock.h1"><Setter Property="FontSize" Value="24"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.4"/></Style>
+  <Style Selector="TextBlock.h2"><Setter Property="FontSize" Value="20"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.3"/></Style>
+  <Style Selector="TextBlock.h3"><Setter Property="FontSize" Value="17"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.strong"><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.caption"><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
+  <Style Selector="TextBlock.small"><Setter Property="FontSize" Value="12"/></Style>
+  <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
+  <Style Selector="TextBlock.subtle"><Setter Property="Foreground" Value="{DynamicResource Text.Subtle}"/></Style>
+  <Style Selector="TextBlock.time"><Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontFeatures" Value="+tnum"/></Style>
+  <Style Selector="TextBlock.overline"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="LetterSpacing" Value="0.4"/><Setter Property="Foreground" Value="{DynamicResource Text.Subtle}"/></Style>
+  <Style Selector="TextBlock.accent"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
+  <Style Selector="TextBlock.now"><Setter Property="Foreground" Value="{DynamicResource NowLine}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+
+  <!-- Surfaces -->
+  <Style Selector="Border.card"><Setter Property="Background" Value="{DynamicResource Bg.Surface}"/><Setter Property="BorderBrush" Value="{DynamicResource Line}"/><Setter Property="BorderThickness" Value="1"/><Setter Property="CornerRadius" Value="12"/></Style>
+  <Style Selector="Border.bar"><Setter Property="Background" Value="{DynamicResource Bg.Surface}"/><Setter Property="BorderBrush" Value="{DynamicResource Line}"/></Style>
+  <Style Selector="Border.divider"><Setter Property="Background" Value="{DynamicResource Line}"/><Setter Property="Height" Value="1"/></Style>
+  <Style Selector="Border.pill"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="8,2"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/></Style>
+
+  <!-- Buttons: the base is a calm surface; every kind keeps at least a 48 by 48 target. -->
+  <Style Selector="Button">
+    <Setter Property="Background" Value="{DynamicResource Bg.Surface}"/>
+    <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource Line.Strong}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+    <Setter Property="CornerRadius" Value="8"/>
+    <Setter Property="Padding" Value="14,10"/>
+    <Setter Property="MinHeight" Value="48"/>
+    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="FontWeight" Value="SemiBold"/>
+    <Setter Property="VerticalContentAlignment" Value="Center"/>
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Muted}"/></Style>
+  <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+  <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Pressed}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
+  <Style Selector="Button.soft"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.ghost, Button.icon, Button.row, Button.tab, Button.card, Button.date"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.icon"><Setter Property="Padding" Value="12"/><Setter Property="MinWidth" Value="48"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
+  <Style Selector="Button.row"><Setter Property="Padding" Value="16,12"/><Setter Property="CornerRadius" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
+  <Style Selector="Button.card"><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
+  <Style Selector="Button.card:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
+  <Style Selector="Button.chip"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="36"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.chip.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+
+  <!-- Bottom bar: four places and the plus in the middle. -->
+  <Style Selector="Button.tab"><Setter Property="Padding" Value="0,8,0,6"/><Setter Property="MinHeight" Value="56"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="Medium"/></Style>
+  <Style Selector="Button.tab.selected"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="Button.plus"><Setter Property="Width" Value="56"/><Setter Property="Height" Value="56"/><Setter Property="CornerRadius" Value="28"/><Setter Property="Padding" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/><Setter Property="BorderBrush" Value="{DynamicResource Bg.Surface}"/><Setter Property="BorderThickness" Value="3"/></Style>
+  <Style Selector="Button.plus:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Pressed}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
+
+  <!--
+    Touch leaves a button in its pointer-over state after a tap, which Fluent paints grey. On the phone, pointer-over
+    keeps each button's own look; only a press shows. (Hover for mouse users on tablets and DeX comes separately.)
+  -->
+  <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Surface}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="{DynamicResource Line.Strong}"/></Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.plus:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+  <Style Selector="Button.plus:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="BorderBrush" Value="{DynamicResource Bg.Surface}"/></Style>
+  <Style Selector="Button.soft:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.row:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.card:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.date:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.tab.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
+  <Style Selector="Button.chip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.chip.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+  <Style Selector="Button.date.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
+  <Style Selector="Button.tab:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.icon:pressed /template/ ContentPresenter#PART_ContentPresenter, Button.row:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/></Style>
+
+  <!-- Date strip -->
+  <Style Selector="Button.date"><Setter Property="Padding" Value="0,6"/><Setter Property="MinWidth" Value="48"/><Setter Property="MinHeight" Value="56"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="FontWeight" Value="Normal"/></Style>
+  <Style Selector="Button.date.selected"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
+  <Style Selector="Button.date.selected TextBlock"><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
+  <!-- Sidebar on wide screens: a place per row with its name. -->
+  <Style Selector="Button.sidebar"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/><Setter Property="Padding" Value="10,10"/><Setter Property="CornerRadius" Value="10"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="FontWeight" Value="Medium"/></Style>
+  <Style Selector="Button.sidebar.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="Button.sidebar:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.sidebar.selected:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/></Style>
+  <!-- With a mouse (DeX, trackpad) rows, places and cards show the pointer; touch keeps them plain. -->
+  <Style Selector=".mouse Button.row:pointerover /template/ ContentPresenter#PART_ContentPresenter, .mouse Button.tab:pointerover /template/ ContentPresenter#PART_ContentPresenter, .mouse Button.sidebar:pointerover /template/ ContentPresenter#PART_ContentPresenter, .mouse Button.ghost:pointerover /template/ ContentPresenter#PART_ContentPresenter, .mouse Button.icon:pointerover /template/ ContentPresenter#PART_ContentPresenter, .mouse Button.date:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/></Style>
+  <Style Selector=".mouse Button.card:pointerover"><Setter Property="Opacity" Value="0.88"/></Style>
+</Styles>

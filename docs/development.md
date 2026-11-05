@@ -1,6 +1,6 @@
 # Building Jourfold
 
-Install .NET SDK 10.0.401, Git and Python 3. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves the TravelRepo packages named by `TravelRepoVersion` in `Directory.Build.props` from configured NuGet sources.
+Install a .NET 10 SDK, Git and Python 3. `global.json` accepts any .NET 10 SDK from 10.0.100 on and uses the newest one installed; CI and releases use exactly 10.0.401 from `eng/sdk.json`, so published builds stay reproducible. With an SDK from another feature band, building for Android may update `src/Jourfold.Android/packages.lock.json` (the trimming tools follow the SDK); leave that change out of commits. `dotnet format` from older feature bands indents a few lines differently; the CI check with 10.0.401 decides. Check out TravelRepo into `../travelrepo` for local development. Jourfold references its public projects; when the sibling is absent, it resolves the TravelRepo packages named by `TravelRepoVersion` in `Directory.Build.props` from configured NuGet sources.
 
 ```sh
 dotnet restore --locked-mode
@@ -42,16 +42,16 @@ To repeat live validation, follow [GitHub App setup](github-app-setup.md) and th
 
 ## Interface structure
 
-`src/Jourfold.Desktop` is organised by role:
+`src/Jourfold.UI` holds what the desktop and the mobile app share: the design system, icons, the brand mark, the `Icon` control, the `Ui` factory and the UI strings. `src/Jourfold.Desktop` is organised by role:
 
-- `Theme/` holds the design system. `Tokens.axaml` defines colours for light and dark (deep navy) themes, radii and the per-category schedule colours. `Controls.axaml` styles Fluent controls and defines the button, text and surface classes used everywhere. High contrast overrides the same token keys at window level.
-- `Theme/Icons.axaml` and `Theme/Brand.axaml` are generated. Icons come from [Lucide](https://lucide.dev) `lucide-static` 1.51.0 (ISC, see `licenses/lucide`): download the SVGs you need into a folder and run `python3 eng/icons.py <folder> src/Jourfold.Desktop/Theme/Icons.axaml`. Brand drawings are generated from the canonical SVGs with `python3 eng/brand.py assets/branding src/Jourfold.Desktop/Theme/Brand.axaml`.
-- `Controls/` contains the `Icon` control, the `Ui` factory used by code-built views, and inline `Editors` for the inspector.
+- `Theme/` (in `Jourfold.UI`) holds the design system. `Tokens.axaml` defines colours for light and dark (deep navy) themes, radii and the per-category schedule colours. `Controls.axaml` (in the desktop project) styles Fluent controls and defines the button, text and surface classes used everywhere. High contrast overrides the same token keys at window level.
+- `Theme/Icons.axaml` and `Theme/Brand.axaml` are generated. Icons come from [Lucide](https://lucide.dev) `lucide-static` 1.51.0 (ISC, see `licenses/lucide`): download the SVGs you need into a folder and run `python3 eng/icons.py <folder> src/Jourfold.UI/Theme/Icons.axaml`. Brand drawings are generated from the canonical SVGs with `python3 eng/brand.py assets/branding src/Jourfold.UI/Theme/Brand.axaml`.
+- `Controls/` contains the inline `Editors` for the inspector; the `Icon` control and the `Ui` factory are in `Jourfold.UI/Controls`.
 - `Views/` builds the shell, library, timetable, list, map, collection pages, history, variants and inspector from the view model. Views never pick colours directly; they reference tokens.
 - `Dialogs/` implements `IInteraction` with in-window sheets. Tests replace it with `TestInteraction`.
 - `MainViewModel*.cs` is split by concern: trips, editing, versions, sync and settings. Domain rules stay in TravelRepo; entity building for Quick Add and the sample trip live in `Jourfold.Application`.
 
-Strings live in `Strings/en.json` and `Strings/de.json`. Both files must have the same keys; a test checks parity.
+Strings live in `src/Jourfold.UI/Strings/en.json` and `de.json`, shared by the desktop and the mobile app. Both files must have the same keys; a test checks parity.
 
 ## UI screenshots
 

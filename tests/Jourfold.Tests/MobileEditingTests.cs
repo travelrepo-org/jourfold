@@ -1,0 +1,223 @@
+using System.Text.Json.Nodes;
+using Avalonia.Automation;
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.VisualTree;
+using Jourfold.Mobile;
+using Jourfold.Mobile.Controls;
+using NodaTime;
+using TravelRepo.Core;
+using TravelRepo.Git;
+using Xunit;
+namespace Jourfold.Tests;
+
+/// <summary>Editing on the phone what a trip needs beyond its plans: bookings, costs, people, the trip, and groups.</summary>
+public sealed class MobileEditingTests : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-mobile-edit-" + Guid.NewGuid());
+    public void Dispose() => TestFiles.Delete(root);
+
+    private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+
+    private async Task<(MobileSession Session, Window Window)> OpenAsync()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        Probe.Layout();
+        return (session, window);
+    }
+
+    private static Sheet Form(Window window) { Probe.Layout(); return window.GetVisualDescendants().OfType<Sheet>().First(); }
+    private static T Field<T>(Window window, string name) where T : Control => Probe.All<T>(Form(window)).First(c => AutomationProperties.GetName(c) == name);
+    private static void Tap(Window window, string label) { Probe.Click(Form(window), label); Probe.Layout(); }
+    private static async Task PickAsync(MobileSession session, string label)
+    {
+        var action = session.Menu!.Actions.First(a => a.Label.Contains(label, StringComparison.Ordinal));
+        await session.ChooseAsync(action, null); Probe.Layout();
+    }
+
+    [AvaloniaFact]
+    public async Task ABookingIsAddedWithItsPlansAndChangedLater()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var temple = session.Trip!.Entities.Values.First(e => e.Title == "Senso-ji and Asakusa");
+            session.ShowQuickAdd("booking");
+            Field<TextBox>(window, "Title").Text = "Temple tour";
+            Field<TextBox>(window, "Provider").Text = "City Walks";
+            Field<TextBox>(window, "Booking number").Text = "CW-204";
+            Tap(window, "Confirmed");
+            Field<TextBox>(window, "Amount").Text = "48,50";
+            Field<TextBox>(window, "Other").Text = "usd";
+            Tap(window, "Link a plan");
+            await PickAsync(session, "Senso-ji and Asakusa");
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Type == "booking" && e.Title == "Temple tour"));
+            await Probe.Until(() => session.Trip!.Entities.Values.Single(e => e.Title == "Temple tour").Data["provider"] is not null);
+
+            var booking = session.Trip!.Entities.Values.Single(e => e.Title == "Temple tour");
+            Assert.Equal(("City Walks", "CW-204", "confirmed"), (booking.Data["provider"]!["name"]!.ToString(), booking.Data["reference"]!.ToString(), booking.Data["status"]!.ToString()));
+            Assert.Equal(("48.50", "USD"), (booking.Data["price"]!["value"]!.ToString(), booking.Data["price"]!["currency"]!.ToString()));
+            Assert.Equal(booking.Id, TripCommands.BookingOf(session.Trip!.Find(temple.Id)!));
+
+            // Later the tour is cancelled and the plan no longer belongs to it; free cancellation was until the day before.
+            session.ShowEditor(booking.Id);
+            Tap(window, "Cancelled");
+            Field<DatePicker>(window, "Free cancellation until").SelectedDate = new DateTimeOffset(2027, 5, 15, 0, 0, 0, TimeSpan.Zero);
+            Tap(window, "Remove Senso-ji and Asakusa from the booking");
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(booking.Id)!.Data["status"]?.ToString() == "cancelled");
+            booking = session.Trip!.Find(booking.Id)!;
+            Assert.Equal(("2027-05-15T23:59:00", "Asia/Tokyo"), (booking.Data["cancellation"]!["free_until"]!["local"]!.ToString(), booking.Data["cancellation"]!["free_until"]!["timezone"]!.ToString()));
+            Assert.Null(TripCommands.BookingOf(session.Trip!.Find(temple.Id)!));
+            Assert.DoesNotContain(SemanticValidation.Validate(session.Trip!), d => d.Severity == Severity.Error);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AnExpenseSaysWhoPaidInWhichCurrencyAndWhatItBelongsTo()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var people = session.Trip!.Entities.Values.Where(e => e.Type == "person").OrderBy(p => p.Title, StringComparer.Ordinal).ToArray();
+            var other = people.First(p => p.Id != session.Me!.Id);
+            session.ShowQuickAdd("expense");
+            Field<TextBox>(window, "Title").Text = "Museum tickets";
+            Field<TextBox>(window, "Amount").Text = "3600";
+            Tap(window, "JPY");
+            // The user is chosen as the payer; the other traveller paid half of it, so both are named.
+            Tap(window, other.Title);
+            Tap(window, "Link to a plan or booking");
+            await PickAsync(session, "teamLab Planets");
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Museum tickets" && e.Data["related"] is not null));
+            var expense = session.Trip!.Entities.Values.Single(e => e.Title == "Museum tickets");
+            Assert.Equal(("3600.00", "JPY"), (expense.Data["amount"]!["value"]!.ToString(), expense.Data["amount"]!["currency"]!.ToString()));
+            Assert.Equal(new[] { session.Me!.Id, other.Id }.Order(), Jourfold.Application.DetailEdits.People(expense, "paid_by").Order());
+            Assert.Equal("teamLab Planets", session.Trip!.Find(Guid.Parse(expense.Data["related"]![0]!["id"]!.ToString()))!.Title);
+
+            // Edited: only an estimate so far, and paid by the other traveller alone.
+            session.ShowEditor(expense.Id);
+            Field<ToggleSwitch>(window, "Only estimated so far").IsChecked = true;
+            Tap(window, session.Me!.Title + " (Me)");
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(expense.Id)!.Data["estimated"]?.GetValue<bool>() == true);
+            Assert.Equal([other.Id], Jourfold.Application.DetailEdits.People(session.Trip!.Find(expense.Id)!, "paid_by"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task APlanIsForChosenPeopleAndAStepForItsGroup()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var trip = session.Trip!;
+            var dinner = trip.Entities.Values.First(e => e.Title == "Dinner at Omoide Yokocho");
+            var sam = trip.Entities.Values.First(e => e.Type == "person" && e.Title.StartsWith("Sam", StringComparison.Ordinal));
+            var before = ScheduleQueries.Participants(trip, dinner).Select(p => p.Id).ToHashSet();
+            session.ShowEditor(dinner.Id);
+            Tap(window, sam.Title);
+            Tap(window, "Save");
+            // A tap on a person adds or removes them.
+            var expected = before.ToHashSet(); if (!expected.Remove(sam.Id)) expected.Add(sam.Id);
+            await Probe.Until(() => ScheduleQueries.Participants(session.Trip!, session.Trip!.Find(dinner.Id)!).Select(p => p.Id).ToHashSet().SetEquals(expected));
+
+            // Back to everyone: the field goes.
+            session.ShowEditor(dinner.Id);
+            Tap(window, "Everyone");
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(dinner.Id)!.Data["participants"] is null);
+
+            // A step of the sample's day trip is for the group's people until it is given its own.
+            var falls = session.Trip!.Entities.Values.First(e => TripQueries.Parent(session.Trip!, e.Id) is not null);
+            session.ShowEditor(falls.Id);
+            Assert.True(Probe.All<Avalonia.Controls.Button>(Form(window)).OfType<Jourfold.UI.ChoiceButton>().Single(b => AutomationProperties.GetName(b) == "As the group").IsSelected);
+            Tap(window, sam.Title);
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(falls.Id)!.Data["participants"]?["inherit"]?.GetValue<bool>() == false);
+            session.ShowEditor(falls.Id);
+            Tap(window, "As the group");
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(falls.Id)!.Data["participants"]?["inherit"]?.GetValue<bool>() == true);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AGroupGetsANewStepAndAnExistingPlanAndLetsOneGo()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("group");
+            Field<TextBox>(window, "Title").Text = "Day in Kamakura";
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Day in Kamakura"));
+            var group = session.Trip!.Entities.Values.Single(e => e.Title == "Day in Kamakura");
+            // The new group opens, to add its steps.
+            Assert.Equal((Overlay.Details, group.Id), (session.Showing, session.OverlayItem));
+
+            session.ShowQuickAdd(null, group.Id);
+            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "New step in Day in Kamakura");
+            Field<TextBox>(window, "Title").Text = "Great Buddha";
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Great Buddha"));
+            var buddha = session.Trip!.Entities.Values.Single(e => e.Title == "Great Buddha");
+            Assert.Equal(group.Id, TripQueries.Parent(session.Trip!, buddha.Id)!.Id);
+            Assert.Equal("true", buddha.Data["participants"]!["inherit"]!.ToString());
+
+            var ramen = session.Trip!.Entities.Values.First(e => e.Title == "Dinner at Omoide Yokocho");
+            await session.NestAsync(ramen.Id, group.Id);
+            Assert.Equal(group.Id, TripQueries.Parent(session.Trip!, ramen.Id)!.Id);
+            Assert.Equal(2, ((JsonArray)session.Trip!.Find(group.Id)!.Data["children"]!).Count);
+            await session.NestAsync(ramen.Id, null);
+            Assert.Null(TripQueries.Parent(session.Trip!, ramen.Id));
+            Assert.DoesNotContain(SemanticValidation.Validate(session.Trip!), d => d.Code.StartsWith("nest.", StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheTripGetsATitleAndDatesAndATraveller()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            await session.SaveTripAsync("Spring in Japan, longer", new LocalDate(2027, 5, 13), new LocalDate(2027, 5, 23));
+            Assert.Equal("Spring in Japan, longer", session.Trip!.Manifest.Title);
+            Assert.Equal((new LocalDate(2027, 5, 13), new LocalDate(2027, 5, 23)), TripQueries.EffectiveDates(session.Trip!));
+            Assert.NotNull(session.Agenda.Find(new LocalDate(2027, 5, 13)));
+            Assert.Equal("mobile.dates", (await Assert.ThrowsAsync<DomainException>(() => session.SaveTripAsync("Trip", new LocalDate(2027, 5, 20), new LocalDate(2027, 5, 10)))).Code);
+
+            // Without dates the trip follows its plans again.
+            await session.SaveTripAsync("Spring in Japan", null, null);
+            Assert.Null(session.Agenda.Find(new LocalDate(2027, 5, 13)));
+
+            session.ShowPage("trip"); Probe.Layout();
+            Assert.Contains(window.GetVisualDescendants().OfType<TextBlock>(), t => t.Text == "First day");
+
+            var kim = await session.AddPersonAsync("Kim");
+            Assert.Contains(kim.ToString(), session.Trip!.Manifest.Data["participants"]!.ToJsonString());
+            session.ShowEditor(session.Trip!.Entities.Values.First(e => e.Title == "Dinner at Omoide Yokocho").Id);
+            Assert.Contains(Probe.All<Avalonia.Controls.Button>(Form(window)), b => AutomationProperties.GetName(b) == "Kim");
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
+
+    private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore
+    {
+        private readonly Dictionary<string, string> values = [];
+        public Task<string?> ReadAsync(string key, CancellationToken ct = default) => Task.FromResult(values.GetValueOrDefault(key));
+        public Task WriteAsync(string key, string value, CancellationToken ct = default) { values[key] = value; return Task.CompletedTask; }
+        public Task DeleteAsync(string key, CancellationToken ct = default) { values.Remove(key); return Task.CompletedTask; }
+    }
+}

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert the canonical brand SVGs into Avalonia DrawingImage resources.
 
-Usage: python3 eng/brand.py assets/branding src/Jourfold.Desktop/Theme/Brand.axaml
+Usage: python3 eng/brand.py assets/branding src/Jourfold.UI/Theme/Brand.axaml
 
 The SVG files stay canonical. This generates vector drawings so the application renders the
 mark and wordmark sharply at every scale without an SVG runtime or the Outfit font.

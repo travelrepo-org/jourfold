@@ -32,6 +32,62 @@ public sealed class GitHubAccountTests : IDisposable
         }
     }
 
+    private sealed class DiscoveryHandler : HttpMessageHandler
+    {
+        public bool Installed { get; set; }
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(TravelRepo.Core.Entity.CreateTrip("Lisbon"))));
+            static string Repo(string name) => "{\"full_name\":\"alex/" + name + "\",\"clone_url\":\"https://github.com/alex/" + name + ".git\",\"html_url\":\"https://github.com/alex/" + name + "\",\"private\":true,\"size\":3}";
+            var body = request.RequestUri!.AbsolutePath switch
+            {
+                "/user/installations" => Installed ? "{\"total_count\":1,\"installations\":[{\"id\":5}]}" : "{\"total_count\":0,\"installations\":[]}",
+                "/user/installations/5/repositories" => "{\"total_count\":2,\"repositories\":[" + Repo("lisbon") + "," + Repo("notes") + "]}",
+                "/repos/alex/lisbon/contents/travel.yaml" => "{\"content\":\"" + trip + "\"}",
+                _ => null
+            };
+            return Task.FromResult(body is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task FindingTripsLeadsToChoosingRepositoriesAndShowsProgress()
+    {
+        var secrets = new MemorySecrets { Values = { ["github.user-token"] = "token" } }; var handler = new DiscoveryHandler();
+        using var http = new HttpClient(handler); using var store = new LocalStore(Path.Combine(root, "state"));
+        var interaction = new TestInteraction();
+        using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, secrets, "client", "jourfold"));
+        // Signed in, but the App is not installed anywhere: Jourfold offers its installation page.
+        await vm.DiscoverGitHubCommand.ExecuteAsync(null);
+        Assert.Equal(["https://github.com/apps/jourfold/installations/new"], interaction.Opened);
+
+        handler.Installed = true; interaction.Answers.Enqueue(null);
+        await vm.DiscoverGitHubCommand.ExecuteAsync(null);
+        Assert.Contains(interaction.Progress, p => p.Total == 2 && p.Done == 2 && p.Text == "Checking repositories: 2 of 2");
+        Assert.Empty(interaction.Errors);
+    }
+
+    [AvaloniaFact]
+    public async Task TheProgressSheetShowsTheStepsAndCancelStopsTheWork()
+    {
+        var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Show(); Probe.Layout();
+        try
+        {
+            var reported = new TaskCompletionSource();
+            var run = w.Model.Interaction.ProgressAsync("Find trips on GitHub", async (progress, ct) =>
+            {
+                progress.Report(new(37, 412, "Checking repositories: 37 of 412")); reported.SetResult();
+                await Task.Delay(Timeout.Infinite, ct); return "done";
+            });
+            await reported.Task; await Probe.Until(() => Probe.All<TextBlock>(Probe.Sheet(w)).Any(t => t.Text == "Checking repositories: 37 of 412"));
+            var bar = Probe.All<ProgressBar>(Probe.Sheet(w)).Single();
+            Assert.False(bar.IsIndeterminate); Assert.Equal(37, bar.Value); Assert.Equal(412, bar.Maximum);
+            Probe.Click(Probe.Sheet(w), w.Model.Strings["Cancel"]);
+            Assert.Null(await run.WaitAsync(TimeSpan.FromSeconds(3)));
+        }
+        finally { w.Close(); }
+    }
+
     [Fact]
     public async Task AccountIsRememberedForOfflineUseAndDisconnectForgetsIt()
     {

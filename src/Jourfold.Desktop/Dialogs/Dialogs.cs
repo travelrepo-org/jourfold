@@ -64,6 +64,27 @@ public sealed partial class Dialogs(Window owner, Func<Localization> strings) : 
         return await sheet.ShowDialog<bool>(owner);
     }
 
+    public async Task<T?> ProgressAsync<T>(string title, Func<IProgress<WorkProgress>, CancellationToken, Task<T>> work)
+    {
+        using var cancel = new CancellationTokenSource();
+        var bar = new ProgressBar { IsIndeterminate = true, Minimum = 0, Height = 6, MinHeight = 6 };
+        var text = Ui.Text(S["Loading"], "muted");
+        var stop = Action("Cancel");
+        var sheet = new DialogSheet(title, Ui.V(12, bar, text, Footer(stop)), 480) { ShowClose = false };
+        stop.Click += (_, _) => sheet.Close();
+        var running = work(new Progress<WorkProgress>(p =>
+        {
+            bar.IsIndeterminate = p.Total == 0; bar.Maximum = Math.Max(1, p.Total); bar.Value = p.Done; text.Text = p.Text;
+            Avalonia.Automation.AutomationProperties.SetName(bar, p.Text);
+        }), cancel.Token);
+        _ = running.ContinueWith(_ => sheet.Close(), TaskScheduler.FromCurrentSynchronizationContext());
+        await sheet.ShowDialog<object>(owner);
+        // Cancel and Escape close the sheet before the work is done.
+        if (!running.IsCompleted) cancel.Cancel();
+        try { return await running; }
+        catch (OperationCanceledException) when (cancel.IsCancellationRequested) { return default; }
+    }
+
     public async Task ShowAsync(string title, string message)
     {
         var close = Action("Close", true); var copy = Ui.Button(S["Copy"], "copy", "ghost");

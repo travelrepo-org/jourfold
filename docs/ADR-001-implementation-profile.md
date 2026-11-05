@@ -1,6 +1,6 @@
 # ADR 001: Explicit v1 implementation profile
 
-The repositories target .NET 10.0.401 and use the boundaries in the architecture document.
+The repositories target .NET 10 (CI and releases build with SDK 10.0.401, pinned in `eng/sdk.json`) and use the boundaries in the architecture document.
 
 Entity data is exposed as a lossless `Entity` envelope with typed identity, time, money, diagnostics, snapshots and commands. The JSON-compatible envelope preserves unknown core and extension fields. JSON Schema 2020-12 artifacts constrain recognized types. This avoids a second DTO serialization path that could lose future data. A richer typed facade can be added without changing the file format.
 

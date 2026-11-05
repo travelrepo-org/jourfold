@@ -23,7 +23,9 @@ public static class DocumentPreviews
     public static bool IsMail(Entity document) => Mail.IsMail(Media(document));
     public static bool IsImage(Entity document) => Media(document).StartsWith("image/", StringComparison.Ordinal);
     /// <summary>Whether Jourfold shows the file itself instead of handing it to another program.</summary>
-    public static bool CanView(Entity document) => IsMail(document) || IsImage(document) || IsPdf(document) && PdfiumDocument.IsAvailable;
+    public static bool CanView(Entity document) => IsMail(document) || IsImage(document) || IsPass(document) || IsPdf(document) && PdfiumDocument.IsAvailable;
+    /// <summary>A Wallet pass (.pkpass), such as a boarding pass, shown with its barcode.</summary>
+    public static bool IsPass(Entity document) => Media(document) == WalletPass.MediaType;
 
     public static byte[]? Bytes(MainViewModel m, Entity document)
     {

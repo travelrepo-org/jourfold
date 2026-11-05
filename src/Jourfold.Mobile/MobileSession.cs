@@ -1,0 +1,654 @@
+using Jourfold.Application;
+using NodaTime;
+using TravelRepo.Core;
+using TravelRepo.Repository;
+
+namespace Jourfold.Mobile;
+
+/// <summary>A trip folder on this device, as the trip list shows it.</summary>
+public sealed record TripCard(string Path, TripSnapshot Trip, TravelRepository Repository, LocalDate? Start, LocalDate? End, IReadOnlyList<string> Travellers, IReadOnlyList<string> Places);
+
+/// <summary>The four places of the phone's bottom bar.</summary>
+public enum MobileTab { Today, Plan, Map, More }
+
+/// <summary>What is open over the page: an item's details, Quick Add, the editor for an item, a place, or what another app shared.</summary>
+public enum Overlay { None, Details, QuickAdd, Editor, Place, Share }
+
+/// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
+public sealed record Question(string Text, string Action, Func<Task> Run);
+
+/// <summary>One entry of a long-press menu. It gets the window, for the clipboard and for handing links to other apps.</summary>
+public sealed record MenuAction(string Label, string Icon, Func<Avalonia.Controls.TopLevel?, Task> Run, bool Danger = false);
+
+/// <summary>A file shown in the viewer: a document of the trip or an attachment of an e-mail.</summary>
+public sealed record ShownFile(string Name, string MediaType, byte[] Bytes);
+
+/// <summary>The menu a long press opens, with what it is for as its title.</summary>
+public sealed record ActionMenu(string Title, string? Detail, IReadOnlyList<MenuAction> Actions);
+
+/// <summary>
+/// What the phone app shows and where the user is: the trips on this device, the open trip with its day plan, the tab,
+/// the day and the selected item. Views read it and render; every change raises <see cref="Changed"/>.
+/// </summary>
+public sealed partial class MobileSession : IDisposable
+{
+    public MobileHost Host { get; }
+    public Localization Strings { get; }
+    public IReadOnlyList<TripCard> Trips { get; private set; } = [];
+    /// <summary>Whether the trip folders have been read once, so an empty <see cref="Trips"/> means there are none.</summary>
+    public bool TripsLoaded { get; private set; }
+    public Workspace? Workspace { get; private set; }
+    public TripSnapshot? Trip => Workspace?.State.Trip;
+    public Agenda Agenda { get; private set; } = new([], []);
+    public MobileTab Tab { get; private set; } = MobileTab.Today;
+    public LocalDate SelectedDate { get; private set; }
+    public Guid? SelectedItem { get; private set; }
+    public IReadOnlySet<Guid> ExpandedGroups => expanded;
+    public event Action? Changed;
+    private readonly HashSet<Guid> expanded = [];
+
+    public MobileSettings Settings { get; }
+    /// <summary>Text typed into fields on pages, by field, so it survives the page being drawn again.</summary>
+    public Dictionary<string, string?> Drafts { get; } = [];
+    /// <summary>The draft key of the field to give the focus once the page is drawn again, such as a new list's first line.</summary>
+    public string? FocusDraft { get; set; }
+    /// <summary>A page under More, such as "bookings" or "sync"; null for More itself.</summary>
+    public string? Page { get; private set; }
+    public IReadOnlyList<TravelRepo.Git.VersionEntry> History { get; private set; } = [];
+    /// <summary>Changes in the trip folder that are not in a version yet.</summary>
+    public bool HasChanges { get; private set; }
+    public DateTimeOffset? LastVersion { get; private set; }
+    /// <summary>How long the trip has to be quiet before changes become a version on their own.</summary>
+    public static readonly TimeSpan QuietTime = TimeSpan.FromMinutes(2);
+    private readonly SynchronizationContext? context = SynchronizationContext.Current;
+    private Timer? quiet;
+    private readonly SemaphoreSlim saving = new(1, 1);
+    private Task closing = Task.CompletedTask;
+
+    public MobileSession(MobileHost host)
+    {
+        Host = host; Strings = new Localization(host.Language) { Device = host.Device };
+        Directory.CreateDirectory(host.TripsRoot);
+        Settings = MobileSettings.Load(Path.Combine(host.DataRoot, "settings.json"));
+    }
+
+    public Instant Now => Host.Clock.GetCurrentInstant();
+    public DateTimeZone PhoneZone => Host.PhoneZone();
+    public LocalDate PhoneToday => Now.InZone(PhoneZone).Date;
+
+    /// <summary>Reads the trip folders on this device. Folders that are not trips are left out.</summary>
+    public async Task LoadTripsAsync(CancellationToken ct = default)
+    {
+        var cards = new List<TripCard>();
+        foreach (var folder in Directory.GetDirectories(Host.TripsRoot).Order(StringComparer.Ordinal))
+        {
+            if (!File.Exists(Path.Combine(folder, "travel.yaml"))) continue;
+            try
+            {
+                var repository = new TravelRepository(folder, Path.Combine(Host.RecoveryRoot, Path.GetFileName(folder)));
+                var trip = (await repository.ReadAsync(ct)).Trip;
+                var (start, end) = TripQueries.EffectiveDates(trip);
+                cards.Add(new(folder, trip, repository, start, end, trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray(), TripSummaries.Destinations(trip) is { Count: > 0 } towns ? towns : TripSummaries.PlaceNames(trip)));
+            }
+            catch (DomainException) { }
+        }
+        Trips = cards.OrderByDescending(c => c.Start ?? LocalDate.MinIsoValue).ToArray();
+        TripsLoaded = true;
+        Changed?.Invoke();
+        // A trip added or removed adds or removes its calendar.
+        UpdateCalendarSoon();
+    }
+
+    /// <summary>Creates the "Spring in Japan" sample trip, starting on the next suitable Friday.</summary>
+    public async Task<string> CreateSampleAsync(LocalDate? start = null, CancellationToken ct = default)
+    {
+        var path = Path.Combine(Host.TripsRoot, "Spring in Japan");
+        for (var i = 2; Directory.Exists(path); i++) path = Path.Combine(Host.TripsRoot, "Spring in Japan " + i);
+        await SampleTrip.CreateAsync(path, Host.Git, start ?? SampleTrip.SuggestedStart(PhoneToday), "Alex", "alex@example.invalid", Path.Combine(Host.RecoveryRoot, Path.GetFileName(path)), ct);
+        await LoadTripsAsync(ct);
+        return path;
+    }
+
+    public async Task OpenAsync(string path, CancellationToken ct = default)
+    {
+        Close();
+        var workspace = new Workspace(path, Host.Git);
+        // Not while the system's "Sync now" is moving this trip forward.
+        await SystemCalendars.TripGate.WaitAsync(ct);
+        try { await workspace.OpenAsync(ct); }
+        finally { SystemCalendars.TripGate.Release(); }
+        if (Settings.Name is { Length: > 0 } name && Settings.Email is { Length: > 0 } email) await workspace.Git.SetIdentityAsync(name, email, ct);
+        Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
+        Agenda = TripAgenda.Build(workspace.State.Trip);
+        Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
+        SelectedDate = Agenda.Find(PhoneToday) is not null ? PhoneToday : Agenda.Days.FirstOrDefault()?.Date ?? PhoneToday;
+        await RefreshRemoteAsync(ct);
+        // Changes left from the last time, for example when Android stopped the app, become a version soon.
+        if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) NoteChange();
+        // Something shared before a trip was chosen goes into this one.
+        if (Incoming is not null) Showing = Overlay.Share;
+        Changed?.Invoke();
+        // Others may have changed the trip since it was last open here.
+        if (GitHubLogin is not null && Remote is not null) _ = SyncAsync(quiet: true, CancellationToken.None);
+        _ = UpdateWeatherAsync(CancellationToken.None);
+    }
+
+    /// <summary>Back to the trip list. Open changes are saved as a version first.</summary>
+    public void Close()
+    {
+        if (Workspace is null) return;
+        var workspace = Workspace; workspace.Changed -= OnWorkspaceChanged; Workspace = null;
+        if (HasChanges) closing = SaveAndDisposeAsync(workspace); else workspace.Dispose();
+        Reset();
+        // A trip opened before the list was ever shown leaves the list to be read now.
+        if (!TripsLoaded) _ = LoadTripsAsync();
+        if (!GitHubLoaded) _ = LoadGitHubAsync();
+    }
+
+    private void Reset()
+    {
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
+        viewing.Clear(); FileProblem = null; TaxiCard = null;
+        Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
+    }
+
+    private async Task SaveAndDisposeAsync(Workspace workspace)
+    {
+        try
+        {
+            if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync()))
+                await workspace.Git.CreateVersionAsync(Strings["AutoVersion"], "auto-version");
+        }
+        catch (DomainException) { }
+        finally { workspace.Dispose(); }
+    }
+
+    private void OnWorkspaceChanged(object? sender, EventArgs e)
+    {
+        if (Workspace is null) return;
+        Agenda = TripAgenda.Build(Workspace.State.Trip); Changed?.Invoke();
+        UpdateCalendarSoon();
+    }
+
+    /// <summary>Goes to a tab from the bottom bar, rail or sidebar; the way back starts there.</summary>
+    public void ShowTab(MobileTab tab) { Tab = tab; Page = null; trail.Clear(); Changed?.Invoke(); }
+
+    /// <summary>
+    /// Opens a page under More as a place of its own, from More, the rail or the sidebar: back leads to More. The sync
+    /// page appears once its versions are read, so it is drawn only once.
+    /// </summary>
+    public void ShowPage(string? page) { trail.Clear(); Go(page); }
+
+    /// <summary>Opens a page under More from somewhere else, such as Today or another page; back returns there.</summary>
+    public void OpenPage(string page)
+    {
+        if ((Tab, Page) != (MobileTab.More, page)) trail.Add((Tab, Page));
+        Go(page);
+    }
+
+    private void Go(string? page)
+    {
+        Tab = MobileTab.More; Page = page;
+        if (page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true);
+        else Changed?.Invoke();
+        if (page == "converter") _ = FetchRatesAsync();
+    }
+
+    /// <summary>Draws the page again, for example after choosing a currency.</summary>
+    public void Redraw() => Changed?.Invoke();
+
+    /// <summary>Where the pages opened from, most recent last.</summary>
+    private readonly List<(MobileTab Tab, string? Page)> trail = [];
+
+    /// <summary>Back from a page: to where it was opened from, otherwise to More. False on a tab itself.</summary>
+    public bool GoBack()
+    {
+        if (trail.Count > 0)
+        {
+            (Tab, Page) = trail[^1]; trail.RemoveAt(trail.Count - 1);
+            if (Page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true); else Changed?.Invoke();
+            return true;
+        }
+        if (Page is null) return false;
+        Go(null);
+        return true;
+    }
+
+    /// <summary>What the back button of a page says: the tab it returns to, More, or plain Back for another page.</summary>
+    public string BackLabel => trail.Count == 0 ? Strings["More"] : trail[^1] switch
+    {
+        (_, "packing") => Strings["Packing"],
+        (_, not null) => Strings["Back"],
+        (MobileTab.Today, _) => Strings["Today"],
+        (MobileTab.Plan, _) => Strings["Plan"],
+        (MobileTab.Map, _) => Strings["Map"],
+        _ => Strings["More"]
+    };
+
+    /// <summary>Saves name and email; versions made from now on carry them.</summary>
+    public async Task SaveSettingsAsync(string? name, string? email, CancellationToken ct = default)
+    {
+        Settings.Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
+        Settings.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
+        Settings.Save();
+        if (Workspace is { } workspace && Settings.Name is { } n && Settings.Email is { } e) await workspace.Git.SetIdentityAsync(n, e, ct);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Reads the versions and whether there are open changes; the page is drawn again only if they differ.</summary>
+    public async Task RefreshVersionsAsync(CancellationToken ct = default) => await RefreshVersionsAsync(false, ct);
+
+    private async Task RefreshVersionsAsync(bool force, CancellationToken ct = default)
+    {
+        if (Workspace is not { } workspace) return;
+        var before = (History.FirstOrDefault()?.Commit, HasChanges);
+        History = await workspace.Git.HistoryAsync(ct);
+        if (History.Count > 0 && DateTimeOffset.TryParse(History[0].Timestamp, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var last)) LastVersion = last;
+        HasChanges = !string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct));
+        if (force || before != (History.FirstOrDefault()?.Commit, HasChanges)) Changed?.Invoke();
+    }
+
+    /// <summary>Saves the trip's current state as a version with the user's own message.</summary>
+    public async Task CreateVersionAsync(string message, CancellationToken ct = default)
+    {
+        if (Workspace is not { } workspace) return;
+        quiet?.Dispose(); quiet = null;
+        await workspace.Git.CreateVersionAsync(message.Trim(), "user-version", ct);
+        Drafts.Remove("version");
+        LastVersion = DateTimeOffset.Now;
+        await RefreshVersionsAsync(force: true, ct);
+    }
+
+    /// <summary>
+    /// Called after every change: once the trip has been quiet for <see cref="QuietTime"/>, the changes become a
+    /// version on their own (specs/mobile/DECISIONS.md, 4). Leaving the app does the same right away.
+    /// </summary>
+    private void NoteChange()
+    {
+        HasChanges = true;
+        quiet?.Dispose();
+        quiet = new Timer(_ => Post(() => _ = AutoSaveAsync()), null, QuietTime, Timeout.InfiniteTimeSpan);
+    }
+
+    private void Post(Action action) { if (context is null) action(); else context.Post(_ => action(), null); }
+
+    /// <summary>
+    /// Turns open changes into a version and, when signed in, syncs the trip. The platform app calls it when the app
+    /// goes to the background.
+    /// </summary>
+    public async Task AutoSaveAsync(CancellationToken ct = default)
+    {
+        await SaveChangesAsync(ct);
+        if (GitHubLogin is not null) await SyncAsync(quiet: true, ct);
+    }
+
+    /// <summary>Turns open changes into a version. Nothing happens when there are none.</summary>
+    public async Task SaveChangesAsync(CancellationToken ct = default)
+    {
+        quiet?.Dispose(); quiet = null;
+        if (Workspace is not { } workspace) return;
+        // The timer, leaving the app and sync can ask at the same moment; one version is enough.
+        await saving.WaitAsync(ct);
+        try
+        {
+            if (string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) { HasChanges = false; return; }
+            await workspace.Git.CreateVersionAsync(Strings["AutoVersion"], "auto-version", ct);
+            LastVersion = DateTimeOffset.Now; HasChanges = false;
+            if (Page == "sync") History = await workspace.Git.HistoryAsync(ct);
+        }
+        catch (DomainException) { HasChanges = true; }
+        finally { saving.Release(); Changed?.Invoke(); }
+    }
+
+    public void ShowDate(LocalDate date) { SelectedDate = date; SelectedItem = null; Changed?.Invoke(); }
+    public void Select(Guid? item) { SelectedItem = SelectedItem == item ? null : item; Changed?.Invoke(); }
+    public void ToggleGroup(Guid group) { if (!expanded.Remove(group)) expanded.Add(group); Changed?.Invoke(); }
+
+    /// <summary>Moves the plan one day back or forward within the trip's days.</summary>
+    public void StepDay(int direction)
+    {
+        var days = Agenda.Days; var index = days.ToList().FindIndex(d => d.Date == SelectedDate);
+        var next = index + direction;
+        if (next >= 0 && next < days.Count) ShowDate(days[next].Date);
+    }
+
+    public Overlay Showing { get; private set; }
+    public Guid? OverlayItem { get; private set; }
+    public Question? Asking { get; private set; }
+    /// <summary>The long-press menu that is open, if any.</summary>
+    public ActionMenu? Menu { get; private set; }
+    /// <summary>The files open in the viewer, the one shown last; an attachment opened from an e-mail goes on top.</summary>
+    public IReadOnlyList<ShownFile> Viewing => viewing;
+    private readonly List<ShownFile> viewing = [];
+
+    /// <summary>The agenda line of an item: a day's line, a step of a group or an unscheduled item.</summary>
+    public AgendaEntry? Entry(Guid id) => Agenda.Days.SelectMany(d => d.Entries).SelectMany(e => e.Steps.Prepend(e)).Concat(Agenda.Unscheduled)
+        .FirstOrDefault(e => e.Item.Id == id && e.Role == AgendaRole.Item);
+
+    /// <summary>Opens an item's details from a list, the plan or a page. The way back through linked items starts here.</summary>
+    public void ShowDetails(Guid id) { detailTrail.Clear(); Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke(); }
+
+    /// <summary>Opens an item linked from the details on show, such as its booking or a step; back returns to them.</summary>
+    public void FollowDetails(Guid id)
+    {
+        if (Showing == Overlay.Details && OverlayItem is { } from && from != id) detailTrail.Add(from);
+        else if (Showing != Overlay.Details) detailTrail.Clear();
+        Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke();
+    }
+
+    /// <summary>The details opened before the ones on show, most recent last.</summary>
+    private readonly List<Guid> detailTrail = [];
+    /// <summary>The details the editor was opened from; cancelling returns to them.</summary>
+    private Guid? editorFrom;
+
+    /// <summary>Whether the details on show were opened from other details that still exist.</summary>
+    public bool CanGoBackInDetails => Showing == Overlay.Details && detailTrail.Any(id => Trip?.Find(id) is not null);
+
+    /// <summary>Back to the details these were opened from, skipping deleted items; closes the details when there are none.</summary>
+    public void DetailsBack()
+    {
+        while (detailTrail.Count > 0)
+        {
+            var id = detailTrail[^1]; detailTrail.RemoveAt(detailTrail.Count - 1);
+            if (Trip?.Find(id) is null) continue;
+            Showing = Overlay.Details; OverlayItem = id; SelectedItem = id; Changed?.Invoke();
+            return;
+        }
+        CloseOverlay();
+    }
+
+    /// <summary>Opens Quick Add; <paramref name="kind"/> picks what to add, <paramref name="into"/> the group a new step joins.</summary>
+    public void ShowQuickAdd(string? kind = null, Guid? into = null) { QuickAddKind = kind; QuickAddInto = into; Showing = Overlay.QuickAdd; OverlayItem = null; Changed?.Invoke(); }
+    /// <summary>What Quick Add was opened for, such as a booking from the bookings page.</summary>
+    public string? QuickAddKind { get; private set; }
+    /// <summary>The group a step added in Quick Add joins.</summary>
+    public Guid? QuickAddInto { get; private set; }
+    public void ShowEditor(Guid id) { editorFrom = Showing == Overlay.Details ? OverlayItem : null; Showing = Overlay.Editor; OverlayItem = id; Changed?.Invoke(); }
+    /// <summary>
+    /// Closes what is on top: a question or menu first, otherwise the sheet. A place or the editor opened from an item's
+    /// details goes back to them; details close for good, with the way back through linked items.
+    /// </summary>
+    public void CloseOverlay()
+    {
+        if (Asking is not null || Menu is not null) { Asking = null; Menu = null; }
+        else if (Showing == Overlay.Place && PlaceFor is { } from) { Showing = Overlay.Details; OverlayItem = from.Item; PlaceFor = null; }
+        else if (Showing == Overlay.Editor && editorFrom is { } back && Trip?.Find(back) is not null) { Showing = Overlay.Details; OverlayItem = back; editorFrom = null; }
+        else if (Showing == Overlay.Share) { Incoming = null; Showing = Overlay.None; }
+        else if (Showing != Overlay.None) { Showing = Overlay.None; OverlayItem = null; PlaceFor = null; editorFrom = null; detailTrail.Clear(); }
+        else return;
+        Changed?.Invoke();
+    }
+    public void ShowMenu(ActionMenu menu) { Menu = menu; Changed?.Invoke(); }
+
+    /// <summary>Opens a document of the trip in the viewer. Its file is read from the trip folder.</summary>
+    public void ShowDocument(Entity document)
+    {
+        if (Workspace is not { } workspace) return;
+        byte[] bytes;
+        try { bytes = File.ReadAllBytes(workspace.Repository.DocumentPath(document)); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DomainException)
+        {
+            // The viewer still opens, to say what is missing where the file would be.
+            viewing.Add(new(document.Title, "application/octet-stream", [])); FileProblem = Strings["FileMissing"]; Changed?.Invoke(); return;
+        }
+        ShowFile(new(document.Title, document.Data["media_type"]?.ToString() ?? "application/octet-stream", bytes));
+    }
+
+    public void ShowFile(ShownFile file) { viewing.Add(file); FileProblem = null; Bright(); Changed?.Invoke(); }
+
+    /// <summary>A ticket on screen, a pass or a picture, is shown at full brightness so a scanner can read it.</summary>
+    private void Bright() => Host.Brightness?.Invoke(viewing.LastOrDefault() is { } shown && (Tickets.IsTicket(shown.MediaType) && shown.MediaType != "application/pdf"));
+
+    /// <summary>One step back in the viewer: to the e-mail an attachment came from, or out of the viewer.</summary>
+    public void CloseFile() { if (viewing.Count > 0) viewing.RemoveAt(viewing.Count - 1); FileProblem = null; Bright(); Changed?.Invoke(); }
+
+    /// <summary>A short message about something that did not work, shown until the next step.</summary>
+    public string? FileProblem { get; private set; }
+    public void ShowFileProblem(string text) { FileProblem = text; Changed?.Invoke(); }
+
+    /// <summary>E-mails, by their content's hash, whose images from the internet the user chose to load, until the app closes.</summary>
+    public HashSet<string> RemoteImagesAllowed { get; } = [];
+
+    /// <summary>Whether e-mails show in their original layout ("original", the default) or as text ("text").</summary>
+    public string MailView
+    {
+        get => Settings.Values.GetValueOrDefault("mail.view") == "text" ? "text" : "original";
+        set { Settings.Values["mail.view"] = value; Settings.Save(); Changed?.Invoke(); }
+    }
+
+    /// <summary>
+    /// Hands a file to another app on the phone, such as a PDF viewer. The copy it gets is the only one outside the
+    /// trip folder and is replaced by the next.
+    /// </summary>
+    public async Task<bool> OpenElsewhereAsync(ShownFile file)
+    {
+        if (Host.OpenFile is not { } open) return false;
+        if (Directory.Exists(Host.SharedRoot)) Directory.Delete(Host.SharedRoot, recursive: true);
+        Directory.CreateDirectory(Host.SharedRoot);
+        var name = TravelRepo.Documents.Mail.SafeName(Path.HasExtension(file.Name) ? file.Name : file.Name + TravelRepo.Documents.MediaTypes.Extension(file.MediaType));
+        var path = Path.Combine(Host.SharedRoot, name);
+        await File.WriteAllBytesAsync(path, file.Bytes);
+        if (await open(path, file.MediaType)) return true;
+        FileProblem = Strings["NoAppForFile"]; Changed?.Invoke();
+        return false;
+    }
+
+    /// <summary>Closes the menu and runs the chosen entry; an entry may open another menu, such as the days to move to.</summary>
+    public async Task ChooseAsync(MenuAction action, Avalonia.Controls.TopLevel? top)
+    {
+        Menu = null; Changed?.Invoke();
+        await action.Run(top);
+    }
+    public void Confirm(string text, string action, Func<Task> run) { Asking = new(text, action, run); Changed?.Invoke(); }
+    public async Task AnswerAsync(bool yes)
+    {
+        var question = Asking; Asking = null; Changed?.Invoke();
+        if (yes && question is not null) await question.Run();
+    }
+
+    /// <summary>Adds what Quick Add collected, with the same rules as the desktop; an idea stays tentative.</summary>
+    /// <returns>The new item, such as an expense to attach its receipt to.</returns>
+    /// <param name="into">A group the new plan becomes a step of.</param>
+    public Task<Guid> AddAsync(QuickAddDraft draft, bool idea, Guid? into = null, CancellationToken ct = default) => ChangeAsync<Guid>(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        // An expense on the road was paid by the user, unless the form said otherwise.
+        if (draft.Kind == "expense" && draft.People.Count == 0 && Me is { } me) draft = draft with { People = [me.Id] };
+        var (main, built) = QuickAdd.Build(draft, workspace.State.Trip);
+        if (idea && main.Type == "schedule_item") main.Data["status"] = "idea";
+        var edits = built.ToList();
+        if (into is { } group && main.Type == "schedule_item")
+        {
+            // The step and its place in the group are one change.
+            var trip = workspace.State.Trip;
+            var with = trip with { Entities = trip.Entities.Values.Append(main).ToDictionary(e => e.Id) };
+            foreach (var changed in TripCommands.Nest(with, group, main.Id))
+                if (changed.Id == main.Id) edits[0] = new(main.Id, changed); else edits.Add(new(changed.Id, changed));
+        }
+        await workspace.ApplyAsync([.. edits], ct); NoteChange();
+        Showing = Overlay.None; OverlayItem = null;
+        if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
+        Changed?.Invoke();
+        return main.Id;
+    }, ct);
+
+    // Changes to the trip run one at a time, each built from the trip as the change before left it. Two quick ticks in
+    // the packing list, or Enter pressed again right away, would otherwise both start from the same trip, and the
+    // second would be refused. A trip changed underneath, such as by a sync, is read again and the change built anew.
+    private readonly SemaphoreSlim changing = new(1, 1);
+    private readonly AsyncLocal<bool> inChange = new();
+
+    private async Task<T> ChangeAsync<T>(Func<Task<T>> change, CancellationToken ct)
+    {
+        // A change made as part of another one is already in turn.
+        if (inChange.Value) return await change();
+        await changing.WaitAsync(ct);
+        try
+        {
+            inChange.Value = true;
+            try { return await change(); }
+            catch (DomainException ex) when (ex.Code == "repository.changed" && Workspace is { } workspace)
+            {
+                await workspace.ReloadAsync(ct);
+                return await change();
+            }
+        }
+        finally { changing.Release(); }
+    }
+
+    private Task ChangeAsync(Func<Task> change, CancellationToken ct) => ChangeAsync(async () => { await change(); return true; }, ct);
+
+    private Task UpdateAsync(Guid id, Action<Entity> change, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var copy = workspace.State.Trip.Find(id)?.Copy() ?? throw new DomainException("entity.missing", "Item not found.");
+        change(copy); await workspace.EditAsync(copy, ct); NoteChange();
+    }, ct);
+
+    /// <summary>Saves edits the editor built from the open trip, such as an item and its booking, as one change.</summary>
+    public Task SaveDetailsAsync(IReadOnlyList<EntityEdit> edits, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        if (edits.Count == 0) return;
+        await workspace.ApplyAsync([.. edits], ct); NoteChange();
+    }, ct);
+
+    /// <summary>Makes a plan a step of a group, or with no group takes it out of its group.</summary>
+    public Task NestAsync(Guid step, Guid? group, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var trip = workspace.State.Trip;
+        var changed = group is { } g ? TripCommands.Nest(trip, g, step) : TripCommands.Unnest(trip, step);
+        if (changed.Count == 0) return;
+        await workspace.ApplyAsync(changed.Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
+        Changed?.Invoke();
+    }, ct);
+
+    /// <summary>The trip's title and its dates; without dates the trip's days follow its plans.</summary>
+    public Task SaveTripAsync(string title, LocalDate? start, LocalDate? end, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(title)) throw new DomainException("mobile.title", Strings["EnterTitle"]);
+        if (start is { } a && end is { } b && b < a) throw new DomainException("mobile.dates", Strings["EndBeforeStart"]);
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var manifest = workspace.State.Trip.Manifest.Copy();
+        manifest.Data["title"] = title.Trim();
+        string? Day(LocalDate? d) => d?.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+        manifest.Data["dates"] = new System.Text.Json.Nodes.JsonObject { ["start"] = Day(start), ["end"] = Day(end) };
+        await workspace.EditAsync(manifest, ct); NoteChange();
+        Changed?.Invoke();
+    }, ct);
+
+    /// <summary>Adds a traveller to the trip, who can then be chosen for plans, costs and tasks.</summary>
+    public Task<Guid> AddPersonAsync(string name, CancellationToken ct = default) => ChangeAsync<Guid>(async () =>
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new DomainException("mobile.title", Strings["EnterName"]);
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var (person, edits) = QuickAdd.Build(new QuickAddDraft("person", name), workspace.State.Trip);
+        await workspace.ApplyAsync(edits, ct); NoteChange();
+        Changed?.Invoke();
+        return person.Id;
+    }, ct);
+
+    public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = status, ct);
+    public Task SetTaskDoneAsync(Guid id, bool done, CancellationToken ct = default) => UpdateAsync(id, e => e.Data["status"] = done ? "completed" : "open", ct);
+
+    /// <summary>Adds a copy of an item and what it contains, named as a copy, on the same day.</summary>
+    public Task DuplicateAsync(Guid id, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var copies = TripCommands.DuplicateSubtree(workspace.State.Trip, id);
+        var root = copies[0]; root.Data[root.Data.ContainsKey("name") && !root.Data.ContainsKey("title") ? "name" : "title"] = string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["CopyOf"], root.Title);
+        await workspace.ApplyAsync(copies.Select(c => new EntityEdit(c.Id, c)).ToArray(), ct); NoteChange();
+    }, ct);
+
+    /// <summary>Moves an item to another day at the same local time; an item without a time keeps its kind of day.</summary>
+    public Task MoveToDayAsync(Guid id, LocalDate day, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var entry = Entry(id);
+        if (entry is { IsTimed: true, Start: { } start, Zone: { } zoneId } && DateTimeZoneProviders.Tzdb.GetZoneOrNull(zoneId) is { } zone)
+        {
+            var length = entry.End is { } end && end > start ? end - start : Duration.FromHours(1);
+            NoteChange();
+            await workspace.ScheduleAsync(id, new ZonedTime(day.At(start.InZone(zone).TimeOfDay).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zoneId), length, ct);
+        }
+        else await UpdateAsync(id, e =>
+        {
+            var date = day.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture);
+            if (e.Data["time"] is System.Text.Json.Nodes.JsonObject time && time.ContainsKey("date")) time["date"] = date;
+            else e.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "all_day", ["date"] = date };
+        }, ct);
+        if (Agenda.Find(day) is not null) SelectedDate = day;
+        Changed?.Invoke();
+    }, ct);
+
+    /// <summary>
+    /// Removes a trip from this phone. A trip shared on GitHub stays there and can be fetched again; one that was only
+    /// here is gone, which the question before says.
+    /// </summary>
+    public async Task DeleteTripAsync(string path, CancellationToken ct = default)
+    {
+        if (Workspace is { } open && Path.GetFullPath(open.Repository.Root) == Path.GetFullPath(path)) Close();
+        // A trip that was just left may still be saving its last version.
+        await closing;
+        await Task.Run(() =>
+        {
+            foreach (var folder in new[] { path, Path.Combine(Host.RecoveryRoot, Path.GetFileName(path)) }.Where(Directory.Exists))
+            {
+                // Git keeps its object files read-only; they have to be writable to be deleted.
+                foreach (var file in Directory.EnumerateFiles(folder, "*", SearchOption.AllDirectories)) File.SetAttributes(file, FileAttributes.Normal);
+                Directory.Delete(folder, recursive: true);
+            }
+        }, ct);
+        if (Settings.LastSync.Remove(Path.GetFileName(path))) Settings.Save();
+        await LoadTripsAsync(ct);
+    }
+
+    /// <summary>Whether a trip folder has a copy on GitHub or elsewhere to come back from.</summary>
+    public async Task<bool> IsSharedAsync(string path, CancellationToken ct = default)
+    {
+        try { return (await new TravelRepo.Git.GitRepository(new TravelRepository(path), Host.Git).RemotesAsync(ct)).Count > 0; }
+        catch (DomainException) { return false; }
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        Showing = Overlay.None; OverlayItem = null; SelectedItem = null; editorFrom = null;
+        await (Workspace ?? throw new InvalidOperationException("No trip is open.")).DeleteAsync(id, ct); NoteChange();
+        // Deleting a booking opened from a stay returns to the stay.
+        if (detailTrail.Count > 0) DetailsBack();
+    }, ct);
+
+    /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>
+    /// <param name="amount">For an expense, the new amount in its currency.</param>
+    /// <param name="task">For a task, <paramref name="day"/> is when it is due; null clears it.</param>
+    public Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
+        var entry = Entry(id);
+        await UpdateAsync(id, e =>
+        {
+            e.Data[e.Data.ContainsKey("name") && !e.Data.ContainsKey("title") ? "name" : "title"] = title.Trim();
+            if (string.IsNullOrWhiteSpace(body)) e.Data.Remove("body"); else e.Data["body"] = body.Trim();
+            if (amount is { } value && e.Data["amount"] is System.Text.Json.Nodes.JsonObject money) money["value"] = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (task)
+            {
+                if (day is { } due) e.Data["due"] = new System.Text.Json.Nodes.JsonObject { ["date"] = due.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) };
+                else e.Data.Remove("due");
+                return;
+            }
+            if (day is { } date && start is null)
+                e.Data["time"] = new System.Text.Json.Nodes.JsonObject { ["precision"] = "all_day", ["date"] = date.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture) };
+        }, ct);
+        if (!task && day is { } d && start is { } t)
+        {
+            var zone = entry?.Zone ?? ScheduleQueries.TripZone(workspace.State.Trip).Id;
+            var previous = entry is { Start: { } a, End: { } b } && b > a ? b - a : Duration.FromHours(1);
+            NoteChange();
+            await workspace.ScheduleAsync(id, new ZonedTime(d.At(t).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zone), length ?? previous, ct);
+        }
+        Showing = Overlay.Details; Changed?.Invoke();
+    }, ct);
+
+    public void Dispose() => Close();
+}

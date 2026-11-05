@@ -1,3 +1,4 @@
+using System.Globalization;
 using CommunityToolkit.Mvvm.Input;
 using TravelRepo.Core;
 using TravelRepo.Git;
@@ -110,7 +111,7 @@ public partial class MainViewModel
             {
                 syncTicks = 0;
                 // Reminders depend on the time of day too, so they are checked once a minute, like expired forecasts.
-                await UpdateRemindersAsync(); _ = UpdateWeatherAsync();
+                await UpdateRemindersAsync(); _ = UpdateWeatherAsync(); _ = FetchRatesAsync();
                 if (await PreferredRemote(ask: false) is not null)
                 {
                     Busy = true;
@@ -279,7 +280,28 @@ public partial class MainViewModel
     private Task DiscoverGitHub() => RunAsync(async () =>
     {
         if (!await HasGitHubTokenAsync()) await ConnectGitHubCoreAsync();
-        var repos = await GitHub().DiscoverAsync();
+        var github = GitHub(); var access = true;
+        var repos = await Interaction.ProgressAsync(Strings["DiscoverGitHub"], async (progress, ct) =>
+        {
+            progress.Report(new(0, 0, Strings["ListingRepositories"]));
+            // Signing in does not install the App; until the user chooses repositories for it, it sees none.
+            if (!(access = await github.HasRepositoryAccessAsync(ct))) return null;
+            var shown = new DiscoveryProgress(0, 0);
+            return await github.DiscoverAsync(new Progress<DiscoveryProgress>(p =>
+            {
+                // Checks finish out of order; a late report must not move the bar back.
+                if (p.Total == shown.Total && p.Checked < shown.Checked) return;
+                shown = p;
+                progress.Report(new(p.Checked, p.Total, p.Total == 0 ? Strings["ListingRepositories"] : string.Format(CultureInfo.CurrentCulture, Strings["CheckingRepositories"], p.Checked, p.Total)));
+            }), ct);
+        });
+        if (!access)
+        {
+            if (github.RepositoryAccessUri is not { } uri) await Interaction.ShowAsync(Strings["DiscoverGitHub"], Strings["NoRepositoryAccessOwnApp"]);
+            else if (await Interaction.ConfirmAsync(Strings["DiscoverGitHub"], Strings["NoRepositoryAccess"], Strings["ChooseRepositories"])) Interaction.Open(uri.AbsoluteUri);
+            return;
+        }
+        if (repos is null) return;
         if (repos.Count == 0) { await Interaction.ShowAsync(Strings["DiscoverGitHub"], Strings["NoGitHubTrips"]); return; }
         var choice = await Interaction.ChooseAsync(Strings["DiscoverGitHub"], repos.Select(r => new Choice(r.FullName, r.FullName, r.IsPrivate ? "lock" : "globe", r.IsPrivate ? Strings["Private"] : Strings["Public"])).ToArray()); if (choice is null) return; var repo = repos.Single(r => r.FullName == choice);
         if (!repo.IsPrivate && !await Interaction.ConfirmAsync(Strings["PublicWarning"])) return;

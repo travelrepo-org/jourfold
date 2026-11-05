@@ -1,0 +1,129 @@
+name: Android
+# Builds the Android app, one APK for arm64 phones and x86_64 emulators, signed with the project's release key, so
+# that every later build installs over it as an update. The job waits for approval in the release environment, which
+# holds the key, and checks the certificate before it keeps the APK.
+#
+# - Pushing a tag such as v0.8.0-android.3 builds a preview (0.8.0-preview.3) for testers and keeps it as a workflow
+#   artifact. It builds against the TravelRepo release named by <TravelRepoVersion>, or TravelRepo's default branch
+#   while that release does not exist yet.
+# - release.yml calls this workflow for a published release. The APK is then named after the version and handed to
+#   the release's publish job, which attaches it with the other packages.
+on:
+  push:
+    tags: ['v*-android.*']
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to build, for example v0.8.0
+        type: string
+        required: true
+      travelrepo:
+        description: The TravelRepo tag to build against
+        type: string
+        required: true
+permissions:
+  contents: read
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
+  LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+  NDK_VERSION: 28.2.13676358
+  CMAKE_VERSION: 3.31.6
+  # SHA-256 of the release certificate. A build signed with anything else fails here, not on someone's phone.
+  CERTIFICATE_SHA256: a831a252abe3d256bce5cc0c6f004ac30057d2b929d9f82637c935996cc26e54
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    environment: release
+    defaults:
+      run:
+        working-directory: jourfold
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+          path: jourfold
+      - id: travelrepo
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+          GIVEN: ${{ inputs.travelrepo }}
+        run: |
+          tag="${GIVEN:-v$(python3 eng/version.py --travelrepo)}"
+          if git ls-remote --exit-code --tags "https://github.com/$REPO.git" "refs/tags/$tag" > /dev/null; then
+            echo "ref=$tag" >> "$GITHUB_OUTPUT"
+          elif [ -n "$GIVEN" ]; then
+            echo "::error::TravelRepo $tag does not exist."; exit 1
+          else
+            echo "::warning::TravelRepo $tag is not released yet; building against the default branch."
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ steps.travelrepo.outputs.ref }}
+          path: travelrepo
+      - name: Use the pinned SDK
+        shell: bash
+        run: cp eng/sdk.json global.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: jourfold/eng/sdk.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: dotnet workload install android
+      - run: "\"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager\" --install \"ndk;$NDK_VERSION\" \"cmake;$CMAKE_VERSION\" > /dev/null"
+      - id: libgit2
+        uses: actions/cache@v4
+        with:
+          path: jourfold/artifacts/libgit2-android
+          key: libgit2-android-${{ env.LIBGIT2_COMMIT }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('travelrepo/eng/build-libgit2-android.sh') }}
+      - if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          git init -q "$RUNNER_TEMP/libgit2" && git -C "$RUNNER_TEMP/libgit2" fetch -q --depth 1 https://github.com/libgit2/libgit2.git "$LIBGIT2_COMMIT"
+          git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
+          ANDROID_NDK="$ANDROID_HOME/ndk/$NDK_VERSION" PATH="$ANDROID_HOME/cmake/$CMAKE_VERSION/bin:$PATH" \
+            sh ../travelrepo/eng/build-libgit2-android.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-android
+      # A release gets build number 999, so it updates every preview of the same version (0.8.0 becomes 800999).
+      - id: version
+        env:
+          RELEASE: ${{ inputs.tag && 'true' || 'false' }}
+        run: |
+          version="$(python3 eng/version.py)"
+          [ "${TAG%%-android.*}" = "v$version" ] || { echo "::error::Tag $TAG does not match version $version in Directory.Build.props."; exit 1; }
+          if [ "$RELEASE" = true ]; then
+            { echo "display=$version"; echo "number=999"; echo "name=jourfold-$version-android"; } >> "$GITHUB_OUTPUT"
+          else
+            { echo "display=$version-preview.${TAG##*-android.}"; echo "number=${{ github.run_number }}"; echo "name=jourfold-$version-preview.${TAG##*-android.}-android"; } >> "$GITHUB_OUTPUT"
+          fi
+      - run: dotnet restore src/Jourfold.Android --locked-mode
+      - name: Build and sign
+        env:
+          JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
+          JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          keystore="$RUNNER_TEMP/jourfold.p12"
+          printf '%s' "$KEYSTORE_BASE64" | base64 -d > "$keystore"
+          trap 'rm -f "$keystore"' EXIT
+          # The passwords are read from the environment (env:), so they never appear on a command line.
+          dotnet publish src/Jourfold.Android -c Release --no-restore -o "$RUNNER_TEMP/apk" \
+            -p:AndroidBuildNumber=${{ steps.version.outputs.number }} -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
+            -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="$keystore" -p:AndroidSigningKeyAlias=jourfold \
+            -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEYSTORE_PASSWORD
+      - name: Check the signature
+        run: |
+          apk="$RUNNER_TEMP/${{ steps.version.outputs.name }}.apk"
+          mv "$RUNNER_TEMP"/apk/dev.jourfold.app-Signed.apk "$apk"
+          signer="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
+          "$signer" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
+          grep -qi "certificate SHA-256 digest: $CERTIFICATE_SHA256" "$RUNNER_TEMP/certs.txt" || { echo "::error::The APK is not signed with the release certificate."; exit 1; }
+          echo "APK=$apk" >> "$GITHUB_ENV"
+      # release.yml collects every artifact named release-*; a preview keeps its own name.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.tag && 'release-android' || steps.version.outputs.name }}
+          path: ${{ env.APK }}
+          retention-days: 30
+          if-no-files-found: error

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Only the copies of files handed to other apps are reachable, never the trips themselves. -->
+<paths>
+  <files-path name="shared" path="shared/"/>
+  <!-- Where the camera app writes a receipt photo; it is read, made smaller and deleted again. -->
+  <files-path name="photos" path="photos/"/>
+</paths>

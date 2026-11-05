@@ -2,6 +2,31 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.8.0 “Zealous Zander” – 2026-11-05
+
+### Highlights
+
+- Jourfold for Android phones and tablets. Today shows what comes next, the plan reads in local time, and the map, tickets, packing lists and costs work offline. Everything can be edited on the road and synced with the trip on GitHub. Every release on GitHub has the APK for it.
+- Show ticket opens a plan's boarding pass, and Wallet passes appear with their barcode. A place can keep its name and address in the local script and show them large as a taxi card.
+- Costs has a currency converter with the European Central Bank's reference rates. They are fetched only after you agree, at most once a day.
+
+### Changes
+
+- Journeys show how long they take, across time zones, and the layover to the next journey or from the one before.
+- Linking a plan to a booking, or a booking to its plans, changes both sides, so a plan moved to another booking leaves the old one. Groups take in an existing plan, and a step can leave its group.
+- Expenses list their files, such as a receipt photographed on the phone, and take new ones like bookings do.
+- Details opened from other details get a back arrow, also on Alt+Left.
+- The packing line suggests people and groups while you type @ or #, and 2x sets the quantity. A name nobody in the trip has is no longer kept in the title: Jourfold says so and offers to add the person.
+- Packing items move to another list from their menu or details.
+- Plan and packing list exports can include comments.
+- Finding trips on GitHub shows how far the search is and can be cancelled. When Jourfold's App may not use any repository yet, Jourfold leads to the page where you choose them.
+- Connected AI assistants can see layovers, put plans into groups, link bookings, read and add costs, convert currencies with the rates Jourfold downloaded, and rename, delete and change packing lists.
+
+### Fixes
+
+- A click on a check box, a person's chip, "Who brings it?" or Copy inside a row no longer also opens the row's details.
+- Zooming far into the map on a day with a long flight no longer makes Jourfold stop responding.
+
 ## 0.7.1 “Keen Kudu” – 2026-10-26
 
 ### Highlights

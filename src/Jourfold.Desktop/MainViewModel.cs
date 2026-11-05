@@ -85,7 +85,43 @@ public partial class MainViewModel : ObservableObject, IDisposable
         foreach (var r in Store.Recent()) Recent.Add(r);
     }
     partial void OnViewChanged(string value) { if (HasTrip) Store.Set("lastView", value); Refresh(); }
-    partial void OnSelectedChanged(Entity? value) => SelectionChanged?.Invoke(this, EventArgs.Empty);
+    partial void OnSelectedChanged(Entity? value)
+    {
+        // Choosing something else, or closing the details, starts the way back afresh; a newer copy of the same item keeps it.
+        if (!following && value?.Id != shown) detailTrail.Clear();
+        shown = value?.Id;
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The details opened before the ones on show, most recent last.</summary>
+    private readonly List<Guid> detailTrail = [];
+    private Guid? shown;
+    private bool following;
+
+    /// <summary>Opens an item linked from the details on show, such as a booking from its stay; back returns to them.</summary>
+    public void Follow(Entity target)
+    {
+        if (Selected is { } from && from.Id != target.Id) detailTrail.Add(from.Id);
+        following = true;
+        try { Selected = target; } finally { following = false; }
+    }
+
+    /// <summary>Whether the details on show were opened from other details that still exist.</summary>
+    public bool CanGoBackInDetails => Selected is not null && detailTrail.Any(id => Trip?.Find(id) is not null);
+
+    /// <summary>Back to the details these were opened from, skipping deleted items; closes the details when there are none.</summary>
+    public void DetailsBack()
+    {
+        while (detailTrail.Count > 0)
+        {
+            var id = detailTrail[^1]; detailTrail.RemoveAt(detailTrail.Count - 1);
+            if (Trip?.Find(id) is not { } previous) continue;
+            following = true;
+            try { Selected = previous; } finally { following = false; }
+            return;
+        }
+        Selected = null;
+    }
     partial void OnInboxOpenChanged(bool value) => ContentChanged?.Invoke(this, EventArgs.Empty);
     partial void OnInboxPinnedChanged(bool value) { Store.Set("inbox.pinned", value ? "true" : "false"); if (value) InboxOpen = true; }
     partial void OnAdvancedChanged(bool value) => Store.Set("advanced", value ? "true" : "false");
@@ -151,7 +187,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         var preferred = Store.Get("openingView");
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
-        Weather = TripWeather.Empty; Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync(); _ = UpdateWeatherAsync(force: true);
+        Weather = TripWeather.Empty; Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync(); _ = UpdateWeatherAsync(force: true); _ = FetchRatesAsync();
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>
@@ -224,7 +260,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
     /// so a developer can sign in with several accounts through the same App.</summary>
     public string? OwnGitHubClient => Store.Get("github.client") is { Length: > 0 } id ? id : null;
     private string? GitHubClient => OwnGitHubClient ?? BuiltInGitHubClient;
-    private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, GitHubClient ?? "");
+    /// <summary>The built-in App's name in its GitHub address, for the page where users choose its repositories. Tests set it.</summary>
+    public static string? BuiltInGitHubAppSlug { get; set; } = typeof(MainViewModel).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == "GitHubAppSlug")?.Value;
+    private GitHubProvider GitHub() => providerFactory?.Invoke() ?? new(githubHttp, secrets, GitHubClient ?? "", OwnGitHubClient is null ? BuiltInGitHubAppSlug : null);
 
     public void Dispose() { Workspace?.Dispose(); mergeCancellation?.Cancel(); githubHttp.Dispose(); weatherHttp.Dispose(); }
 }

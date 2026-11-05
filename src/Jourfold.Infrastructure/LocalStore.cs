@@ -4,7 +4,7 @@ namespace Jourfold.Infrastructure;
 
 public sealed record RecentTrip(string Path, string Title, string Opened, string Changed, string State);
 /// <summary>Rebuildable local preferences, recent library and full-text index. No canonical trip data is owned here.</summary>
-public sealed class LocalStore : IDisposable
+public sealed class LocalStore : Jourfold.Application.IValueStore, IDisposable
 {
     private readonly SqliteConnection db;
     public string Root { get; }

@@ -8,9 +8,9 @@
     <Deterministic>true</Deterministic>
     <!-- The single source of the Jourfold version. Packages, installers and the About window read it from here,
          and the release workflow only accepts the tag v$(Version). Print it with: python eng/version.py -->
-    <Version>0.7.1</Version>
+    <Version>0.8.0</Version>
     <!-- TravelRepo package version used when ../travelrepo is not checked out beside this repository. -->
-    <TravelRepoVersion>0.6.0</TravelRepoVersion>
+    <TravelRepoVersion>0.7.0</TravelRepoVersion>
     <Authors>Jourfold contributors</Authors>
     <!-- Public source repository, shown in the About window. -->
     <RepositoryUrl>https://github.com/travelrepo-org/jourfold</RepositoryUrl>
@@ -23,5 +23,8 @@
     <!-- Public client ID of the GitHub App that sign-in uses. Official releases get it from the release workflow; other
          builds leave it out and ask for one, or pass their own with -p:JourfoldGitHubClientId=... -->
     <AssemblyMetadata Include="GitHubClientId" Value="$(JourfoldGitHubClientId)" Condition="'$(JourfoldGitHubClientId)' != ''" />
+    <!-- That App's name in its GitHub address (github.com/apps/<slug>), for the page where people choose the
+         repositories it may use. Signing in alone gives the App no repository. -->
+    <AssemblyMetadata Include="GitHubAppSlug" Value="$(JourfoldGitHubAppSlug)" Condition="'$(JourfoldGitHubAppSlug)' != ''" />
   </ItemGroup>
 </Project>

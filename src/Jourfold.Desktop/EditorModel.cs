@@ -20,7 +20,7 @@ public static class EditorModel
                 if (e.Data["components"]?["accommodation"] is not null) f.AddRange([new("components/accommodation/place", "Place", "ref", ReferenceType: "place"), new("components/accommodation/guests", "Guests", "refs", ReferenceType: "person"), new("components/accommodation/rooms", "Rooms", "list"), new("components/accommodation/check_in", "CheckIn", "zoned"), new("components/accommodation/check_out", "CheckOut", "zoned"), new("components/accommodation/booking", "Booking", "ref", ReferenceType: "booking"), new("components/accommodation/cancellation/free_until", "FreeCancellationUntil", "zoned"), new("components/accommodation/documents", "Documents", "refs", ReferenceType: "document")]);
                 f.Add(new("components/booking/ref", "Booking", "ref", ReferenceType: "booking")); break;
             case "person": f.AddRange([new("roles", "Roles", "list"), new("avatar/document", "Files", "ref", ReferenceType: "document"), new("identities/git", "LocalIdentity", "identities"), new("identities/github", "GitHub", "github")]); break;
-            case "place": f.AddRange([new("address/formatted", "Address"), new("timezone", "Timezone", "timezone"), new("location", "Map", "coordinates")]); break;
+            case "place": f.AddRange([new("address/formatted", "Address"), new("local_name", "LocalName"), new("address/local", "LocalAddress"), new("timezone", "Timezone", "timezone"), new("location", "Map", "coordinates")]); break;
             case "booking": f.AddRange([new("provider/name", "Provider"), new("reference", "Reference"), new("status", "Status", "choice", ["idea", "pending", "reserved", "confirmed", "cancelled", "completed"]), new("travelers", "Travelers", "refs", ReferenceType: "person"), new("items", "Items", "refs", ReferenceType: "schedule_item"), new("documents", "Documents", "refs", ReferenceType: "document"), new("price", "Amount", "money"), new("cancellation/free_until", "FreeCancellationUntil", "zoned")]); break;
             case "task": f.AddRange([new("status", "Status", "choice", ["open", "in_progress", "completed", "cancelled"]), new("assigned_to", "Assignees", "refs", ReferenceType: "person"), new("due/date", "Due", "date"), new("related", "Related", "related")]); break;
             case "expense": case "budget": f.Add(new("amount", "Amount", "money")); if (e.Type == "expense") f.AddRange([new("estimated", "Estimated", "bool"), new("paid_by", "Payer", "refs", ReferenceType: "person"), new("related", "Related", "related")]); break;
@@ -31,14 +31,8 @@ public static class EditorModel
         }
         return f;
     }
-    public static JsonNode? Get(Entity e, string path)
-    { JsonNode? n = e.Data; foreach (var k in path.Split('/')) n = n is JsonObject o ? o[k] : null; return n; }
-    public static void Set(Entity e, string path, JsonNode? value)
-    {
-        var keys = path.Split('/'); JsonObject n = e.Data;
-        foreach (var k in keys[..^1]) { if (n[k] is not JsonObject) n[k] = new JsonObject(); n = (JsonObject)n[k]!; }
-        if (value is null) n.Remove(keys[^1]); else n[keys[^1]] = value.DeepClone();
-    }
+    public static JsonNode? Get(Entity e, string path) => Jourfold.Application.DetailEdits.Get(e, path);
+    public static void Set(Entity e, string path, JsonNode? value) => Jourfold.Application.DetailEdits.Set(e, path, value);
     public static async Task UpdateAsync(MainViewModel vm, Guid id, EditorField field, string value)
     {
         if (vm.Workspace?.State.Trip.Find(id) is not { } existing) return;

@@ -1,3 +1,4 @@
+using Jourfold.Application;
 using System.Text.Json.Nodes;
 using TravelRepo.Core;
 using TravelRepo.Repository;
@@ -43,36 +44,21 @@ public partial class MainViewModel
     });
 
     /// <summary>
-    /// Adds an item from one line of text. "@name" assigns a person, "@all" (or "@alle") everyone, and "#group" sets the
-    /// group, for example "Grill @Sam #Cooking". Without "@" the item is unassigned, or the local user's in "Mine".
+    /// Adds an item from one line of text, read by <see cref="PackingInput"/> as on the phone, for example
+    /// "2x Grill @Sam #Cooking". Without "@" the item is nobody's yet, or the local user's in "Mine". A line with a
+    /// name nobody or several people have is not added; <paramref name="addPeople"/> adds the missing people.
     /// </summary>
-    public Task AddPackingItemAsync(Guid listId, string text) => RunEditAsync(async () =>
+    public async Task<PackingLine?> AddPackingItemAsync(Guid listId, string text, bool addPeople = false)
     {
-        if (Workspace is null || Workspace.State.Trip.Find(listId) is not { } list || !PackingLists.IsList(list)) return;
-        var (title, group, people, everyone) = ParsePackingLine(Workspace.State.Trip, text);
-        if (title.Length == 0) return;
-        if (people.Count == 0 && !everyone && PackingFilter == "mine" && Me is { } me) people = [me.Id];
-        var (item, updated) = PackingLists.AddItem(list, title, group, null, people, everyone);
-        await Workspace.ApplyAsync([new(item.Id, item), new(updated.Id, updated)]);
-    });
-
-    public static (string Title, string? Group, IReadOnlyList<Guid> People, bool Everyone) ParsePackingLine(TripSnapshot trip, string text)
-    {
-        var people = new List<Guid>(); var everyone = false; string? group = null; var words = new List<string>();
-        var persons = trip.Entities.Values.Where(e => e.Type == "person").ToArray();
-        foreach (var word in text.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        PackingLine? read = null;
+        await RunEditAsync(async () =>
         {
-            if (word.Length > 1 && word[0] == '#') { group = word[1..].Replace('_', ' '); continue; }
-            if (word.Length > 1 && word[0] == '@')
-            {
-                var name = word[1..];
-                if (name.ToLowerInvariant() is "all" or "alle" or "everyone") { everyone = true; continue; }
-                var matches = persons.Where(p => p.Title.Equals(name, StringComparison.CurrentCultureIgnoreCase) || p.Title.Split(' ')[0].Equals(name, StringComparison.CurrentCultureIgnoreCase)).ToArray();
-                if (matches.Length == 1) { people.Add(matches[0].Id); continue; }
-            }
-            words.Add(word);
-        }
-        return (string.Join(' ', words).Trim(), group, people, everyone);
+            if (Workspace is null) return;
+            var (line, edits) = PackingInput.Add(Workspace.State.Trip, listId, text, PackingFilter == "mine" ? Me?.Id : null, addPeople);
+            read = line;
+            if (edits.Length > 0) await Workspace.ApplyAsync(edits);
+        });
+        return read;
     }
 
     /// <summary>Asks who brings an item: some of the travellers, or everyone.</summary>
@@ -105,19 +91,30 @@ public partial class MainViewModel
         await Workspace.EditAsync(PackingLists.Describe(task, values["group"], values["quantity"]));
     });
 
+    /// <summary>The packing lists an item could move to: those it is not on yet.</summary>
+    public IReadOnlyList<PackingList> PackingListsToMoveTo(Guid itemId) =>
+        Trip is { } trip ? PackingLists.All(trip).Where(l => l.Items.All(i => i.Task.Id != itemId)).ToArray() : [];
+
+    /// <summary>Asks for another list and moves the item there, off every list it was on, as one undoable step.</summary>
+    public Task MovePackingItemAsync(Guid itemId) => RunEditAsync(async () =>
+    {
+        if (Workspace is null || Workspace.State.Trip.Find(itemId) is not { } task || !PackingLists.IsItem(task)) return;
+        var targets = PackingListsToMoveTo(itemId);
+        if (targets.Count == 0) return;
+        var choice = await Interaction.ChooseAsync(string.Format(Strings["MoveToPackingListBody"], task.Title), targets.Select(l => new Choice(l.Collection.Id.ToString(), l.Collection.Title, "backpack")).ToArray());
+        if (choice is null || targets.FirstOrDefault(l => l.Collection.Id.ToString() == choice) is not { } target) return;
+        await Workspace.ApplyAsync([.. PackingLists.MoveItem(Workspace.State.Trip, itemId, target.Collection.Id).Select(l => new EntityEdit(l.Id, l))]);
+        Interaction.Toast(string.Format(Strings["MovedToPackingList"], target.Collection.Title), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
+    });
+
     /// <summary>Deletes a packing list together with its items that no other list uses, as one undoable step.</summary>
     public Task DeletePackingListAsync(Guid listId) => RunEditAsync(async () =>
     {
         if (Workspace is null || Workspace.State.Trip.Find(listId) is not { } list || !PackingLists.IsList(list)) return;
         var trip = Workspace.State.Trip; var resolved = PackingLists.Resolve(trip, list);
-        if (!await Interaction.ConfirmAsync(Strings["DeletePackingList"], string.Format(Strings["DeletePackingListBody"], list.Title, resolved.Items.Count), Strings["Delete"], danger: true)) return;
-        var elsewhere = PackingLists.All(trip).Where(l => l.Collection.Id != listId).SelectMany(l => l.Items).Select(i => i.Task.Id).ToHashSet();
-        var removed = resolved.Items.Select(i => i.Task.Id).Where(id => !elsewhere.Contains(id)).Append(listId).ToHashSet();
-        // Anything else that links to the removed entities, such as comments, loses the link.
-        var edits = removed.Select(id => new EntityEdit(id, null)).ToList();
-        foreach (var source in trip.Entities.Values.Where(e => !removed.Contains(e.Id) && TripReferences.From(e).Any(r => removed.Contains(r.Target))))
-            edits.Add(new(source.Id, TripReferences.Detach(source, removed)));
-        await Workspace.ApplyAsync([.. edits]);
+        if (!await Interaction.ConfirmAsync(Strings["DeletePackingList"], resolved.Items.Count == 0 ? string.Format(Strings["DeleteEmptyPackingList"], list.Title) : string.Format(Strings["DeletePackingListBody"], list.Title, resolved.Items.Count), Strings["Delete"], danger: true)) return;
+        var (removed, updated) = PackingLists.DeleteList(trip, listId);
+        await Workspace.ApplyAsync([.. removed.Select(id => new EntityEdit(id, null)), .. updated.Select(e => new EntityEdit(e.Id, e))]);
         if (Selected is { } selected && removed.Contains(selected.Id)) Selected = null;
         Interaction.Toast(string.Format(Strings["PackingListDeleted"], list.Title), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
     });

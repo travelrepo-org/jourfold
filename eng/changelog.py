@@ -8,7 +8,7 @@
                                           prints the GitHub release text: the existing text, Install, Changes
 
 English is required for every entry. The release being built needs every language the app ships
-(src/Jourfold.Desktop/Strings/*.json); older releases may lack later languages, the app then shows English.
+(src/Jourfold.UI/Strings/*.json); older releases may lack later languages, the app then shows English.
 """
 from pathlib import Path
 import argparse
@@ -42,11 +42,11 @@ def load():
 
 
 def languages():
-    return sorted(p.stem for p in (ROOT / 'src' / 'Jourfold.Desktop' / 'Strings').glob('*.json'))
+    return sorted(p.stem for p in (ROOT / 'src' / 'Jourfold.UI' / 'Strings').glob('*.json'))
 
 
 def icons():
-    text = (ROOT / 'src' / 'Jourfold.Desktop' / 'Theme' / 'Icons.axaml').read_text(encoding='utf-8')
+    text = (ROOT / 'src' / 'Jourfold.UI' / 'Theme' / 'Icons.axaml').read_text(encoding='utf-8')
     return set(re.findall(r'x:Key="Icon\.([a-z0-9-]+)"', text))
 
 

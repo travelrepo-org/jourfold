@@ -43,6 +43,9 @@ public sealed class PackingTests : IDisposable
         Assert.Equal(["Grill", "Drinks", "Plates"], list.Items.Select(i => i.Task.Title));
         Assert.Equal([ana.Id], list.Items[0].Assignees.Select(a => a.Id)); Assert.Equal("Cooking", list.Items[0].Group);
         Assert.True(list.Items[1].Everyone); Assert.True(list.Items[2].Unassigned);
+        // A name nobody in the trip has is not added, as on the phone.
+        Assert.Equal(["Zoe"], (await m.AddPackingItemAsync(list.Collection.Id, "Cups @Zoe"))!.Unknown);
+        Assert.Equal(3, m.CurrentPackingList!.Items.Count);
 
         // Plates: Ben is chosen in the dialog.
         interaction.Pick = (choices, _) => { Assert.Equal("everyone", choices[0].Id); return [ben.Id.ToString()]; };
@@ -60,6 +63,32 @@ public sealed class PackingTests : IDisposable
         Assert.DoesNotContain(m.Workspace.State.Trip.Entities.Values, e => PackingLists.IsItem(e) || PackingLists.IsList(e));
         await m.UndoCommand.ExecuteAsync(null);
         Assert.Equal(3, m.CurrentPackingList!.Items.Count);
+    }
+
+    [AvaloniaFact]
+    public async Task AnItemMovesToAnotherListAsOneUndoableStep()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction);
+        var (path, _, _) = await Trip(); await m.OpenAsync(path);
+        interaction.Answers.Enqueue("Barbecue"); await m.CreatePackingListAsync();
+        var barbecue = m.CurrentPackingList!.Collection.Id;
+        await m.AddPackingItemAsync(barbecue, "Grill"); await m.AddPackingItemAsync(barbecue, "Plates");
+        interaction.Answers.Enqueue("Camping"); await m.CreatePackingListAsync();
+        var camping = m.CurrentPackingList!.Collection.Id;
+        var grill = PackingLists.All(m.Trip!).Single(l => l.Collection.Id == barbecue).Items[0].Task.Id;
+
+        // Only the lists the item is not on are offered.
+        Assert.Equal([camping], m.PackingListsToMoveTo(grill).Select(l => l.Collection.Id));
+        interaction.Answers.Enqueue(camping.ToString()); await m.MovePackingItemAsync(grill);
+        PackingList List(Guid id) => PackingLists.All(m.Trip!).Single(l => l.Collection.Id == id);
+        Assert.Equal(["Plates"], List(barbecue).Items.Select(i => i.Task.Title));
+        Assert.Equal(["Grill"], List(camping).Items.Select(i => i.Task.Title));
+        Assert.Contains("Moved to “Camping”.", interaction.Toasts);
+
+        await m.UndoCommand.ExecuteAsync(null);
+        Assert.Equal(["Grill", "Plates"], List(barbecue).Items.Select(i => i.Task.Title));
+        Assert.Empty(List(camping).Items);
     }
 
     [AvaloniaFact]

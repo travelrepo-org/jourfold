@@ -47,20 +47,7 @@ public static class QuickAdd
         if (string.IsNullOrWhiteSpace(draft.Title)) throw new DomainException("quickadd.title", "Enter a title.");
         var edits = new List<EntityEdit>();
         var zone = draft.Timezone ?? trip.Manifest.Data["default_timezone"]?.ToString() ?? "Etc/UTC";
-        string? Place(PlaceChoice? choice)
-        {
-            if (choice is null) return null;
-            if (choice.Id is { } id) return id.ToString();
-            if (string.IsNullOrWhiteSpace(choice.NewName)) return null;
-            var existing = trip.Entities.Values.FirstOrDefault(e => e.Type == "place" && string.Equals(e.Title, choice.NewName, StringComparison.CurrentCultureIgnoreCase));
-            if (existing is not null) return existing.Id.ToString();
-            var created = edits.Select(e => e.Value).FirstOrDefault(e => e?.Type == "place" && string.Equals(e.Title, choice.NewName, StringComparison.CurrentCultureIgnoreCase));
-            if (created is not null) return created.Id.ToString();
-            var place = Entity.Create("place", choice.NewName!.Trim());
-            if (choice.Latitude is { } lat && choice.Longitude is { } lon) place.Data["location"] = new JsonObject { ["latitude"] = lat, ["longitude"] = lon };
-            if (!string.IsNullOrWhiteSpace(choice.Address)) place.Data["address"] = new JsonObject { ["formatted"] = choice.Address };
-            edits.Add(new(place.Id, place)); return place.Id.ToString();
-        }
+        string? Place(PlaceChoice? choice) => PlaceEdits.Resolve(trip, choice, edits);
         JsonObject Participants() => new() { ["inherit"] = false, ["values"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray()) };
         JsonNode Money() => new JsonObject { ["value"] = (draft.Amount ?? 0m).ToString("0.00", CultureInfo.InvariantCulture), ["currency"] = draft.Currency ?? "EUR" };
 
@@ -70,7 +57,8 @@ public static class QuickAdd
             case "activity" or "food" or "sightseeing" or "transport" or "accommodation":
                 main = Entity.Create("schedule_item", draft.Title.Trim());
                 if (draft.Kind is "food" or "sightseeing") main.Data["category"] = draft.Kind;
-                if (draft.People.Count > 0) main.Data["participants"] = Participants();
+                // A stay names its guests; other plans their participants.
+                if (draft.People.Count > 0 && draft.Kind != "accommodation") main.Data["participants"] = Participants();
                 if (draft.Kind == "transport")
                 {
                     var transport = new JsonObject { ["type"] = draft.TransportType ?? "other" };
@@ -82,6 +70,7 @@ public static class QuickAdd
                 {
                     var accommodation = new JsonObject();
                     if (Place(draft.Place) is { } stay) accommodation["place"] = stay;
+                    if (draft.People.Count > 0) accommodation["guests"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
                     main.Data["components"]!["accommodation"] = accommodation;
                     if (draft.Date is { } arrival)
                     {

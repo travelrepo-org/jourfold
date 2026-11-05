@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using Jourfold.Infrastructure;
 using Xunit;
+using Jourfold.Application;
 namespace Jourfold.Tests;
 
 public sealed class OnlineMapsTests : IDisposable

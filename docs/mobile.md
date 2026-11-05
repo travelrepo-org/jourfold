@@ -370,8 +370,10 @@ on a Mac runner for changes to the mobile code: it builds libgit2 as `git2.xcfra
 (the `--open-sample` launch argument), checks that the trip has a version, keeps screenshots of both, and builds
 `jourfold-<version>-ios-<run>-unsigned.ipa` for devices.
 
-To build on a Mac (Xcode, the .NET SDK from `eng/sdk.json`, `dotnet workload install ios`, CMake, and TravelRepo
-beside this repository):
+To build on a Mac (the .NET SDK from `eng/sdk.json`, CMake, and TravelRepo beside this repository): each .NET for iOS
+needs one Xcode, so install the workload the workflow uses with the Xcode it names, for example
+`dotnet workload install ios --version 10.401.0` with Xcode 26.5 (`sudo xcode-select -s /Applications/Xcode_26.5.app`).
+Then:
 
 ```sh
 git clone https://github.com/libgit2/libgit2.git /tmp/libgit2 && git -C /tmp/libgit2 checkout 5853918c4c6a7b12f8becf4bd11ff4362ebb9020

@@ -22,6 +22,10 @@ permissions:
   contents: read
 env:
   LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+  # Each .NET for iOS needs one Xcode. Workload set 10.401.0 has .NET for iOS 26.5, which needs Xcode 26.5; later sets
+  # of the 10.0.400 band need Xcode 27, which GitHub only has as a preview image so far.
+  WORKLOAD_VERSION: 10.401.0
+  XCODE: /Applications/Xcode_26.5.app
 jobs:
   app:
     runs-on: macos-26
@@ -54,8 +58,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           global-json-file: jourfold/eng/sdk.json
-      - run: dotnet workload install ios
-      - run: xcodebuild -version && xcrun simctl list runtimes
+      - run: sudo xcode-select -s "$XCODE" && xcodebuild -version && xcrun simctl list runtimes
+      - run: dotnet workload install ios --version "$WORKLOAD_VERSION"
       - id: libgit2
         uses: actions/cache@v4
         with:

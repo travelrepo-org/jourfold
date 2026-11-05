@@ -132,7 +132,8 @@ the whole trip.
 Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date and attachments, read by
 TravelRepo's `Mail` without a network, then the message in its original layout, as on the desktop (`MailPaper` in
 `Jourfold.UI`, cleaned by TravelRepo's `MailHtml`). An e-mail laid out wider than the phone is shrunk to fit instead
-of being cut off. **Text** shows the plain text instead; the choice is kept on the phone. Images from the internet
+of being cut off; two fingers or a double tap zoom it up to four times, and one finger moves a zoomed e-mail
+sideways while up and down still scrolls the page. **Text** shows the plain text instead; the choice is kept on the phone. Images from the internet
 load only after **Load images**, for that e-mail until the app closes, and a tapped link asks before it opens in the
 browser. Images show as they are. PDFs and other files go to an app on the phone that can show them: on Android through a `FileProvider` that only
 exposes a copy in the app's `shared` folder, replaced by the next file.

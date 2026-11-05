@@ -35,6 +35,8 @@ public sealed partial class MobileSession : IDisposable
     public MobileHost Host { get; }
     public Localization Strings { get; }
     public IReadOnlyList<TripCard> Trips { get; private set; } = [];
+    /// <summary>Whether the trip folders have been read once, so an empty <see cref="Trips"/> means there are none.</summary>
+    public bool TripsLoaded { get; private set; }
     public Workspace? Workspace { get; private set; }
     public TripSnapshot? Trip => Workspace?.State.Trip;
     public Agenda Agenda { get; private set; } = new([], []);
@@ -91,6 +93,7 @@ public sealed partial class MobileSession : IDisposable
             catch (DomainException) { }
         }
         Trips = cards.OrderByDescending(c => c.Start ?? LocalDate.MinIsoValue).ToArray();
+        TripsLoaded = true;
         Changed?.Invoke();
         // A trip added or removed adds or removes its calendar.
         UpdateCalendarSoon();
@@ -137,6 +140,9 @@ public sealed partial class MobileSession : IDisposable
         var workspace = Workspace; workspace.Changed -= OnWorkspaceChanged; Workspace = null;
         if (HasChanges) closing = SaveAndDisposeAsync(workspace); else workspace.Dispose();
         Reset();
+        // A trip opened before the list was ever shown leaves the list to be read now.
+        if (!TripsLoaded) _ = LoadTripsAsync();
+        if (!GitHubLoaded) _ = LoadGitHubAsync();
     }
 
     private void Reset()

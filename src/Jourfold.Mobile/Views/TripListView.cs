@@ -25,6 +25,9 @@ public static class TripListView
             page.Children.Add(Ui.Card(Ui.V(6, Ui.Text(s.Strings["ChooseTripForShare"], "strong"), Ui.Text(what, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), cancel.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)), 14)
                 .Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Accent").Margin(16, 0));
         }
+        // Until the folders are read, the page stays empty below its title: showing the welcome for a moment and then
+        // the trips would flicker.
+        if (!s.TripsLoaded) return Ui.Scroll(page);
         var columns = width switch { WidthClass.Phone => 1, WidthClass.CompactTablet => 2, _ => 3 };
         if (columns == 1) foreach (var trip in s.Trips) page.Children.Add(Card(s, trip).Margin(16, 0));
         else if (s.Trips.Count > 0)
@@ -37,10 +40,13 @@ public static class TripListView
         var sample = Ui.Button(s.Strings["ExploreSample"], "sparkles", s.Trips.Count == 0 ? "primary" : "soft");
         sample.Click += async (_, _) => { sample.IsEnabled = false; await s.OpenAsync(await s.CreateSampleAsync()); };
         page.Children.Add(sample.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch).Margin(16, 8, 16, 8));
-        // A trip someone shares on GitHub comes to the phone from here.
-        page.Children.Add(Ui.Text(s.Strings["SharedTrips"], "overline").Margin(20, 8, 20, 0));
-        if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
-        else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
+        // A trip someone shares on GitHub comes to the phone from here, once it is known whether the user is signed in.
+        if (s.GitHubLoaded)
+        {
+            page.Children.Add(Ui.Text(s.Strings["SharedTrips"], "overline").Margin(20, 8, 20, 0));
+            if (s.GitHubLogin is null || s.SignInCode is not null) page.Children.Add(GitHubView.Account(s).Margin(16, 0, 16, 24));
+            else page.Children.Add(GitHubView.FindTrips(s).Margin(16, 0, 16, 24));
+        }
         // On wide screens the list keeps a readable width in the middle.
         if (width >= WidthClass.Tablet) page.MaxWidth = 1100;
         return Ui.Scroll(page);

@@ -123,7 +123,7 @@ public static class FileView
                     var top = TopLevel.GetTopLevel(paper);
                     s.Confirm(string.Format(CultureInfo.CurrentCulture, str["OpenLinkBody"], link), str["OpenLink"], async () => { if (top?.Launcher is { } launcher) await launcher.LaunchUriAsync(new Uri(link)); });
                 },
-                () => s.ShowFileProblem(str["MailLinkBlocked"]), str["MailOriginal"], fontSize: 11, padding: 4);
+                () => s.ShowFileProblem(str["MailLinkBlocked"]), str["MailOriginal"], fontSize: 11, padding: 4, zoomable: true);
             // Nearly the whole width of the phone, so a wide e-mail needs to shrink less.
             page.Children.Add(paper.Margin(-12, 0));
         }

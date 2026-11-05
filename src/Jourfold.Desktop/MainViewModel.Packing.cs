@@ -91,6 +91,22 @@ public partial class MainViewModel
         await Workspace.EditAsync(PackingLists.Describe(task, values["group"], values["quantity"]));
     });
 
+    /// <summary>The packing lists an item could move to: those it is not on yet.</summary>
+    public IReadOnlyList<PackingList> PackingListsToMoveTo(Guid itemId) =>
+        Trip is { } trip ? PackingLists.All(trip).Where(l => l.Items.All(i => i.Task.Id != itemId)).ToArray() : [];
+
+    /// <summary>Asks for another list and moves the item there, off every list it was on, as one undoable step.</summary>
+    public Task MovePackingItemAsync(Guid itemId) => RunEditAsync(async () =>
+    {
+        if (Workspace is null || Workspace.State.Trip.Find(itemId) is not { } task || !PackingLists.IsItem(task)) return;
+        var targets = PackingListsToMoveTo(itemId);
+        if (targets.Count == 0) return;
+        var choice = await Interaction.ChooseAsync(string.Format(Strings["MoveToPackingListBody"], task.Title), targets.Select(l => new Choice(l.Collection.Id.ToString(), l.Collection.Title, "backpack")).ToArray());
+        if (choice is null || targets.FirstOrDefault(l => l.Collection.Id.ToString() == choice) is not { } target) return;
+        await Workspace.ApplyAsync([.. PackingLists.MoveItem(Workspace.State.Trip, itemId, target.Collection.Id).Select(l => new EntityEdit(l.Id, l))]);
+        Interaction.Toast(string.Format(Strings["MovedToPackingList"], target.Collection.Title), Strings["Undo"], () => UndoCommand.ExecuteAsync(null));
+    });
+
     /// <summary>Deletes a packing list together with its items that no other list uses, as one undoable step.</summary>
     public Task DeletePackingListAsync(Guid listId) => RunEditAsync(async () =>
     {

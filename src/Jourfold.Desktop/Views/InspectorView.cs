@@ -520,7 +520,9 @@ public static class InspectorView
         }
         // The lists this item is on.
         var lists = PackingLists.All(m.Trip!).Where(l => l.Items.Any(i => i.Task.Id == e.Id)).ToArray();
-        if (lists.Length > 0) body.Children.Add(Field(s["Packing"], Ui.V(4, lists.Select(l => (Control)Link(w, l.Collection)).ToArray())));
+        Control? move = null;
+        if (m.PackingListsToMoveTo(e.Id).Count > 0) { var button = Ui.Button(s["MoveToPackingList"], "backpack", "link"); button.Click += async (_, _) => await m.MovePackingItemAsync(e.Id); move = button; }
+        if (lists.Length > 0 || move is not null) body.Children.Add(Field(s["Packing"], Ui.V(4, [.. lists.Select(l => (Control)Link(w, l.Collection)), .. move is null ? Array.Empty<Control>() : [move]])));
     }
 
     private static Control ListText(MainWindow w, Entity e, string path, string label)

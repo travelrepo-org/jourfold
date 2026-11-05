@@ -66,6 +66,32 @@ public sealed class PackingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AnItemMovesToAnotherListAsOneUndoableStep()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction);
+        var (path, _, _) = await Trip(); await m.OpenAsync(path);
+        interaction.Answers.Enqueue("Barbecue"); await m.CreatePackingListAsync();
+        var barbecue = m.CurrentPackingList!.Collection.Id;
+        await m.AddPackingItemAsync(barbecue, "Grill"); await m.AddPackingItemAsync(barbecue, "Plates");
+        interaction.Answers.Enqueue("Camping"); await m.CreatePackingListAsync();
+        var camping = m.CurrentPackingList!.Collection.Id;
+        var grill = PackingLists.All(m.Trip!).Single(l => l.Collection.Id == barbecue).Items[0].Task.Id;
+
+        // Only the lists the item is not on are offered.
+        Assert.Equal([camping], m.PackingListsToMoveTo(grill).Select(l => l.Collection.Id));
+        interaction.Answers.Enqueue(camping.ToString()); await m.MovePackingItemAsync(grill);
+        PackingList List(Guid id) => PackingLists.All(m.Trip!).Single(l => l.Collection.Id == id);
+        Assert.Equal(["Plates"], List(barbecue).Items.Select(i => i.Task.Title));
+        Assert.Equal(["Grill"], List(camping).Items.Select(i => i.Task.Title));
+        Assert.Contains("Moved to “Camping”.", interaction.Toasts);
+
+        await m.UndoCommand.ExecuteAsync(null);
+        Assert.Equal(["Grill", "Plates"], List(barbecue).Items.Select(i => i.Task.Title));
+        Assert.Empty(List(camping).Items);
+    }
+
+    [AvaloniaFact]
     public async Task TheViewFiltersMineAndUnassignedAndChipsTogglePacking()
     {
         var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Show(); Probe.Layout();

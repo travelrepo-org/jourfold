@@ -18,6 +18,8 @@ public sealed partial class MobileSession
 
     /// <summary>The GitHub account this phone is signed in with, or null.</summary>
     public string? GitHubLogin { get; private set; }
+    /// <summary>Whether the stored sign-in has been read once, so a null <see cref="GitHubLogin"/> means signed out.</summary>
+    public bool GitHubLoaded { get; private set; }
     /// <summary>The code to enter on GitHub while a sign-in waits for confirmation.</summary>
     public DeviceAuthorization? SignInCode { get; private set; }
     /// <summary>Where the open trip is shared, such as "origin"; null when it is only on this phone.</summary>
@@ -63,6 +65,7 @@ public sealed partial class MobileSession
     {
         var provider = GitHub();
         GitHubLogin = await provider.IsConnectedAsync(ct) ? Settings.GitHubLogin ?? "GitHub" : null;
+        GitHubLoaded = true;
         Changed?.Invoke();
         if (GitHubLogin is not null) _ = CheckSignInAsync(provider, ct);
         if (GitHubLogin is null && SignInCode is null && await Host.Secrets.ReadAsync(PendingKey, ct) is { } text)

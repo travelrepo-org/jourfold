@@ -131,7 +131,8 @@ public static class PackingView
         MenuItem[] Entries()
         {
             MenuItem Entry(string label, string icon, Func<Task> action) { var entry = new MenuItem { Header = label, Icon = Ui.Icon(icon, 15) }; entry.Click += async (_, _) => await action(); return entry; }
-            return [Entry(s["Assign"], "users", () => m.AssignPackingItemAsync(task.Id)), Entry(s["GroupAndQuantity"], "package", () => m.DescribePackingItemAsync(task.Id)), Entry(s["Delete"], "trash-2", () => m.DeleteAsync(task.Id))];
+            var move = m.PackingListsToMoveTo(task.Id).Count > 0 ? Entry(s["MoveToPackingList"], "backpack", () => m.MovePackingItemAsync(task.Id)) : null;
+            return [Entry(s["Assign"], "users", () => m.AssignPackingItemAsync(task.Id)), Entry(s["GroupAndQuantity"], "package", () => m.DescribePackingItemAsync(task.Id)), .. move is null ? Array.Empty<MenuItem>() : [move], Entry(s["Delete"], "trash-2", () => m.DeleteAsync(task.Id))];
         }
         var more = Ui.IconButton("ellipsis", s["More"], "small"); more.Flyout = new MenuFlyout { ItemsSource = Entries() };
         var grid = Ui.Columns("Auto,*,Auto,Auto", check?.Margin(0, 0, 10, 0), text, people.Margin(10, 0), more);

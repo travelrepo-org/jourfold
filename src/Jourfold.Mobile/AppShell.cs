@@ -91,10 +91,18 @@ public sealed class AppShell : UserControl
 
     public static WidthClass Classify(double width) => width switch { < 600 => WidthClass.Phone, < 840 => WidthClass.CompactTablet, < 1200 => WidthClass.Tablet, _ => WidthClass.Wide };
 
+    /// <summary>
+    /// Whether the app has drawn its first picture, so the system's starting screen can give way to it without the
+    /// empty, black drawing surface showing in between.
+    /// </summary>
+    public static bool Drawn { get; private set; }
+
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
         if (TopLevel.GetTopLevel(this) is not { } top) return;
+        // The frame after the first one: by then the first is on the screen.
+        if (!Drawn) top.RequestAnimationFrame(_ => top.RequestAnimationFrame(_ => Drawn = true));
         // Content is drawn edge to edge; the safe area keeps it clear of the status bar, notch and gesture bar.
         if (top.InsetsManager is { } insets)
         {
@@ -467,11 +475,12 @@ public sealed class AppShell : UserControl
         var state = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(Session.Remote is null || Session.SyncProblem is not null ? "cloud-off" : "cloud", 18, "Text.Muted").Margin(0, 0, 10, 0), Ui.Text(where, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)) }.Classed("sidebar");
         AutomationProperties.SetName(state, s["SyncAndVersions"] + ": " + where);
         state.Click += (_, _) => Session.ShowPage("sync");
+        // The right padding lies inside the scrolling, so its scroll bar runs in the margin beside the rows, not over them.
         var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto,Auto") };
-        layout.Children.Add(new ScrollViewer { Content = items, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
-        layout.Children.Add(state.Margin(0, 8, 0, 4).Row(1));
+        layout.Children.Add(new ScrollViewer { Content = items.Margin(0, 0, SidebarPadding, 0), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled });
+        layout.Children.Add(state.Margin(0, 8, SidebarPadding, 4).Row(1));
         layout.Children.Add(SidebarToggle(open: false, inset: SidebarPadding).Row(2));
-        return new Border { Child = layout, Width = 232, Padding = new Thickness(SidebarPadding, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
+        return new Border { Child = layout, Width = 232, Padding = new Thickness(SidebarPadding, 0, 0, 0), BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
     }
 
     private const double SidebarPadding = 12;

@@ -92,10 +92,27 @@ public sealed class MainActivity : AvaloniaMainActivity
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         Current = this;
-        AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
+        // The starting screen stays until the app has drawn, at most three seconds, and then fades out a moment later:
+        // Avalonia's drawing surface is black until its first picture reaches the screen, which would flash between
+        // the two.
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var splash = AndroidX.Core.SplashScreen.SplashScreen.InstallSplashScreen(this);
+        splash.SetKeepOnScreenCondition(new KeepStarting(() => !AppShell.Drawn && started.Elapsed < TimeSpan.FromSeconds(3)));
+        splash.SetOnExitAnimationListener(new FadeOut());
         base.OnCreate(savedInstanceState);
         // Not again when Android rebuilds the activity, for example after the screen turned.
         if (savedInstanceState is null) Share(Intent);
+    }
+
+    private sealed class KeepStarting(Func<bool> keep) : Java.Lang.Object, AndroidX.Core.SplashScreen.SplashScreen.IKeepOnScreenCondition
+    {
+        public bool ShouldKeepOnScreen() => keep();
+    }
+
+    private sealed class FadeOut : Java.Lang.Object, AndroidX.Core.SplashScreen.SplashScreen.IOnExitAnimationListener
+    {
+        public void OnSplashScreenExit(AndroidX.Core.SplashScreen.SplashScreenViewProvider provider) =>
+            provider.View.Animate()?.Alpha(0).SetStartDelay(250).SetDuration(150).WithEndAction(new Java.Lang.Runnable(provider.Remove))?.Start();
     }
 
     protected override void OnNewIntent(Intent? intent)

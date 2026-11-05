@@ -1,6 +1,9 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Input.GestureRecognizers;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
@@ -14,7 +17,8 @@ namespace Jourfold.UI.Controls;
 /// An e-mail in its original layout, the same on the desktop and the phone, cleaned by TravelRepo's
 /// <see cref="MailHtml"/>. It sits on white paper in both themes, because e-mails are designed for a white background.
 /// Images come from the message itself, and from the internet only after the person allowed it. An e-mail laid out
-/// wider than the screen, as many are, is shrunk to fit instead of being cut off.
+/// wider than the screen, as many are, is shrunk to fit instead of being cut off; on a touch screen two fingers or a
+/// double tap make it larger again.
 /// </summary>
 public static class MailPaper
 {
@@ -24,10 +28,12 @@ public static class MailPaper
     /// <param name="fetch">Loads an image from the internet; only asked when <paramref name="remote"/> is true.</param>
     /// <param name="link">A link was tapped that may be opened; the app asks before it opens it.</param>
     /// <param name="blocked">A link was tapped that may not be opened from Jourfold.</param>
-    public static Control Build(MailMessage mail, bool remote, Func<string, Task<byte[]?>> fetch, Action<string> link, Action blocked, string name, double fontSize = 10, double padding = 20)
+    /// <param name="zoomable">Whether two fingers and a double tap zoom the e-mail, for the phone where it is shrunk most.</param>
+    public static Control Build(MailMessage mail, bool remote, Func<string, Task<byte[]?>> fetch, Action<string> link, Action blocked, string name, double fontSize = 10, double padding = 20, bool zoomable = false)
     {
         var safe = MailHtml.Sanitize(mail.Html!, remote);
-        var html = new HtmlLabel { Text = safe.Html, IsContextMenuEnabled = false, IsSelectionEnabled = true, Background = Brushes.White, AutoSize = false, AutoSizeHeightOnly = true };
+        // Where a double tap zooms, it does not also select a word; the e-mail's Text view is there to copy from.
+        var html = new HtmlLabel { Text = safe.Html, IsContextMenuEnabled = false, IsSelectionEnabled = !zoomable, Background = Brushes.White, AutoSize = false, AutoSizeHeightOnly = true };
         html.BaseStylesheet = $"body {{ font-family: 'Plus Jakarta Sans', sans-serif; font-size: {fontSize.ToString(System.Globalization.CultureInfo.InvariantCulture)}pt; color: #1f2933; margin: 0; }} a {{ color: #0b6e6e; }} img {{ max-width: 100%; }}";
         html.StylesheetLoad += (_, e) => e.Event.SetStyleSheet = "";
         html.ImageLoad += (_, e) =>
@@ -57,7 +63,44 @@ public static class MailPaper
             if (MailHtml.IsOpenableLink(target)) link(target); else blocked();
         };
         AutomationProperties.SetName(html, name + ": " + (mail.Text.Length > 300 ? mail.Text[..300] : mail.Text));
-        return new Border { Background = Brushes.White, CornerRadius = new CornerRadius(10), Padding = new Thickness(padding), Child = new FitWidth(html), ClipToBounds = true, BorderThickness = new Thickness(1) }.Res(Border.BorderBrushProperty, "Line");
+        var fit = new FitWidth(html);
+        if (zoomable) Zoomable(fit);
+        return new Border { Background = Brushes.White, CornerRadius = new CornerRadius(10), Padding = new Thickness(padding), Child = fit, ClipToBounds = true, BorderThickness = new Thickness(1) }.Res(Border.BorderBrushProperty, "Line");
+    }
+
+    /// <summary>
+    /// Two fingers zoom the e-mail around the point between them, a double tap zooms in or back, and a zoomed e-mail
+    /// moves sideways with one finger. Up and down stays with the page, which scrolls the e-mail as before.
+    /// </summary>
+    private static void Zoomable(FitWidth fit)
+    {
+        fit.GestureRecognizers.Add(new PinchGestureRecognizer());
+        double? pinchFrom = null;
+        fit.AddHandler(InputElement.PinchEvent, (_, e) =>
+        {
+            pinchFrom ??= fit.Zoom;
+            fit.ZoomAt(pinchFrom.Value * e.Scale, e.ScaleOrigin.X);
+            e.Handled = true;
+        });
+        fit.AddHandler(InputElement.PinchEndedEvent, (_, _) => pinchFrom = null);
+        fit.DoubleTapped += (_, e) => { fit.ZoomAt(fit.Zoom > 1 ? 1 : 2, e.GetPosition(fit).X); e.Handled = true; };
+
+        // One finger moves a zoomed e-mail sideways; a second finger is the pinch's. The page may take the finger to
+        // scroll, so its release need not come here: the first finger of a touch is known by being the primary one.
+        IPointer? finger = null; double lastX = 0;
+        fit.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
+        {
+            if (e.Pointer.Type == PointerType.Mouse) return;
+            if (e.Pointer.IsPrimary) { finger = e.Pointer; lastX = e.GetPosition(fit).X; } else finger = null;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        fit.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
+        {
+            if (e.Pointer != finger || pinchFrom is not null || fit.Zoom <= 1) return;
+            var x = e.GetPosition(fit).X; fit.Pan += lastX - x; lastX = x;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        void Lift(IPointer pointer) { if (pointer == finger) finger = null; }
+        fit.AddHandler(InputElement.PointerReleasedEvent, (_, e) => Lift(e.Pointer), RoutingStrategies.Tunnel, handledEventsToo: true);
+        fit.AddHandler(InputElement.PointerCaptureLostEvent, (_, e) => Lift(e.Pointer), RoutingStrategies.Bubble, handledEventsToo: true);
     }
 
     /// <summary>An image from the internet for an e-mail, at most 5 MB and only when it is one; null otherwise.</summary>
@@ -82,28 +125,50 @@ public static class MailPaper
 
     /// <summary>
     /// Lays the e-mail out in the width there is; when its tables or images are wider than that, lays it out at their
-    /// width and shrinks the whole of it to fit.
+    /// width and shrinks the whole of it to fit. A zoom makes the fitted e-mail larger again without laying it out anew,
+    /// and the part shown of its width follows <see cref="Pan"/>.
     /// </summary>
     private sealed class FitWidth : Decorator
     {
         private readonly HtmlLabel html;
-        private double natural, scale = 1;
+        private double natural, scale = 1, view, zoom = 1, pan;
 
-        public FitWidth(HtmlLabel html) { this.html = html; Child = html; html.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute); }
+        public FitWidth(HtmlLabel html) { this.html = html; Child = html; ClipToBounds = true; html.RenderTransformOrigin = new RelativePoint(0, 0, RelativeUnit.Absolute); }
+
+        /// <summary>How many times larger than fitting the e-mail is shown, from 1 to 4.</summary>
+        public double Zoom { get => zoom; private set { zoom = Math.Clamp(value, 1, 4); InvalidateMeasure(); } }
+
+        /// <summary>How far the zoomed e-mail is moved to the left, in screen units.</summary>
+        public double Pan { get => pan; set { pan = value; Place(); } }
+
+        /// <summary>Zooms so that what is at <paramref name="x"/> stays under it.</summary>
+        public void ZoomAt(double to, double x)
+        {
+            var spot = (pan + x) / zoom;
+            Zoom = to;
+            pan = spot * zoom - x; Place();
+        }
 
         protected override Size MeasureOverride(Size availableSize)
         {
             var width = double.IsFinite(availableSize.Width) ? availableSize.Width : 600;
             html.Measure(new Size(width, double.PositiveInfinity));
-            natural = width; scale = 1;
+            natural = width; scale = 1; view = width;
             if (html.Container is { } container && container.ActualSize.Width > width + 1)
             {
                 natural = Math.Ceiling(container.ActualSize.Width);
                 html.Measure(new Size(natural, double.PositiveInfinity));
                 scale = width / natural;
             }
-            html.RenderTransform = scale < 1 ? new ScaleTransform(scale, scale) : null;
-            return new Size(width, html.DesiredSize.Height * scale);
+            Place();
+            return new Size(width, html.DesiredSize.Height * scale * zoom);
+        }
+
+        private void Place()
+        {
+            pan = Math.Clamp(pan, 0, Math.Max(0, view * zoom - view));
+            var total = scale * zoom;
+            html.RenderTransform = total == 1 && pan == 0 ? null : new MatrixTransform(Matrix.CreateScale(total, total) * Matrix.CreateTranslation(-pan, 0));
         }
 
         protected override Size ArrangeOverride(Size finalSize)

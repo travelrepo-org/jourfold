@@ -82,6 +82,24 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheTripListWaitsForWhatIsThereBeforeItWelcomes()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets()));
+        try
+        {
+            string[] Texts() => [.. Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(TripListView.Build(session)).OfType<TextBlock>().Select(t => t.Text ?? "")];
+            // Drawn before the folders and the sign-in are read, the list would welcome and offer to sign in for a moment.
+            var before = Texts();
+            Assert.Contains("Trips", before);
+            Assert.DoesNotContain("Plan trips together, at your own pace", before); Assert.DoesNotContain("Shared trips", before);
+            await session.LoadTripsAsync(); await session.LoadGitHubAsync();
+            var after = Texts();
+            Assert.Contains("Plan trips together, at your own pace", after); Assert.Contains("Shared trips", after);
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task ASignInThatGitHubNoLongerAcceptsEndsQuietly()
     {
         var github = new FakeGitHub { Revoked = true }; var secrets = new MemorySecrets();
@@ -1264,7 +1282,7 @@ public sealed class MobileTests : IDisposable
             session.ShowFile(new ShownFile("stay.eml", "message/rfc822", bytes)); Probe.Layout();
             var html = Probe.All<TheArtOfDev.HtmlRenderer.Avalonia.HtmlLabel>(window).Single();
             // A layout 640 wide is shrunk to the phone instead of being cut off.
-            Assert.True(html.RenderTransform is Avalonia.Media.ScaleTransform { ScaleX: < 1 });
+            Assert.True(html.RenderTransform?.Value.M11 < 1);
             Assert.True(html.GetVisualParent<Control>()!.Bounds.Width < 412);
             // A tapped link asks before it leaves the app.
             var link = html.Container!.GetLinks().Single();

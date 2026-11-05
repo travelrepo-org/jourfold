@@ -69,7 +69,9 @@ Navigate hands the place's position to the maps app; without one it searches for
 
 The Map tab draws the selected day like the desktop's map (`MapSurface` in Jourfold.UI): numbered pins in the order
 of the plan, a dashed line through them and journeys as arcs. It pans with a finger and zooms with two fingers, a
-double tap or the buttons. Without online maps it shows a plain grid and works offline; street tiles from
+double tap or the buttons. **My location** among the buttons asks for the position only when tapped, like "Where I
+am", and shows it as a dot in the middle of the map; it is kept only while the map is open and never saved or sent.
+Without online maps it shows a plain grid and works offline; street tiles from
 OpenStreetMap come after the user turned them on, with the credit next to the buttons, the same tile cache rules as
 the desktop and the cache in the app's private folder. A docked sheet lists the day's stops: dragged down it leaves
 only its handle, in the middle it shows the list, and a tapped pin or stop comes first with Navigate and Details. On

@@ -130,10 +130,13 @@ public sealed class MapSurface : Control
             for (var lat = Math.Floor(bottomRight.Lat / step) * step; lat <= topLeft.Lat; lat += step) { var y = ToScreen((lat, 0)).Y; context.DrawLine(pen, new Point(0, y), new Point(Bounds.Width, y)); }
         }
         var transport = Ui.Brush(this, "Kind.Transport.Bar") ?? Brushes.SteelBlue; var accent = Ui.Brush(this, "Accent") ?? Brushes.Teal;
+        // Lines are cut to what is on the screen before they are drawn: zoomed in close, a flight's line is millions of
+        // pixels long, and dashing all of it kept the renderer busy for minutes.
+        var view = new Rect(Bounds.Size).Inflate(32);
         if (path.Length > 1)
         {
             var line = new StreamGeometry();
-            using (var g = line.Open()) { g.BeginFigure(ToScreen(path[0]), false); foreach (var p in path.Skip(1)) g.LineTo(ToScreen(p)); g.EndFigure(false); }
+            using (var g = line.Open()) for (var i = 1; i < path.Length; i++) Segment(g, ToScreen(path[i - 1]), ToScreen(path[i]), view);
             context.DrawGeometry(null, new Pen(accent, 2.5, new DashStyle([3, 2], 0), PenLineCap.Round, PenLineJoin.Round), line);
         }
         foreach (var (a, b, solid, highlight) in routeCoordinates)
@@ -143,9 +146,48 @@ public sealed class MapSurface : Control
             // A gentle arc keeps long flights readable and distinguishes them from roads.
             var mid = new Point((p1.X + p2.X) / 2, (p1.Y + p2.Y) / 2); var dx = p2.X - p1.X; var dy = p2.Y - p1.Y; var bend = 0.18;
             var control = new Point(mid.X - dy * bend, mid.Y + dx * bend);
-            var geometry = new StreamGeometry(); using (var g = geometry.Open()) { g.BeginFigure(p1, false); g.QuadraticBezierTo(control, p2); g.EndFigure(false); }
+            var geometry = new StreamGeometry(); using (var g = geometry.Open()) Curve(g, p1, control, p2, view, 0);
             context.DrawGeometry(null, pen, geometry);
         }
+    }
+
+    /// <summary>The part of the straight line from <paramref name="a"/> to <paramref name="b"/> that lies in <paramref name="view"/>.</summary>
+    private static void Segment(StreamGeometryContext g, Point a, Point b, Rect view)
+    {
+        // Liang-Barsky: the line is a + t(b - a), kept for the t that lie inside all four edges.
+        double from = 0, to = 1, dx = b.X - a.X, dy = b.Y - a.Y;
+        foreach (var (p, q) in new[] { (-dx, a.X - view.Left), (dx, view.Right - a.X), (-dy, a.Y - view.Top), (dy, view.Bottom - a.Y) })
+        {
+            if (p == 0) { if (q < 0) return; continue; }
+            var t = q / p;
+            if (p < 0) { if (t > to) return; from = Math.Max(from, t); }
+            else { if (t < from) return; to = Math.Min(to, t); }
+        }
+        g.BeginFigure(new Point(a.X + from * dx, a.Y + from * dy), false); g.LineTo(new Point(a.X + to * dx, a.Y + to * dy)); g.EndFigure(false);
+    }
+
+    /// <summary>
+    /// The part of a quadratic curve that lies in <paramref name="view"/>: halved until a piece is short or off the
+    /// screen, so only the pieces on the screen are drawn, as short straight lines.
+    /// </summary>
+    private static void Curve(StreamGeometryContext g, Point a, Point control, Point b, Rect view, int depth)
+    {
+        var box = new Rect(new Point(Math.Min(a.X, Math.Min(control.X, b.X)), Math.Min(a.Y, Math.Min(control.Y, b.Y))), new Point(Math.Max(a.X, Math.Max(control.X, b.X)), Math.Max(a.Y, Math.Max(control.Y, b.Y))));
+        if (!box.Intersects(view)) return;
+        if (depth >= 28 || Point.Distance(a, control) + Point.Distance(control, b) < 200)
+        {
+            var previous = a;
+            for (var i = 1; i <= 8; i++)
+            {
+                var t = i / 8.0; var u = 1 - t;
+                var next = new Point(u * u * a.X + 2 * u * t * control.X + t * t * b.X, u * u * a.Y + 2 * u * t * control.Y + t * t * b.Y);
+                Segment(g, previous, next, view); previous = next;
+            }
+            return;
+        }
+        Point Mid(Point p, Point q) => new((p.X + q.X) / 2, (p.Y + q.Y) / 2);
+        var left = Mid(a, control); var right = Mid(control, b); var middle = Mid(left, right);
+        Curve(g, a, left, middle, view, depth + 1); Curve(g, middle, right, b, view, depth + 1);
     }
     private (double Lat, double Lon) FromScreen(Point p)
     {

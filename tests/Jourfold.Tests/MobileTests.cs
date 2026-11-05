@@ -348,6 +348,34 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task MyLocationAsksOnlyWhenTappedAndShowsADot()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var asked = 0; (double, double)? answer = null;
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(),
+            Locate: _ => { asked++; return Task.FromResult(answer); }));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowTab(MobileTab.Map); session.ShowDate(new LocalDate(2027, 5, 16)); Probe.Layout();
+            Button Locate() => window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "My location");
+            Border? Dot() => window.GetVisualDescendants().OfType<MapPage>().Single().GetVisualDescendants().OfType<Border>().FirstOrDefault(b => b.Width == 18 && !b.IsHitTestVisible);
+            // Nothing is asked before the tap.
+            Assert.Equal(0, asked); Assert.Null(Dot());
+            // Without a position the app says so and draws nothing.
+            Locate().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => window.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text?.StartsWith("The phone could not tell where it is.", StringComparison.Ordinal) == true));
+            Assert.Equal(1, asked); Assert.Null(Dot());
+            answer = (35.6655, 139.7708);
+            Locate().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => Dot() is not null);
+            Assert.Equal(2, asked);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task ANoticeShowsAboveTheDetailsAndGoesAway()
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();

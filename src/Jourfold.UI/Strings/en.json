@@ -292,6 +292,7 @@
   "IdentityHint": "Used when you add yourself to a trip and to sign the versions you create. It stays on this computer.",
   "ZoomIn": "Zoom in",
   "ZoomOut": "Zoom out",
+  "MyLocation": "My location",
   "AddBudget": "Budget",
   "diagnostic.folder.not_empty": "Choose an empty folder.",
   "diagnostic.copy.nested": "Choose a folder outside the current trip.",

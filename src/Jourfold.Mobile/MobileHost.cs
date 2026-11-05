@@ -22,7 +22,8 @@ namespace Jourfold.Mobile;
 /// this phone" use it. Android tells phones by their ability to make calls, iOS by iPhone or iPad.
 /// </param>
 /// <param name="Locate">
-/// The device's current position, asked for only when the user taps "Where I am"; it may ask for the permission first.
+/// The device's current position, asked for only when the user taps "Where I am" or the map's "My location"; it may ask
+/// for the permission first.
 /// Null when the device cannot tell or the user declines; the delegate itself is null where the platform has none.
 /// </param>
 /// <param name="TakePhoto">Takes a photo with the camera app, such as of a receipt, made small enough for the trip; null when cancelled.</param>

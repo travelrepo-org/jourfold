@@ -292,6 +292,7 @@
   "IdentityHint": "Wird verwendet, wenn Sie sich einer Reise hinzufügen, und kennzeichnet Ihre Versionen. Bleibt auf diesem Computer.",
   "ZoomIn": "Vergrößern",
   "ZoomOut": "Verkleinern",
+  "MyLocation": "Mein Standort",
   "AddBudget": "Budget",
   "diagnostic.folder.not_empty": "Wähle einen leeren Ordner.",
   "diagnostic.copy.nested": "Wähle einen Ordner außerhalb der aktuellen Reise.",

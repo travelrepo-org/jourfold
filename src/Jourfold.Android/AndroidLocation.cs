@@ -7,9 +7,9 @@ using Java.Util.Functions;
 namespace Jourfold.Android;
 
 /// <summary>
-/// The phone's position for "Where I am", asked for only when the user taps it. The permission is requested then,
-/// not at start; without it, or without a fix within a few seconds, the answer is that the position is unknown.
-/// Nothing is kept or sent; the position only fills the place's fields.
+/// The phone's position for "Where I am" and the map's "My location", asked for only when the user taps one. The
+/// permission is requested then, not at start; without it, or without a fix within a few seconds, the answer is that the
+/// position is unknown. Nothing is kept or sent; the position only fills the place's fields or shows on the map.
 /// </summary>
 public static class AndroidLocation
 {

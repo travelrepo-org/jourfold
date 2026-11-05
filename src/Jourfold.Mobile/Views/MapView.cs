@@ -33,6 +33,8 @@ public sealed class MapPage : UserControl
     private WidthClass width;
     private LocalDate? fitted;
     private Stop[] stops = [];
+    // Where the device is, after the user asked with "My location"; kept only while the map is open, never saved.
+    private (double Lat, double Lon)? here;
 
     /// <summary>One line of the day with where it is; journeys also know where they start.</summary>
     private sealed record Stop(int Number, AgendaEntry Entry, (double Lat, double Lon)? At, (double Lat, double Lon)? From);
@@ -131,11 +133,19 @@ public sealed class MapPage : UserControl
         surface.Pan(Bounds.Width / 2 - visible.Center.X, Bounds.Height / 2 - visible.Center.Y);
     }
 
-    /// <summary>The numbered pins, drawn again whenever the map moves.</summary>
+    /// <summary>The numbered pins, drawn again whenever the map moves, and the device's position under them.</summary>
     private void Place()
     {
         markers.Children.Clear();
         if (!built) return;
+        if (here is { } me && surface.ToScreen(me) is var at && at.X > -30 && at.Y > -30 && at.X < Bounds.Width + 30 && at.Y < Bounds.Height + 30)
+        {
+            var halo = new Border { Width = 44, Height = 44, CornerRadius = new CornerRadius(22), Opacity = 0.18, IsHitTestVisible = false }.Res(Border.BackgroundProperty, "Info");
+            var dot = new Border { Width = 18, Height = 18, CornerRadius = new CornerRadius(9), BorderThickness = new Thickness(3), BorderBrush = Brushes.White, IsHitTestVisible = false, BoxShadow = BoxShadows.Parse("0 1 4 0 #400F2A3D") }
+                .Res(Border.BackgroundProperty, "Info");
+            Canvas.SetLeft(halo, at.X - 22); Canvas.SetTop(halo, at.Y - 22); Canvas.SetLeft(dot, at.X - 9); Canvas.SetTop(dot, at.Y - 9);
+            markers.Children.Add(halo); markers.Children.Add(dot);
+        }
         // Stops at the same place, such as checking in and exploring from the hotel, share one pin: "1·2".
         var groups = stops.Where(x => x.At is not null).GroupBy(x => (Math.Round(x.At!.Value.Lat, 5), Math.Round(x.At!.Value.Lon, 5))).Select(g => g.ToArray());
         foreach (var group in groups.OrderBy(g => g.Any(x => x.Entry.Item.Id == s.SelectedItem)))
@@ -177,9 +187,12 @@ public sealed class MapPage : UserControl
         var zoomOut = Ui.IconButton("minus", str["ZoomOut"]); zoomOut.Click += (_, _) => surface.ZoomAt(-1, new Point(Bounds.Width / 2, Bounds.Height / 2));
         var fit = Ui.IconButton("maximize-2", str["FitMap"]); fit.Click += (_, _) => Fit();
         var layersButton = Ui.IconButton(online ? "globe" : "layers", str["StreetMap"]); layersButton.Click += (_, _) => s.SetOnlineMaps(!online);
+        // Only where the device can tell; the permission is asked on the first tap, not before.
+        var locate = s.Host.Locate is null ? null : Ui.IconButton("locate-fixed", str["MyLocation"]);
+        if (locate is not null) locate.Click += async (_, _) => await LocateAsync(locate);
         // On tablets the sheet is a column on the right; the controls stay left of it.
         overlay.Margin = new Thickness(0, 0, sideSheet ? 400 : 0, 0);
-        overlay.Children.Add(new Border { Child = Ui.V(2, zoomIn, zoomOut, fit, layersButton), Padding = new Thickness(4), CornerRadius = new CornerRadius(12), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 76, 12, 0) }
+        overlay.Children.Add(new Border { Child = Ui.V(2, zoomIn, zoomOut, fit, locate, layersButton), Padding = new Thickness(4), CornerRadius = new CornerRadius(12), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 76, 12, 0) }
             .Classed("raised").Res(Border.BackgroundProperty, "Bg.Surface"));
         var strip = new Border { Child = PlanView.DateStrip(s), Padding = new Thickness(0, 6), VerticalAlignment = VerticalAlignment.Top }.Res(Border.BackgroundProperty, "Bg.App");
         overlay.Children.Add(strip);
@@ -191,6 +204,22 @@ public sealed class MapPage : UserControl
             overlay.Children.Add(new Border { Child = credit, Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 76, 64, 0) }
                 .Res(Border.BackgroundProperty, "Bg.Surface"));
         }
+    }
+
+    /// <summary>Asks the device where it is and shows that as a dot in the middle of the free part of the map.</summary>
+    private async Task LocateAsync(Button button)
+    {
+        button.IsEnabled = false;
+        try
+        {
+            if (await s.Host.Locate!(CancellationToken.None) is { } at)
+            {
+                here = (at.Latitude, at.Longitude);
+                surface.Fit([here.Value], Visible().Size); Shift(); Place();
+            }
+            else Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(this)?.Notify(s.Strings["NoPosition"]);
+        }
+        finally { button.IsEnabled = true; }
     }
 
     /// <summary>The day in the sheet's header, with how many of its stops are on the map.</summary>

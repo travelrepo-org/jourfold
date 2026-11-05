@@ -573,7 +573,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex" }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
             // Loading the sign-in asks GitHub whether it still counts; the fake says it does.
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         }
@@ -654,7 +654,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "Values": { "calendar": "trips" } }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid", "Values": { "calendar": "trips" } }""");
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub(), Calendar: calendar));
         }
         async Task<string> Head(string folder) => (await git.ExecuteAsync(folder, ["rev-parse", "HEAD"])).Output.Trim();
@@ -704,7 +704,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex" }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         }
         var phone = Phone("phone"); var tablet = Phone("tablet");

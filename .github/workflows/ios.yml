@@ -22,9 +22,9 @@ permissions:
   contents: read
 env:
   LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
-  # Each .NET for iOS needs one Xcode. Workload set 10.401.0 has .NET for iOS 26.5, which needs Xcode 26.5; later sets
+  # Each .NET for iOS needs one Xcode. Workload set 10.0.401 has .NET for iOS 26.5, which needs Xcode 26.5; later sets
   # of the 10.0.400 band need Xcode 27, which GitHub only has as a preview image so far.
-  WORKLOAD_VERSION: 10.401.0
+  WORKLOAD_VERSION: 10.0.401
   XCODE: /Applications/Xcode_26.5.app
 jobs:
   app:

@@ -372,7 +372,7 @@ on a Mac runner for changes to the mobile code: it builds libgit2 as `git2.xcfra
 
 To build on a Mac (the .NET SDK from `eng/sdk.json`, CMake, and TravelRepo beside this repository): each .NET for iOS
 needs one Xcode, so install the workload the workflow uses with the Xcode it names, for example
-`dotnet workload install ios --version 10.401.0` with Xcode 26.5 (`sudo xcode-select -s /Applications/Xcode_26.5.app`).
+`dotnet workload install ios --version 10.0.401` with Xcode 26.5 (`sudo xcode-select -s /Applications/Xcode_26.5.app`).
 Then:
 
 ```sh

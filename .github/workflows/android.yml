@@ -1,18 +1,30 @@
 name: Android
 # Builds the Android app, one APK for arm64 phones and x86_64 emulators, signed with the project's release key, so
-# that every later build installs over it as an update. Pushing a tag such as v0.7.1-android.3 starts it; the job
-# waits for approval in the release environment, which holds the key, and keeps the APK as a workflow artifact for
-# testers.
+# that every later build installs over it as an update. The job waits for approval in the release environment, which
+# holds the key, and checks the certificate before it keeps the APK.
 #
-# Until the mobile app is part of a release, it builds against TRAVELREPO_REF, the TravelRepo branch with the
-# mobile work.
+# - Pushing a tag such as v0.8.0-android.3 builds a preview (0.8.0-preview.3) for testers and keeps it as a workflow
+#   artifact. It builds against the TravelRepo release named by <TravelRepoVersion>, or TravelRepo's default branch
+#   while that release does not exist yet.
+# - release.yml calls this workflow for a published release. The APK is then named after the version and handed to
+#   the release's publish job, which attaches it with the other packages.
 on:
   push:
     tags: ['v*-android.*']
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to build, for example v0.8.0
+        type: string
+        required: true
+      travelrepo:
+        description: The TravelRepo tag to build against
+        type: string
+        required: true
 permissions:
   contents: read
 env:
-  TRAVELREPO_REF: feature/mobile-app
+  TAG: ${{ inputs.tag || github.ref_name }}
   LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
   NDK_VERSION: 28.2.13676358
   CMAKE_VERSION: 3.31.6
@@ -28,11 +40,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           path: jourfold
+      - id: travelrepo
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+          GIVEN: ${{ inputs.travelrepo }}
+        run: |
+          tag="${GIVEN:-v$(python3 eng/version.py --travelrepo)}"
+          if git ls-remote --exit-code --tags "https://github.com/$REPO.git" "refs/tags/$tag" > /dev/null; then
+            echo "ref=$tag" >> "$GITHUB_OUTPUT"
+          elif [ -n "$GIVEN" ]; then
+            echo "::error::TravelRepo $tag does not exist."; exit 1
+          else
+            echo "::warning::TravelRepo $tag is not released yet; building against the default branch."
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
       - uses: actions/checkout@v4
         with:
           repository: ${{ vars.TRAVELREPO_REPOSITORY }}
-          ref: ${{ env.TRAVELREPO_REF }}
+          ref: ${{ steps.travelrepo.outputs.ref }}
           path: travelrepo
       - name: Use the pinned SDK
         shell: bash
@@ -57,11 +84,18 @@ jobs:
           git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
           ANDROID_NDK="$ANDROID_HOME/ndk/$NDK_VERSION" PATH="$ANDROID_HOME/cmake/$CMAKE_VERSION/bin:$PATH" \
             sh ../travelrepo/eng/build-libgit2-android.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-android
+      # A release gets build number 999, so it updates every preview of the same version (0.8.0 becomes 800999).
       - id: version
+        env:
+          RELEASE: ${{ inputs.tag && 'true' || 'false' }}
         run: |
           version="$(python3 eng/version.py)"
-          [ "${GITHUB_REF_NAME%%-android.*}" = "v$version" ] || { echo "::error::Tag $GITHUB_REF_NAME does not match version $version in Directory.Build.props."; exit 1; }
-          echo "display=$version-preview.${GITHUB_REF_NAME##*-android.}" >> "$GITHUB_OUTPUT"
+          [ "${TAG%%-android.*}" = "v$version" ] || { echo "::error::Tag $TAG does not match version $version in Directory.Build.props."; exit 1; }
+          if [ "$RELEASE" = true ]; then
+            { echo "display=$version"; echo "number=999"; echo "name=jourfold-$version-android"; } >> "$GITHUB_OUTPUT"
+          else
+            { echo "display=$version-preview.${TAG##*-android.}"; echo "number=${{ github.run_number }}"; echo "name=jourfold-$version-preview.${TAG##*-android.}-android"; } >> "$GITHUB_OUTPUT"
+          fi
       - run: dotnet restore src/Jourfold.Android --locked-mode
       - name: Build and sign
         env:
@@ -75,20 +109,21 @@ jobs:
           trap 'rm -f "$keystore"' EXIT
           # The passwords are read from the environment (env:), so they never appear on a command line.
           dotnet publish src/Jourfold.Android -c Release --no-restore -o "$RUNNER_TEMP/apk" \
-            -p:AndroidBuildNumber=${{ github.run_number }} -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
+            -p:AndroidBuildNumber=${{ steps.version.outputs.number }} -p:ApplicationDisplayVersion=${{ steps.version.outputs.display }} \
             -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="$keystore" -p:AndroidSigningKeyAlias=jourfold \
             -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD -p:AndroidSigningKeyPass=env:ANDROID_KEYSTORE_PASSWORD
       - name: Check the signature
         run: |
-          apk="$RUNNER_TEMP/jourfold-${{ steps.version.outputs.display }}-android.apk"
+          apk="$RUNNER_TEMP/${{ steps.version.outputs.name }}.apk"
           mv "$RUNNER_TEMP"/apk/dev.jourfold.app-Signed.apk "$apk"
           signer="$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -n 1)/apksigner"
           "$signer" verify --print-certs "$apk" | tee "$RUNNER_TEMP/certs.txt"
           grep -qi "certificate SHA-256 digest: $CERTIFICATE_SHA256" "$RUNNER_TEMP/certs.txt" || { echo "::error::The APK is not signed with the release certificate."; exit 1; }
           echo "APK=$apk" >> "$GITHUB_ENV"
+      # release.yml collects every artifact named release-*; a preview keeps its own name.
       - uses: actions/upload-artifact@v4
         with:
-          name: jourfold-${{ steps.version.outputs.display }}-android
+          name: ${{ inputs.tag && 'release-android' || steps.version.outputs.name }}
           path: ${{ env.APK }}
           retention-days: 30
           if-no-files-found: error

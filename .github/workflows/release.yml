@@ -2,7 +2,8 @@ name: Release
 # Runs when a maintainer publishes a GitHub release. The release tag must be v + <Version> from
 # Directory.Build.props, and the TravelRepo release v + <TravelRepoVersion> must already exist; Jourfold is
 # built against exactly that TravelRepo tag. The workflow builds Linux, Windows and macOS packages (x64 and ARM64)
-# for the tagged commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
+# and the signed Android APK (android.yml, which waits for approval in the release environment) for the tagged
+# commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
 # Publish the release as a pre-release: the installers only use the latest full release, so they never see it
@@ -174,8 +175,15 @@ jobs:
             jourfold/artifacts/jourfold_*.deb
             jourfold/artifacts/jourfold-${{ matrix.rid }}.zip
             jourfold/artifacts/jourfold-setup-${{ matrix.rid }}.exe
+  android:
+    needs: version
+    uses: ./.github/workflows/android.yml
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      travelrepo: ${{ needs.version.outputs.travelrepo }}
+    secrets: inherit
   publish:
-    needs: [version, package]
+    needs: [version, package, android]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -207,7 +215,7 @@ jobs:
         if: needs.version.outputs.latest == 'true'
         run: gh release edit "$TAG" --latest --repo "$GITHUB_REPOSITORY"
   return-to-draft:
-    needs: [version, package, publish]
+    needs: [version, package, android, publish]
     if: failure() && github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:

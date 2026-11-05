@@ -64,6 +64,16 @@ $env:JOURFOLD_VERSION = 'v0.2.0'; irm https://github.com/travelrepo-org/jourfold
 
 Set `JOURFOLD_ARCH` to `x64` or `arm64` to choose a build yourself. Jourfold needs 64-bit Windows 10 or Windows 11. You can also download `jourfold-setup-win-x64.exe` or `jourfold-setup-win-arm64.exe` from the release page and run it yourself, or use the portable `.zip` archives.
 
+## Android
+
+Jourfold runs on Android 10 or newer, on phones and tablets. Each release has the app attached as `jourfold-<version>-android.apk`, for example `jourfold-0.8.0-android.apk`:
+
+1. Open the [latest release](https://github.com/travelrepo-org/jourfold/releases/latest) on the phone and download the APK.
+2. Open the download. Android asks once whether the browser or file app may install apps; allow it for this install.
+3. To update, install the APK of a newer release over it. Trips and settings stay.
+
+The APK is signed with the project's release key. To check it on a computer, compare the fingerprint `apksigner verify --print-certs` prints with the one in [the mobile app documentation](mobile.md#signed-builds), and the file's SHA-256 with `SHA256SUMS` from the release. Android refuses an APK signed with another key over an installed one, so a build of your own needs the installed app removed first, and with it the trips that are only on the phone.
+
 ## What is kept
 
 Uninstalling removes the application only. Your trip folders (by default `Documents/Jourfold`) and settings stay where they are.
@@ -86,9 +96,11 @@ Releases are made by hand in GitHub, and publishing one starts `.github/workflow
 
 1. Make sure `Version` in `Directory.Build.props` on `main` is the version you want, and that the TravelRepo release `v<TravelRepoVersion>` is published.
 2. In GitHub, draft a new release with the tag `v<Version>` (for example `v0.2.0`) on `main`, write the notes, tick **Set as a pre-release** and publish it.
-3. If you leave the title empty, the workflow names the release after its code name, for example `Jourfold 0.1.0 “Nomadic Nightingale”`. It checks that the tag matches `Version` and that the TravelRepo tag exists, then builds Jourfold against exactly that TravelRepo tag. It tests, packages x64 and ARM64 for Linux, Windows and macOS, compiles the Windows setups, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and attaches everything to the release.
+3. If you leave the title empty, the workflow names the release after its code name, for example `Jourfold 0.1.0 “Nomadic Nightingale”`. It checks that the tag matches `Version` and that the TravelRepo tag exists, then builds Jourfold against exactly that TravelRepo tag. It tests, packages x64 and ARM64 for Linux, Windows and macOS, compiles the Windows setups, builds the signed Android APK, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and attaches everything to the release.
 
 Because it starts as a pre-release, the one-line installers keep using the previous release until the files are attached. Then the workflow turns it into a full release and marks it as latest. Publishing directly as a full release also works; the workflow then keeps the previous release as latest while it builds. If a check or build fails, the workflow turns the release back into a draft and the run log says why. Fix the problem and publish the draft again. Tags with a suffix (for example `v0.2.0-beta.1`, with the same `Version` in `Directory.Build.props`) stay pre-releases. `releases/latest` skips them, so install them with `--version`. "Run workflow" rebuilds the files of an already published release.
+
+The Android job runs in the `release` environment, which holds the signing key, and waits until a maintainer approves it; the files are attached only after it is done. Because that environment accepts only `v*` tags, "Run workflow" has to be started on the release tag, not on a branch.
 
 A ruleset lets only organisation admins create, move or delete `v*` tags. The workflow checks out TravelRepo from the repository named in the `TRAVELREPO_REPOSITORY` variable.
 

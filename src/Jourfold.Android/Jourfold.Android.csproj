@@ -6,8 +6,9 @@
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
     <ApplicationId>dev.jourfold.app</ApplicationId>
     <ApplicationTitle>Jourfold</ApplicationTitle>
-    <!-- Android installs an update only when its version code is higher. 0.7.1 becomes 701000; signed builds from CI
-         add their build number (AndroidBuildNumber), so every preview of a version updates the one before. -->
+    <!-- Android installs an update only when its version code is higher. 0.8.0 becomes 800000; signed builds from CI
+         add their build number (AndroidBuildNumber): the run for previews, 999 for the release, so every preview of a
+         version updates the one before and the release updates them all. -->
     <AndroidBuildNumber Condition="'$(AndroidBuildNumber)' == ''">0</AndroidBuildNumber>
     <ApplicationDisplayVersion>$(Version)</ApplicationDisplayVersion>
     <VersionMajor>$([System.Version]::Parse('$(Version)').Major)</VersionMajor>

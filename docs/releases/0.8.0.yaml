@@ -1,0 +1,38 @@
+# Release notes for Jourfold 0.8.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.8.0
+date: 2026-11-05
+highlights:
+  - icon: smartphone
+    en: Jourfold for Android phones and tablets. Today shows what comes next, the plan reads in local time, and the map, tickets, packing lists and costs work offline. Everything can be edited on the road and synced with the trip on GitHub. Every release on GitHub has the APK for it.
+    de: Jourfold für Android-Handys und -Tablets. „Heute“ zeigt, was als Nächstes kommt, der Plan zeigt Ortszeiten, und Karte, Tickets, Packlisten und Kosten funktionieren offline. Unterwegs lässt sich alles bearbeiten und mit der Reise auf GitHub synchronisieren. Die APK finden Sie bei jedem Release auf GitHub.
+  - icon: ticket
+    en: Show ticket opens a plan's boarding pass, and Wallet passes appear with their barcode. A place can keep its name and address in the local script and show them large as a taxi card.
+    de: „Ticket zeigen“ öffnet die Bordkarte eines Plans, und Wallet-Pässe erscheinen mit ihrem Barcode. Ein Ort kann Namen und Adresse in der Landesschrift speichern und sie groß als Taxi-Karte zeigen.
+  - icon: coins
+    en: Costs has a currency converter with the European Central Bank's reference rates. They are fetched only after you agree, at most once a day.
+    de: Die Kosten haben einen Währungsrechner mit den Referenzkursen der Europäischen Zentralbank. Sie werden erst nach Ihrer Zustimmung geladen, höchstens einmal am Tag.
+changes:
+  - en: Journeys show how long they take, across time zones, and the layover to the next journey or from the one before.
+    de: Fahrten und Flüge zeigen ihre Reisezeit über Zeitzonen hinweg und den Umstieg zur nächsten oder von der vorherigen Fahrt.
+  - en: Linking a plan to a booking, or a booking to its plans, changes both sides, so a plan moved to another booking leaves the old one. Groups take in an existing plan, and a step can leave its group.
+    de: Wenn Sie einen Plan mit einer Buchung verknüpfen oder eine Buchung mit ihren Plänen, ändern sich beide Seiten, und ein Plan, der zu einer anderen Buchung wechselt, verlässt die alte. Gruppen nehmen einen vorhandenen Plan auf, und ein Schritt kann seine Gruppe verlassen.
+  - en: Expenses list their files, such as a receipt photographed on the phone, and take new ones like bookings do.
+    de: Ausgaben zeigen ihre Dateien, etwa einen mit dem Handy fotografierten Beleg, und nehmen wie Buchungen neue auf.
+  - en: Details opened from other details get a back arrow, also on Alt+Left.
+    de: Details, die aus anderen Details geöffnet wurden, haben einen Zurück-Pfeil, auch mit Alt+Links.
+  - en: "The packing line suggests people and groups while you type @ or #, and 2x sets the quantity. A name nobody in the trip has is no longer kept in the title: Jourfold says so and offers to add the person."
+    de: "Die Packlisten-Zeile schlägt Personen und Gruppen vor, während Sie @ oder # tippen, und 2x setzt die Anzahl. Ein Name, den niemand in der Reise hat, bleibt nicht mehr im Titel stehen: Jourfold sagt das und bietet an, die Person hinzuzufügen."
+  - en: Packing items move to another list from their menu or details.
+    de: Packlisten-Einträge lassen sich über ihr Menü oder ihre Details in eine andere Liste verschieben.
+  - en: Plan and packing list exports can include comments.
+    de: Exporte von Plan und Packlisten können Kommentare enthalten.
+  - en: Finding trips on GitHub shows how far the search is and can be cancelled. When Jourfold's App may not use any repository yet, Jourfold leads to the page where you choose them.
+    de: Die Suche nach Reisen auf GitHub zeigt ihren Fortschritt und lässt sich abbrechen. Darf die App von Jourfold noch kein Repository nutzen, führt Jourfold zu der Seite, auf der Sie sie auswählen.
+  - en: Connected AI assistants can see layovers, put plans into groups, link bookings, read and add costs, convert currencies with the rates Jourfold downloaded, and rename, delete and change packing lists.
+    de: Verbundene KI-Assistenten sehen Umstiege, ordnen Pläne in Gruppen ein, verknüpfen Buchungen, lesen und erfassen Kosten, rechnen Währungen mit den von Jourfold geladenen Kursen um und können Packlisten umbenennen, löschen und ändern.
+fixes:
+  - en: A click on a check box, a person's chip, "Who brings it?" or Copy inside a row no longer also opens the row's details.
+    de: Ein Klick auf ein Kästchen, den Chip einer Person, „Wer bringt es mit?“ oder „Kopieren“ in einer Zeile öffnet nicht mehr zusätzlich die Details der Zeile.
+  - en: Zooming far into the map on a day with a long flight no longer makes Jourfold stop responding.
+    de: Wenn Sie an einem Tag mit einem langen Flug weit in die Karte hineinzoomen, reagiert Jourfold weiterhin.

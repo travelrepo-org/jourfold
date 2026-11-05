@@ -1,6 +1,7 @@
 # Mobile app
 
-The phone and tablet app is in development. Android comes first; iOS and iPadOS will use the same code once there is
+The phone and tablet app runs on Android 10 and newer. Each release from 0.8.0 on has a signed APK attached;
+[Installing Jourfold](install.md#android) says how to install it. iOS and iPadOS will use the same code once there is
 a Mac to build on.
 
 ## Projects
@@ -280,7 +281,7 @@ with `adb shell content query --uri content://com.android.calendar/events`. iOS 
 ## Building for Android
 
 Needs the .NET `android` workload, the Android SDK with an NDK (r28 or later) and CMake, and TravelRepo checked out
-beside this repository on a branch that has `TravelRepo.Git.LibGit2`.
+beside this repository (0.7.0 or newer, which has `TravelRepo.Git.LibGit2`).
 
 1. Build libgit2 for Android once, from the TravelRepo repository:
 
@@ -305,11 +306,17 @@ The Android project is not in `Jourfold.sln`, so the desktop build and CI do not
 ## Signed builds
 
 Android installs an update only when it is signed with the same key as the installed app and has a higher version
-code. `.github/workflows/android.yml` builds an APK signed with the project's release key when a tag such as
-`v0.7.1-android.3` is pushed (the part before `-android` has to match the version in `Directory.Build.props`). The
-job runs in the `release` environment, which holds the key and needs a maintainer's approval, and keeps the APK as a
-workflow artifact for 30 days. The version code is the version times 1000 plus the run number (0.7.1 becomes
-701000 + run), so each build updates the one before.
+code. `.github/workflows/android.yml` builds an APK signed with the project's release key. The job runs in the
+`release` environment, which holds the key and needs a maintainer's approval, and checks the certificate before it
+keeps the APK.
+
+- A published release runs it through `release.yml`, which attaches `jourfold-<version>-android.apk` to the release.
+- A tag such as `v0.8.0-android.3` builds a preview for testers (`0.8.0-preview.3`) and keeps it as a workflow
+  artifact for 30 days. The part before `-android` has to match the version in `Directory.Build.props`.
+
+The version code is the version times 1000 plus a build number: the run number for previews and 999 for the release,
+so 0.8.0 previews are 800000 + run and the release is 800999. Each build updates the one before, and a release
+updates every preview of its version.
 
 The release certificate's SHA-256 fingerprint, to compare with `apksigner verify --print-certs`:
 

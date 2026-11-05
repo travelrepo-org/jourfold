@@ -14,8 +14,9 @@ on:
   pull_request:
     paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', '.github/workflows/ios.yml']
   workflow_dispatch:
+# A push to a pull request's branch starts the push and the pull request event; one run per branch is enough.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 permissions:
   contents: read

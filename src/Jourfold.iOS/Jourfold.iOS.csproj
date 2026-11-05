@@ -19,7 +19,6 @@
     <!-- Devices, and the simulator on Apple silicon Macs. -->
     <RuntimeIdentifiers>ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
-    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
     <!-- LibGit2Sharp hands libgit2 delegates (the HTTP transport, progress, sign-in) that ahead-of-time code alone
          cannot call back into on a device. The interpreter makes those callbacks work; everything else stays compiled
          ahead of time (-all). -->
@@ -27,6 +26,10 @@
     <MtouchInterpreter>-all</MtouchInterpreter>
     <!-- libgit2 for iOS is built by eng/build-libgit2-ios.sh in the TravelRepo repository. -->
     <Libgit2Ios>$(MSBuildThisFileDirectory)../../artifacts/libgit2-ios</Libgit2Ios>
+  </PropertyGroup>
+  <!-- Devices only: entitlements need a signing identity, and the simulator signs without one. -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('ios-'))">
+    <CodesignEntitlements>Entitlements.plist</CodesignEntitlements>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Jourfold.Mobile/Jourfold.Mobile.csproj"/>

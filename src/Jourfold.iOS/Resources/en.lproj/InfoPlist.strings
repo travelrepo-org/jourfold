@@ -1,0 +1,5 @@
+/* The texts iOS shows when Jourfold asks for a permission. */
+"NSLocationWhenInUseUsageDescription" = "Jourfold uses your location only when you tap “Where I am” or “My location”. It is not kept or sent anywhere.";
+"NSCalendarsFullAccessUsageDescription" = "Jourfold shows each trip as a calendar of its own and keeps it up to date with the plan.";
+"NSCalendarsUsageDescription" = "Jourfold shows each trip as a calendar of its own and keeps it up to date with the plan.";
+"NSCameraUsageDescription" = "Take a photo of a receipt for the trip.";

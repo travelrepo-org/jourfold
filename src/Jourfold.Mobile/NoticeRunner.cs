@@ -28,6 +28,19 @@ public interface ISystemNotices
     void WakeAt(Instant? at);
     /// <summary>Shortcuts on the app's icon to the tickets of journeys that are close, replacing the ones before.</summary>
     void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets);
+    /// <summary>
+    /// Whether the travel day appears as an ongoing notification (<see cref="ShowLive"/>). Where it does, departures it
+    /// already counts down to are not announced again.
+    /// </summary>
+    bool ShowsLive => true;
+    /// <summary>Whether the system settings let the user choose kinds of notifications, as Android's channels do.</summary>
+    bool HasKinds => true;
+    /// <summary>
+    /// The notices still to come, soonest first, replacing the ones handed over before. Platforms that cannot wake the
+    /// app on time, such as iOS, schedule them to show by themselves; <see cref="Show"/> then leaves out a notice the
+    /// system has already shown.
+    /// </summary>
+    void Schedule(IReadOnlyList<(TravelNotice Notice, string TripFolder)> coming) { }
 }
 
 /// <summary>
@@ -53,14 +66,14 @@ public static class NoticeRunner
         try
         {
             var settings = MobileSettings.Load(Path.Combine(host.DataRoot, "settings.json"));
-            if (!On(settings) || !await notices.AllowAsync(ask: false, ct)) { notices.ShowLive(null, null); notices.WakeAt(null); notices.SetTicketShortcuts([]); return; }
+            if (!On(settings) || !await notices.AllowAsync(ask: false, ct)) { notices.ShowLive(null, null); notices.WakeAt(null); notices.SetTicketShortcuts([]); notices.Schedule([]); return; }
             var now = host.Clock.GetCurrentInstant(); var phone = host.PhoneZone(); var strings = new Localization(host.Language) { Device = host.Device };
             var shownPath = Path.Combine(host.DataRoot, "notices-shown.json");
             var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
             // Weather warnings come from the forecasts kept on the device; nothing is fetched here.
             var weather = settings.Values.GetValueOrDefault("weather.online") == "on"
                 ? new TravelRepo.Providers.Weather.WeatherService([], null, new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
-            Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>();
+            Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>(); var coming = new List<(TravelNotice, string)>();
             foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
             {
                 TripSnapshot trip;
@@ -77,12 +90,17 @@ public static class NoticeRunner
                 {
                     var due = notice.At <= now || zoneChanged && notice.Kind == NoticeKind.Arrival && notice.At - now <= Duration.FromHours(3);
                     // The travel day's notification already says when a journey leaves; it announces itself once instead.
-                    var covered = current is not null && notice.Kind is NoticeKind.Departure or NoticeKind.Connection && notice.Item == current.Item;
+                    var covered = notices.ShowsLive && current is not null && notice.Kind is NoticeKind.Departure or NoticeKind.Connection && notice.Item == current.Item;
                     if (due && !shown.ContainsKey(notice.Key)) { if (!covered) notices.Show(notice, folder); shown[notice.Key] = now.ToUnixTimeMilliseconds(); }
-                    else if (notice.At > now && (next is null || notice.At < next)) next = notice.At;
+                    else if (notice.At > now)
+                    {
+                        if (next is null || notice.At < next) next = notice.At;
+                        if (!shown.ContainsKey(notice.Key)) coming.Add((notice, folder));
+                    }
                 }
             }
             notices.ShowLive(live?.Live, live?.Folder);
+            notices.Schedule(coming.OrderBy(c => c.Item1.At).ToArray());
             notices.SetTicketShortcuts(shortcuts.OrderBy(t => t.At).Take(3).Select(t => t.Shortcut).ToArray());
             // While travelling the progress is redrawn every few minutes; otherwise the plan is read again twice a day.
             var wake = new[] { next, live?.Live.Changes, now + (live is null ? Duration.FromHours(12) : Duration.FromMinutes(5)) }.OfType<Instant>().Where(t => t > now).Min();

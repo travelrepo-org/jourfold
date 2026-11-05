@@ -739,7 +739,7 @@ public static class MorePages
                 exact.Click += (_, _) => notices.AskOnTime();
                 body.Children.Add(Ui.V(6, exact, Hint(str["NoticesExactHint"])));
             }
-            var kinds = Ui.Button(str["NoticesKinds"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            var kinds = Ui.Button(str[notices.HasKinds ? "NoticesKinds" : "NoticesSettings"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             kinds.Click += (_, _) => notices.OpenSettings();
             body.Children.Add(kinds);
         }
@@ -759,8 +759,8 @@ public static class MorePages
         byKind.IsCheckedChanged += async (_, _) => await s.SetCalendarAsync(s.CalendarOn, byKind.IsChecked == true);
         Control Hint(string text) => Ui.Text(text, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
         return Ui.V(8, Ui.Text(str["CalendarSection"], "overline").Margin(20, 0),
-            Ui.Card(Ui.V(12, show, Hint(str["CalendarHint"]), byKind, Hint(str["CalendarByKindHint"]),
-                s.CalendarOn ? Hint(str["CalendarSyncHint"]) : null,
+            Ui.Card(Ui.V(12, show, Hint(str[s.Host.Calendar.IsReadOnly ? "CalendarHint" : "CalendarHintWritable"]), byKind, Hint(str["CalendarByKindHint"]),
+                s.CalendarOn && s.Host.Calendar.SyncsFromSettings ? Hint(str["CalendarSyncHint"]) : null,
                 s.CalendarProblem is { } problem ? Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }) : null), 14).Margin(16, 0));
     }
 

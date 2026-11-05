@@ -9,10 +9,16 @@ namespace Jourfold.Mobile;
 
 /// <summary>
 /// The device's calendar, where the trips on this device appear as calendars of their own, to read only. Android keeps
-/// them under an account "Jourfold" on the device.
+/// them under an account "Jourfold" on the device; iOS in the calendars on the device, or in iCloud when the device has
+/// none of its own.
 /// </summary>
 public interface ISystemCalendar
 {
+    /// <summary>Whether the system's "Sync now" for the calendar reaches Jourfold, as Android's account does.</summary>
+    bool SyncsFromSettings => false;
+    /// <summary>Whether the calendars are read-only in calendar apps. iOS has no read-only calendars of an app's own.</summary>
+    bool IsReadOnly => false;
+
     /// <summary>Whether the app may write to the calendar. With <paramref name="ask"/>, the user is asked first if needed.</summary>
     Task<bool> AllowAsync(bool ask, CancellationToken ct = default);
 

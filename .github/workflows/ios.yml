@@ -1,0 +1,115 @@
+name: iOS
+# Builds the iPhone and iPad app on a Mac. Linux and Windows cannot build for iOS, so this is where the iOS project is
+# compiled and checked:
+#
+# - libgit2 is built as git2.xcframework (cached by its commit and the build script).
+# - The app is built for the simulator, started on an iPhone and an iPad with the sample trip open, and photographed.
+#   The sample trip is created through Git, so a trip folder with a version shows that libgit2 loads and works.
+# - The app is built for devices without signing. Apple lets only signed apps run on a device; docs/mobile.md says how
+#   to sign and install it with an Apple ID.
+on:
+  push:
+    branches: [main, 'feature/ios-*']
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+env:
+  LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+jobs:
+  app:
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: jourfold
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: jourfold
+      # As in CI: the TravelRepo branch with the same name when it exists, otherwise its default branch.
+      - id: travelrepo
+        working-directory: .
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPO.git" "$BRANCH" > /dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ steps.travelrepo.outputs.ref }}
+          path: travelrepo
+      - name: Use the pinned SDK
+        run: cp eng/sdk.json global.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: jourfold/eng/sdk.json
+      - run: dotnet workload install ios
+      - run: xcodebuild -version && xcrun simctl list runtimes
+      - id: libgit2
+        uses: actions/cache@v4
+        with:
+          path: jourfold/artifacts/libgit2-ios
+          key: libgit2-ios-${{ env.LIBGIT2_COMMIT }}-${{ hashFiles('travelrepo/eng/build-libgit2-ios.sh') }}
+      - if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          git init -q "$RUNNER_TEMP/libgit2" && git -C "$RUNNER_TEMP/libgit2" fetch -q --depth 1 https://github.com/libgit2/libgit2.git "$LIBGIT2_COMMIT"
+          git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
+          sh ../travelrepo/eng/build-libgit2-ios.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-ios
+          rm -rf artifacts/libgit2-ios/build
+      # The lock file is written by the first restore on a Mac; until it is committed, the run keeps it as an artifact.
+      - name: Restore
+        run: |
+          if [ -f src/Jourfold.iOS/packages.lock.json ]; then dotnet restore src/Jourfold.iOS --locked-mode; else dotnet restore src/Jourfold.iOS; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-packages-lock
+          path: jourfold/src/Jourfold.iOS/packages.lock.json
+      - name: Build for the simulator
+        run: dotnet build src/Jourfold.iOS -c Release -r iossimulator-arm64 --no-restore -p:IosBuildNumber=${{ github.run_number }}
+      - name: Start on an iPhone and an iPad
+        run: |
+          app="$(find src/Jourfold.iOS/bin/Release -maxdepth 4 -name '*.app' -path '*iossimulator-arm64*' | head -n 1)"
+          mkdir -p "$RUNNER_TEMP/screens"
+          for kind in iPhone iPad; do
+            udid="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) for x in d[r] if x['name'].startswith('$kind')))")"
+            xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b > /dev/null
+            xcrun simctl install "$udid" "$app"
+            xcrun simctl launch "$udid" dev.jourfold.app --open-sample -AppleLanguages '(de)' -AppleLocale de_DE
+            sleep 45
+            xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/screens/$kind.png"
+            xcrun simctl spawn "$udid" launchctl list | grep -q 'UIKitApplication:dev.jourfold.app' || { echo "::error::Jourfold is no longer running on the $kind."; xcrun simctl spawn "$udid" log show --last 2m --predicate 'process == "Jourfold.iOS"' | tail -n 80; exit 1; }
+            trip="$(xcrun simctl get_app_container "$udid" dev.jourfold.app data)/Library/Application Support/trips"
+            ls -la "$trip"/*/.git > /dev/null 2>&1 && git -C "$(ls -d "$trip"/*/ | head -n 1)" log --oneline -1 || { echo "::error::The sample trip on the $kind has no version: Git did not work."; exit 1; }
+            xcrun simctl shutdown "$udid"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-screens
+          path: ${{ runner.temp }}/screens
+          if-no-files-found: ignore
+      - name: Build for devices, unsigned
+        env:
+          JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
+          JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+        run: |
+          dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
+            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false
+          version="$(python3 eng/version.py)"
+          mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jourfold-ios-unsigned
+          path: ${{ runner.temp }}/jourfold-*-ios-*-unsigned.ipa
+          retention-days: 14
+          if-no-files-found: error

@@ -21,13 +21,15 @@ public static class Navigation
 
     /// <summary>
     /// A geo link. With a position it carries the place's name as its label; without, the maps app searches for the
-    /// query. Android offers the user's maps and navigation apps for it; iOS needs a maps link instead and will get it
-    /// when the iOS app exists.
+    /// query. Android offers the user's maps and navigation apps for it. iOS has no geo links; there it is a link to
+    /// Apple Maps, which opens the Maps app (<paramref name="apple"/>, by default on iOS).
     /// </summary>
-    public static Uri Link(double? lat, double? lon, string name, string query)
+    public static Uri Link(double? lat, double? lon, string name, string query, bool? apple = null)
     {
-        if (lat is not { } a || lon is not { } b) return new Uri("geo:0,0?q=" + Uri.EscapeDataString(query));
-        var at = a.ToString("0.######", CultureInfo.InvariantCulture) + "," + b.ToString("0.######", CultureInfo.InvariantCulture);
+        var at = lat is { } a && lon is { } b ? a.ToString("0.######", CultureInfo.InvariantCulture) + "," + b.ToString("0.######", CultureInfo.InvariantCulture) : null;
+        if (apple ?? OperatingSystem.IsIOS())
+            return new Uri("https://maps.apple.com/?" + (at is null ? "q=" + Uri.EscapeDataString(query) : "ll=" + at + "&q=" + Uri.EscapeDataString(name)));
+        if (at is null) return new Uri("geo:0,0?q=" + Uri.EscapeDataString(query));
         return new Uri("geo:" + at + "?q=" + at + "(" + Uri.EscapeDataString(name) + ")");
     }
 

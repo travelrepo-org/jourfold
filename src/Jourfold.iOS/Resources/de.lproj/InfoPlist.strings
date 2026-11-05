@@ -1,0 +1,5 @@
+/* Die Texte, die iOS zeigt, wenn Jourfold um eine Berechtigung bittet. */
+"NSLocationWhenInUseUsageDescription" = "Jourfold nutzt Ihren Standort nur, wenn Sie auf „Wo ich bin“ oder „Mein Standort“ tippen. Er wird weder gespeichert noch gesendet.";
+"NSCalendarsFullAccessUsageDescription" = "Jourfold zeigt jede Reise als eigenen Kalender und hält ihn mit dem Plan aktuell.";
+"NSCalendarsUsageDescription" = "Jourfold zeigt jede Reise als eigenen Kalender und hält ihn mit dem Plan aktuell.";
+"NSCameraUsageDescription" = "Fotografieren Sie Belege für die Reise.";

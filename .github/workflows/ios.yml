@@ -89,6 +89,9 @@ jobs:
         run: |
           app="$(find src/Jourfold.iOS/bin/Debug -maxdepth 4 -name '*.app' -path '*iossimulator-arm64*' | head -n 1)"
           mkdir -p "$RUNNER_TEMP/screens"
+          # What the app bundle holds of libgit2, and how it is linked and signed.
+          ls -la "$app/Frameworks" || true
+          for f in "$app"/Frameworks/*.framework; do otool -L "$f/$(basename "$f" .framework)"; codesign -dv "$f" 2>&1 | head -4; done
           for kind in iPhone iPad; do
             udid="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) for x in d[r] if x['name'].startswith('$kind')))")"
             xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b > /dev/null

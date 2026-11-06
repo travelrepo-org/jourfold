@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Avalonia;
 using Avalonia.Controls;
@@ -15,6 +17,16 @@ using Xunit;
 [assembly: AvaloniaTestApplication(typeof(Jourfold.Tests.TestBuilder))]
 [assembly: CollectionBehavior(DisableTestParallelization = true)]
 namespace Jourfold.Tests;
+
+/// <summary>
+/// The tests read English text and numbers unless they choose a language themselves. Without this they would follow
+/// the language of the computer they run on.
+/// </summary>
+internal static class TestCulture
+{
+    [ModuleInitializer]
+    internal static void UseEnglish() => CultureInfo.DefaultThreadCurrentCulture = CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+}
 
 public static class TestBuilder
 {

@@ -114,7 +114,7 @@ public static class TravelNotices
         // Free cancellation two days before it ends, tasks on the morning they are due.
         foreach (var reminder in TripReminders.For(trip, now + Duration.FromDays(2)).Where(r => r.Kind == ReminderKind.CancellationDeadline && r.Moment is not null))
             notices.Add(new("deadline:" + reminder.Key, NoticeKind.Deadline, reminder.Moment!.Value - Duration.FromDays(2), Format(s["NoticeDeadline"], reminder.Title),
-                Format(s["NoticeDeadlineText"], reminder.Moment.Value.InZone(phone).ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo(s.Language))), reminder.Entity));
+                Format(s["NoticeDeadlineText"], reminder.Moment.Value.InZone(phone).ToString(s["DayShortFormat"] + " HH:mm", CultureInfo.GetCultureInfo(s.Language))), reminder.Entity));
         foreach (var reminder in TripReminders.For(trip, now + Duration.FromDays(1)).Where(r => r.Kind == ReminderKind.TaskDue && r.Dates.Count > 0))
         {
             var task = trip.Find(reminder.Entity!.Value);

@@ -86,7 +86,7 @@ jobs:
         with:
           name: ios-packages-lock
           path: jourfold/src/Jourfold.iOS/packages.lock.json
-      # Debug: the smoke test needs no trimming, which stopped for over an hour in a Release build for the simulator.
+      # Debug: the smoke test needs neither trimming nor ahead-of-time code, which make a Release build much slower.
       - name: Build for the simulator
         timeout-minutes: 20
         run: dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 --no-restore -p:IosBuildNumber=${{ github.run_number }}
@@ -121,36 +121,16 @@ jobs:
           name: ios-screens
           path: ${{ runner.temp }}/screens
           if-no-files-found: ignore
-      # Without trimming for now (MtouchLink=None), see the simulator build above; the app is larger.
       - name: Build for devices, unsigned
-        timeout-minutes: 12
+        timeout-minutes: 45
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
         run: |
-          # The trimmer (ILLink) has stopped making progress in iOS Release builds. After eight minutes the processes and
-          # the managed stacks of every .NET process are kept (twice, a minute apart), so the run says where it hangs.
-          dotnet tool install --global dotnet-stack > /dev/null
-          mkdir -p "$RUNNER_TEMP/illink"
-          ( sleep 480
-            ps -axo pid,ppid,etime,%cpu,rss,command | grep -iE 'dotnet|illink|msbuild|mono|clang|ld' | grep -v grep | cut -c1-400 > "$RUNNER_TEMP/illink/processes.txt"
-            for pid in $(pgrep -f dotnet); do
-              ~/.dotnet/tools/dotnet-stack report -p "$pid" > "$RUNNER_TEMP/illink/stack-$pid-1.txt" 2>&1
-            done
-            sleep 60
-            for pid in $(pgrep -f dotnet); do
-              ~/.dotnet/tools/dotnet-stack report -p "$pid" > "$RUNNER_TEMP/illink/stack-$pid-2.txt" 2>&1
-            done ) &
           dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
-            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false -p:MtouchLink=None
+            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false
           version="$(python3 eng/version.py)"
           mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: ios-illink
-          path: ${{ runner.temp }}/illink
-          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: jourfold-ios-unsigned

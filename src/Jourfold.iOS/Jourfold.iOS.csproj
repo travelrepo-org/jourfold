@@ -24,6 +24,9 @@
          ahead of time (-all). -->
     <UseInterpreter>true</UseInterpreter>
     <MtouchInterpreter>-all</MtouchInterpreter>
+    <!-- Mono's own code generator: with LLVM the ahead-of-time step for the generic instances (aot-instances.dll) ran
+         for over half an hour without finishing. -->
+    <MtouchUseLlvm>false</MtouchUseLlvm>
     <!-- libgit2 for iOS is built by eng/build-libgit2-ios.sh in the TravelRepo repository. -->
     <Libgit2Ios>$(MSBuildThisFileDirectory)../../artifacts/libgit2-ios</Libgit2Ios>
   </PropertyGroup>

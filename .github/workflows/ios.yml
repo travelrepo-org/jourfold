@@ -85,7 +85,9 @@ jobs:
       # The lock file is written by the first restore on a Mac; until it is committed, the run keeps it as an artifact.
       - name: Restore
         run: |
-          if [ -f src/Jourfold.iOS/packages.lock.json ]; then dotnet restore src/Jourfold.iOS --locked-mode; else dotnet restore src/Jourfold.iOS; fi
+          # Both RIDs in one restore, so both builds can skip theirs (the project itself names none, see there).
+          rids='-p:RuntimeIdentifiers="ios-arm64;iossimulator-arm64"'
+          if [ -f src/Jourfold.iOS/packages.lock.json ]; then dotnet restore src/Jourfold.iOS "$rids" --locked-mode; else dotnet restore src/Jourfold.iOS "$rids"; fi
       - uses: actions/upload-artifact@v4
         with:
           name: ios-packages-lock

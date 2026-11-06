@@ -16,8 +16,8 @@
     <VersionMinor>$([System.Version]::Parse('$(Version)').Minor)</VersionMinor>
     <VersionPatch>$([System.Version]::Parse('$(Version)').Build)</VersionPatch>
     <ApplicationVersion>$([MSBuild]::Add($([MSBuild]::Multiply($([MSBuild]::Add($([MSBuild]::Add($([MSBuild]::Multiply($(VersionMajor), 10000)), $([MSBuild]::Multiply($(VersionMinor), 100)))), $(VersionPatch))), 1000)), $(IosBuildNumber)))</ApplicationVersion>
-    <!-- Devices, and the simulator on Apple silicon Macs. -->
-    <RuntimeIdentifiers>ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
+    <!-- No RuntimeIdentifiers here: the iOS SDK takes any simulator in that list as a simulator build, also with
+         -r ios-arm64, and then links the simulator's libraries. Builds name their RID with -r. -->
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
     <!-- LibGit2Sharp hands libgit2 delegates (the HTTP transport, progress, sign-in) that ahead-of-time code alone
          cannot call back into on a device. The interpreter makes those callbacks work; everything else stays compiled

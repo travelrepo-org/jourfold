@@ -40,7 +40,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // The language the system chose for Jourfold, also when set for this app alone in the Settings app.
         var language = NSBundle.MainBundle.PreferredLocalizations.FirstOrDefault() == "de" ? "de" : "en";
         var device = NSProcessInfo.ProcessInfo.IsiOSApplicationOnMac ? "device" : UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad ? "tablet" : "phone";
-        LibGit2Backend.UseNativeLibrary(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2"));
+        LibGit2Library.Use(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2"));
         var secrets = new IosSecretStore();
         var notices = new IosNotices(data, language, device);
         // A build can name the GitHub App to sign in with: -p:JourfoldGitHubClientId=... -p:JourfoldGitHubAppSlug=...

@@ -61,8 +61,9 @@ jobs:
           global-json-file: jourfold/eng/sdk.json
       - run: sudo xcode-select -s "$XCODE" && xcodebuild -version && xcrun simctl list runtimes
       - run: dotnet workload install ios --version "$WORKLOAD_VERSION"
+      # Restored and saved in two steps, so a build of libgit2 is kept even when a later step fails.
       - id: libgit2
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: jourfold/artifacts/libgit2-ios
           key: libgit2-ios-${{ env.LIBGIT2_COMMIT }}-${{ hashFiles('travelrepo/eng/build-libgit2-ios.sh') }}
@@ -72,6 +73,11 @@ jobs:
           git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
           sh ../travelrepo/eng/build-libgit2-ios.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-ios
           rm -rf artifacts/libgit2-ios/build
+      - if: steps.libgit2.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: jourfold/artifacts/libgit2-ios
+          key: ${{ steps.libgit2.outputs.cache-primary-key }}
       # The lock file is written by the first restore on a Mac; until it is committed, the run keeps it as an artifact.
       - name: Restore
         run: |

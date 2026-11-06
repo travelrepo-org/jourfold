@@ -103,10 +103,13 @@ jobs:
             xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b > /dev/null
             xcrun simctl install "$udid" "$app"
             # The app's own output (such as an unhandled exception) goes to a file next to the screenshots.
-            xcrun simctl launch --console-pty "$udid" dev.jourfold.app --open-sample -AppleLanguages '(de)' -AppleLocale de_DE > "$RUNNER_TEMP/screens/$kind.log" 2>&1 &
-            sleep 45
+            log="$RUNNER_TEMP/screens/$kind.log"
+            xcrun simctl launch --console-pty "$udid" dev.jourfold.app --open-sample -AppleLanguages '(de)' -AppleLocale de_DE > "$log" 2>&1 &
+            # simctl prints the process ID once the app runs; a freshly booted simulator can take a while.
+            for i in $(seq 1 60); do grep -q 'dev.jourfold.app: [0-9]' "$log" && break; sleep 2; done
+            sleep 40
             xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/screens/$kind.png"
-            xcrun simctl spawn "$udid" launchctl list | grep -q 'UIKitApplication:dev.jourfold.app' || { echo "::error::Jourfold is no longer running on the $kind."; tail -n 80 "$RUNNER_TEMP/screens/$kind.log"; exit 1; }
+            xcrun simctl spawn "$udid" launchctl list | grep -q 'UIKitApplication:dev.jourfold.app' || { echo "::error::Jourfold is no longer running on the $kind."; tail -n 80 "$log"; exit 1; }
             kill %1 2> /dev/null || true
             trip="$(xcrun simctl get_app_container "$udid" dev.jourfold.app data)/Library/Application Support/trips"
             ls -la "$trip"/*/.git > /dev/null 2>&1 && git -C "$(ls -d "$trip"/*/ | head -n 1)" log --oneline -1 || { echo "::error::The sample trip on the $kind has no version: Git did not work."; exit 1; }

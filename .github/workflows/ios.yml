@@ -78,6 +78,10 @@ jobs:
         with:
           path: jourfold/artifacts/libgit2-ios
           key: ${{ steps.libgit2.outputs.cache-primary-key }}
+      # Which platform each slice of the framework is built for (LC_BUILD_VERSION: iOS or iOS simulator).
+      - run: |
+          plutil -p artifacts/libgit2-ios/git2.xcframework/Info.plist | grep -E 'LibraryIdentifier|SupportedPlatform'
+          for f in artifacts/libgit2-ios/git2.xcframework/*/git2.framework/git2; do echo "$f"; lipo -info "$f"; vtool -show-build "$f" | grep -E 'platform|minos'; done
       # The lock file is written by the first restore on a Mac; until it is committed, the run keeps it as an artifact.
       - name: Restore
         run: |
@@ -128,9 +132,15 @@ jobs:
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
         run: |
           dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
-            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false
+            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false -bl:"$RUNNER_TEMP/binlog/device.binlog"
           version="$(python3 eng/version.py)"
           mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: ios-device-binlog
+          path: ${{ runner.temp }}/binlog
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: jourfold-ios-unsigned

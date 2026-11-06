@@ -123,7 +123,7 @@ jobs:
           if-no-files-found: ignore
       # Without trimming for now (MtouchLink=None), see the simulator build above; the app is larger.
       - name: Build for devices, unsigned
-        timeout-minutes: 30
+        timeout-minutes: 12
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}

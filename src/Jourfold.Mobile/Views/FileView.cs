@@ -69,7 +69,7 @@ public static class FileView
             headers.Children.Add(Ui.V(0, Ui.Text(label, "caption"), new SelectableTextBlock { Text = value, TextWrapping = TextWrapping.Wrap }));
         }
         Header(str["MailFrom"], string.Join(", ", mail.From)); Header(str["MailTo"], string.Join(", ", mail.To)); Header(str["MailCc"], string.Join(", ", mail.Cc));
-        Header(str["MailDate"], mail.Date is { } date ? date.ToLocalTime().ToString("ddd d MMM yyyy · HH:mm", CultureInfo.GetCultureInfo(str.Language)) : null);
+        Header(str["MailDate"], mail.Date is { } date ? date.ToLocalTime().ToString(str["DayShortFormat"] + " yyyy · HH:mm", CultureInfo.GetCultureInfo(str.Language)) : null);
         var page = Ui.V(12, Ui.Card(headers, 14));
         if (mail.Attachments.Count > 0)
         {

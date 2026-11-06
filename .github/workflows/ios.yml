@@ -123,15 +123,32 @@ jobs:
           if-no-files-found: ignore
       # Without trimming for now (MtouchLink=None), see the simulator build above; the app is larger.
       - name: Build for devices, unsigned
-        timeout-minutes: 45
+        timeout-minutes: 30
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
         run: |
+          # The trimmer (ILLink) has stopped making progress in iOS Release builds. If it still runs after eight minutes,
+          # its managed stacks are kept (twice, a minute apart) and it is ended, so the run says where it hangs.
+          dotnet tool install --global dotnet-stack > /dev/null
+          mkdir -p "$RUNNER_TEMP/illink"
+          ( sleep 480; pid="$(pgrep -f 'illink.dll' | head -n 1)"
+            if [ -n "$pid" ]; then
+              ps -o pid,etime,%cpu,rss,command -p "$pid" > "$RUNNER_TEMP/illink/process.txt"
+              ~/.dotnet/tools/dotnet-stack report -p "$pid" > "$RUNNER_TEMP/illink/stack-1.txt" 2>&1; sleep 60
+              ~/.dotnet/tools/dotnet-stack report -p "$pid" > "$RUNNER_TEMP/illink/stack-2.txt" 2>&1
+              kill "$pid"
+            fi ) &
           dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
             -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false -p:MtouchLink=None
           version="$(python3 eng/version.py)"
           mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ios-illink
+          path: ${{ runner.temp }}/illink
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: jourfold-ios-unsigned

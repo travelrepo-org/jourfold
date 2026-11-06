@@ -96,10 +96,12 @@ jobs:
             udid="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) for x in d[r] if x['name'].startswith('$kind')))")"
             xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b > /dev/null
             xcrun simctl install "$udid" "$app"
-            xcrun simctl launch "$udid" dev.jourfold.app --open-sample -AppleLanguages '(de)' -AppleLocale de_DE
+            # The app's own output (such as an unhandled exception) goes to a file next to the screenshots.
+            xcrun simctl launch --console-pty "$udid" dev.jourfold.app --open-sample -AppleLanguages '(de)' -AppleLocale de_DE > "$RUNNER_TEMP/screens/$kind.log" 2>&1 &
             sleep 45
             xcrun simctl io "$udid" screenshot "$RUNNER_TEMP/screens/$kind.png"
-            xcrun simctl spawn "$udid" launchctl list | grep -q 'UIKitApplication:dev.jourfold.app' || { echo "::error::Jourfold is no longer running on the $kind."; xcrun simctl spawn "$udid" log show --last 2m --predicate 'process == "Jourfold.iOS"' | tail -n 80; exit 1; }
+            xcrun simctl spawn "$udid" launchctl list | grep -q 'UIKitApplication:dev.jourfold.app' || { echo "::error::Jourfold is no longer running on the $kind."; tail -n 80 "$RUNNER_TEMP/screens/$kind.log"; exit 1; }
+            kill %1 2> /dev/null || true
             trip="$(xcrun simctl get_app_container "$udid" dev.jourfold.app data)/Library/Application Support/trips"
             ls -la "$trip"/*/.git > /dev/null 2>&1 && git -C "$(ls -d "$trip"/*/ | head -n 1)" log --oneline -1 || { echo "::error::The sample trip on the $kind has no version: Git did not work."; exit 1; }
             xcrun simctl shutdown "$udid"

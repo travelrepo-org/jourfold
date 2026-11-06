@@ -92,7 +92,7 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
             center.AddNotificationRequest(Request(notice, folder, notice.At - now), null);
             scheduled[notice.Key] = notice.At.ToUnixTimeMilliseconds();
         }
-        File.WriteAllText(ScheduledPath, JsonSerializer.Serialize(scheduled));
+        File.WriteAllText(ScheduledPath, JsonSerializer.Serialize(scheduled, IosJson.Default.DictionaryStringInt64));
     }
 
     /// <summary>iOS has no ongoing notification; Live Activities may take its place later.</summary>
@@ -147,7 +147,12 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
     /// <summary>The notices handed to the system, with the time each shows at.</summary>
     private Dictionary<string, long> Scheduled()
     {
-        try { return File.Exists(ScheduledPath) ? JsonSerializer.Deserialize<Dictionary<string, long>>(File.ReadAllText(ScheduledPath)) ?? [] : []; }
+        try { return File.Exists(ScheduledPath) ? JsonSerializer.Deserialize(File.ReadAllText(ScheduledPath), IosJson.Default.DictionaryStringInt64) ?? [] : []; }
         catch (JsonException) { return []; }
     }
 }
+
+/// <summary>The app's own state files, read and written without reflection, which trimming would break.</summary>
+[System.Text.Json.Serialization.JsonSerializable(typeof(Dictionary<string, long>))]
+[System.Text.Json.Serialization.JsonSerializable(typeof(Dictionary<string, IosCalendar.Kept>))]
+internal sealed partial class IosJson : System.Text.Json.Serialization.JsonSerializerContext;

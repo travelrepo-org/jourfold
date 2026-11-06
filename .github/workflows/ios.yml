@@ -29,6 +29,7 @@ env:
 jobs:
   app:
     runs-on: macos-26
+    timeout-minutes: 120
     defaults:
       run:
         working-directory: jourfold
@@ -79,11 +80,14 @@ jobs:
         with:
           name: ios-packages-lock
           path: jourfold/src/Jourfold.iOS/packages.lock.json
+      # Debug: the smoke test needs no trimming, which stopped for over an hour in a Release build for the simulator.
       - name: Build for the simulator
-        run: dotnet build src/Jourfold.iOS -c Release -r iossimulator-arm64 --no-restore -p:IosBuildNumber=${{ github.run_number }}
+        timeout-minutes: 20
+        run: dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 --no-restore -p:IosBuildNumber=${{ github.run_number }}
       - name: Start on an iPhone and an iPad
+        timeout-minutes: 15
         run: |
-          app="$(find src/Jourfold.iOS/bin/Release -maxdepth 4 -name '*.app' -path '*iossimulator-arm64*' | head -n 1)"
+          app="$(find src/Jourfold.iOS/bin/Debug -maxdepth 4 -name '*.app' -path '*iossimulator-arm64*' | head -n 1)"
           mkdir -p "$RUNNER_TEMP/screens"
           for kind in iPhone iPad; do
             udid="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted(d, reverse=True) for x in d[r] if x['name'].startswith('$kind')))")"
@@ -103,13 +107,15 @@ jobs:
           name: ios-screens
           path: ${{ runner.temp }}/screens
           if-no-files-found: ignore
+      # Without trimming for now (MtouchLink=None), see the simulator build above; the app is larger.
       - name: Build for devices, unsigned
+        timeout-minutes: 45
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
         run: |
           dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
-            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false
+            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false -p:MtouchLink=None
           version="$(python3 eng/version.py)"
           mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
       - uses: actions/upload-artifact@v4

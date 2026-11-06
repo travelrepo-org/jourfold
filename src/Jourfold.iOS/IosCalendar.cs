@@ -150,14 +150,14 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
 
     private Dictionary<string, Kept> Load()
     {
-        try { return File.Exists(StatePath) ? JsonSerializer.Deserialize<Dictionary<string, Kept>>(File.ReadAllText(StatePath)) ?? [] : []; }
+        try { return File.Exists(StatePath) ? JsonSerializer.Deserialize(File.ReadAllText(StatePath), IosJson.Default.DictionaryStringKept) ?? [] : []; }
         catch (JsonException) { return []; }
     }
 
-    private void Save(Dictionary<string, Kept> state) => File.WriteAllText(StatePath, JsonSerializer.Serialize(state));
+    private void Save(Dictionary<string, Kept> state) => File.WriteAllText(StatePath, JsonSerializer.Serialize(state, IosJson.Default.DictionaryStringKept));
 
     /// <summary>A calendar Jourfold made: its identifier and the time its entries were last looked for in.</summary>
-    private sealed class Kept
+    internal sealed class Kept
     {
         public string? Id { get; set; }
         public long? From { get; set; }

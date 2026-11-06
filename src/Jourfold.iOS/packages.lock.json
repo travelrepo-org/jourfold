@@ -1,0 +1,387 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net10.0-ios26.5": {
+      "Avalonia.iOS": {
+        "type": "Direct",
+        "requested": "[12.1.4, )",
+        "resolved": "12.1.4",
+        "contentHash": "sWo3nGYxwWu/ffKTiLEWazDkmJJjaZ9j/F7NXdNR9mwQ3jJj3xcaAFFFPIx1Kb6PnCXmr0IOuLczOLodKO0GZg==",
+        "dependencies": {
+          "Avalonia": "12.1.4",
+          "Avalonia.HarfBuzz": "12.1.4",
+          "Avalonia.Skia": "12.1.4"
+        }
+      },
+      "LibGit2Sharp.NativeBinaries": {
+        "type": "Direct",
+        "requested": "[2.0.324, )",
+        "resolved": "2.0.324",
+        "contentHash": "5YZVGNuO9nYFQfzRQGPGY9fdpSsABwlF2jSaZ7ydxCfjvt5Krbj/eHbXkvvgAQzp4lkjvgDrlAuuI4KTmqhDlA=="
+      },
+      "Microsoft.NET.ILLink.Tasks": {
+        "type": "Direct",
+        "requested": "[10.0.12, )",
+        "resolved": "10.0.12",
+        "contentHash": "xi+BDjFpW+Sb+MHFHaH6Y/gV9I8BluFwRXc1QyCdoZbIK26eNiBeFuMTe/FMwc33G1wdHCyDg7CVTmb8OdQrMQ=="
+      },
+      "Avalonia": {
+        "type": "Transitive",
+        "resolved": "12.1.4",
+        "contentHash": "Vlz+ebY0PBVsTFXAPIpM+7ySgezMtyJ3GMMGmccHwxXXjgLF2x5+NMwO4AqrdM/lrUPZremnYNO6MSg1r1vuxw==",
+        "dependencies": {
+          "Avalonia.BuildServices": "11.3.2",
+          "Avalonia.Remote.Protocol": "12.1.4",
+          "MicroCom.Runtime": "0.11.6"
+        }
+      },
+      "Avalonia.BuildServices": {
+        "type": "Transitive",
+        "resolved": "11.3.2",
+        "contentHash": "qHDToxto1e3hci5YqbG9n0Ty8mlp3zBUN5wT66wKqaDVzXyQ0do3EnRILd4Ke9jpvsktaPpgE0YjEk7hornryQ=="
+      },
+      "Avalonia.HarfBuzz": {
+        "type": "Transitive",
+        "resolved": "12.1.4",
+        "contentHash": "PxaJL9P/Zn6w89kLokuLcWDnj+w4erpfp57SiDN4JhX4NI2qPLJEmxgogTwyXjCUE8vq7Jg7kjH/z5D2jeGAhA==",
+        "dependencies": {
+          "Avalonia": "12.1.4",
+          "HarfBuzzSharp": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.3"
+        }
+      },
+      "Avalonia.HtmlRenderer": {
+        "type": "Transitive",
+        "resolved": "12.0.0",
+        "contentHash": "JWwvZzECMVI4oPzYgZ3wXi6ybG5CgFpdzV1UaFD7nUQKd+sMLk+xy6NceXzoNFjgc+UkLzQKxIrE5tjqki8NCg==",
+        "dependencies": {
+          "Avalonia": "12.0.0"
+        }
+      },
+      "Avalonia.Remote.Protocol": {
+        "type": "Transitive",
+        "resolved": "12.1.4",
+        "contentHash": "9ajC+Ff+U9S21JJKGbJgnwp9fY+zwJG+bSEC//o/vJU2M6IEMRGp+D1+AUoqTR79FAA/iDYgf4f4EF4PZKhZsg=="
+      },
+      "Avalonia.Skia": {
+        "type": "Transitive",
+        "resolved": "12.1.4",
+        "contentHash": "BA6B1Up9AcX4JmnskD6FyxF+ZEowXDhGvzw1lG+Xx6sQO0VyOE2yDoAmD/S2EsYZUukPfRUJmIyjeM//WdZAxA==",
+        "dependencies": {
+          "Avalonia": "12.1.4",
+          "HarfBuzzSharp": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.Linux": "8.3.1.3",
+          "HarfBuzzSharp.NativeAssets.WebAssembly": "8.3.1.3",
+          "SkiaSharp": "3.119.4",
+          "SkiaSharp.NativeAssets.Linux": "3.119.4",
+          "SkiaSharp.NativeAssets.WebAssembly": "3.119.4"
+        }
+      },
+      "Avalonia.Themes.Fluent": {
+        "type": "Transitive",
+        "resolved": "12.1.4",
+        "contentHash": "vx7P4as07WLQqA2mhMy4iBsqhkWEGwZI7g9Rd2DlJgz3uKS2tSvY6nZqHq3sWMFDBYBT65jkTsetPrgV8oprsQ==",
+        "dependencies": {
+          "Avalonia": "12.1.4"
+        }
+      },
+      "BouncyCastle.Cryptography": {
+        "type": "Transitive",
+        "resolved": "2.7.0",
+        "contentHash": "U+12df8UEWHgBi04YVf/Lgi2dy3SItlIYvHjjEVa/BngCQIzDCDRBk50DDByCfDvSbe5pRNFr3b7UrVK2kMcLw=="
+      },
+      "HarfBuzzSharp": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "NGZ2+ZVNPM+NdHB/asW0/ykWngyHWwcqjrbN2nDeH1B/aptPGlCUl8wkQ2cSJxw5fdWgdmIPmNuTPWpLwNVXWg==",
+        "dependencies": {
+          "HarfBuzzSharp.NativeAssets.iOS": "8.3.1.3"
+        }
+      },
+      "HarfBuzzSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "Qc81kED8LkoY4NrkIemcpezOviUNKo+Ehf1DPRVm4gFCKoPznw+GnZC0jHoRaJvc53hybXwsvwH9iFMA32bPtQ=="
+      },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "RI6A1LgmooU30+4QIyFt5rmBCzP0VzTR+587IJSGvYIsHHWlahFufihYxtraLfsIhW7I8dn6+xX+DZGygOPKWQ=="
+      },
+      "HarfBuzzSharp.NativeAssets.WebAssembly": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "w2QfdNm9Uz/sUa0B5D+OnVQhyq3G/fBq6ibQMdWBlQqqwh0g0/5j3RFvYqZAmRZ5+RzvjVe8o8SFFnWYUSkuxA=="
+      },
+      "Humanizer.Core": {
+        "type": "Transitive",
+        "resolved": "2.14.1",
+        "contentHash": "lQKvtaTDOXnoVJ20ibTuSIOf2i0uO0MPbDhd1jm238I+U/2ZnRENj0cktKZhtchBMtCUSRQ5v4xBCUbKNmyVMw=="
+      },
+      "Json.More.Net": {
+        "type": "Transitive",
+        "resolved": "2.1.1",
+        "contentHash": "ZXAKl2VsdnIZeUo1PFII3Oi1m1L4YQjEyDjygHfHln5vgsjgIo749X6xWkv7qFYp8RROES+vOEfDcvvoVgs8kA=="
+      },
+      "JsonPointer.Net": {
+        "type": "Transitive",
+        "resolved": "5.3.1",
+        "contentHash": "3e2OJjU0OaE26XC/klgxbJuXvteFWTDJIJv0ITYWcJEoskq7jzUwPSC1s0iz4wPPQnfN7vwwFmg2gJfwRAPwgw==",
+        "dependencies": {
+          "Humanizer.Core": "2.14.1",
+          "Json.More.Net": "2.1.1"
+        }
+      },
+      "JsonSchema.Net": {
+        "type": "Transitive",
+        "resolved": "7.3.4",
+        "contentHash": "7GggWrdzKrtGWETRn3dcMnmuLSyWaDkBK94TK80LEHQEVz4bmsQc7FYO7qL40RDdZU2YPz5d98aT9lW5OYExuA==",
+        "dependencies": {
+          "JsonPointer.Net": "5.3.1"
+        }
+      },
+      "LibGit2Sharp": {
+        "type": "Transitive",
+        "resolved": "0.32.0",
+        "contentHash": "BL3eMVRnkWWS9zbz6n0H+iDVJ9ZK7hDeiuASnHlsFvwZYTJtDuBFRRVIaH//s4VlF0baOGvCeenXbobE1JLLiQ==",
+        "dependencies": {
+          "LibGit2Sharp.NativeBinaries": "[2.0.324]"
+        }
+      },
+      "MicroCom.Runtime": {
+        "type": "Transitive",
+        "resolved": "0.11.6",
+        "contentHash": "NdNWGDiZ6eS/Mf/9+QHR91cj1K7Hy+PX9yrHI/zM7xFYuj9IWT2uxtB6sCHjrnxAeLV9fut1R6zHDUGKX6f9lQ=="
+      },
+      "MimeKit": {
+        "type": "Transitive",
+        "resolved": "4.18.1",
+        "contentHash": "D8AfFVMFVJldWmhQWCziC9nWUN/zayFFBAKpyjVyCeh0tqBiI9jtUVuMrKgWw1EGnCp09msDZldbRvp2jfUehQ==",
+        "dependencies": {
+          "BouncyCastle.Cryptography": "2.7.0",
+          "System.Security.Cryptography.Pkcs": "10.0.0"
+        }
+      },
+      "NodaTime": {
+        "type": "Transitive",
+        "resolved": "3.2.2",
+        "contentHash": "dmju5W0UYC3QP/UJM0juKAZkH0HSDMp0gH91A0+mT9M0kgyM2Jm67hUZPl/WRQLq8Lijjqmdk8kyAViWFWM7dA=="
+      },
+      "PdfPig": {
+        "type": "Transitive",
+        "resolved": "0.1.16",
+        "contentHash": "qQcbsNMYVY+K5ELptax2S8thNMk0+rSQq3H/KdYj3LLcko8yTCz8y5KIvsKxIyAuTN0ZYNnfsZkM+0EvxTwHVA=="
+      },
+      "SkiaSharp": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "53NOSUZ1Us+91Sm0uCkIivh/k7jOowRErZT2sIWwPFN9mLUvdxnE6rS4sWo4255+Rd2MWUSF+j0NMZHD6Cke+Q==",
+        "dependencies": {
+          "SkiaSharp.NativeAssets.iOS": "3.119.4"
+        }
+      },
+      "SkiaSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "ObEOu9MVakx4mrNiCJ+T8tp36qb3CM+fpRSqlQ7EZdl4ZndZBUlLNOBEsHje98I6SEILTEZQU3Rn8l5w+dYJdw=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
+      },
+      "SkiaSharp.NativeAssets.WebAssembly": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "S1HOxtBbD4bYDtA2e9WH5TX+lxqRrTPvKjrjttRhxnHNNu7YY8VFo/LeCP7tNqoTA6PV+8vsvNbmRUEC2ip8RQ=="
+      },
+      "System.Security.Cryptography.Pkcs": {
+        "type": "Transitive",
+        "resolved": "10.0.13",
+        "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
+      },
+      "YamlDotNet": {
+        "type": "Transitive",
+        "resolved": "16.3.0",
+        "contentHash": "SgMOdxbz8X65z8hraIs6hOEdnkH6hESTAIUa7viEngHOYaH+6q5XJmwr1+yb9vJpNQ19hCQY69xbFsLtXpobQA=="
+      },
+      "ZXing.Net": {
+        "type": "Transitive",
+        "resolved": "0.16.10",
+        "contentHash": "9avtcn21T7Ndcl8PQ1LHR7/wEoCruX1QKKHvO6zBPTsDW9IdvR5vKOmd618AY+DtDWZz8NaFDTkpbZdgaF4l4w=="
+      },
+      "jourfold.application": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Git": "[0.7.0, )",
+          "TravelRepo.Merge": "[0.7.0, )",
+          "TravelRepo.Plugins.Abstractions": "[0.7.0, )",
+          "TravelRepo.Providers.GitHub": "[0.7.0, )",
+          "TravelRepo.Providers.Weather": "[0.7.0, )"
+        }
+      },
+      "jourfold.mobile": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.UI": "[0.8.0, )",
+          "TravelRepo.Documents": "[0.7.0, )"
+        }
+      },
+      "jourfold.ui": {
+        "type": "Project",
+        "dependencies": {
+          "Avalonia": "[12.1.4, )",
+          "Avalonia.HtmlRenderer": "[12.0.0, )",
+          "Avalonia.Themes.Fluent": "[12.1.4, )",
+          "Jourfold.Application": "[0.8.0, )",
+          "TravelRepo.Documents": "[0.7.0, )",
+          "ZXing.Net": "[0.16.10, )"
+        }
+      },
+      "travelrepo.core": {
+        "type": "Project",
+        "dependencies": {
+          "NodaTime": "[3.2.2, )"
+        }
+      },
+      "travelrepo.documents": {
+        "type": "Project",
+        "dependencies": {
+          "MimeKit": "[4.18.1, )",
+          "PdfPig": "[0.1.16, )",
+          "System.Security.Cryptography.Pkcs": "[10.0.13, )",
+          "TravelRepo.Core": "[0.7.0, )"
+        }
+      },
+      "travelrepo.git": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Repository": "[0.7.0, )"
+        }
+      },
+      "travelrepo.git.libgit2": {
+        "type": "Project",
+        "dependencies": {
+          "LibGit2Sharp": "[0.32.0, )",
+          "TravelRepo.Git": "[0.7.0, )"
+        }
+      },
+      "travelrepo.merge": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Repository": "[0.7.0, )"
+        }
+      },
+      "travelrepo.plugins.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Core": "[0.7.0, )"
+        }
+      },
+      "travelrepo.providers.abstractions": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Core": "[0.7.0, )"
+        }
+      },
+      "travelrepo.providers.github": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Providers.Abstractions": "[0.7.0, )",
+          "TravelRepo.Serialization": "[0.7.0, )"
+        }
+      },
+      "travelrepo.providers.weather": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Core": "[0.7.0, )",
+          "TravelRepo.Providers.Abstractions": "[0.7.0, )"
+        }
+      },
+      "travelrepo.repository": {
+        "type": "Project",
+        "dependencies": {
+          "TravelRepo.Core": "[0.7.0, )",
+          "TravelRepo.Serialization": "[0.7.0, )"
+        }
+      },
+      "travelrepo.serialization": {
+        "type": "Project",
+        "dependencies": {
+          "JsonSchema.Net": "[7.3.4, )",
+          "TravelRepo.Core": "[0.7.0, )",
+          "YamlDotNet": "[16.3.0, )"
+        }
+      }
+    },
+    "net10.0-ios26.5/ios-arm64": {
+      "LibGit2Sharp.NativeBinaries": {
+        "type": "Direct",
+        "requested": "[2.0.324, )",
+        "resolved": "2.0.324",
+        "contentHash": "5YZVGNuO9nYFQfzRQGPGY9fdpSsABwlF2jSaZ7ydxCfjvt5Krbj/eHbXkvvgAQzp4lkjvgDrlAuuI4KTmqhDlA=="
+      },
+      "HarfBuzzSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "Qc81kED8LkoY4NrkIemcpezOviUNKo+Ehf1DPRVm4gFCKoPznw+GnZC0jHoRaJvc53hybXwsvwH9iFMA32bPtQ=="
+      },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "RI6A1LgmooU30+4QIyFt5rmBCzP0VzTR+587IJSGvYIsHHWlahFufihYxtraLfsIhW7I8dn6+xX+DZGygOPKWQ=="
+      },
+      "SkiaSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "ObEOu9MVakx4mrNiCJ+T8tp36qb3CM+fpRSqlQ7EZdl4ZndZBUlLNOBEsHje98I6SEILTEZQU3Rn8l5w+dYJdw=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
+      },
+      "System.Security.Cryptography.Pkcs": {
+        "type": "Transitive",
+        "resolved": "10.0.13",
+        "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
+      }
+    },
+    "net10.0-ios26.5/iossimulator-arm64": {
+      "LibGit2Sharp.NativeBinaries": {
+        "type": "Direct",
+        "requested": "[2.0.324, )",
+        "resolved": "2.0.324",
+        "contentHash": "5YZVGNuO9nYFQfzRQGPGY9fdpSsABwlF2jSaZ7ydxCfjvt5Krbj/eHbXkvvgAQzp4lkjvgDrlAuuI4KTmqhDlA=="
+      },
+      "HarfBuzzSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "Qc81kED8LkoY4NrkIemcpezOviUNKo+Ehf1DPRVm4gFCKoPznw+GnZC0jHoRaJvc53hybXwsvwH9iFMA32bPtQ=="
+      },
+      "HarfBuzzSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "8.3.1.3",
+        "contentHash": "RI6A1LgmooU30+4QIyFt5rmBCzP0VzTR+587IJSGvYIsHHWlahFufihYxtraLfsIhW7I8dn6+xX+DZGygOPKWQ=="
+      },
+      "SkiaSharp.NativeAssets.iOS": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "ObEOu9MVakx4mrNiCJ+T8tp36qb3CM+fpRSqlQ7EZdl4ZndZBUlLNOBEsHje98I6SEILTEZQU3Rn8l5w+dYJdw=="
+      },
+      "SkiaSharp.NativeAssets.Linux": {
+        "type": "Transitive",
+        "resolved": "3.119.4",
+        "contentHash": "UAyVzbqNfZsZbKbzj68zXLyUyF/SbTKmzTfOO6qDu++dtIUMMTzPBe8oOuzU/DiewpfKoUUlOSsJmqWc6blxBw=="
+      },
+      "System.Security.Cryptography.Pkcs": {
+        "type": "Transitive",
+        "resolved": "10.0.13",
+        "contentHash": "a+EovgC1fBnwdlQ6cn3j4JFBfKqiFaFvoAhjisOoSvazLAcIznaBzPQP0oYnvccmeXfqUH1KebVZOxSeH6rMaw=="
+      }
+    }
+  }
+}

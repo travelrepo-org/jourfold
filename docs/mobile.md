@@ -1,8 +1,8 @@
 # Mobile app
 
 The phone and tablet app runs on Android 10 and newer. Each release from 0.8.0 on has a signed APK attached;
-[Installing Jourfold](install.md#android) says how to install it. iOS and iPadOS will use the same code once there is
-a Mac to build on.
+[Installing Jourfold](install.md#android) says how to install it. The iPhone and iPad app (iOS and iPadOS 15 and
+newer) is built from the same code but not released yet; see [iPhone and iPad](#iphone-and-ipad).
 
 ## Projects
 
@@ -13,6 +13,8 @@ a Mac to build on.
   the views are in `Views/`. It is plain .NET and Avalonia, with no Android or iOS code.
 - `src/Jourfold.Android`: the Android app. It passes the app's private folder, the built-in Git (libgit2), the clock
   and the phone's time zone to `Jourfold.Mobile` through `MobileHost`, and shows the system splash screen.
+- `src/Jourfold.iOS`: the iPhone and iPad app, doing the same with the iOS services (Keychain, EventKit, user
+  notifications, Core Location). It builds only on a Mac.
 
 ## How times read
 
@@ -130,6 +132,10 @@ the name or address of its places, and a booking by its title, reference and pro
 During the trip the list starts at today, with **Whole trip** to show the days before; a search always looks through
 the whole trip.
 
+On iPhone and iPad, tickets, PDFs, e-mails, images and text files come in through **Open in Jourfold** or Jourfold in
+the share sheet's row of apps (`CFBundleDocumentTypes`); iOS hands over a copy. Places and text from other apps need
+a share extension of their own, which the iOS app does not have yet.
+
 ## Files
 
 Files of an item open on their own page. E-mails (`.eml`) show sender, recipients, date and attachments, read by
@@ -213,6 +219,13 @@ shows what is due once, and an alarm wakes it for the next notice; it also runs 
 time zone changes (an arrival up to three hours early is shown on the zone change after landing), and after edits
 and syncs. A tap opens the plan, "Show ticket" its first ticket.
 
+iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
+the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
+are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
+allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
+choose from; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
+there yet.
+
 ## Tickets
 
 A plan's tickets are the PDFs, images and Wallet passes (`.pkpass`) attached to it or to its booking. "Show ticket"
@@ -276,7 +289,14 @@ it never sends and never combines, and it leaves alone a trip with changes or ve
 sides changed, and the trip open in the app. Then it writes the calendars. Syncs Android starts on its own do nothing.
 
 The AOSP calendar app in the emulator images stops with any event (also one it would write itself); check entries
-with `adb shell content query --uri content://com.android.calendar/events`. iOS and iPadOS will use EventKit.
+with `adb shell content query --uri content://com.android.calendar/events`.
+
+On iPhone and iPad (`IosCalendar`, EventKit) the calendars are made in the device's own calendars, or in iCloud when
+the device keeps none, as when iCloud calendars are on. iOS cannot mark a calendar read-only, so the settings say
+that changes made in the calendar app are replaced: each time the calendars are written, entries that differ from the
+plan are written again. Each entry carries its key as its URL (`jourfold-entry:`) and is compared with the plan, so
+only what differs is written; `calendars.json` beside the trips keeps the calendars Jourfold made. There is no "Sync
+now"; the calendars follow edits and syncs in the app.
 
 ## Building for Android
 
@@ -341,6 +361,45 @@ Pick a higher `AndroidBuildNumber` for every build.
 Builds from a computer are signed with that computer's debug key. Android refuses to install one over a signed build
 and the other way round; switching means uninstalling first, which removes the trips on the phone that are not on
 GitHub.
+
+## iPhone and iPad
+
+The iOS project is not in `Jourfold.sln`, and Linux and Windows cannot build it. `.github/workflows/ios.yml` builds it
+on a Mac runner for changes to the mobile code: it builds libgit2 as `git2.xcframework`
+(`eng/build-libgit2-ios.sh` in TravelRepo), starts the app on an iPhone and an iPad simulator with the sample trip open
+(the `--open-sample` launch argument), checks that the trip has a version, keeps screenshots of both, and builds
+`jourfold-<version>-ios-<run>-unsigned.ipa` for devices.
+
+To build on a Mac (the .NET SDK from `eng/sdk.json`, CMake, and TravelRepo beside this repository): each .NET for iOS
+needs one Xcode, so install the workload the workflow uses with the Xcode it names, for example
+`dotnet workload install ios --version 10.0.401` with Xcode 26.6 (`sudo xcode-select -s /Applications/Xcode_26.6.app`).
+Then:
+
+```sh
+git clone https://github.com/libgit2/libgit2.git /tmp/libgit2 && git -C /tmp/libgit2 checkout 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+../travelrepo/eng/build-libgit2-ios.sh /tmp/libgit2 artifacts/libgit2-ios
+dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 -t:Run
+```
+
+`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`.
+
+**On a device without the Apple Developer Program.** A free Apple ID can sign apps for its own devices, with limits:
+the app stops starting after 7 days until it is signed and installed again (the trips stay as long as the app is not
+deleted), and at most three such apps per device.
+
+- With a Mac: sign in with the Apple ID in Xcode (Settings → Accounts), connect the device, turn on Developer Mode on
+  it (Settings → Privacy & Security), and build with a bundle ID of your own, because the ID must be unique per Apple
+  ID: `dotnet build src/Jourfold.iOS -c Release -r ios-arm64 -p:ApplicationId=dev.jourfold.app.<name> -t:Run`. If the
+  build finds no provisioning profile, create an empty iOS app with the same bundle ID in Xcode and run it on the
+  device once; Xcode then makes the profile. Trust the developer on the device under General → VPN & Device
+  Management.
+- Without a Mac: sideloading tools such as AltStore, SideStore or Sideloadly sign the unsigned IPA from the workflow
+  with the Apple ID and install it. SideStore renews the signature on the device every 7 days.
+
+**Not tested on a device yet.** The simulator runs .NET with a just-in-time compiler; a device compiles ahead of time.
+LibGit2Sharp passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so
+the project turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). Sync with GitHub
+on a device is the first thing to check.
 
 ## Screenshots
 

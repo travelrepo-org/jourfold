@@ -17,7 +17,7 @@ Jourfold includes the following open-source software. License files from each pa
 ## Android app
 
 - AndroidX libraries (Xamarin.AndroidX packages), Kotlin standard library and the Jetpack libraries they use: Apache-2.0, https://developer.android.com/jetpack/androidx; license files in the `licenses/xamarin.*` folders.
-- libgit2 (through TravelRepo.Git.LibGit2, built from source for Android): GPL-2.0 with the linking exception, https://github.com/libgit2/libgit2. The built-in Git of the phone and tablet app.
+- libgit2 (through TravelRepo.Git.LibGit2, built from source for Android and iOS): GPL-2.0 with the linking exception, https://github.com/libgit2/libgit2. The built-in Git of the phone and tablet app.
 - SkiaSharp and HarfBuzzSharp native assets for Android: MIT, as above.
 
 ## Data and documents

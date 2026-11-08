@@ -106,16 +106,17 @@ public static class CollectionViews
             var estimated = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
             var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
             var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
+            var shared = e.Type == "expense" && !estimated ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
             var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                 Ui.Tile(e.Type == "budget" ? "piggy-bank" : "receipt", e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
                 Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(e.Type == "budget" ? s["budget"] : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), "caption")),
-                estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : null,
+                estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : shared?.Margin(8, 0),
                 payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
                 Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ConverterCard(w), Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
     }
 
     /// <summary>

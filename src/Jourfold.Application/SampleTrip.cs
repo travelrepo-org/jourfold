@@ -157,6 +157,8 @@ public static class SampleTrip
         Booking("Tea ceremony", "Camellia", "CAM-302", "confirmed", "4400", "JPY", tea);
 
         var flightCost = Money("expense", "Flights", "1749.80", "EUR", payer: alex); flightCost.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = flights.Id.ToString() });
+        // Divided equally between both travellers; Sam has already paid back their half of the flights.
+        flightCost.Data["settled"] = new JsonArray(new JsonObject { ["person"] = sam.Id.ToString(), ["to"] = alex.Id.ToString(), ["value"] = "874.90", ["date"] = start.PlusDays(-30).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
         Money("expense", "Hotel Gracery deposit", "46800", "JPY", payer: alex);
         Money("expense", "teamLab tickets", "7600", "JPY", payer: sam);
         Money("expense", "Rail passes", "100000", "JPY", payer: sam);

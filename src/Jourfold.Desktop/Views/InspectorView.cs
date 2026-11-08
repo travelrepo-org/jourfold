@@ -206,6 +206,8 @@ public static class InspectorView
                 {
                     body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["EstimatedToggle"], e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est));
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
+                    Add(body, s["Split"], ExpenseViews.SplitEditor(w, e));
+                    Add(body, s["PayingBack"], ExpenseViews.PayingBack(w, e));
                     body.Children.Add(Field(s["Related"], Related(w, e)));
                     // A receipt photographed on the phone, or one dropped here.
                     Add(body, s["Files"], Confirmations(w, e));

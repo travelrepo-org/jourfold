@@ -40,9 +40,9 @@ The map before online maps are enabled. Places and routes come from the trip's o
 
 ![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
 
-Costs per currency with budgets, who owes whom with the fewest payments that settle it, the currency converter, which waits for permission to fetch exchange rates, and an expense divided equally between both travellers:
+Costs per currency with budgets, the total in euros from what the cards charged, and who owes whom with the fewest payments that settle it, with an expense divided equally between both travellers:
 
-![Costs page with totals for euros and yen, budget progress, who owes whom with Alex paying Sam in yen, the currency converter asking to fetch exchange rates, and the start of the expense list with the flights marked as settled; the inspector shows the rail passes with the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
+![Costs page with totals for euros and yen with budget progress, a total in euros with the home currency chooser and the rail passes not converted yet, and who owes whom in euros and, for the rail passes, in yen, with the buttons to pay back and to mark all as paid; the inspector shows the rail passes with the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 

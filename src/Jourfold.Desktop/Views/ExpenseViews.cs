@@ -148,8 +148,17 @@ public static class ExpenseViews
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         if (Expenses.Debts(trip).Count == 0) return null;
-        var balances = Expenses.Balances(trip);
-        var body = Ui.V(12, Ui.V(2, Ui.Text(s["WhoOwesWhom"], "h3"), Ui.Text(s["WhoOwesWhomHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+        var balances = Expenses.Balances(trip, m.SettleCurrency, m.EstimateRates);
+        var heading = Ui.V(2, Ui.Text(s["WhoOwesWhom"], "h3"), Ui.Text(m.SettleInHomeCurrency ? string.Format(s["WhoOwesWhomHintIn"], m.HomeCurrency) : s["WhoOwesWhomHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        // With expenses in more than one currency, debts can be shown in the home currency or each in its own.
+        Control? toggle = null;
+        if (Expenses.Debts(trip).Select(d => d.Currency).Append(m.HomeCurrency).Distinct().Count() > 1)
+        {
+            var home = Ui.Choice(string.Format(s["SettleInHome"], m.HomeCurrency), "coins", m.SettleInHomeCurrency, "chip"); home.Click += (_, _) => m.SettleInHomeCurrency = true;
+            var each = Ui.Choice(s["SettlePerCurrency"], "layers", !m.SettleInHomeCurrency, "chip"); each.Click += (_, _) => m.SettleInHomeCurrency = false;
+            toggle = Ui.H(6, home, each).Also(p => AutomationProperties.SetName(p, s["SettleIn"]));
+        }
+        var body = Ui.V(12, Ui.Columns("*,Auto", heading, toggle?.Also(t => t.VerticalAlignment = VerticalAlignment.Top)));
         if (balances.Count == 0)
         {
             body.Children.Add(Notice("circle-check", "Success", s["AllEven"]));
@@ -160,21 +169,77 @@ public static class ExpenseViews
         {
             var name = Name(trip, b.Person) + (m.Me?.Id == b.Person ? " (" + s["You"] + ")" : "");
             var owed = b.Net > 0;
-            var line = string.Format(s[owed ? "BalanceOwed" : "BalanceOwes"], Formats.Money(Math.Abs(b.Net), b.Currency));
+            var line = string.Format(s[owed ? "BalanceOwed" : "BalanceOwes"], (b.Estimated ? "≈ " : "") + Formats.Money(Math.Abs(b.Net), b.Currency));
             people.Children.Add(Ui.H(8, Ui.Avatar(Name(trip, b.Person), 26), Ui.V(0, Ui.Line(name, "strong"), Ui.H(4, Ui.Icon(owed ? "arrow-left" : "arrow-right", 12, owed ? "Success" : "Warning"), Ui.Line(line, "caption")))));
         }
         body.Children.Add(people);
-        var transfers = Expenses.SettleUp(trip);
+        var transfers = Expenses.SettleUp(trip, m.SettleCurrency, m.EstimateRates);
         var plan = Ui.V(4, Ui.Text(s["SettleUpHint"], "caption"));
         foreach (var t in transfers)
-            plan.Children.Add(Ui.H(8, Ui.Icon("arrow-right", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center), Ui.Line(string.Format(s["PaysTo"], Name(trip, t.From), Name(trip, t.To))), Ui.Text(Formats.Money(t.Amount, t.Currency), "strong").Margin(8, 0, 0, 0)));
+            plan.Children.Add(Ui.H(8, Ui.Icon("arrow-right", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center), Ui.Line(string.Format(s["PaysTo"], Name(trip, t.From), Name(trip, t.To))), Ui.Text((t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency), "strong").Margin(8, 0, 0, 0)));
         body.Children.Add(plan);
+        // Estimates are named in words, and what could not be converted at all stays in its own currency.
+        if (transfers.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        else if (m.SettleCurrency is { } target && transfers.Any(t => t.Currency != target)) body.Children.Add(Notice("info", "Text.Subtle", string.Format(s["NotConvertedHint"], target)));
         var pay = Ui.Button(s["PayBack"], "wallet", "soft"); ToolTip.SetTip(pay, s["PayBackHint"]);
         pay.Click += (_, _) => _ = m.PayAsync();
         var settle = Ui.Button(s["SettleAll"], "circle-check", "link");
         settle.Click += (_, _) => _ = m.SettleAllAsync();
         body.Children.Add(Ui.H(10, pay, settle));
         return Ui.Card(body, 18);
+    }
+
+    /// <summary>
+    /// What the card actually charged for an expense in another currency than the home currency: typed as on the
+    /// statement, saved with the rate and the day. Null when the expense is in the home currency.
+    /// </summary>
+    public static Control? Charged(MainWindow w, Entity expense)
+    {
+        var m = w.Model; var s = m.Strings; var home = m.HomeCurrency;
+        if (TripSummaries.Money(expense.Data["amount"]) is not { Amount: not 0 } money) return null;
+        var charge = Expenses.ChargeOf(expense);
+        if (money.Currency == home && charge is null) return null;
+        var currency = charge?.Currency ?? home;
+        var shown = charge is { } c ? c.Value.ToString("N2", System.Globalization.CultureInfo.CurrentCulture) : "";
+        var box = new TextBox { Text = shown, Width = 130, HorizontalContentAlignment = HorizontalAlignment.Right, PlaceholderText = "0.00", Tag = "charged" };
+        AutomationProperties.SetName(box, string.Format(s["ChargedIn"], currency));
+        var original = shown;
+        async Task Commit()
+        {
+            if ((box.Text ?? "").Trim() == original.Trim()) return;
+            if (await m.SetChargeAsync(expense.Id, box.Text, currency)) { box.Classes.Remove("invalid"); original = box.Text ?? ""; }
+            else box.Classes.Add("invalid");
+        }
+        box.LostFocus += async (_, _) => await Commit();
+        box.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await Commit(); } if (e.Key == Key.Escape) { box.Text = original; e.Handled = true; } };
+        var panel = Ui.V(6, Ui.H(6, box, Ui.Text(currency, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center)));
+        panel.Children.Add(charge is { } done
+            ? Ui.Text(string.Format(s["ChargedRate"], money.Currency, done.Rate.ToString("0.####", System.Globalization.CultureInfo.CurrentCulture), done.Currency) + (done.Date is { } day ? " · " + Formats.Date(day) : ""), "caption")
+            : Ui.Text(string.Format(s["ChargedHint"], money.Currency, currency), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        return panel;
+    }
+
+    /// <summary>
+    /// The paid expenses in the home currency: exact where amounts are in it or were charged in it, otherwise estimated
+    /// with reference rates when allowed, and what is still in another currency. Null when everything is in the home currency.
+    /// </summary>
+    public static Control? HomeTotal(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!; var home = m.HomeCurrency;
+        var expenses = trip.Entities.Values.Where(e => e.Type == "expense" && TripSummaries.Money(e.Data["amount"]) is not null).ToArray();
+        if (expenses.All(e => TripSummaries.Money(e.Data["amount"])!.Currency == home)) return null;
+        var total = Expenses.Total(trip, home, m.EstimateRates);
+        // The home currency is chosen here; amounts charged keep the currency they were entered in.
+        var choice = new SearchChoice(Editors.Currencies, home, s["HomeCurrency"]) { Width = 120 };
+        void Choose() { if (choice.Value is { } code && code != m.HomeCurrency) m.HomeCurrency = code; }
+        choice.Input.SelectionChanged += (_, _) => Choose(); choice.Input.LostFocus += (_, _) => Choose();
+        var body = Ui.V(8, Ui.Columns("*,Auto", Ui.Text(string.Format(s["InCurrency"], home), "overline").Also(t => t.VerticalAlignment = VerticalAlignment.Center), choice),
+            Ui.Text((total.Estimated > 0 ? "≈ " : "") + Formats.Money(total.Total, home), "h1"),
+            Ui.H(5, Ui.Icon("circle-check", 13, "Success"), Ui.Text(string.Format(s["ExactlyCharged"], Formats.Money(total.Exact, home)), "caption")));
+        if (total.Estimated > 0) body.Children.Add(Ui.H(5, Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home)), "caption")));
+        if (total.NotConverted.Count > 0) body.Children.Add(Notice("info", "Text.Subtle", string.Format(s["NotConvertedYet"], string.Join(" + ", total.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))))));
+        if (total.WithoutCharge > 0) body.Children.Add(Ui.Text((total.WithoutCharge == 1 ? s["WithoutChargeOne"] : string.Format(s["WithoutChargeCount"], total.WithoutCharge)), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        return Ui.Card(body, 18).Also(c => c.Width = 300);
     }
 
     private static Control Notice(string icon, string brush, string text) =>

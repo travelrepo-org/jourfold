@@ -99,6 +99,7 @@ public static class CollectionViews
             }
             tiles.Children.Add(Ui.Card(body, 18).Also(c => c.Width = 300));
         }
+        if (ExpenseViews.HomeTotal(w) is { } home) tiles.Children.Add(home);
         var list = Ui.V(2);
         foreach (var e in expenses.Concat(budgets))
         {
@@ -109,7 +110,7 @@ public static class CollectionViews
             var shared = e.Type == "expense" && !estimated ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
             var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                 Ui.Tile(e.Type == "budget" ? "piggy-bank" : "receipt", e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
-                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(e.Type == "budget" ? s["budget"] : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), "caption")),
+                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : shared?.Margin(8, 0),
                 payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
                 Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));

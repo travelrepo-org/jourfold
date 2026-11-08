@@ -159,8 +159,11 @@ public static class SampleTrip
         var flightCost = Money("expense", "Flights", "1749.80", "EUR", payer: alex); flightCost.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = flights.Id.ToString() });
         // Divided equally between both travellers; Sam has already paid back their half of the flights.
         flightCost.Data["settled"] = new JsonArray(new JsonObject { ["person"] = sam.Id.ToString(), ["to"] = alex.Id.ToString(), ["value"] = "874.90", ["date"] = start.PlusDays(-30).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) });
-        Money("expense", "Hotel Gracery deposit", "46800", "JPY", payer: alex);
-        Money("expense", "teamLab tickets", "7600", "JPY", payer: sam);
+        // What the cards charged in euros, so costs and paying back can be shown in euros.
+        var deposit = Money("expense", "Hotel Gracery deposit", "46800", "JPY", payer: alex);
+        deposit.Data["converted"] = new JsonObject { ["value"] = "285.48", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-20).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
+        var tickets = Money("expense", "teamLab tickets", "7600", "JPY", payer: sam);
+        tickets.Data["converted"] = new JsonObject { ["value"] = "46.36", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
         Money("expense", "Rail passes", "100000", "JPY", payer: sam);
         Money("expense", "Food and snacks", "60000", "JPY", estimated: true);
         Money("budget", "Trip budget", "3500.00", "EUR");

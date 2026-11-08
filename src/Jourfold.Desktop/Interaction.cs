@@ -33,7 +33,12 @@ public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IRead
 /// <param name="UnassignedOnly">Only the packing items nobody brings yet.</param>
 public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly);
 /// <summary>What the pay function offers: the trip, the people to pay for, who starts chosen, and the local user.</summary>
-public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People, Guid Person, Guid? Me);
+public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People, Guid Person, Guid? Me)
+{
+    /// <summary>The currency to pay in, or null for each expense's own; amounts charged convert exactly, others with <see cref="Rates"/> as estimates.</summary>
+    public string? Currency { get; init; }
+    public ExchangeRates? Rates { get; init; }
+}
 /// <summary>The open items a person chose to settle now.</summary>
 public sealed record PayAnswer(Guid Person, IReadOnlyList<DebtKey> Items);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);

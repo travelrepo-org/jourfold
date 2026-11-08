@@ -12,6 +12,57 @@ public partial class MainViewModel
     /// <summary>Today in the trip's time zone, the day a payment is recorded on.</summary>
     public LocalDate Today => SystemClock.Instance.GetCurrentInstant().InZone(Trip is { } trip ? ScheduleQueries.TripZone(trip) : DateTimeZone.Utc).Date;
 
+    /// <summary>
+    /// The currency the travellers count in at home, such as EUR: what a card charged is entered in it, and costs and
+    /// paying back can be shown in it. Kept on this computer; the region's currency until chosen.
+    /// </summary>
+    public string HomeCurrency
+    {
+        get => Store.Get("costs.home") is { Length: 3 } code ? code : ChargedCurrency() ?? SystemCurrency;
+        set { if (ExchangeRates.Code(value) is { } code) { Store.Set("costs.home", code); ContentChanged?.Invoke(this, EventArgs.Empty); } }
+    }
+
+    /// <summary>The currency most amounts in the trip were charged in, which is the travellers' home currency.</summary>
+    private string? ChargedCurrency() => Trip is { } trip ? trip.Entities.Values.Where(e => e.Type == "expense").Select(Expenses.ChargeOf).OfType<Charge>()
+        .GroupBy(c => c.Currency).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).FirstOrDefault()?.Key : null;
+
+    /// <summary>The currency of the computer's region, read before Jourfold sets its own language for the interface.</summary>
+    private static readonly string SystemCurrency = ReadSystemCurrency();
+
+    // A static constructor makes the region be read before the first instance sets the interface culture.
+    static MainViewModel() { }
+
+    private static string ReadSystemCurrency()
+    {
+        try { return System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol is { Length: 3 } code ? code : "EUR"; }
+        catch (ArgumentException) { return "EUR"; }
+    }
+
+    /// <summary>Whether who owes whom is shown in <see cref="HomeCurrency"/> (the default) or in each expense's own currency.</summary>
+    public bool SettleInHomeCurrency
+    {
+        get => Store.Get("costs.settle") != "each";
+        set { Store.Set("costs.settle", value ? "home" : "each"); ContentChanged?.Invoke(this, EventArgs.Empty); }
+    }
+
+    /// <summary>The currency debts are settled in, or null for each expense's own; see <see cref="Expenses.Balances"/>.</summary>
+    public string? SettleCurrency => SettleInHomeCurrency ? HomeCurrency : null;
+
+    /// <summary>Reference rates for estimates where no charged amount was entered, only when the person allowed fetching them.</summary>
+    public ExchangeRates? EstimateRates => RatesOn ? Rates : null;
+
+    /// <summary>
+    /// Records what the card actually charged for an expense, as typed ("190,40" works), in <paramref name="currency"/>
+    /// on today's date; empty text removes it. Text that is no number changes nothing.
+    /// </summary>
+    public async Task<bool> SetChargeAsync(Guid expenseId, string? text, string currency)
+    {
+        if (string.IsNullOrWhiteSpace(text)) { await EditExpenseAsync(expenseId, (_, e) => Expenses.WithoutCharge(e)); return true; }
+        if (ExchangeRates.Amount(text) is not { } value) return false;
+        await EditExpenseAsync(expenseId, (_, e) => Expenses.WithCharge(e, value, currency, Today));
+        return true;
+    }
+
     public Task SetSplitMethodAsync(Guid expenseId, SplitMethod method) => EditExpenseAsync(expenseId, (trip, e) => Expenses.ChangeMethod(trip, e, method));
 
     public Task SetSplitPersonAsync(Guid expenseId, Guid person, bool shares) => EditExpenseAsync(expenseId, (trip, e) => Expenses.WithPerson(trip, e, person, shares));
@@ -41,7 +92,7 @@ public partial class MainViewModel
         var people = TripPeople.Travelers(trip).Concat(trip.Entities.Values.Where(e => e.Type == "person")).DistinctBy(p => p.Id).ToArray();
         var who = person ?? Me?.Id ?? people.FirstOrDefault(p => Expenses.Open(trip, p.Id).Count > 0)?.Id;
         if (who is null || people.Length == 0) return;
-        var answer = await Interaction.PayAsync(new PayRequest(trip, people, who.Value, Me?.Id));
+        var answer = await Interaction.PayAsync(new PayRequest(trip, people, who.Value, Me?.Id) { Currency = SettleCurrency, Rates = EstimateRates });
         if (answer is null || answer.Items.Count == 0) return;
         var items = Expenses.Pay(Workspace.State.Trip, answer.Person, answer.Items).Items.Select(i => i.Key).ToArray();
         if (items.Length == 0) return;

@@ -119,6 +119,64 @@ public sealed class ExpenseSplitTests : IDisposable
         Assert.Empty(Expenses.Open(m.Trip!)); Assert.Empty(Expenses.SettleUp(m.Trip!));
     }
 
+    [AvaloniaFact]
+    public async Task WhatTheCardChargedIsKeptAndUsedToSettleInEuros()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip(); await m.OpenAsync(path);
+        m.HomeCurrency = "EUR";
+        var tour = Expense("Hobbiton", "300.00", "NZD", p.Ana); await m.Workspace!.EditAsync(tour);
+
+        // Nothing charged yet and no rates: who owes whom stays in NZD.
+        Assert.All(Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
+        Assert.False(await m.SetChargeAsync(tour.Id, "lots", "EUR"));
+        Assert.True(await m.SetChargeAsync(tour.Id, "168,30", "EUR"));
+        var charge = Expenses.ChargeOf(m.Trip!.Find(tour.Id)!)!;
+        Assert.Equal((168.30m, "EUR", 0.561m, m.Today), (charge.Value, charge.Currency, charge.Rate, charge.Date!.Value));
+        // Ben and Cleo each owe a third of what the card charged, exactly.
+        var transfers = Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates);
+        Assert.Equal([56.10m, 56.10m], transfers.Select(t => t.Amount));
+        Assert.All(transfers, t => Assert.True(t.Currency == "EUR" && !t.Estimated));
+
+        // The pay function pays in euros too, and each expense's own currency is still there to choose.
+        interaction.Pay = request => { Assert.Equal("EUR", request.Currency); Assert.Equal([new Transfer(p.Ben.Id, p.Ana.Id, "EUR", 56.10m)], Expenses.Pay(request.Trip, request.Person, Expenses.Open(request.Trip, request.Person).Select(d => d.Key), request.Currency, request.Rates).Payments); return null; };
+        await m.PayAsync(p.Ben.Id);
+        m.SettleInHomeCurrency = false;
+        Assert.All(Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
+        m.SettleInHomeCurrency = true;
+
+        Assert.True(await m.SetChargeAsync(tour.Id, "", "EUR"));
+        Assert.Null(m.Trip!.Find(tour.Id)!.Data["converted"]);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", "Amount charged in EUR", "as charged", "In EUR")]
+    [InlineData("de", "Abgebuchter Betrag in EUR", "wie abgebucht", "In EUR")]
+    public async Task TheChargedAmountIsEnteredInTheDetailsAndTotalledInEuros(string language, string field, string exact, string chip)
+    {
+        var w = await Window(language, "Light"); var m = w.Model;
+        try
+        {
+            m.HomeCurrency = "EUR";
+            var boat = m.Trip!.Entities.Values.Single(e => e.Title.StartsWith("Boat", StringComparison.Ordinal));
+            await m.SetSplitMethodAsync(boat.Id, SplitMethod.Equal);
+            m.Navigate("Costs"); m.Selected = m.Trip!.Find(boat.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            TextBox? box = null;
+            await Probe.Until(() => (box = Probe.All<TextBox>(inspector).FirstOrDefault(b => AutomationProperties.GetName(b) == field)) is not null);
+            box!.Text = "33,60"; box.RaiseEvent(new Avalonia.Input.KeyEventArgs { RoutedEvent = Avalonia.Input.InputElement.KeyDownEvent, Key = Avalonia.Input.Key.Enter });
+            await Probe.Until(() => Expenses.ChargeOf(m.Trip!.Find(boat.Id)!) is { Value: 33.60m });
+            m.Navigate("Plan"); m.Navigate("Costs");
+            var texts = Texts(w).ToArray();
+            Assert.Contains(texts, t => t.EndsWith(exact, StringComparison.Ordinal) && t.Contains("123", StringComparison.Ordinal));
+            Assert.Contains(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == chip);
+            // Everything is in euros now and nothing is estimated.
+            Assert.DoesNotContain(texts, t => t.StartsWith("≈", StringComparison.Ordinal));
+        }
+        finally { w.Close(); }
+    }
+
     private async Task<MainWindow> Window(string language, string theme)
     {
         var (path, p) = await Trip();

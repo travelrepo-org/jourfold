@@ -137,7 +137,7 @@ A trip plan can be a PDF, a web page for printing, a calendar file for other cal
 
 - **For**: everyone, or one person. One person's plan leaves out what only others do; things nobody is assigned to stay in.
 - **Days**: the whole trip or a few days. Plans without a time are only included for the whole trip.
-- **Contents**: schedule, stays, bookings, contacts, costs, tasks, notes and packing lists. In one person's plan, costs show what that person paid.
+- **Contents**: schedule, stays, bookings, contacts, costs, tasks, notes and packing lists. Costs show what is still open for each expense and the payments that settle up. In one person's plan, costs show the expenses that person paid or shares, with their part, what they owe or are owed, and only the payments they make or receive.
 - **Timeline beside each day** (PDF): each day's plans on a small time line, so you see how long things take and what overlaps.
 - **Map overview** (PDF): the places and routes of the export. With the street map turned on, the PDF uses its map images; otherwise it draws the places on a plain grid. A long flight from home runs off the edge of the map, so the trip itself stays readable.
 - **Attach confirmations** (PDF): PDFs, images and e-mails attached to the plans and bookings are added at the end as A1, A2 and so on, and each entry says which ones belong to it. Files that cannot go into a PDF are listed by name.

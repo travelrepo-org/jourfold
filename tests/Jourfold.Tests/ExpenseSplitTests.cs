@@ -118,6 +118,22 @@ public sealed class ExpenseSplitTests : IDisposable
         Assert.Empty(Expenses.Open(m.Trip!)); Assert.Empty(Expenses.SettleUp(m.Trip!));
     }
 
+    [AvaloniaTheory]
+    [InlineData("en", "30.00 share", "To settle up", "Ben owes Ana Silva")]
+    [InlineData("de", "30,00 Anteil", "Zum Ausgleich", "Ben schuldet Ana Silva")]
+    public async Task OnePersonsPlanShowsTheirPartAndHowToSettleUp(string language, string share, string settle, string owes)
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip(); await m.OpenAsync(path);
+        var dinner = Expense("Dinner in Aachen", "90.00", "EUR", p.Ana); await m.Workspace!.EditAsync(dinner);
+        var labels = m.ExportLabels(new Jourfold.UI.Localization(language));
+        var text = TripExport.Text(TripExport.Document(m.Trip!, new ExportOptions { Parts = ExportParts.Costs, Person = p.Ben.Id }, labels, System.Globalization.CultureInfo.GetCultureInfo(language)));
+        Assert.True(text.Contains(share, StringComparison.Ordinal), text);
+        Assert.Contains(settle, text);
+        Assert.Contains(owes, text);
+    }
+
     private async Task<MainWindow> Window(string language, string theme)
     {
         var (path, p) = await Trip();

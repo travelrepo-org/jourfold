@@ -211,7 +211,7 @@ public static class InspectorView
                     body.Children.Add(Field(s["Related"], Related(w, e)));
                     // A receipt photographed on the phone, or one dropped here.
                     Add(body, s["Files"], Confirmations(w, e));
-                    if (e.Data["converted"] is JsonObject converted) body.Children.Add(Field(s["Converted"], Ui.Text(converted["value"] + " " + converted["currency"] + " · " + string.Format(s["RateOn"], converted["rate"], converted["rate_date"]), "muted")));
+                    if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
                 }
                 else body.Children.Add(Field(s["BudgetScope"], Editors.Choice(w, e.Id, "scope", s["BudgetScope"], e.Data["scope"]?.ToString(), ["trip", "category", "participant", "collection"])));
                 break;

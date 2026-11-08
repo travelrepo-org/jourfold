@@ -15,7 +15,7 @@ dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 
 This writes the fourteen images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
 
-- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, the export dialog for a plan and for packing lists, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf`, `itinerary-full.pdf` (every part and the map), `packing-lists.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, the pay function, the export dialog for a plan and for packing lists, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf`, `itinerary-full.pdf` (every part and the map), `packing-lists.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
@@ -40,9 +40,9 @@ The map before online maps are enabled. Places and routes come from the trip's o
 
 ![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
 
-Costs per currency with budgets, and the currency converter, which waits for permission to fetch exchange rates:
+Costs per currency with budgets, who owes whom with the fewest payments that settle it, the currency converter, which waits for permission to fetch exchange rates, and an expense divided equally between both travellers:
 
-![Costs page with totals for euros and yen, budget progress, the currency converter asking to fetch exchange rates, and the list of expenses](screenshots/costs.png)
+![Costs page with totals for euros and yen, budget progress, who owes whom with Alex paying Sam in yen, the currency converter asking to fetch exchange rates, and the start of the expense list with the flights marked as settled; the inspector shows the rail passes with the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 

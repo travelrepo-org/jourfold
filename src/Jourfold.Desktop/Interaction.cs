@@ -36,6 +36,10 @@ public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IRead
 /// <param name="People">Packing lists for these people, one file each; empty for one list with everybody.</param>
 /// <param name="UnassignedOnly">Only the packing items nobody brings yet.</param>
 public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly);
+/// <summary>What the pay function offers: the trip, the people to pay for, who starts chosen, and the local user.</summary>
+public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People, Guid Person, Guid? Me);
+/// <summary>The open items a person chose to settle now.</summary>
+public sealed record PayAnswer(Guid Person, IReadOnlyList<DebtKey> Items);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);
 public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency);
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
@@ -76,6 +80,8 @@ public interface IInteraction
     /// </summary>
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
     /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
+    /// <summary>The pay function: choose which open items to settle now, seeing what they come to.</summary>
+    Task<PayAnswer?> PayAsync(PayRequest request);
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
     /// <summary>Asks what to export and how. Null when cancelled.</summary>
     Task<ExportChoice?> ExportAsync(ExportSetup setup);

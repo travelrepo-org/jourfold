@@ -232,19 +232,25 @@ public sealed class ExportTests : IDisposable
 
             // Another zone starts with the first suggestion and offers the others as quick choices.
             Press(Probe.Sheet(w), s["ExportOtherZone"]); Probe.Layout();
-            var search = Probe.All<AutoCompleteBox>(Probe.Sheet(w)).Single();
+            var search = Probe.All<AutoCompleteBox>(Probe.Sheet(w)).First(); // the main zone; the second box adds more
             Assert.Equal(FieldOptions.ZoneLabel("Europe/Berlin"), search.Text);
             Assert.Contains(s["ExportZoneHint"], Texts(Probe.Sheet(w)));
             Press(Probe.Sheet(w), "Tokyo"); Probe.Layout();
             Assert.Equal(FieldOptions.ZoneLabel("Asia/Tokyo"), search.Text);
 
+            // More zones beside each time: the trip's own zone is a quick choice once the main zone is another.
+            Assert.Contains(s["ExportAlsoIn"], Texts(Probe.Sheet(w)));
+            Press(Probe.Sheet(w), "Auckland"); Probe.Layout();
+            Assert.Contains(Probe.All<Button>(Probe.Sheet(w)), b => Avalonia.Automation.AutomationProperties.GetName(b) == string.Format(s["ExportRemoveZone"], FieldOptions.ZoneLabel("Pacific/Auckland")));
+
             // A calendar file has no such row: calendar apps show times in their own zone.
             Press(Probe.Sheet(w), s["ICS"]); Probe.Layout();
-            Assert.DoesNotContain(s["ExportTimesIn"], Texts(Probe.Sheet(w)));
+            Assert.DoesNotContain(s["ExportTimesIn"], Texts(Probe.Sheet(w))); Assert.DoesNotContain(s["ExportAlsoIn"], Texts(Probe.Sheet(w)));
             Press(Probe.Sheet(w), s["ExportTextFile"]); Probe.Layout();
             Probe.All<Button>(Probe.Sheet(w)).Single(b => b.IsDefault).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             var choice = await shown;
             Assert.Equal("Asia/Tokyo", choice!.Options.TimeZone);
+            Assert.Equal(["Pacific/Auckland"], choice.Options.OtherTimeZones);
         }
         finally { w.Close(); }
     }
@@ -261,33 +267,34 @@ public sealed class ExportTests : IDisposable
         await m.Workspace!.ApplyAsync([new(walk.Id, walk), new(flight.Id, flight)]);
 
         // The dialog learns the trip's zone and the zones worth offering; Tokyo is in the trip.
-        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { TimeZone = "Asia/Tokyo" } };
+        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { TimeZone = "Asia/Tokyo", OtherTimeZones = ["Europe/Berlin"] } };
         var file = Path.Combine(root, "tokyo.txt");
         interaction.Answers.Enqueue(file);
         await m.ExportCommand.ExecuteAsync(null);
         var setup = Assert.Single(interaction.ExportSetups);
         Assert.Equal("Europe/Berlin", setup.TripZone); Assert.Contains("Asia/Tokyo", setup.Zones); Assert.DoesNotContain("Europe/Berlin", setup.Zones);
         var text = await File.ReadAllTextAsync(file);
-        Assert.Contains("Time zone: Tokyo (JST, UTC+9)", text);
-        Assert.Contains("16:00–17:30  Harbour walk", text);
-        Assert.Contains("20:20–6 Jun 08:35  Flight to Tokyo", text);
-        Assert.DoesNotContain("CEST", text);
+        Assert.Contains("Time zones: Tokyo (JST, UTC+9) · Berlin (CEST, UTC+2)", text);
+        var walkLine = text.Split('\n').ToList().FindIndex(l => l.StartsWith("16:00–17:30  Harbour walk", StringComparison.Ordinal)); Assert.Equal("Berlin 09:00–10:30", text.Split('\n')[walkLine + 1].Trim());
+        Assert.Contains("20:20–6 Jun 08:35  Flight to Tokyo", text); Assert.Contains("Berlin 13:20–6 Jun 01:35", text);
 
         // The next export starts in Tokyo again; quick exports use it too.
-        interaction.Export = null;
+        interaction.Export = setup => setup.Initial with { Format = "pdf" };
         interaction.Answers.Enqueue(Path.Combine(root, "again.pdf"));
         await m.ExportCommand.ExecuteAsync(null);
         Assert.Equal("Asia/Tokyo", interaction.ExportSetups[^1].Initial.Options.TimeZone);
+        Assert.Equal(["Europe/Berlin"], interaction.ExportSetups[^1].Initial.Options.OtherTimeZones);
+        Assert.Contains("Berlin 09:00–10:30", Text(Path.Combine(root, "again.pdf"))); Capture(Path.Combine(root, "again.pdf"));
         await m.ShareExportCommand.ExecuteAsync("copy");
         Assert.Contains("16:00–17:30  Harbour walk", interaction.Copied.Last());
 
         // Back to the trip's zone, times planned elsewhere name their zone again.
-        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { TimeZone = null } };
+        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { TimeZone = null, OtherTimeZones = [] } };
         var trip = Path.Combine(root, "trip.txt");
         interaction.Answers.Enqueue(trip);
         await m.ExportCommand.ExecuteAsync(null);
         var tripText = await File.ReadAllTextAsync(trip);
-        Assert.Contains("09:00–10:30  Harbour walk", tripText); Assert.Contains("13:20 CEST – 6 Jun 08:35 JST", tripText);
+        Assert.Contains("09:00–10:30  Harbour walk", tripText); Assert.Contains("13:20 CEST – 6 Jun 08:35 JST", tripText); Assert.DoesNotContain("Berlin 09:00", tripText);
     }
 
     [AvaloniaFact]

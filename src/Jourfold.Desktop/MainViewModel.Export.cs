@@ -168,7 +168,8 @@ public partial class MainViewModel
                 Timeline = json["timeline"]?.GetValue<bool>() != false,
                 Comments = json["comments"]?.GetValue<bool>() == true,
                 // A zone this version's time zone database does not know falls back to the trip's.
-                TimeZone = json["timezone"]?.ToString() is { Length: > 0 } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is not null ? zone : null
+                TimeZone = json["timezone"]?.ToString() is { Length: > 0 } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is not null ? zone : null,
+                OtherTimeZones = (json["other_timezones"] as JsonArray ?? []).Select(n => n?.ToString()).OfType<string>().Where(z => NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().ToArray()
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
@@ -192,6 +193,7 @@ public partial class MainViewModel
             ["timeline"] = choice.Options.Timeline,
             ["comments"] = choice.Options.Comments,
             ["timezone"] = choice.Options.TimeZone,
+            ["other_timezones"] = new JsonArray(choice.Options.OtherTimeZones.Select(z => (JsonNode)z).ToArray()),
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),
@@ -261,6 +263,7 @@ public partial class MainViewModel
             NightAt = s["ExportNightAt"],
             NightOf = s["ExportNightOf"],
             TimeZone = s["ExportTimeZone"],
+            TimeZones = s["ExportTimeZones"],
             Comments = s["Comments"],
             Someone = s["Someone"],
             DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => s[k]),

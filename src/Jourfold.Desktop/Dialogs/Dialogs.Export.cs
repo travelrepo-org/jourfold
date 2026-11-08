@@ -19,7 +19,7 @@ public sealed partial class Dialogs
     {
         var s = S; var initial = setup.Initial;
         var kind = initial.Kind; var format = initial.Format == "copy" ? "pdf" : initial.Format;
-        var zone = initial.Options.TimeZone; var otherZone = zone is not null;
+        var zone = initial.Options.TimeZone; var otherZone = zone is not null; var alsoIn = initial.Options.OtherTimeZones.ToList();
         var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person; var timeline = initial.Options.Timeline; var comments = initial.Options.Comments;
         LocalDate? from = initial.Options.From ?? setup.Start, to = initial.Options.To ?? setup.End;
         var language = initial.Language;
@@ -73,6 +73,31 @@ public sealed partial class Dialogs
             }).ToArray());
             return Row(s["ExportTimesIn"], Ui.V(6, choices, search, quick, Ui.Text(s["ExportZoneHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
         }
+        // More zones shown beside each time, for example home and the next stop.
+        Control AlsoIn()
+        {
+            var main = otherZone && zone is not null ? zone : setup.TripZone;
+            var chosen = Ui.Flow(4, alsoIn.Select(z =>
+            {
+                var remove = Ui.Button(City(z), "x", "compact"); AutomationProperties.SetName(remove, string.Format(s["ExportRemoveZone"], FieldOptions.ZoneLabel(z)));
+                remove.Click += (_, _) => { alsoIn.Remove(z); Render(); };
+                return (Control)remove;
+            }).ToArray());
+            var search = new SearchChoice(FieldOptions.Timezones, null, s["Timezone"]);
+            var add = Ui.Button(s["ExportAddZone"], "plus", "compact"); add.IsEnabled = false;
+            void Add(string z) { if (z != main && !alsoIn.Contains(z)) alsoIn.Add(z); Render(); }
+            void Typed() => add.IsEnabled = search.Value is { } z && z != main && !alsoIn.Contains(z);
+            search.Input.SelectionChanged += (_, _) => Typed(); search.Input.TextChanged += (_, _) => Typed();
+            add.Click += (_, _) => { if (search.Value is { } z) Add(z); };
+            var quick = Ui.Flow(4, setup.Zones.Prepend(setup.TripZone).Distinct().Where(z => z != main && !alsoIn.Contains(z)).Take(4).Select(z =>
+            {
+                var button = Ui.Button(City(z), "plus", "compact"); AutomationProperties.SetName(button, string.Format(s["ExportAddThisZone"], FieldOptions.ZoneLabel(z)));
+                button.Click += (_, _) => Add(z);
+                return (Control)button;
+            }).ToArray());
+            return Row(s["ExportAlsoIn"], Ui.V(6, alsoIn.Count > 0 ? chosen : null, Ui.Columns("*,Auto", search, add.Col(1).Margin(6, 0, 0, 0)), quick,
+                Ui.Text(s["ExportAlsoHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+        }
         Control Paper() => Row(s["ExportPaper"], ViewToolbar.Segmented([("a4", "A4", null), ("letter", s["ExportLetter"], null)], paper == PaperSize.Letter ? "letter" : "a4", v => { paper = v == "letter" ? PaperSize.Letter : PaperSize.A4; Render(); }));
 
         void Render()
@@ -103,6 +128,7 @@ public sealed partial class Dialogs
                     extras.Children.Add(Check(s["ExportComments"], comments, on => comments = on));
                     options.Children.Add(Row("", extras));
                     options.Children.Add(Zone());
+                    options.Children.Add(AlsoIn());
                     options.Children.Add(Row(s["ExportDetail"], ViewToolbar.Segmented([("detailed", s["ExportDetailed"], null), ("compact", s["Compact"], null)], detail == ExportDetail.Compact ? "compact" : "detailed", v => { detail = v == "compact" ? ExportDetail.Compact : ExportDetail.Detailed; Render(); })));
                     if (format == "pdf") options.Children.Add(Paper());
                     options.Children.Add(Language());
@@ -163,7 +189,8 @@ public sealed partial class Dialogs
                 Timeline = timeline,
                 Comments = comments && format != "ics" && (kind == "plan" || format != "csv"),
                 // Calendar files keep exact times, which calendar apps show in their own zone.
-                TimeZone = kind == "plan" && format != "ics" && otherZone ? zone : null
+                TimeZone = kind == "plan" && format != "ics" && otherZone ? zone : null,
+                OtherTimeZones = kind == "plan" && format != "ics" ? [.. alsoIn.Where(z => z != (otherZone ? zone : setup.TripZone))] : []
             };
             return new(kind, chosenFormat, options, language, setup.Lists.Where(l => lists.Contains(l.Collection.Id)).Select(l => l.Collection.Id).ToArray(),
                 packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned");

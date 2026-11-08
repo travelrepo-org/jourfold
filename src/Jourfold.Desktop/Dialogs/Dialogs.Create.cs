@@ -126,7 +126,7 @@ public sealed partial class Dialogs
     {
         var s = S; var kind = QuickKinds.Any(k => k.Kind == request.Kind) ? request.Kind : request.Kind == "budget" ? "budget" : "activity";
         var trip = request.Trip;
-        var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title" }; AutomationProperties.SetName(title, s["Title"]);
+        var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title", Text = request.Title ?? "" }; AutomationProperties.SetName(title, s["Title"]);
         var date = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
         var hasTime = new CheckBox { Content = s["AtATime"], IsChecked = true };
         var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
@@ -189,7 +189,7 @@ public sealed partial class Dialogs
         time.SelectedTimeChanged += (_, _) => UpdateTravelTime(); arrivalDate.SelectedDateChanged += (_, _) => UpdateTravelTime(); arrivalTime.SelectedTimeChanged += (_, _) => UpdateTravelTime();
         UpdateTravelTime();
         var nights = new NumericUpDown { Value = 1, Minimum = 1, Maximum = 60, Increment = 1, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(nights, s["Nights"]);
-        var amount = new NumericUpDown { Value = null, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
+        var amount = new NumericUpDown { Value = request.Amount, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
         var currency = new SearchChoice(Editors.Currencies, request.Currency, s["Currency"]) { Width = 130 };
         var body = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, PlaceholderText = s["NoteWatermark"] }; AutomationProperties.SetName(body, s["Body"]);
         var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
@@ -304,7 +304,8 @@ public sealed partial class Dialogs
                 Body = body.Text,
                 Reference = reference.Text,
                 People = peopleIds.ToArray(),
-                Split = kind == "expense" ? splitDraft.Data["split"] as System.Text.Json.Nodes.JsonObject : null
+                Split = kind == "expense" ? splitDraft.Data["split"] as System.Text.Json.Nodes.JsonObject : null,
+                Related = request.Related
             };
             sheet.Close(draft);
         };

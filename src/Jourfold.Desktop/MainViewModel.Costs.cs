@@ -63,6 +63,23 @@ public partial class MainViewModel
         return true;
     }
 
+    /// <summary>
+    /// Records a booking's price as an expense: the add-expense form opens with the booking's title, price and
+    /// currency, paid by the local user, and the new expense belongs to the booking. Nothing is added when it is cancelled.
+    /// </summary>
+    public Task AddExpenseForBookingAsync(Guid bookingId) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip || trip.Find(bookingId) is not { Type: "booking" } booking) return;
+        var start = Expenses.FromBooking(booking);
+        var price = TripSummaries.Money(start.Data["amount"])!;
+        var request = new QuickAddRequest("expense", trip, StartDate, null, null, ScheduleQueries.TripZone(trip).Id, Me?.Id, false, price.Currency) { Title = start.Title, Amount = price.Amount, Related = booking.Id };
+        if (await Interaction.QuickAddAsync(request) is not { } draft) return;
+        var (main, edits) = Jourfold.Application.QuickAdd.Build(draft, Workspace.State.Trip);
+        await Workspace.ApplyAsync(edits);
+        Interaction.Toast(string.Format(Strings["ExpenseAddedFor"], booking.Title));
+        Selected = Workspace.State.Trip.Find(main.Id);
+    });
+
     public Task SetSplitMethodAsync(Guid expenseId, SplitMethod method) => EditExpenseAsync(expenseId, (trip, e) => Expenses.ChangeMethod(trip, e, method));
 
     public Task SetSplitPersonAsync(Guid expenseId, Guid person, bool shares) => EditExpenseAsync(expenseId, (trip, e) => Expenses.WithPerson(trip, e, person, shares));

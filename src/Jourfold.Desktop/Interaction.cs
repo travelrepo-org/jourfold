@@ -46,7 +46,15 @@ public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People,
 /// <summary>The open items a person chose to settle now.</summary>
 public sealed record PayAnswer(Guid Person, IReadOnlyList<DebtKey> Items);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);
-public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency);
+public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency)
+{
+    /// <summary>A title to start with, for example a booking's when its price becomes an expense.</summary>
+    public string? Title { get; init; }
+    /// <summary>An amount to start with, in <see cref="Currency"/>.</summary>
+    public decimal? Amount { get; init; }
+    /// <summary>What the new expense belongs to, such as the booking it pays for.</summary>
+    public Guid? Related { get; init; }
+}
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
 public sealed record ConflictPrompt(string Title, string Field, string Current, string Incoming, IReadOnlyList<string> Actions, string CurrentRaw);
 public sealed record ConflictAnswer(string Action, string? Text = null);

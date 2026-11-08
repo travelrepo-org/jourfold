@@ -242,6 +242,44 @@ public static class ExpenseViews
         return Ui.Card(body, 18).Also(c => c.Width = 300);
     }
 
+    /// <summary>In a booking's details: the expenses recorded for it, or, when it has a price but none, a note and a button to add one.</summary>
+    public static Control? BookingExpenses(MainWindow w, Entity booking)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        if (Expenses.WithoutExpense(trip).Any(b => b.Id == booking.Id))
+        {
+            var add = Ui.Button(s["AddAsExpense"], "receipt", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            add.Click += (_, _) => _ = m.AddExpenseForBookingAsync(booking.Id);
+            return Ui.V(8, Notice("triangle-alert", "Warning", s["BookingNoExpense"]), add);
+        }
+        var expenses = Expenses.ForBooking(trip, booking.Id);
+        return expenses.Count == 0 ? null : Ui.V(2, expenses.Select(e => (Control)InspectorView.Link(w, e)).ToArray());
+    }
+
+    /// <summary>A pill for the bookings list when a booking's price is not recorded as an expense yet.</summary>
+    public static Control? MissingExpensePill(Localization s, IReadOnlySet<Guid> missing, Entity booking) =>
+        missing.Contains(booking.Id) ? Ui.Pill(s["NoExpenseYet"], "receipt", "Warning.Soft", "Warning") : null;
+
+    /// <summary>On the Costs page: bookings with a price but no expense, each with a button that records it.</summary>
+    public static Control? MissingExpenses(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var missing = Expenses.WithoutExpense(trip);
+        if (missing.Count == 0) return null;
+        var list = Ui.V(4);
+        foreach (var booking in missing)
+        {
+            var price = TripSummaries.Money(booking.Data["price"])!;
+            var add = Ui.Button(s["AddAsExpense"], "plus", "small");
+            AutomationProperties.SetName(add, string.Format(s["AddAsExpenseFor"], booking.Title));
+            add.Click += (_, _) => _ = m.AddExpenseForBookingAsync(booking.Id);
+            list.Children.Add(Ui.Columns("*,Auto,Auto", Ui.Line(booking.Title).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(Formats.Money(price.Amount, price.Currency), "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), add));
+        }
+        var heading = Ui.Columns("Auto,*", Ui.Icon("triangle-alert", 15, "Warning").Margin(0, 2, 8, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top),
+            Ui.V(2, Ui.Text(missing.Count == 1 ? s["BookingsWithoutExpenseOne"] : string.Format(s["BookingsWithoutExpense"], missing.Count), "h3"), Ui.Text(s["BookingsWithoutExpenseHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+        return Ui.Card(Ui.V(12, heading, list), 18);
+    }
+
     private static Control Notice(string icon, string brush, string text) =>
         Ui.Columns("Auto,*", Ui.Icon(icon, 13, brush).Margin(0, 2, 6, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top), Ui.Text(text, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
 }

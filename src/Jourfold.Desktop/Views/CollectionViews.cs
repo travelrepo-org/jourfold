@@ -51,6 +51,7 @@ public static class CollectionViews
         var bookings = trip.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => (e.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) && trip.Find(id) is { } item ? ScheduleQueries.Span(trip, item).Start : null).Where(x => x is not null).Min() ?? Instant.MaxValue).ToArray();
         if (bookings.Length == 0) return Page(w, s["Bookings"], s["BookingsHint"], Ui.Card(Ui.EmptyState("ticket", s["NoBookingsTitle"], s["NoBookingsBody"], AddButton(w, s["AddBooking"], "booking")), 0));
         var list = Ui.V(2);
+        var missing = Expenses.WithoutExpense(trip).Select(b => b.Id).ToHashSet();
         foreach (var b in bookings)
         {
             var items = (b.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>().ToArray();
@@ -62,10 +63,11 @@ public static class CollectionViews
             var copy = reference is null ? null : Ui.IconButton("copy", s["CopyReference"], "small").Also(c => c.Click += async (_, _) => { await m.Interaction.CopyAsync(reference); m.Interaction.Toast(s["Copied"]); });
             var refPill = reference is null ? null : Ui.H(2, new Border { Child = Ui.Text(reference).Also(t => { t.FontFamily = FontFamily.Parse("monospace"); t.FontSize = 12; }), Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6) }.Res(Border.BackgroundProperty, "Bg.Subtle"), copy);
             var travelers = PeopleNames(trip, b.Data["travelers"]).ToArray();
-            var grid = Ui.Columns("Auto,*,Auto,Auto,120,Auto",
+            var grid = Ui.Columns("Auto,*,Auto,Auto,Auto,120,Auto",
                 Ui.Tile(icon, kind, 38).Margin(0, 0, 14, 0),
                 Ui.V(2, Ui.Line(b.Title, "title"), Ui.Line(string.Join(" · ", new[] { b.Data["provider"]?["name"]?.ToString(), when, items.Length > 1 ? string.Format(s["ItemsCount"], items.Length) : items.FirstOrDefault()?.Title }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(travelers, 24).Margin(8, 0) : null,
+                ExpenseViews.MissingExpensePill(s, missing, b)?.Margin(8, 0),
                 Ui.Text(price, "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.TextAlignment = TextAlignment.Right; }),
                 Ui.Pill(s[status], si, sb, sf).Margin(14, 0, 0, 0));
             list.Children.Add(Row(w, b, grid));
@@ -81,7 +83,7 @@ public static class CollectionViews
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
         var actions = new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
-        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ConverterCard(w)));
+        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.MissingExpenses(w), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)
         {
@@ -117,7 +119,7 @@ public static class CollectionViews
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
     }
 
     /// <summary>

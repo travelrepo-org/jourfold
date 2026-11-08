@@ -18,12 +18,21 @@ public static class ExpenseViews
     private static readonly (SplitMethod Method, string Label, string Icon)[] Methods =
         [(SplitMethod.Equal, "SplitEqual", "users"), (SplitMethod.Amount, "SplitAmount", "coins"), (SplitMethod.Share, "SplitShare", "sliders-horizontal"), (SplitMethod.Percent, "SplitPercent", "circle-dot")];
 
+    /// <summary>Starts the tag of a person's value box, followed by the person's id, so a form can read a value not yet confirmed.</summary>
+    public const string SplitValueTag = "split:";
+
     private static string Name(TripSnapshot trip, Guid id) => trip.Find(id)?.Title ?? "?";
 
-    /// <summary>Who shares the expense and how: method chips, one row per person, and what is still to divide.</summary>
-    public static Control SplitEditor(MainWindow w, Entity expense)
+    /// <summary>Who shares the expense and how, in the inspector: every change is an undoable edit of the trip.</summary>
+    public static Control SplitEditor(MainWindow w, Entity expense) => SplitEditor(w.Model.Strings, w.Model.Trip!, expense, change => w.Model.ChangeExpenseAsync(expense.Id, change));
+
+    /// <summary>
+    /// Who shares the expense and how: method chips, one row per person, and what is still to divide. Each change is
+    /// one of TravelRepo's <see cref="Expenses"/> edits, handed to <paramref name="change"/>, which saves it or, while
+    /// the expense is still being created, keeps it in the form.
+    /// </summary>
+    public static Control SplitEditor(Localization s, TripSnapshot trip, Entity expense, Func<Func<TripSnapshot, Entity, Entity>, Task> change)
     {
-        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         var split = Expenses.Split(trip, expense);
         var panel = Ui.V(10);
         if (split.Method is not { } method)
@@ -35,7 +44,7 @@ public static class ExpenseViews
         foreach (var (option, label, icon) in Methods)
         {
             var chip = Ui.Choice(s[label], icon, option == method, "chip");
-            chip.Click += (_, _) => _ = m.SetSplitMethodAsync(expense.Id, option);
+            chip.Click += (_, _) => _ = change((t, e) => Expenses.ChangeMethod(t, e, option));
             chips.Children.Add(chip);
         }
         AutomationProperties.SetName(chips, s["SplitMethod"]);
@@ -59,20 +68,22 @@ public static class ExpenseViews
             var included = split.People.Contains(person);
             var check = new CheckBox { IsChecked = included, MinWidth = 0, Content = Ui.H(8, Ui.Avatar(name, 22), Ui.Line(name)) };
             AutomationProperties.SetName(check, string.Format(s["SharesExpense"], name));
-            check.IsCheckedChanged += (_, _) => _ = m.SetSplitPersonAsync(expense.Id, person, check.IsChecked == true);
+            check.IsCheckedChanged += (_, _) => _ = change((t, e) => Expenses.WithPerson(t, e, person, check.IsChecked == true));
             Control? input = null;
             if (method != SplitMethod.Equal && included)
             {
                 var stored = (expense.Data["split"]?["parts"] as System.Text.Json.Nodes.JsonArray ?? []).FirstOrDefault(p => p?["person"]?.ToString() == person.ToString())?["value"]?.ToString();
                 var shown = ExchangeRates.Amount(stored) is { } v ? v.ToString(method == SplitMethod.Amount ? "N2" : "0.##", System.Globalization.CultureInfo.CurrentCulture) : "";
-                var box = new TextBox { Text = shown, Width = 92, HorizontalContentAlignment = HorizontalAlignment.Right };
+                var box = new TextBox { Text = shown, Width = 92, HorizontalContentAlignment = HorizontalAlignment.Right, Tag = SplitValueTag + person };
                 AutomationProperties.SetName(box, string.Format(s["SplitValueOf"], name));
                 var original = shown;
                 async Task Commit()
                 {
                     if ((box.Text ?? "").Trim() == original.Trim()) return;
-                    if (await m.SetSplitValueAsync(expense.Id, person, box.Text)) { box.Classes.Remove("invalid"); original = box.Text ?? ""; }
-                    else box.Classes.Add("invalid");
+                    // Typed as people type amounts ("12,50" works); text that is no number is kept for correction.
+                    if (ExchangeRates.Amount(box.Text) is not { } typed) { box.Classes.Add("invalid"); return; }
+                    box.Classes.Remove("invalid"); original = box.Text ?? "";
+                    await change((t, e) => Expenses.WithValue(t, e, person, typed));
                 }
                 box.LostFocus += async (_, _) => await Commit();
                 box.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await Commit(); } if (e.Key == Key.Escape) { box.Text = original; e.Handled = true; } };

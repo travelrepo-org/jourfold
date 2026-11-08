@@ -5,6 +5,7 @@ using Jourfold.UI;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -167,6 +168,41 @@ public sealed class ExpenseSplitTests : IDisposable
             m.Navigate("Plan"); m.Navigate("Costs");
             Probe.Layout();
             Assert.Contains(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == "Pay back…");
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AnExpenseIsDividedWhileItIsCreated()
+    {
+        var w = await Window("en", "Light"); var m = w.Model;
+        try
+        {
+            var ben = m.Trip!.Entities.Values.Single(e => e.Title == "Ben").Id; var cleo = m.Trip!.Entities.Values.Single(e => e.Title == "Cleo").Id;
+            var adding = m.AddAsync("expense");
+            await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
+            var sheet = Probe.Sheet(w);
+            Probe.Tagged<TextBox>(sheet, "title").Text = "Jet boat in Queenstown";
+            Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == "Amount").Value = 120m; Probe.Layout();
+            // Equally among everyone to begin with; Cleo stays at home, then the rest is divided by amounts.
+            Assert.Contains(Probe.All<CheckBox>(sheet), c => AutomationProperties.GetName(c) == "Cleo shares this expense" && c.IsChecked == true);
+            Probe.All<CheckBox>(sheet).Single(c => AutomationProperties.GetName(c) == "Cleo shares this expense").IsChecked = false; Probe.Layout();
+            Probe.Click(sheet, "Amounts"); Probe.Layout();
+            var benPart = Probe.All<TextBox>(sheet).Single(b => AutomationProperties.GetName(b) == "Part of Ben");
+            // Leaving the box confirms the part.
+            benPart.Focus(); Probe.Layout(); benPart.Text = "80"; Probe.Tagged<TextBox>(sheet, "title").Focus(); Probe.Layout();
+            Assert.Contains(Texts(sheet), t => t.Contains("too much", StringComparison.Ordinal));
+            var anaPart = Probe.All<TextBox>(sheet).Single(b => AutomationProperties.GetName(b) == "Part of Ana Silva");
+            // Enter in the last box adds the expense at once, with the value just typed.
+            anaPart.Text = "40"; anaPart.Focus(); Probe.Layout(); w.KeyPressQwerty(Avalonia.Input.PhysicalKey.Enter, Avalonia.Input.RawInputModifiers.None); w.KeyReleaseQwerty(Avalonia.Input.PhysicalKey.Enter, Avalonia.Input.RawInputModifiers.None);
+            await adding;
+            var boat = m.Trip!.Entities.Values.Single(e => e.Title == "Jet boat in Queenstown");
+            var split = Expenses.Split(m.Trip!, boat);
+            Assert.Equal(SplitMethod.Amount, split.Method);
+            Assert.Equal(40m, split.ShareOf(m.Trip!.Entities.Values.Single(e => e.Title == "Ana Silva").Id)); Assert.Equal(80m, split.ShareOf(ben)); Assert.Equal(0m, split.ShareOf(cleo));
+            // One undo removes the expense together with its split.
+            await m.UndoCommand.ExecuteAsync(null);
+            Assert.Null(m.Trip!.Find(boat.Id));
         }
         finally { w.Close(); }
     }

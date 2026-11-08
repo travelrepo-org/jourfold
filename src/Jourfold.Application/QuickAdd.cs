@@ -35,6 +35,8 @@ public sealed record QuickAddDraft(string Kind, string Title)
     public string? Body { get; init; }
     public string? Reference { get; init; }
     public IReadOnlyList<Guid> People { get; init; } = [];
+    /// <summary>For an expense, how it is divided, as TravelRepo's <see cref="Expenses"/> wrote it; null divides it equally among all travellers.</summary>
+    public JsonObject? Split { get; init; }
 }
 
 /// <summary>Builds canonical entities for Quick Add. The result is applied as one undoable repository command.</summary>
@@ -136,7 +138,12 @@ public static class QuickAdd
                 break;
             case "expense" or "budget":
                 main = Entity.Create(draft.Kind, draft.Title.Trim()); main.Data["amount"] = Money();
-                if (draft.Kind == "expense") { main.Data["estimated"] = false; if (draft.People.Count > 0) main.Data["paid_by"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray()); }
+                if (draft.Kind == "expense")
+                {
+                    main.Data["estimated"] = false;
+                    if (draft.People.Count > 0) main.Data["paid_by"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
+                    if (draft.Split is { } split) main.Data["split"] = split.DeepClone();
+                }
                 break;
             case "collection":
                 main = Entity.Create("collection", draft.Title.Trim()); main.Data["items"] = new JsonArray();

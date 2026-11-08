@@ -57,6 +57,9 @@ public partial class MainViewModel
         await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
     });
 
+    /// <summary>Applies one of TravelRepo's expense edits to the saved expense as an undoable step.</summary>
+    public Task ChangeExpenseAsync(Guid id, Func<TripSnapshot, Entity, Entity> change) => EditExpenseAsync(id, change);
+
     private Task EditExpenseAsync(Guid id, Func<TripSnapshot, Entity, Entity> change) => RunEditAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip || trip.Find(id) is not { Type: "expense" } expense) return;

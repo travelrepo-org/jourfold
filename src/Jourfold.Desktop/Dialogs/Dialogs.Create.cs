@@ -194,17 +194,34 @@ public sealed partial class Dialogs
         var body = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, PlaceholderText = s["NoteWatermark"] }; AutomationProperties.SetName(body, s["Body"]);
         var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
         var peopleIds = request.Person is { } p ? new HashSet<Guid> { p } : new HashSet<Guid>();
+        var splitDraft = Entity.Create("expense", "");
+        var splitHost = new ContentControl();
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
             var chip = Ui.Choice(person.Title, null, peopleIds.Contains(person.Id), "chip"); chip.Content = Ui.H(6, Ui.Avatar(person.Title, 18), Ui.Text(person.Title));
-            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); };
+            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); if (kind == "expense") RenderSplit(); };
             people.Children.Add(chip);
         }
 
+        // An expense can be divided right away with the same editor as in the inspector. It edits a draft expense, so
+        // switching the method keeps the division, and nothing is saved until Add.
+        void SyncSplitAmount()
+        {
+            splitDraft.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = (amount.Value ?? 0m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), ["currency"] = currency.Value ?? request.Currency };
+            splitDraft.Data["paid_by"] = new System.Text.Json.Nodes.JsonArray(peopleIds.Select(id => (System.Text.Json.Nodes.JsonNode?)id.ToString()).ToArray());
+        }
+        void RenderSplit()
+        {
+            SyncSplitAmount();
+            splitHost.Content = ExpenseViews.SplitEditor(s, trip, splitDraft, change => { SyncSplitAmount(); splitDraft = change(trip, splitDraft); RenderSplit(); return Task.CompletedTask; });
+        }
+        amount.ValueChanged += (_, _) => { if (kind == "expense") RenderSplit(); };
+        currency.Input.SelectionChanged += (_, _) => { if (kind == "expense") RenderSplit(); };
+
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
         // survives; each one is detached from its old row before it is placed again.
-        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine];
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
         Control Side(string heading, Control day, Control clock, Control zone) => Ui.V(6, Ui.Text(heading, "label"), day, clock, zone);
         Control TransportWhenRow() => Ui.V(10, Ui.Columns("*,Auto", hasTime, unscheduled.Margin(12, 0, 0, 0)),
@@ -235,6 +252,7 @@ public sealed partial class Dialogs
             if (kind == "task") fields.Children.Add(Row(s["Due"], date));
             if (kind == "note") fields.Children.Add(Row(s["Body"], body));
             if (kind is "activity" or "food" or "sightseeing" or "transport" or "task" or "expense" or "booking" && people.Children.Count > 0) fields.Children.Add(Row(kind == "expense" ? s["Payer"] : kind == "task" ? s["Assignees"] : s["Who"], people));
+            if (kind == "expense" && TripPeople.Travelers(trip).Count > 0) { RenderSplit(); fields.Children.Add(Row(s["Split"], splitHost)); }
             typeGrid.Children.Clear();
             foreach (var (k, icon, color) in QuickKinds)
             {
@@ -253,6 +271,14 @@ public sealed partial class Dialogs
         save.Click += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(title.Text)) { error.Text = s["TitleRequired"]; error.IsVisible = true; title.Focus(); return; }
+            // Enter adds the expense before a part typed last has left its box, so that value is taken here.
+            if (kind == "expense")
+            {
+                SyncSplitAmount();
+                foreach (var box in Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(splitHost).OfType<TextBox>())
+                    if (box.Tag is string tag && tag.StartsWith(ExpenseViews.SplitValueTag, StringComparison.Ordinal) && Guid.TryParse(tag[ExpenseViews.SplitValueTag.Length..], out var who) && ExchangeRates.Amount(box.Text) is { } typed)
+                        splitDraft = Expenses.WithValue(trip, splitDraft, who, typed);
+            }
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             var idea = scheduled && unscheduled.IsChecked == true;
             LocalDate? day = date.SelectedDate is { } d && !idea ? LocalDate.FromDateTime(d) : null;
@@ -277,7 +303,8 @@ public sealed partial class Dialogs
                 Currency = currency.Value ?? request.Currency,
                 Body = body.Text,
                 Reference = reference.Text,
-                People = peopleIds.ToArray()
+                People = peopleIds.ToArray(),
+                Split = kind == "expense" ? splitDraft.Data["split"] as System.Text.Json.Nodes.JsonObject : null
             };
             sheet.Close(draft);
         };

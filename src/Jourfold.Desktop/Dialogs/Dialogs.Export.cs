@@ -19,6 +19,7 @@ public sealed partial class Dialogs
     {
         var s = S; var initial = setup.Initial;
         var kind = initial.Kind; var format = initial.Format == "copy" ? "pdf" : initial.Format;
+        var zone = initial.Options.TimeZone; var otherZone = zone is not null;
         var parts = initial.Options.Parts; var detail = initial.Options.Detail; var paper = initial.Options.Paper; var person = initial.Options.Person; var timeline = initial.Options.Timeline; var comments = initial.Options.Comments;
         LocalDate? from = initial.Options.From ?? setup.Start, to = initial.Options.To ?? setup.End;
         var language = initial.Language;
@@ -50,6 +51,28 @@ public sealed partial class Dialogs
             return picker;
         }
         Control Language() => Row(s["ExportLanguage"], Combo(s["ExportLanguage"], MainViewModel.ExportLanguages.Select(l => new Choice(l, s[l])).ToArray(), language, v => language = v));
+        static string City(string id) => id is "UTC" or "Etc/UTC" ? "UTC" : id[(id.LastIndexOf('/') + 1)..].Replace('_', ' ');
+        // Times in the trip's zone, or all of them in one chosen zone, for example to read the plan at home.
+        Control Zone()
+        {
+            var choices = ViewToolbar.Segmented([("trip", string.Format(s["ExportTripZone"], City(setup.TripZone)), null), ("other", s["ExportOtherZone"], null)], otherZone ? "other" : "trip", v =>
+            {
+                otherZone = v == "other";
+                if (otherZone && zone is null) zone = setup.Zones.FirstOrDefault() ?? DateTimeZoneProviders.Tzdb.GetSystemDefault().Id;
+                Render();
+            });
+            if (!otherZone) return Row(s["ExportTimesIn"], choices);
+            var search = new SearchChoice(FieldOptions.Timezones, zone, s["Timezone"]);
+            void Chosen() { zone = search.Value; Update(); }
+            search.Input.SelectionChanged += (_, _) => Chosen(); search.Input.TextChanged += (_, _) => Chosen();
+            var quick = Ui.Flow(4, setup.Zones.Where(z => z != setup.TripZone).Take(4).Select(z =>
+            {
+                var button = Ui.Button(City(z), null, "compact"); AutomationProperties.SetName(button, FieldOptions.ZoneLabel(z));
+                button.Click += (_, _) => { zone = z; search.Select(z); Update(); };
+                return (Control)button;
+            }).ToArray());
+            return Row(s["ExportTimesIn"], Ui.V(6, choices, search, quick, Ui.Text(s["ExportZoneHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+        }
         Control Paper() => Row(s["ExportPaper"], ViewToolbar.Segmented([("a4", "A4", null), ("letter", s["ExportLetter"], null)], paper == PaperSize.Letter ? "letter" : "a4", v => { paper = v == "letter" ? PaperSize.Letter : PaperSize.A4; Render(); }));
 
         void Render()
@@ -79,6 +102,7 @@ public sealed partial class Dialogs
                             Check(s["ExportAttachments"], (parts & ExportParts.Attachments) != 0, on => parts = on ? parts | ExportParts.Attachments : parts & ~ExportParts.Attachments)]);
                     extras.Children.Add(Check(s["ExportComments"], comments, on => comments = on));
                     options.Children.Add(Row("", extras));
+                    options.Children.Add(Zone());
                     options.Children.Add(Row(s["ExportDetail"], ViewToolbar.Segmented([("detailed", s["ExportDetailed"], null), ("compact", s["Compact"], null)], detail == ExportDetail.Compact ? "compact" : "detailed", v => { detail = v == "compact" ? ExportDetail.Compact : ExportDetail.Detailed; Render(); })));
                     if (format == "pdf") options.Children.Add(Paper());
                     options.Children.Add(Language());
@@ -116,7 +140,7 @@ public sealed partial class Dialogs
         {
             var chosenPeople = packFor == "people" ? people.Count : 0;
             export.IsEnabled = kind == "plan"
-                ? (format == "ics" || (parts & ~(ExportParts.Map | ExportParts.Attachments)) != ExportParts.None) && (from is null || to is null || from <= to)
+                ? (format == "ics" || (parts & ~(ExportParts.Map | ExportParts.Attachments)) != ExportParts.None) && (from is null || to is null || from <= to) && (format == "ics" || !otherZone || zone is not null)
                 : lists.Count > 0 && (packFor != "people" || chosenPeople > 0);
             copy.IsVisible = kind == "plan" ? format != "ics" : chosenPeople <= 1;
             copy.IsEnabled = export.IsEnabled;
@@ -137,7 +161,9 @@ public sealed partial class Dialogs
                 Detail = detail,
                 Paper = paper,
                 Timeline = timeline,
-                Comments = comments && format != "ics" && (kind == "plan" || format != "csv")
+                Comments = comments && format != "ics" && (kind == "plan" || format != "csv"),
+                // Calendar files keep exact times, which calendar apps show in their own zone.
+                TimeZone = kind == "plan" && format != "ics" && otherZone ? zone : null
             };
             return new(kind, chosenFormat, options, language, setup.Lists.Where(l => lists.Contains(l.Collection.Id)).Select(l => l.Collection.Id).ToArray(),
                 packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned");

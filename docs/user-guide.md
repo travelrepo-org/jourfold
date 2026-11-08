@@ -142,6 +142,7 @@ A trip plan can be a PDF, a web page for printing, a calendar file for other cal
 - **Map overview** (PDF): the places and routes of the export. With the street map turned on, the PDF uses its map images; otherwise it draws the places on a plain grid. A long flight from home runs off the edge of the map, so the trip itself stays readable.
 - **Attach confirmations** (PDF): PDFs, images and e-mails attached to the plans and bookings are added at the end as A1, A2 and so on, and each entry says which ones belong to it. Files that cannot go into a PDF are listed by name.
 - **Include comments**: the comments on plans, stays, bookings, tasks, costs and notes, with who wrote them and when. In a PDF, a comment stands right below its entry as long as no entry of that day or section has more than one. Otherwise each entry with comments gets a small numbered speech bubble, and the comments follow at the end of the day or section, one card per entry.
+- **Times in**: the trip's time zone, where a time planned elsewhere, such as a flight's arrival, carries its own zone's short name. Or another time zone, for example home: then every time and day is in that zone and the days of the plan follow it. Calendar files always keep exact times, which calendar apps show in their own zone.
 - **Detail**: detailed adds people, status, notes, house rules and contacts; compact keeps times, places and booking references.
 - **Paper** and **Language**. The language changes only the labels; trip content is never translated.
 

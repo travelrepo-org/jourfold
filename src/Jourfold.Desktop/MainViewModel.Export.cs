@@ -42,7 +42,8 @@ public partial class MainViewModel
         var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var initial = InitialExport(trip); if (preset is not null) initial = preset(initial);
-        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial)) : initial;
+        var zones = (SecondZone is { } second ? SecondZoneSuggestions().Prepend(second) : SecondZoneSuggestions()).Distinct().ToArray();
+        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial, ScheduleQueries.TripZone(trip).Id, zones)) : initial;
         if (choice is null) return;
         if (ask) RememberExport(choice);
         var strings = choice.Language == Strings.Language ? Strings : new Localization(choice.Language);
@@ -165,7 +166,9 @@ public partial class MainViewModel
                 Paper = json["paper"]?.ToString() == "letter" ? PaperSize.Letter : json["paper"]?.ToString() == "a4" ? PaperSize.A4 : fallback.Options.Paper,
                 Person = Person(json["person"]),
                 Timeline = json["timeline"]?.GetValue<bool>() != false,
-                Comments = json["comments"]?.GetValue<bool>() == true
+                Comments = json["comments"]?.GetValue<bool>() == true,
+                // A zone this version's time zone database does not know falls back to the trip's.
+                TimeZone = json["timezone"]?.ToString() is { Length: > 0 } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is not null ? zone : null
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
@@ -188,6 +191,7 @@ public partial class MainViewModel
             ["person"] = choice.Options.Person?.ToString(),
             ["timeline"] = choice.Options.Timeline,
             ["comments"] = choice.Options.Comments,
+            ["timezone"] = choice.Options.TimeZone,
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),

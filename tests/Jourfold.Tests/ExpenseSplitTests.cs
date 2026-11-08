@@ -177,6 +177,44 @@ public sealed class ExpenseSplitTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("en", "1 booking with a price but no expense", "No expense", "Add Te Anau Lakeview Holiday Park as an expense", "Add")]
+    [InlineData("de", "1 Buchung mit Preis, aber ohne Ausgabe", "Keine Ausgabe", "Te Anau Lakeview Holiday Park als Ausgabe erfassen", "Hinzufügen")]
+    public async Task ABookingsPriceBecomesAnExpenseInOneStep(string language, string heading, string pill, string button, string add)
+    {
+        var w = await Window(language, "Light"); var m = w.Model;
+        try
+        {
+            var booking = Entity.Create("booking", "Te Anau Lakeview Holiday Park"); booking.Data["status"] = "confirmed";
+            booking.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "347.60", ["currency"] = "NZD" };
+            await m.Workspace!.EditAsync(booking);
+            m.Navigate("Bookings");
+            Assert.Contains(pill, Texts(w));
+            m.Navigate("Costs");
+            Assert.Contains(heading, Texts(w));
+
+            var adding = m.AddExpenseForBookingAsync(booking.Id);
+            await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
+            var sheet = Probe.Sheet(w);
+            Assert.Equal("Te Anau Lakeview Holiday Park", Probe.Tagged<TextBox>(sheet, "title").Text);
+            Assert.Equal(347.60m, Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value);
+            Probe.Click(sheet, add);
+            await adding;
+
+            var expense = Assert.Single(Expenses.ForBooking(m.Trip!, booking.Id));
+            Assert.Equal(("347.60", "NZD"), (expense.Data["amount"]!["value"]!.ToString(), expense.Data["amount"]!["currency"]!.ToString()));
+            Assert.Empty(Expenses.WithoutExpense(m.Trip!));
+            m.Navigate("Plan"); m.Navigate("Costs");
+            Assert.DoesNotContain(heading, Texts(w));
+            Assert.DoesNotContain(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == button);
+            // The booking's details link to its expense now.
+            m.Navigate("Bookings"); m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
+            Assert.DoesNotContain(pill, Texts(w));
+            await Probe.Until(() => Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Any(b => AutomationProperties.GetName(b) == "Te Anau Lakeview Holiday Park"));
+        }
+        finally { w.Close(); }
+    }
+
     private async Task<MainWindow> Window(string language, string theme)
     {
         var (path, p) = await Trip();

@@ -48,9 +48,9 @@ A packing list with groups, who brings what, what each person has packed, and on
 
 ![Packing view for Japan with the list chip, filters for all, mine and unassigned, items grouped into documents, electronics, clothes and food, and chips for Alex and Sam with check marks where they have packed](screenshots/packing.png)
 
-A booking with its confirmation e-mail attached, and the drop area for more:
+A booking with its confirmation e-mail attached, and the drop area for more. Bookings with a price but no expense yet are marked, and the details offer to add one:
 
-![Bookings page with a ryokan booking selected; the inspector lists the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
+![Bookings page with the ryokan and the tea ceremony marked No expense; the ryokan is selected and the inspector says its price is not recorded as an expense yet, with a button to add it as an expense, and lists the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
 
 The document window with the confirmation e-mail and with its PDF attachment, searched for a time:
 

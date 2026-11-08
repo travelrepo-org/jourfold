@@ -151,8 +151,8 @@ public static class SampleTrip
             return b;
         }
         var flights = Booking("Flights Frankfurt and Japan", "Lufthansa", "LH8KQ2", "confirmed", "1749.80", "EUR", outbound, homebound);
-        Booking("Hotel Gracery Shinjuku", "Hotel Gracery", "HG-20931", "confirmed", "46800", "JPY", hotel);
-        Booking("teamLab Planets tickets", "teamLab", "TLP-55120", "confirmed", "7600", "JPY", planets);
+        var graceryBooking = Booking("Hotel Gracery Shinjuku", "Hotel Gracery", "HG-20931", "confirmed", "46800", "JPY", hotel);
+        var teamLabBooking = Booking("teamLab Planets tickets", "teamLab", "TLP-55120", "confirmed", "7600", "JPY", planets);
         Booking("Ryokan in Gion", "Gion Ryokan", "GR-1187", "reserved", "96000", "JPY", stay2, kaiseki);
         Booking("Tea ceremony", "Camellia", "CAM-302", "confirmed", "4400", "JPY", tea);
 
@@ -163,6 +163,8 @@ public static class SampleTrip
         var deposit = Money("expense", "Hotel Gracery deposit", "46800", "JPY", payer: alex);
         deposit.Data["converted"] = new JsonObject { ["value"] = "285.48", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-20).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
         var tickets = Money("expense", "teamLab tickets", "7600", "JPY", payer: sam);
+        deposit.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = graceryBooking.Id.ToString() });
+        tickets.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = teamLabBooking.Id.ToString() });
         tickets.Data["converted"] = new JsonObject { ["value"] = "46.36", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
         Money("expense", "Rail passes", "100000", "JPY", payer: sam);
         Money("expense", "Food and snacks", "60000", "JPY", estimated: true);

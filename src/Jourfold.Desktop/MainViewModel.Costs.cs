@@ -129,6 +129,20 @@ public partial class MainViewModel
         Interaction.Toast(string.Format(Strings["ExpenseAddedFor"], booking.Title));
     });
 
+    /// <summary>Sets the day a payment still to pay is due, or none; a reminder comes a week before.</summary>
+    public Task SetDueAsync(Guid expenseId, LocalDate? day) => EditExpenseAsync(expenseId, (_, e) => Expenses.WithDue(e, day));
+
+    /// <summary>Whose parts "By category" counts: empty for every expense in full, otherwise the chosen people's parts together.</summary>
+    public HashSet<Guid> CategoryPeople { get; } = [];
+
+    /// <summary>Counts a person's part in "By category" or not; null goes back to everyone.</summary>
+    public void ToggleCategoryPerson(Guid? person)
+    {
+        if (person is not { } p) CategoryPeople.Clear();
+        else if (!CategoryPeople.Remove(p)) CategoryPeople.Add(p);
+        ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     /// <summary>Marks a payment that was still to pay as paid, by the local user when it names nobody yet.</summary>
     public Task MarkPaymentPaidAsync(Guid expenseId) => EditExpenseAsync(expenseId, (_, e) => Expenses.MarkPaid(e, Me is { } me ? [me.Id] : null));
 

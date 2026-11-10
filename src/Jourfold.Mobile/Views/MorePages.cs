@@ -585,7 +585,7 @@ public static class MorePages
     private static Control? StillToPay(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings;
-        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.DueOf(e) ?? LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         if (planned.Length == 0) return null;
         var rows = new List<Control>();
         foreach (var e in planned)
@@ -594,7 +594,8 @@ public static class MorePages
             var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Right; });
             AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
             var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);
-            rows.Add(Ui.Columns("*,Auto", Ui.V(1, Ui.Text(e.Title), money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency), "caption")).Also(v => v.VerticalAlignment = VerticalAlignment.Center), paid).Margin(16, 6));
+            var due = Expenses.DueOf(e) is { } day ? string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(day)) : null;
+            rows.Add(Ui.Columns("*,Auto", Ui.V(1, Ui.Text(e.Title), money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency) + (due is null ? "" : " · " + due), "caption")).Also(v => v.VerticalAlignment = VerticalAlignment.Center), paid).Margin(16, 6));
         }
         return Group(str["StillToPay"], rows);
     }
@@ -617,13 +618,32 @@ public static class MorePages
         return Group(str["Budgets"], rows);
     }
 
-    /// <summary>The paid expenses per category in the trip's currency, largest first.</summary>
+    /// <summary>
+    /// The paid expenses per category in the trip's currency, largest first: everyone's in full, or the parts of the
+    /// people chosen with the chips, such as one traveller or a couple.
+    /// </summary>
     private static Control? ByCategory(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings;
-        var totals = ExpenseCategories.Totals(trip, s.TripCurrencyCode, s.EstimateRates);
-        if (totals.Count == 0) return null;
-        return Group(str["ByCategory"], totals.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))).ToArray());
+        s.CategoryPeople.RemoveWhere(p => trip.Find(p) is not { Type: "person" });
+        if (!trip.Entities.Values.Any(e => e.Type == "expense" && !Expenses.IsPlanned(e))) return null;
+        var totals = ExpenseCategories.Totals(trip, s.TripCurrencyCode, s.EstimateRates, s.CategoryPeople.Count > 0 ? s.CategoryPeople : null);
+        var chips = Ui.Flow(8);
+        var everyone = Ui.Choice(str["Everyone"], "users", s.CategoryPeople.Count == 0, "chip").Also(c => c.MinHeight = 44);
+        everyone.Click += (_, _) => s.ToggleCategoryPerson(null);
+        chips.Children.Add(everyone);
+        foreach (var person in TripPeople.Travelers(trip))
+        {
+            var id = person.Id;
+            var chip = Ui.Choice(person.Title, null, s.CategoryPeople.Contains(id), "chip").Also(c => c.MinHeight = 44);
+            AutomationProperties.SetName(chip, string.Format(CultureInfo.CurrentCulture, str["CategoriesOf"], person.Title));
+            chip.Click += (_, _) => s.ToggleCategoryPerson(id);
+            chips.Children.Add(chip);
+        }
+        var rows = new List<Control> { chips.Margin(16, 8) };
+        if (totals.Count == 0) rows.Add(Ui.Text(str["ByCategoryNone"], "caption").Margin(16, 4));
+        rows.AddRange(totals.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))));
+        return Group(str["ByCategory"], rows);
     }
 
     /// <summary>
@@ -648,7 +668,7 @@ public static class MorePages
             if (SplitPill(str, split) is { } pill) lines.Children.Add(pill.Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
             if (Expenses.IsPlanned(e))
             {
-                lines.Children.Add(Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
+                lines.Children.Add(Ui.Pill(Expenses.DueOf(e) is { } due ? str["ToPay"] + " · " + string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(due)) : str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
                 var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; });
                 AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
                 var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);

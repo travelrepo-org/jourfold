@@ -218,7 +218,7 @@ public static class HeaderView
         if (count == 0) list.Children.Add(Ui.Text(s["RemindersNoneBody"], "muted"));
         foreach (var reminder in reminders)
         {
-            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", ReminderKind.VariantsDeletedOnline => "git-branch", ReminderKind.WhoAmI => "user", ReminderKind.WeatherWarning => m.Weather.Items.TryGetValue(reminder.Entity ?? default, out var weather) && weather.Concerns.Count > 0 ? WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind) : "cloud-rain", _ => "ticket" };
+            var icon = reminder.Kind switch { ReminderKind.CancellationDeadline => "receipt", ReminderKind.TaskDue => "square-check", ReminderKind.LateArrival => "clock", ReminderKind.NightsWithoutStay => "bed-double", ReminderKind.VariantsDeletedOnline => "git-branch", ReminderKind.WhoAmI => "user", ReminderKind.PaymentDue => "wallet", ReminderKind.WeatherWarning => m.Weather.Items.TryGetValue(reminder.Entity ?? default, out var weather) && weather.Concerns.Count > 0 ? WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind) : "cloud-rain", _ => "ticket" };
             var show = Ui.Button(s["ReminderShow"], null, "compact"); show.Click += (_, _) => { bell.Flyout?.Hide(); m.ShowReminder(reminder); };
             var later = Ui.Button(s["ReminderLater"], null, "compact"); later.Click += async (_, _) => await m.SnoozeReminderAsync(reminder);
             var done = Ui.Button(s["ReminderDone"], "check", "compact"); done.Click += async (_, _) => await m.DismissReminderAsync(reminder);
@@ -273,6 +273,7 @@ public static class HeaderView
         MenuItem Item(string text, string icon, Action action) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16) }; item.Click += (_, _) => action(); return item; }
         menu.Items.Add(Item(s["SharePlanPdf"], "file-text", () => m.ShareExportCommand.Execute("pdf")));
         if (m.Trip is { } trip && trip.Entities.Values.Any(PackingLists.IsList)) menu.Items.Add(Item(s["SharePackingLists"], "backpack", () => m.ShareExportCommand.Execute("packing")));
+        if (m.Trip is { } withCosts && withCosts.Entities.Values.Any(e => e.Type == "expense")) menu.Items.Add(Item(s["ShareCosts"], "wallet", () => m.ShareExportCommand.Execute("costs")));
         menu.Items.Add(Item(s["ShareCalendar"], "calendar", () => m.ShareExportCommand.Execute("ics")));
         menu.Items.Add(Item(s["ShareCopyText"], "copy", () => m.ShareExportCommand.Execute("copy")));
         menu.Items.Add(Item(s["ShareMoreOptions"], "sliders-horizontal", () => m.ExportCommand.Execute(null)));

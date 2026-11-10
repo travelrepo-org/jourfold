@@ -246,6 +246,81 @@ public sealed class ExpenseSplitTests : IDisposable
         Assert.Contains(dana.Id, Expenses.Split(trip, trip.Find(taxi.Id)!).People);
     }
 
+    [AvaloniaFact]
+    public async Task CostsAreExportedAsCsvWithTheChosenSeparatorForEveryoneOrSomePeople()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip(); await m.OpenAsync(path);
+        await m.SetTripCurrencyAsync("EUR");
+        var dinner = Expense("Dinner", "90.00", "EUR", p.Ana); dinner = Expenses.WithSplit(dinner, SplitMethod.Equal, [(p.Ana.Id, null), (p.Ben.Id, null), (p.Cleo.Id, null)]); dinner.Data["category"] = "food";
+        await m.Workspace!.EditAsync(dinner);
+
+        // Everyone, separated by semicolons.
+        var all = Path.Combine(root, "costs.csv"); interaction.Answers.Enqueue(all);
+        interaction.Export = setup => { Assert.True(setup.HasCosts); return setup.Initial with { Kind = "costs", Format = "csv", People = [], Separator = "semicolon" }; };
+        await m.ShareExportCommand.ExecuteAsync("costs");
+        var lines = File.ReadAllLines(all);
+        Assert.StartsWith("Date;Payment;Category", lines[0], StringComparison.Ordinal);
+        Assert.Contains(lines, l => l.Contains(";Dinner;Food;", StringComparison.Ordinal) && l.EndsWith("30.00;30.00;30.00", StringComparison.Ordinal) | l.EndsWith("30,00;30,00;30,00", StringComparison.Ordinal));
+        // The choice is remembered for the next time.
+        interaction.Export = setup => { Assert.Equal(("costs", "semicolon"), (setup.Initial.Kind, setup.Initial.Separator)); return null; };
+        await m.ShareExportCommand.ExecuteAsync("costs");
+
+        // Ben's part only, as a PDF.
+        var bens = Path.Combine(root, "ben.pdf"); interaction.Answers.Enqueue(bens);
+        interaction.Export = setup => setup.Initial with { Kind = "costs", Format = "pdf", People = [p.Ben.Id] };
+        await m.ShareExportCommand.ExecuteAsync("costs");
+        Assert.True(new FileInfo(bens).Length > 1000);
+    }
+
+    [AvaloniaFact]
+    public async Task APaymentStillToPayHasADueDayWithAReminderAndAPersonsOwnBudgetIsOfferedOnDelete()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip(); await m.OpenAsync(path);
+        var rest = Expense("Lodge balance", "300.00", "EUR", p.Ana); rest.Data["estimated"] = true;
+        await m.Workspace!.EditAsync(rest);
+        await m.SetDueAsync(rest.Id, m.Today.PlusDays(3));
+        Assert.Equal(m.Today.PlusDays(3), Expenses.DueOf(m.Trip!.Find(rest.Id)!));
+        await m.UpdateRemindersAsync();
+        var reminder = Assert.Single(m.Reminders, r => r.Kind == ReminderKind.PaymentDue);
+        Assert.Contains("Due", m.ReminderText(reminder), StringComparison.Ordinal);
+        m.ShowReminder(reminder);
+        Assert.Equal("Costs", m.View);
+        await m.MarkPaymentPaidAsync(rest.Id);
+        Assert.Null(Expenses.DueOf(m.Trip!.Find(rest.Id)!));
+
+        // Ben's own budget is offered, already ticked, when Ben is deleted, and goes with him.
+        var budget = Entity.Create("budget", "Ben's money"); budget.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "100.00", ["currency"] = "EUR" };
+        budget = Budgets.WithFilters(m.Trip!, budget, new BudgetFilters(null, p.Ben.Id, null));
+        await m.Workspace.EditAsync(budget);
+        interaction.Deletion = prompt => { Assert.Contains(prompt.Unused, e => e.Id == budget.Id); Assert.Contains(budget.Id, prompt.Preselected); return [budget.Id]; };
+        await m.DeleteAsync(p.Ben.Id);
+        Assert.Null(m.Trip!.Find(budget.Id));
+    }
+
+    [AvaloniaFact]
+    public async Task ByCategoryCountsOnePersonsOrACouplesPartOnTheComputerAndThePhone()
+    {
+        var w = await Window("en", "Light"); var m = w.Model;
+        try
+        {
+            var trip = m.Trip!; var ben = trip.Entities.Values.Single(e => e.Title == "Ben");
+            var dinner = trip.Entities.Values.Single(e => e.Title == "Dinner at the lake");
+            await m.ChangeExpenseAsync(dinner.Id, (t, e) => ExpenseCategories.With(t, Expenses.WithSplit(e, SplitMethod.Equal, TripPeople.Travelers(t).Select(x => (x.Id, (decimal?)null))), "food"));
+            m.Navigate("Costs");
+            Assert.Contains("Every payment in full.", Texts(w));
+            Probe.All<Button>(w).Single(b => AutomationProperties.GetName(b) == "Count the part of Ben").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            Probe.Layout();
+            Assert.Equal([ben.Id], m.CategoryPeople);
+            Assert.Contains("The part of Ben.", Texts(w));
+            Assert.Contains(Texts(w), t => t.StartsWith(Formats.Money(30m, "EUR"), StringComparison.Ordinal));
+        }
+        finally { w.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData("en", "Still to pay", "Price not recorded", "{0} to pay", "Add")]
     [InlineData("de", "Noch zu zahlen", "Preis nicht erfasst", "{0} zu zahlen", "Hinzufügen")]

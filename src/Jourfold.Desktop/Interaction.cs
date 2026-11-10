@@ -26,6 +26,8 @@ public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IRead
 {
     /// <summary>Time zones worth offering for an export in another zone: the second zone, those the trip uses, this computer's.</summary>
     public IReadOnlyList<string> Zones => ZoneSuggestions ?? [];
+    /// <summary>Whether the trip has costs to export.</summary>
+    public bool HasCosts { get; init; }
 }
 /// <summary>The choices made in the export dialog.</summary>
 /// <param name="Kind"><c>plan</c> or <c>packing</c>.</param>
@@ -35,7 +37,11 @@ public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IRead
 /// <param name="Lists">Packing lists to export.</param>
 /// <param name="People">Packing lists for these people, one file each; empty for one list with everybody.</param>
 /// <param name="UnassignedOnly">Only the packing items nobody brings yet.</param>
-public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly);
+public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly)
+{
+    /// <summary>For a CSV file of costs: comma, semicolon, tab or pipe (see <see cref="TravelRepo.Repository.CostExport.Separators"/>).</summary>
+    public string Separator { get; init; } = "comma";
+}
 /// <summary>What the pay function offers: the trip, the people to pay for, who starts chosen, and the local user.</summary>
 public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People, Guid Person, Guid? Me)
 {

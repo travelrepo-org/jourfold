@@ -210,7 +210,13 @@ public static class InspectorView
                     {
                         var paid = Ui.Button(s["MarkPaymentPaid"], "circle-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
                         paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
-                        body.Children.Add(Ui.V(4, Ui.Text(s["StillToPayExplained"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), paid));
+                        // When it is due, such as a deposit's balance; a reminder comes a week before.
+                        var due = new CalendarDatePicker { SelectedDate = Expenses.DueOf(e)?.ToDateTimeUnspecified(), Width = 170 };
+                        AutomationProperties.SetName(due, s["Due"]);
+                        var expenseId = e.Id;
+                        due.SelectedDateChanged += (_, _) => { var picked = due.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != Expenses.DueOf(m.Trip!.Find(expenseId) ?? e)) _ = m.SetDueAsync(expenseId, picked); };
+                        var clear = Ui.IconButton("x", s["NoDueDate"]); clear.Click += (_, _) => _ = m.SetDueAsync(expenseId, null);
+                        body.Children.Add(Ui.V(4, Ui.Text(s["StillToPayExplained"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), Field(s["Due"], Ui.H(4, due, clear)), paid));
                     }
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
                     body.Children.Add(Field(s["Category"], ExpenseViews.CategoryEditor(s, trip, e, change => m.ChangeExpenseAsync(e.Id, change), () => m.Interaction.PromptAsync(s["NewCategory"]))));

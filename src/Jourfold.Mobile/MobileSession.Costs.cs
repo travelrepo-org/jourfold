@@ -92,6 +92,17 @@ public sealed partial class MobileSession
         ShowQuickAdd("expense");
     }
 
+    /// <summary>Whose parts "By category" counts: empty for every expense in full, otherwise the chosen people's parts together.</summary>
+    public HashSet<Guid> CategoryPeople { get; } = [];
+
+    /// <summary>Counts a person's part in "By category" or not; null goes back to everyone.</summary>
+    public void ToggleCategoryPerson(Guid? person)
+    {
+        if (person is not { } p) CategoryPeople.Clear();
+        else if (!CategoryPeople.Remove(p)) CategoryPeople.Add(p);
+        Changed?.Invoke();
+    }
+
     /// <summary>The booking or plan a new expense from Quick Add belongs to; cleared when Quick Add closes.</summary>
     public Guid? QuickAddRelated { get; private set; }
     /// <summary>Whether a new expense from Quick Add is still to pay.</summary>

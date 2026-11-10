@@ -81,6 +81,9 @@ public sealed class QuickAddView
     private SplitMethod? splitMethod = SplitMethod.Equal;
     private readonly TextBox charged = new();
     private string? chargedBefore;
+    // When a payment still to pay is due.
+    private readonly DatePicker dueDate = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private LocalDate? dueBefore;
     private string? providerBefore;
     // A currency not offered as a chip, such as the one of a country just arrived in.
     private readonly TextBox otherCurrency = new() { MaxLength = 3, Width = 96, HorizontalAlignment = HorizontalAlignment.Left };
@@ -109,6 +112,8 @@ public sealed class QuickAddView
         amount.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(amount, str["Amount"]);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
         estimated.OnContent = estimated.OffContent = str["StillToPay"]; AutomationProperties.SetName(estimated, str["StillToPay"]);
+        // Still to pay offers a due day, so the form is drawn again when it changes.
+        estimated.IsCheckedChanged += (_, _) => { if (kind == "expense") Avalonia.Threading.Dispatcher.UIThread.Post(Render); };
         charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(charged, string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], s.TripCurrencyCode));
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
         reference.PlaceholderText = str["BookingNumberHint"]; AutomationProperties.SetName(reference, str["BookingNumber"]);
@@ -175,6 +180,7 @@ public sealed class QuickAddView
             var split = Expenses.Split(trip, item);
             splitMethod = split.Method; sharing.UnionWith(split.People); sharingBefore = [.. split.People]; sharingTouched = true;
             if (Expenses.ChargeOf(item) is { } charge) charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture);
+            if ((dueBefore = Expenses.DueOf(item)) is { } dueDay) dueDate.SelectedDate = new DateTimeOffset(dueDay.ToDateTimeUnspecified(), TimeSpan.Zero);
             estimated.IsChecked = item.Data["estimated"] is System.Text.Json.Nodes.JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
             related = relatedBefore = (item.Data["related"] as System.Text.Json.Nodes.JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? id : (Guid?)null).FirstOrDefault(id => id is not null);
         }
@@ -270,7 +276,7 @@ public sealed class QuickAddView
         if (form.Children.Count == 0) { if (editing is null) form.Children.Add(kinds); form.Children.Add(title); form.Children.Add(rest); }
         rest.Children.Clear();
         // The fields keep what was typed between draws; they leave the layout of the last draw first.
-        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged }.Concat(details.Values.Select(d => d.Box)))
+        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged, dueDate }.Concat(details.Values.Select(d => d.Box)))
             switch (field.Parent)
             {
                 case Panel panel: panel.Children.Remove(field); break;
@@ -337,6 +343,12 @@ public sealed class QuickAddView
         {
             rest.Children.Add(Field(str["Amount"], Money()));
             rest.Children.Add(estimated);
+            // A payment still to pay can be due on a day; the phone reminds three days before.
+            if (estimated.IsChecked == true)
+            {
+                var clearDue = Ui.IconButton("x", str["NoDueDate"]); clearDue.Click += (_, _) => dueDate.SelectedDate = null;
+                rest.Children.Add(Field(str["Due"], Ui.Columns("*,Auto", dueDate, clearDue)));
+            }
             if (PeopleField(str["Payer"]) is { } payers) rest.Children.Add(payers);
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
             rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
@@ -710,6 +722,8 @@ public sealed class QuickAddView
         {
             if (money is { } value) DetailEdits.SetMoney(item, "amount", value, Currency());
             item.Data["estimated"] = estimated.IsChecked == true;
+            var dueDay = estimated.IsChecked == true && dueDate.SelectedDate is { } picked ? LocalDate.FromDateTime(picked.Date) : (LocalDate?)null;
+            if (dueDay != dueBefore || created) item = Expenses.WithDue(item, dueDay);
             if (category != categoryBefore) item = ExpenseCategories.With(trip, item, category);
             if (splitMethod is SplitMethod.Equal && sharing.Count > 0 && (created || !sharing.SetEquals(sharingBefore))) item = Expenses.WithSplit(item, SplitMethod.Equal, sharing.Select(p => (p, (decimal?)null)));
             if (Changed(charged.Text, chargedBefore) && Currency() != s.TripCurrencyCode)

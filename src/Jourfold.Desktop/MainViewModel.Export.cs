@@ -31,9 +31,12 @@ public partial class MainViewModel
     /// remembered choices.
     /// </summary>
     [RelayCommand]
-    private Task ShareExport(string action) => action == "packing"
-        ? ExportWith(c => c with { Kind = "packing", Format = c.Kind == "packing" ? c.Format : "pdf" }, true)
-        : ExportWith(c => c with { Kind = "plan", Format = action }, false);
+    private Task ShareExport(string action) => action switch
+    {
+        "packing" => ExportWith(c => c with { Kind = "packing", Format = c.Kind == "packing" ? c.Format : "pdf" }, true),
+        "costs" => ExportWith(c => c with { Kind = "costs", Format = c.Kind == "costs" ? c.Format : "pdf" }, true),
+        _ => ExportWith(c => c with { Kind = "plan", Format = action }, false)
+    };
 
     private Task ExportWith(Func<ExportChoice, ExportChoice>? preset, bool ask) => RunAsync(async () =>
     {
@@ -43,12 +46,13 @@ public partial class MainViewModel
         var people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var initial = InitialExport(trip); if (preset is not null) initial = preset(initial);
         var zones = (SecondZone is { } second ? SecondZoneSuggestions().Prepend(second) : SecondZoneSuggestions()).Distinct().ToArray();
-        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial, ScheduleQueries.TripZone(trip).Id, zones)) : initial;
+        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial, ScheduleQueries.TripZone(trip).Id, zones) { HasCosts = trip.Entities.Values.Any(e => e.Type == "expense") }) : initial;
         if (choice is null) return;
         if (ask) RememberExport(choice);
         var strings = choice.Language == Strings.Language ? Strings : new Localization(choice.Language);
         var labels = ExportLabels(strings); var culture = ExportCulture(choice.Language);
         if (choice.Kind == "packing") await ExportPackingAsync(trip, choice, labels, culture, strings);
+        else if (choice.Kind == "costs") await ExportCostsAsync(w, trip, choice, labels, culture, strings);
         else await ExportPlanAsync(w, trip, choice, labels, culture, strings);
     });
 
@@ -99,6 +103,74 @@ public partial class MainViewModel
         foreach (var (person, path) in files) await Write(options with { Person = person.Id }, path);
         Exported(files.Select(f => f.Path).ToArray());
     }
+
+    /// <summary>
+    /// The costs as a PDF, a CSV file with the chosen separator or text: for everyone, or the parts of the chosen
+    /// people together, in the trip's currency. The rows and totals come from TravelRepo's <see cref="CostExport"/>.
+    /// </summary>
+    private async Task ExportCostsAsync(Jourfold.Application.Workspace w, TripSnapshot trip, ExportChoice choice, ExportLabels labels, CultureInfo culture, Localization strings)
+    {
+        var options = new CostExportOptions { People = choice.People, Currency = TripCurrencyCode, Rates = EstimateRates };
+        var costLabels = CostLabels(strings);
+        var document = CostExport.Document(trip, options, costLabels, culture, labels);
+        if (choice.Format == "copy") { await Interaction.CopyAsync(TripExport.Text(document)); Interaction.Toast(Strings["Copied"]); return; }
+        var file = CostExport.FileName(trip, options, costLabels, choice.Format);
+        var path = await Interaction.FileAsync(true, choice.Format, Path.GetFileNameWithoutExtension(file)); if (path is null) return;
+        switch (choice.Format)
+        {
+            case "pdf": await PdfExport.WriteAsync(document with { Options = document.Options with { Paper = choice.Options.Paper } }, path, new PdfExportSettings(FontFile)); break;
+            // Spreadsheet programs need the byte order mark to read UTF-8 CSV files.
+            case "csv": await File.WriteAllTextAsync(path, CostExport.Csv(trip, options, costLabels, culture, CostExport.Separators.GetValueOrDefault(choice.Separator) ?? ","), new UTF8Encoding(true)); break;
+            default: await File.WriteAllTextAsync(path, TripExport.Text(document)); break;
+        }
+        Exported([path]);
+    }
+
+    /// <summary>The words of a cost export in the chosen language.</summary>
+    public static CostExportLabels CostLabels(Localization s) => new()
+    {
+        Title = s["Costs"],
+        For = s["CostExportFor"],
+        In = s["InCurrency"],
+        Overview = s["CostExportOverview"],
+        Paid = s["CostExportPaid"],
+        ToPay = s["StillToPay"],
+        Share = s["CostExportShare"],
+        Budget = s["CostExportBudget"],
+        BudgetUsed = s["CostExportBudgetUsed"],
+        NotConverted = s["NotConvertedYet"],
+        Estimated = s["EstimatedWithRates"],
+        ByCategory = s["ByCategory"],
+        WhoOwesWhom = s["WhoOwesWhom"],
+        PaysTo = s["PaysTo"],
+        AllEven = s["AllEven"],
+        Payments = s["Payments"],
+        PaidBy = s["PaidBy"],
+        SharedBy = s["SharedBy"],
+        Owes = s["ExportOwes"],
+        Charged = s["ChargedShort"],
+        StateToPay = s["ToPay"],
+        StateSettled = s["SettledState"],
+        StateOpen = s["OpenAmount"],
+        DueOn = s["DueOn"],
+        Date = s["CostExportDate"],
+        Payment = s["CostExportPayment"],
+        Category = s["Category"],
+        BelongsTo = s["BelongsTo"],
+        Amount = s["Amount"],
+        Currency = s["Currency"],
+        ChargedAmount = s["Charged"],
+        ChargedCurrency = s["CostExportChargedCurrency"],
+        InCurrency = s["InCurrency"],
+        PaidByColumn = s["Payer"],
+        State = s["Status"],
+        Open = s["CostExportOpen"],
+        Due = s["Due"],
+        PartOf = s["CostExportPartOf"],
+        PartsIn = s["CostExportPartsIn"],
+        GeneratedBy = s["ExportFooter"],
+        Categories = ExpenseCategories.Standard.ToDictionary(c => c, c => s["expcat." + c])
+    };
 
     private void Exported(IReadOnlyList<string> paths) =>
         Interaction.Toast(paths.Count == 1 ? string.Format(Strings["Exported"], Path.GetFileName(paths[0])) : string.Format(Strings["ExportedFiles"], paths.Count), Strings["ShowFile"], () => { Interaction.Open(Path.GetDirectoryName(paths[0])!); return Task.CompletedTask; });
@@ -154,7 +226,7 @@ public partial class MainViewModel
     {
         var lists = PackingLists.All(trip).Select(l => l.Collection.Id).ToArray();
         // Until someone chooses otherwise, an export shows the plan's second time zone too, as the timetable does.
-        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture), OtherTimeZones = SecondZone is { } second ? [second] : [] }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false);
+        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture), OtherTimeZones = SecondZone is { } second ? [second] : [] }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false) { Separator = CultureInfo.CurrentCulture.TextInfo.ListSeparator == ";" ? "semicolon" : "comma" };
         if (ExportKey is not { } key || Store.Get(key) is not { } saved) return fallback;
         try
         {
@@ -176,9 +248,10 @@ public partial class MainViewModel
                     : fallback.Options.OtherTimeZones
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
-            var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
+            var kind = json["kind"]?.ToString() switch { "packing" when lists.Length > 0 => "packing", "costs" => "costs", _ => "plan" };
             return new(kind, json["format"]?.ToString() is { Length: > 0 } format ? format : "pdf", options, ExportLanguages.Contains(json["language"]?.ToString() ?? "") ? json["language"]!.ToString() : Strings.Language,
-                savedLists.Length > 0 ? savedLists : lists, (json["people"] as JsonArray ?? []).Select(Person).OfType<Guid>().ToArray(), json["unassigned"]?.GetValue<bool>() == true);
+                savedLists.Length > 0 ? savedLists : lists, (json["people"] as JsonArray ?? []).Select(Person).OfType<Guid>().ToArray(), json["unassigned"]?.GetValue<bool>() == true)
+            { Separator = json["separator"]?.ToString() is { } separator && CostExport.Separators.ContainsKey(separator) ? separator : fallback.Separator };
         }
         catch (Exception ex) when (ex is System.Text.Json.JsonException or InvalidOperationException or FormatException or DomainException) { return fallback; }
     }
@@ -201,7 +274,8 @@ public partial class MainViewModel
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),
-            ["people"] = new JsonArray(choice.People.Select(p => (JsonNode)p.ToString()).ToArray())
+            ["people"] = new JsonArray(choice.People.Select(p => (JsonNode)p.ToString()).ToArray()),
+            ["separator"] = choice.Separator
         }.ToJsonString());
     }
 

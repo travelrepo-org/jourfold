@@ -83,7 +83,8 @@ public static class CollectionViews
         var totals = TripSummaries.Costs(trip);
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
-        var actions = new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
+        var export = Ui.Button(s["ExportCosts"], "download", "ghost"); export.Click += (_, _) => m.ShareExportCommand.Execute("costs");
+        var actions = expenses.Length > 0 ? new Control[] { export, AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") } : new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
         if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.StillToPay(w), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)

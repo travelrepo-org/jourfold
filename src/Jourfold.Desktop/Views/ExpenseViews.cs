@@ -318,8 +318,22 @@ public static class ExpenseViews
     public static Control? ByCategory(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!; var home = m.TripCurrencyCode;
-        var totals = ExpenseCategories.Totals(trip, home, m.EstimateRates);
-        if (totals.Count == 0) return null;
+        // Everyone's expenses in full, or the parts of one or several people, such as a couple.
+        m.CategoryPeople.RemoveWhere(p => trip.Find(p) is not { Type: "person" });
+        if (!trip.Entities.Values.Any(e => e.Type == "expense" && !Expenses.IsPlanned(e))) return null;
+        var totals = ExpenseCategories.Totals(trip, home, m.EstimateRates, m.CategoryPeople.Count > 0 ? m.CategoryPeople : null);
+        var whose = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        var everyone = Ui.Choice(s["Everyone"], "users", m.CategoryPeople.Count == 0, "chip"); everyone.Click += (_, _) => m.ToggleCategoryPerson(null);
+        whose.Children.Add(everyone);
+        foreach (var person in TripPeople.Travelers(trip))
+        {
+            var id = person.Id;
+            var chip = Ui.Choice(person.Title, null, m.CategoryPeople.Contains(id), "chip");
+            AutomationProperties.SetName(chip, string.Format(s["CategoriesOf"], person.Title));
+            chip.Click += (_, _) => m.ToggleCategoryPerson(id);
+            whose.Children.Add(chip);
+        }
+        AutomationProperties.SetName(whose, s["CategoriesFor"]);
         var rows = Ui.V(8);
         foreach (var currency in totals.GroupBy(t => t.Currency).OrderBy(g => g.Key == home ? 0 : 1))
         {
@@ -335,7 +349,8 @@ public static class ExpenseViews
                 rows.Children.Add(Ui.V(0, Ui.Columns("Auto,*,Auto", Ui.Icon(CategoryIcon(t.Category), 14, "Text.Muted").Margin(0, 0, 8, 0), Ui.Line(CategoryName(s, t.Category)), Ui.Text(amount, "strong")), bar));
             }
         }
-        var body = Ui.V(12, Ui.Text(s["ByCategory"], "h3"), rows);
+        var heading = Ui.V(2, Ui.Text(s["ByCategory"], "h3"), Ui.Text(m.CategoryPeople.Count == 0 ? s["ByCategoryEveryone"] : string.Format(s["ByCategoryParts"], string.Join(", ", m.CategoryPeople.Select(p => trip.Find(p)?.Title).OfType<string>())), "caption"));
+        var body = Ui.V(12, heading, whose, totals.Count == 0 ? Ui.Text(s["ByCategoryNone"], "caption") : rows);
         if (totals.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
         return Ui.Card(body, 18);
     }
@@ -393,6 +408,7 @@ public static class ExpenseViews
         }
         if (planned)
         {
+            if (Expenses.DueOf(expense) is { } due) lines.Children.Add(Ui.Line(string.Format(s["DueOn"], Formats.Date(due)), "caption"));
             var paid = Ui.Button(s["MarkPaymentPaid"], "circle-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             AutomationProperties.SetName(paid, string.Format(s["MarkPaymentPaidFor"], expense.Title));
             paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(expense.Id);
@@ -421,7 +437,8 @@ public static class ExpenseViews
     public static Control? StillToPay(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        // Those due first come first.
+        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.DueOf(e) ?? NodaTime.LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var legacy = Expenses.WithoutExpense(trip);
         if (planned.Length == 0 && legacy.Count == 0) return null;
         var list = Ui.V(4);
@@ -432,7 +449,8 @@ public static class ExpenseViews
             AutomationProperties.SetName(paid, string.Format(s["MarkPaymentPaidFor"], e.Title));
             paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
             var open = new Button { Content = Ui.Line(e.Title), Padding = new Thickness(0) }.Classed("link"); open.Click += (_, _) => m.Follow(e);
-            list.Children.Add(Ui.Columns("*,Auto,Auto", open.Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), paid));
+            var due = Expenses.DueOf(e) is { } day ? Ui.Line(string.Format(s["DueOn"], Formats.Date(day)), "caption") : null;
+            list.Children.Add(Ui.Columns("*,Auto,Auto", Ui.V(0, open, due).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), paid));
         }
         foreach (var booking in legacy)
         {

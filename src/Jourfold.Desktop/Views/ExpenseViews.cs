@@ -372,47 +372,43 @@ public static class ExpenseViews
 
     private static readonly (string Scope, string Icon)[] BudgetScopes = [(Budgets.Trip, "luggage"), (Budgets.Category, "tag"), (Budgets.Participant, "user"), (Budgets.Collection, "layers")];
 
-    /// <summary>What a budget covers, in words, such as "Category · Food" or "Person · Ana".</summary>
-    public static string BudgetFor(Localization s, TripSnapshot trip, BudgetStatus status) => status.Scope switch
+    /// <summary>What a budget covers, in words, such as "Food · Ben" or "Whole trip".</summary>
+    public static string BudgetFor(Localization s, TripSnapshot trip, BudgetStatus status)
     {
-        Budgets.Trip => s["BudgetWholeTrip"],
-        Budgets.Category => s["category"] + " · " + (status.Target is { } c ? CategoryName(s, c) : s["BudgetChooseTarget"]),
-        _ => s[status.Scope] + " · " + (Guid.TryParse(status.Target, out var id) && trip.Find(id) is { } e ? e.Title : s["BudgetChooseTarget"])
-    };
+        var f = status.Filters;
+        if (f.IsWholeTrip) return status.Scope == Budgets.Trip ? s["BudgetWholeTrip"] : s[status.Scope] + " · " + s["BudgetChooseTarget"];
+        return string.Join(" · ", new[] { f.Category is { } c ? CategoryName(s, c) : null, f.Person is { } p ? trip.Find(p)?.Title : null, f.Collection is { } k ? trip.Find(k)?.Title : null }.OfType<string>());
+    }
 
     /// <summary>
-    /// What a budget covers, as chips: the whole trip, a category, a person or a collection, and then which one.
+    /// What a budget covers, as one row of chips per limit: a category, a person and, when the trip has collections,
+    /// a collection. Each row starts with "All"; the limits chosen apply together, such as one person's food.
     /// </summary>
     public static Control BudgetScopeEditor(MainWindow w, Entity budget)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var scope = Budgets.ScopeOf(budget); var target = Budgets.TargetOf(budget);
-        var scopes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
-        foreach (var (option, icon) in BudgetScopes)
+        var filters = Budgets.FiltersOf(budget);
+        Control Row(string label, string all, string? current, IEnumerable<(string Id, string Label, string Icon)> options, Func<string?, BudgetFilters> with)
         {
-            var chip = Ui.Choice(s[option], icon, option == scope, "chip");
-            chip.Click += (_, _) => { if (option != scope) _ = m.SetBudgetScopeAsync(budget.Id, option); };
-            scopes.Children.Add(chip);
+            var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+            foreach (var (id, text, icon) in options.Prepend((null!, all, "circle-dot")))
+            {
+                var selected = id is null ? current is null : string.Equals(id, current, StringComparison.CurrentCultureIgnoreCase);
+                var chip = Ui.Choice(text, icon, selected, "chip");
+                AutomationProperties.SetName(chip, label + ": " + text);
+                chip.Click += (_, _) => { if (!selected) _ = m.SetBudgetFiltersAsync(budget.Id, with(id)); };
+                chips.Children.Add(chip);
+            }
+            AutomationProperties.SetName(chips, label);
+            return Ui.V(4, Ui.Text(label, "caption"), chips);
         }
-        AutomationProperties.SetName(scopes, s["BudgetScope"]);
-        var panel = Ui.V(8, scopes);
-        IEnumerable<(string Id, string Label, string Icon)> targets = scope switch
-        {
-            Budgets.Category => ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Select(c => (c, CategoryName(s, c), CategoryIcon(c))),
-            Budgets.Participant => TripPeople.Travelers(trip).Select(p => (p.Id.ToString(), p.Title, "user")),
-            Budgets.Collection => trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).Select(c => (c.Id.ToString(), c.Title, "layers")),
-            _ => []
-        };
-        var choices = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
-        foreach (var (id, label, icon) in targets)
-        {
-            var chip = Ui.Choice(label, icon, string.Equals(id, target, StringComparison.CurrentCultureIgnoreCase), "chip");
-            chip.Click += (_, _) => _ = m.SetBudgetScopeAsync(budget.Id, scope, id);
-            choices.Children.Add(chip);
-        }
-        if (choices.Children.Count > 0) { AutomationProperties.SetName(choices, s["BudgetTarget"]); panel.Children.Add(choices); }
-        else if (scope == Budgets.Collection) panel.Children.Add(Notice("info", "Text.Subtle", s["BudgetNoCollections"]));
-        if (Budgets.Status(trip, budget, m.EstimateRates) is { } status) panel.Children.Add(BudgetLine(s, trip, status, 300));
+        var panel = Ui.V(10,
+            Row(s["category"], s["BudgetAny"], filters.Category, ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Select(c => (c, CategoryName(s, c), CategoryIcon(c))), c => filters with { Category = c }),
+            Row(s["participant"], s["Everyone"], filters.Person?.ToString(), TripPeople.Travelers(trip).Select(p => (p.Id.ToString(), p.Title, "user")), p => filters with { Person = Guid.TryParse(p, out var id) ? id : null }));
+        var collections = trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        if (collections.Length > 0)
+            panel.Children.Add(Row(s["collection"], s["BudgetAny"], filters.Collection?.ToString(), collections.Select(c => (c.Id.ToString(), c.Title, "layers")), k => filters with { Collection = Guid.TryParse(k, out var id) ? id : null }));
+        if (Budgets.Status(trip, budget, m.EstimateRates) is { } status) panel.Children.Add(Ui.V(4, Ui.Text(BudgetFor(s, trip, status), "strong"), BudgetLine(s, trip, status, 300)));
         return panel;
     }
 

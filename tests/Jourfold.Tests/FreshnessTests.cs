@@ -152,8 +152,13 @@ public sealed class FreshnessTests : IDisposable
             {
                 ["hourly"] = new System.Text.Json.Nodes.JsonObject
                 {
-                    ["time"] = Series(i => start + i * 3600), ["weather_code"] = Series(_ => 1), ["temperature_2m"] = Series(i => 15 + i % 24 / 3),
-                    ["precipitation_probability"] = Series(_ => 10), ["precipitation"] = Series(_ => 0), ["wind_speed_10m"] = Series(_ => 8), ["wind_gusts_10m"] = Series(_ => 15),
+                    ["time"] = Series(i => start + i * 3600),
+                    ["weather_code"] = Series(_ => 1),
+                    ["temperature_2m"] = Series(i => 15 + i % 24 / 3),
+                    ["precipitation_probability"] = Series(_ => 10),
+                    ["precipitation"] = Series(_ => 0),
+                    ["wind_speed_10m"] = Series(_ => 8),
+                    ["wind_gusts_10m"] = Series(_ => 15),
                 },
             };
             System.Text.Json.Nodes.JsonNode body = points == 1 ? Point() : new System.Text.Json.Nodes.JsonArray([.. Enumerable.Range(0, points).Select(_ => (System.Text.Json.Nodes.JsonNode?)Point())]);

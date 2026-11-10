@@ -275,6 +275,8 @@ public sealed class ExpenseSplitTests : IDisposable
         {
             m.HomeCurrency = "EUR";
             var settings = ((Dialogs)m.Interaction).SettingsAsync(m); Probe.Layout();
+            // The dialog opens the page used last, so General is chosen first.
+            Probe.Click(Probe.Sheet(w), m.Strings["General"]); Probe.Layout();
             var sheet = Probe.Sheet(w);
             Assert.Contains(label, Texts(sheet));
             // The only currency choice on the General page; choosing a currency there is the primary currency at once.

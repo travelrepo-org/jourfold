@@ -242,41 +242,131 @@ public static class ExpenseViews
         return Ui.Card(body, 18).Also(c => c.Width = 300);
     }
 
-    /// <summary>In a booking's details: the expenses recorded for it, or, when it has a price but none, a note and a button to add one.</summary>
+    /// <summary>The icon of an expense category; categories of the travellers' own share a tag.</summary>
+    public static string CategoryIcon(string category) => category switch
+    {
+        ExpenseCategories.Transport => "route",
+        ExpenseCategories.Accommodation => "bed-double",
+        ExpenseCategories.Food => "utensils",
+        ExpenseCategories.Activity => "ferris-wheel",
+        ExpenseCategories.Souvenirs => "shopping-bag",
+        ExpenseCategories.Other => "circle-dot",
+        _ => "tag"
+    };
+
+    /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
+    public static string CategoryName(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
+
+    /// <summary>
+    /// The category of an expense as chips: the standard ones, those the travellers created in this trip, and a
+    /// button for a new one. Without a stored category the suggested one is marked, with a note where it comes from;
+    /// choosing the marked chip again goes back to the suggestion.
+    /// </summary>
+    public static Control CategoryEditor(Localization s, TripSnapshot trip, Entity expense, Func<Func<TripSnapshot, Entity, Entity>, Task> change, Func<Task<string?>> askName)
+    {
+        var stored = ExpenseCategories.Stored(expense);
+        var current = ExpenseCategories.Of(trip, expense);
+        var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        foreach (var category in ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Append(stored).OfType<string>().Distinct())
+        {
+            var chip = Ui.Choice(CategoryName(s, category), CategoryIcon(category), category == current, "chip");
+            chip.Click += (_, _) => _ = change((t, e) => ExpenseCategories.With(t, e, category == stored ? null : category));
+            chips.Children.Add(chip);
+        }
+        var add = Ui.Button(s["NewCategory"], "plus", "chip");
+        add.Click += async (_, _) => { if (await askName() is { } name && name.Trim().Length > 0) await change((t, e) => ExpenseCategories.With(t, e, name)); };
+        chips.Children.Add(add);
+        AutomationProperties.SetName(chips, s["Category"]);
+        var panel = Ui.V(6, chips);
+        if (stored is null && ExpenseCategories.Suggested(trip, expense) is not null) panel.Children.Add(Ui.Text(s["CategorySuggested"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        return panel;
+    }
+
+    /// <summary>
+    /// The paid expenses per category, in the currency who owes whom uses where they can be converted, largest first,
+    /// each with a bar for its part of its currency's total. Null without expenses.
+    /// </summary>
+    public static Control? ByCategory(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var totals = ExpenseCategories.Totals(trip, m.SettleCurrency, m.EstimateRates);
+        if (totals.Count == 0) return null;
+        var rows = Ui.V(8);
+        foreach (var currency in totals.GroupBy(t => t.Currency))
+        {
+            var sum = currency.Sum(t => t.Amount);
+            foreach (var t in currency)
+            {
+                var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
+                var bar = new Grid { ColumnDefinitions = new ColumnDefinitions($"{ratio.ToString(System.Globalization.CultureInfo.InvariantCulture)}*,{(1 - ratio).ToString(System.Globalization.CultureInfo.InvariantCulture)}*"), Height = 6, Margin = new Thickness(0, 4, 0, 0) };
+                bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, "Bg.Muted").Col(0, 2));
+                bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, "Accent"));
+                var amount = (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency) + " · " + ratio.ToString("P0", System.Globalization.CultureInfo.CurrentCulture);
+                rows.Children.Add(Ui.V(0, Ui.Columns("Auto,*,Auto", Ui.Icon(CategoryIcon(t.Category), 14, "Text.Muted").Margin(0, 0, 8, 0), Ui.Line(CategoryName(s, t.Category)), Ui.Text(amount, "strong")), bar));
+            }
+        }
+        var body = Ui.V(12, Ui.Text(s["ByCategory"], "h3"), rows);
+        if (totals.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        return Ui.Card(body, 18);
+    }
+
+    /// <summary>
+    /// In a booking's details: its expenses, and how they compare with the price. The price itself never counts; the
+    /// note says whether nothing, part or all of it is recorded, and offers to record what is still open.
+    /// </summary>
     public static Control? BookingExpenses(MainWindow w, Entity booking)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        if (Expenses.WithoutExpense(trip).Any(b => b.Id == booking.Id))
+        var payment = Expenses.Payment(trip, booking);
+        if (payment.Coverage == BookingCoverage.NoPrice && payment.Expenses.Count == 0) return null;
+        var panel = Ui.V(6);
+        string Money(decimal amount) => Formats.Money(amount, payment.Price!.Currency);
+        switch (payment.Coverage)
         {
-            var add = Ui.Button(s["AddAsExpense"], "receipt", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-            add.Click += (_, _) => _ = m.AddExpenseForBookingAsync(booking.Id);
-            return Ui.V(8, Notice("triangle-alert", "Warning", s["BookingNoExpense"]), add);
+            case BookingCoverage.None: panel.Children.Add(Notice("triangle-alert", "Warning", s["BookingNoExpense"])); break;
+            case BookingCoverage.Partial: panel.Children.Add(Notice("clock", "Warning", string.Format(s["BookingPartlyRecorded"], Money(payment.Recorded), Money(payment.Price!.Amount), Money(payment.Rest)))); break;
+            case BookingCoverage.Complete: panel.Children.Add(Notice("circle-check", "Success", s["BookingFullyRecorded"])); break;
+            case BookingCoverage.More: panel.Children.Add(Notice("info", "Text.Subtle", string.Format(s["BookingMoreRecorded"], Money(payment.Recorded), Money(-payment.Rest)))); break;
+            case BookingCoverage.OtherCurrency: panel.Children.Add(Notice("info", "Text.Subtle", string.Format(s["BookingOtherCurrency"], payment.Price!.Currency))); break;
         }
-        var expenses = Expenses.ForBooking(trip, booking.Id);
-        return expenses.Count == 0 ? null : Ui.V(2, expenses.Select(e => (Control)InspectorView.Link(w, e)).ToArray());
+        foreach (var expense in payment.Expenses) panel.Children.Add(InspectorView.Link(w, expense));
+        if (payment.Coverage is BookingCoverage.None or BookingCoverage.Partial)
+        {
+            var add = Ui.Button(s[payment.Coverage == BookingCoverage.None ? "AddAsExpense" : "AddRestAsExpense"], "receipt", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            add.Click += (_, _) => _ = m.AddExpenseForBookingAsync(booking.Id);
+            panel.Children.Add(add);
+        }
+        return panel;
     }
 
-    /// <summary>A pill for the bookings list when a booking's price is not recorded as an expense yet.</summary>
-    public static Control? MissingExpensePill(Localization s, IReadOnlySet<Guid> missing, Entity booking) =>
-        missing.Contains(booking.Id) ? Ui.Pill(s["NoExpenseYet"], "receipt", "Warning.Soft", "Warning") : null;
+    /// <summary>A pill for the bookings list when a booking's price is not, or only partly, recorded as expenses.</summary>
+    public static Control? MissingExpensePill(Localization s, IReadOnlyDictionary<Guid, BookingPayment> payments, Entity booking) =>
+        payments.GetValueOrDefault(booking.Id)?.Coverage switch
+        {
+            BookingCoverage.None => Ui.Pill(s["NoExpenseYet"], "receipt", "Warning.Soft", "Warning"),
+            BookingCoverage.Partial => Ui.Pill(s["RestOpen"], "clock", "Warning.Soft", "Warning"),
+            _ => null
+        };
 
-    /// <summary>On the Costs page: bookings with a price but no expense, each with a button that records it.</summary>
+    /// <summary>On the Costs page: bookings whose price is not, or only partly, recorded, each with a button that records what is open.</summary>
     public static Control? MissingExpenses(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var missing = Expenses.WithoutExpense(trip);
-        if (missing.Count == 0) return null;
+        var open = Expenses.Payments(trip).Where(p => p.Coverage is BookingCoverage.None or BookingCoverage.Partial).ToArray();
+        if (open.Length == 0) return null;
         var list = Ui.V(4);
-        foreach (var booking in missing)
+        foreach (var payment in open)
         {
-            var price = TripSummaries.Money(booking.Data["price"])!;
-            var add = Ui.Button(s["AddAsExpense"], "plus", "small");
-            AutomationProperties.SetName(add, string.Format(s["AddAsExpenseFor"], booking.Title));
+            var booking = payment.Booking; var price = payment.Price!;
+            var partial = payment.Coverage == BookingCoverage.Partial;
+            var add = Ui.Button(s[partial ? "AddRestAsExpenseShort" : "AddAsExpense"], "plus", "small");
+            AutomationProperties.SetName(add, string.Format(s[partial ? "AddRestAsExpenseFor" : "AddAsExpenseFor"], booking.Title));
             add.Click += (_, _) => _ = m.AddExpenseForBookingAsync(booking.Id);
-            list.Children.Add(Ui.Columns("*,Auto,Auto", Ui.Line(booking.Title).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(Formats.Money(price.Amount, price.Currency), "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), add));
+            var amount = partial ? string.Format(s["RestAmount"], Formats.Money(payment.Rest, price.Currency)) : Formats.Money(price.Amount, price.Currency);
+            list.Children.Add(Ui.Columns("*,Auto,Auto", Ui.Line(booking.Title).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(amount, "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), add));
         }
         var heading = Ui.Columns("Auto,*", Ui.Icon("triangle-alert", 15, "Warning").Margin(0, 2, 8, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top),
-            Ui.V(2, Ui.Text(missing.Count == 1 ? s["BookingsWithoutExpenseOne"] : string.Format(s["BookingsWithoutExpense"], missing.Count), "h3"), Ui.Text(s["BookingsWithoutExpenseHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
+            Ui.V(2, Ui.Text(open.Length == 1 ? s["BookingsWithoutExpenseOne"] : string.Format(s["BookingsWithoutExpense"], open.Length), "h3"), Ui.Text(s["BookingsWithoutExpenseHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
         return Ui.Card(Ui.V(12, heading, list), 18);
     }
 

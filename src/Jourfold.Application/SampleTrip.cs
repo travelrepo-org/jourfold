@@ -166,8 +166,8 @@ public static class SampleTrip
         deposit.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = graceryBooking.Id.ToString() });
         tickets.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = teamLabBooking.Id.ToString() });
         tickets.Data["converted"] = new JsonObject { ["value"] = "46.36", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
-        Money("expense", "Rail passes", "100000", "JPY", payer: sam);
-        Money("expense", "Food and snacks", "60000", "JPY", estimated: true);
+        Money("expense", "Rail passes", "100000", "JPY", payer: sam).Data["category"] = "transport";
+        Money("expense", "Food and snacks", "60000", "JPY", estimated: true).Data["category"] = "food";
         Money("budget", "Trip budget", "3500.00", "EUR");
         Money("budget", "Spending money in Japan", "250000", "JPY");
 

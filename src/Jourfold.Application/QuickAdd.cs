@@ -39,6 +39,8 @@ public sealed record QuickAddDraft(string Kind, string Title)
     public JsonObject? Split { get; init; }
     /// <summary>What the item belongs to, such as the booking an expense pays for.</summary>
     public Guid? Related { get; init; }
+    /// <summary>For an expense, its category; null follows what it belongs to.</summary>
+    public string? Category { get; init; }
 }
 
 /// <summary>Builds canonical entities for Quick Add. The result is applied as one undoable repository command.</summary>
@@ -146,6 +148,7 @@ public static class QuickAdd
                     if (draft.People.Count > 0) main.Data["paid_by"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
                     if (draft.Split is { } split) main.Data["split"] = split.DeepClone();
                     if (draft.Related is { } related && trip.Find(related) is { } target) main.Data["related"] = new JsonArray(new JsonObject { ["type"] = target.Type, ["id"] = target.Id.ToString() });
+                    if (draft.Category is { Length: > 0 } category) main = ExpenseCategories.With(trip, main, category);
                 }
                 break;
             case "collection":

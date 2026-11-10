@@ -195,7 +195,9 @@ public sealed partial class Dialogs
         var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
         var peopleIds = request.Person is { } p ? new HashSet<Guid> { p } : new HashSet<Guid>();
         var splitDraft = Entity.Create("expense", "");
+        if (request.Related is { } relatedTo && trip.Find(relatedTo) is { } relatedEntity) splitDraft.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = relatedEntity.Type, ["id"] = relatedEntity.Id.ToString() });
         var splitHost = new ContentControl();
+        var categoryHost = new ContentControl();
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
@@ -211,6 +213,8 @@ public sealed partial class Dialogs
             splitDraft.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = (amount.Value ?? 0m).ToString("0.00", System.Globalization.CultureInfo.InvariantCulture), ["currency"] = currency.Value ?? request.Currency };
             splitDraft.Data["paid_by"] = new System.Text.Json.Nodes.JsonArray(peopleIds.Select(id => (System.Text.Json.Nodes.JsonNode?)id.ToString()).ToArray());
         }
+        // The category edits the same draft, so a booking's stay already suggests accommodation.
+        void RenderCategory() => categoryHost.Content = ExpenseViews.CategoryEditor(s, trip, splitDraft, change => { splitDraft = change(trip, splitDraft); RenderCategory(); return Task.CompletedTask; }, () => PromptAsync(s["NewCategory"]));
         void RenderSplit()
         {
             SyncSplitAmount();
@@ -221,7 +225,7 @@ public sealed partial class Dialogs
 
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
         // survives; each one is detached from its old row before it is placed again.
-        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost];
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost, categoryHost];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
         Control Side(string heading, Control day, Control clock, Control zone) => Ui.V(6, Ui.Text(heading, "label"), day, clock, zone);
         Control TransportWhenRow() => Ui.V(10, Ui.Columns("*,Auto", hasTime, unscheduled.Margin(12, 0, 0, 0)),
@@ -252,6 +256,7 @@ public sealed partial class Dialogs
             if (kind == "task") fields.Children.Add(Row(s["Due"], date));
             if (kind == "note") fields.Children.Add(Row(s["Body"], body));
             if (kind is "activity" or "food" or "sightseeing" or "transport" or "task" or "expense" or "booking" && people.Children.Count > 0) fields.Children.Add(Row(kind == "expense" ? s["Payer"] : kind == "task" ? s["Assignees"] : s["Who"], people));
+            if (kind == "expense") { RenderCategory(); fields.Children.Add(Row(s["Category"], categoryHost)); }
             if (kind == "expense" && TripPeople.Travelers(trip).Count > 0) { RenderSplit(); fields.Children.Add(Row(s["Split"], splitHost)); }
             typeGrid.Children.Clear();
             foreach (var (k, icon, color) in QuickKinds)
@@ -305,7 +310,8 @@ public sealed partial class Dialogs
                 Reference = reference.Text,
                 People = peopleIds.ToArray(),
                 Split = kind == "expense" ? splitDraft.Data["split"] as System.Text.Json.Nodes.JsonObject : null,
-                Related = request.Related
+                Related = request.Related,
+                Category = kind == "expense" ? ExpenseCategories.Stored(splitDraft) : null
             };
             sheet.Close(draft);
         };

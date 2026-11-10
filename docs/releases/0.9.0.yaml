@@ -1,0 +1,31 @@
+# Release notes for Jourfold 0.9.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.9.0
+date: 2026-11-10
+highlights:
+  - icon: globe
+    en: A plan can be exported in another time zone, for example to read it at home, and can show each time in more time zones below it. The plan's second time zone is added on its own until you choose otherwise.
+    de: Ein Plan lässt sich in einer anderen Zeitzone exportieren, etwa um ihn zu Hause zu lesen, und kann jede Zeit zusätzlich in weiteren Zeitzonen darunter zeigen. Die zweite Zeitzone des Plans kommt von selbst dazu, bis Sie etwas anderes wählen.
+  - icon: refresh-cw
+    en: Weather and exchange rates say when they were fetched, and a click or tap there fetches them again now, on the computer, phone and tablet.
+    de: Wetter und Wechselkurse zeigen, wann sie abgerufen wurden, und ein Klick oder Tippen darauf ruft sie sofort neu ab, am Computer, auf dem Handy und auf dem Tablet.
+changes:
+  - en: On phones and tablets, a long press opens its menu when you lift your finger. Once you have held long enough, the item fades a little and the device vibrates briefly. A hold that turns into scrolling no longer opens a menu.
+    de: Auf Handys und Tablets öffnet ein langes Drücken sein Menü, wenn Sie den Finger anheben. Haben Sie lange genug gedrückt, wird der Eintrag etwas blasser und das Gerät vibriert kurz. Wird aus dem Drücken ein Scrollen, öffnet sich kein Menü mehr.
+  - en: The timetable on tablets keeps its place when it is drawn again for the same days, for example after a tap on a plan.
+    de: Der Zeitplan auf Tablets bleibt an seiner Stelle, wenn er für dieselben Tage neu gezeichnet wird, etwa nach einem Tippen auf einen Plan.
+  - en: The export dialog names its two time zone searches differently for screen readers.
+    de: Im Export-Dialog haben die beiden Zeitzonen-Suchen für Screenreader unterschiedliche Namen.
+fixes:
+  - en: On a Mac, the window's header no longer fails to build with "Requested value '⌘Z' was not found".
+    de: Auf dem Mac scheitert der Kopfbereich des Fensters nicht mehr mit „Requested value '⌘Z' was not found“.
+  - en: German dates have a full stop after the day, such as "Freitag, 25. Dezember", in the app on all devices and in exports.
+    de: Deutsche Datumsangaben haben einen Punkt nach dem Tag, etwa „Freitag, 25. Dezember“, in der App auf allen Geräten und in Exporten.
+  - en: On phones and tablets, an amount such as 1.234 is read as one thousand two hundred thirty-four, and 1.234,56 is accepted. Before, 1.234 was saved as 1.23.
+    de: Auf Handys und Tablets wird ein Betrag wie 1.234 als eintausendzweihundertvierunddreißig gelesen, und 1.234,56 wird angenommen. Bisher wurde 1.234 als 1,23 gespeichert.
+  - en: Time and date fields in German no longer show the English words "hour" and "minute".
+    de: Zeit- und Datumsfelder zeigen auf Deutsch nicht mehr die englischen Wörter „hour“ und „minute“.
+  - en: Tablets that can make calls are called tablets, not phones.
+    de: Tablets, die telefonieren können, heißen Tablet und nicht Handy.
+  - en: Tapping on a page that is scrolled down no longer makes its top flash up for a moment.
+    de: Ein Tippen auf eine nach unten gescrollte Seite lässt nicht mehr kurz ihren Anfang aufblitzen.

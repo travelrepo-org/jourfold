@@ -50,7 +50,10 @@ public sealed partial class Dialogs
                 var line = string.Format(S["OwesTo"], Name(from), Name(to));
                 var check = new CheckBox
                 {
-                    IsChecked = true, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch, Margin = new Thickness(2, 2),
+                    IsChecked = true,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                    Margin = new Thickness(2, 2),
                     Content = Ui.Columns("*,Auto", Ui.V(1, Ui.Line(title), Ui.Line(line, "caption")), Ui.Text(Formats.Money(amount, debt.Currency), "strong").Margin(12, 0, 0, 0))
                 };
                 AutomationProperties.SetName(check, title + ", " + line + ", " + Formats.Money(amount, debt.Currency));

@@ -36,6 +36,27 @@ public sealed class MobileInputTests : IDisposable
     private static Sheet Form(Window window) { Probe.Layout(); return window.GetVisualDescendants().OfType<Sheet>().First(); }
     private static T Field<T>(Window window, string name) where T : Control => Probe.All<T>(Form(window)).First(c => AutomationProperties.GetName(c) == name);
 
+    private static void DrawAgain(MobileSession session) { session.Redraw(); Probe.Layout(); }
+
+    [AvaloniaFact]
+    public void APageIsScrolledToItsPlaceBeforeAnythingElseRuns()
+    {
+        var scroll = new ScrollViewer { Content = new Border { Height = 3000 } };
+        var window = new Window { Width = 400, Height = 600, Content = scroll };
+        try
+        {
+            ScrollPlace.Set(scroll, () => scroll.Offset = new Vector(0, 1200));
+            window.Show();
+            // What the shell does after putting a new page in: no job runs in between, and that includes drawing.
+            ScrollPlace.Settle(window);
+            Assert.Equal(1200, scroll.Offset.Y);
+            // Done once: a later layout does not scroll it back.
+            scroll.Offset = new Vector(0, 300); Probe.Layout(); ScrollPlace.Settle(window);
+            Assert.Equal(300, scroll.Offset.Y);
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData("1.234", "1234.00")]
     [InlineData("1.234,56", "1234.56")]
@@ -117,6 +138,58 @@ public sealed class MobileInputTests : IDisposable
     [InlineData(true, false, false, 800, "device")]
     public void AnAndroidDeviceIsCalledWhatItIs(bool computer, bool calls, bool folds, double shortestSide, string expected) =>
         Assert.Equal(expected, MobileHost.AndroidDevice(computer, calls, folds, shortestSide));
+
+    [AvaloniaFact]
+    public async Task APageDrawnAgainStaysWhereItWasScrolled()
+    {
+        var (session, window) = await OpenAsync(height: 480, start: new LocalDate(2027, 6, 1));
+        try
+        {
+            session.Settings.Values["packing.filter"] = "all";
+            session.ShowTab(MobileTab.More); session.ShowPage("packing"); Probe.Layout();
+            ScrollViewer More() => Probe.All<ScrollViewer>(window).First(v => Probe.All<CheckBox>(v).Any());
+            var scroll = More();
+            scroll.Offset = new Vector(0, scroll.Extent.Height - scroll.Viewport.Height); Probe.Layout();
+            var at = scroll.Offset.Y;
+            Assert.True(at > 100, "the packing page should scroll");
+            DrawAgain(session);
+            Assert.NotSame(scroll, More());
+            Assert.Equal(at, More().Offset.Y, 1);
+
+            // The plan's day list.
+            session.ShowTab(MobileTab.Plan); session.ShowDate(session.Agenda.Days.MaxBy(d => d.Entries.Count)!.Date); Probe.Layout();
+            ScrollViewer Plan() => Probe.All<ScrollViewer>(window).First(v => v.Extent.Height > v.Viewport.Height + 50);
+            var plan = Plan();
+            plan.Offset = new Vector(0, 150); Probe.Layout();
+            DrawAgain(session);
+            Assert.NotSame(plan, Plan());
+            Assert.Equal(150, Plan().Offset.Y, 1);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheTimetableKeepsItsPlaceWhenDrawnAgainForTheSameDays()
+    {
+        var (session, window) = await OpenAsync(width: 900, height: 900, start: new LocalDate(2027, 6, 1));
+        try
+        {
+            session.Settings.Values["plan.mode"] = "timetable"; session.ShowTab(MobileTab.Plan);
+            session.ShowDate(session.Agenda.Days[1].Date); Probe.Layout();
+            ScrollViewer Grid() => Probe.All<ScrollViewer>(window).First(v => v.Extent.Height > 1000);
+            var grid = Grid();
+            var opening = grid.Offset.Y;
+            grid.Offset = new Vector(0, opening + 200); Probe.Layout();
+            DrawAgain(session);
+            Assert.NotSame(grid, Grid());
+            Assert.Equal(opening + 200, Grid().Offset.Y, 1);
+
+            // Other days open at their first plan again.
+            session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            Assert.NotEqual(opening + 200, Grid().Offset.Y, 1);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
 
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 

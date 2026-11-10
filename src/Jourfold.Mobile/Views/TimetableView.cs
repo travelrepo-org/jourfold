@@ -23,6 +23,9 @@ namespace Jourfold.Mobile.Views;
 public static class TimetableView
 {
     private const double HourHeight = 52, Gutter = 56, MinColumn = 180, Top = 10;
+    // The days the grid showed last and how far it was scrolled, so drawing them again keeps the place.
+    private static (string? Trip, LocalDate First, int Count) placeOf;
+    private static double kept;
 
     /// <summary>How many days fit into <paramref name="width"/> pixels, from three to seven.</summary>
     public static int Columns(double width) => Math.Clamp((int)((width - Gutter - 32) / MinColumn), 3, 7);
@@ -107,7 +110,12 @@ public static class TimetableView
         var opens = columns.Any(c => c.Day.Date == s.PhoneToday) ? s.Now.InZone(columns.First(c => c.Day.Date == s.PhoneToday).Zone).TimeOfDay.Hour - 1
             : columns.SelectMany(c => c.Lines.Select(l => l.Role == AgendaRole.Continued ? 0 : l.Start!.Value.InZone(c.Zone).TimeOfDay.Hour)).DefaultIfEmpty(8).Min();
         var opening = Math.Max(0, (opens - from) * HourHeight);
-        if (opening > 0) scroll.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => scroll.Offset = new Vector(0, opening), Avalonia.Threading.DispatcherPriority.Loaded);
+        // Drawn again for the same days, such as after a tap on a plan, the grid stays where it was scrolled to.
+        var at = (s.Workspace?.Repository.Root, shown[0].Date, count);
+        var target = at == placeOf ? kept : opening;
+        placeOf = at; var placed = false;
+        scroll.ScrollChanged += (_, _) => { if (placed) kept = scroll.Offset.Y; };
+        Controls.ScrollPlace.Set(scroll, () => { if (target > 0) scroll.Offset = new Vector(0, target); kept = scroll.Offset.Y; placed = true; });
         return (header, Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), count, top: false));
     }
 

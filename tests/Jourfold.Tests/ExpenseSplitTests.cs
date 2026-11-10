@@ -281,6 +281,62 @@ public sealed class ExpenseSplitTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaTheory]
+    [InlineData("en", "Primary currency")]
+    [InlineData("de", "Primäre Währung")]
+    public async Task ThePrimaryCurrencyIsChosenInSettings(string language, string label)
+    {
+        var w = await Window(language, "Light"); var m = w.Model;
+        try
+        {
+            m.HomeCurrency = "EUR";
+            var settings = ((Dialogs)m.Interaction).SettingsAsync(m); Probe.Layout();
+            // The dialog opens the page used last, so General is chosen first.
+            Probe.Click(Probe.Sheet(w), m.Strings["General"]); Probe.Layout();
+            var sheet = Probe.Sheet(w);
+            Assert.Contains(label, Texts(sheet));
+            // The only currency choice on the General page; choosing a currency there is the primary currency at once.
+            var primary = Probe.All<ComboBox>(sheet).Single(c => AutomationProperties.GetName(c) == label);
+            primary.SelectedItem = Editors.Currencies.Single(c => c.Id == "CHF"); Probe.Layout();
+            Assert.Equal("CHF", m.HomeCurrency);
+            Assert.Equal("CHF", m.SettleCurrency);
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", "Category", "Food", "Eating out", "of", "left")]
+    [InlineData("de", "Kategorie", "Essen", "Eating out", "von", "übrig")]
+    public async Task ABudgetCoversACategoryAndShowsWhatIsLeft(string language, string category, string food, string title, string of, string left)
+    {
+        var w = await Window(language, "Light"); var m = w.Model;
+        try
+        {
+            var dinner = m.Trip!.Entities.Values.Single(e => e.Title == "Dinner at the lake");
+            await m.ChangeExpenseAsync(dinner.Id, (t, e) => ExpenseCategories.With(t, e, "food"));
+            var budget = Entity.Create("budget", title); budget.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "150.00", ["currency"] = "EUR" };
+            await m.Workspace!.EditAsync(budget);
+            m.Navigate("Costs"); m.Selected = m.Trip!.Find(budget.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == category));
+            Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == category).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => Budgets.ScopeOf(m.Trip!.Find(budget.Id)!) == Budgets.Category);
+            Probe.ShowDetails(w);
+            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == food));
+            Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == food).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => Budgets.TargetOf(m.Trip!.Find(budget.Id)!) == "food");
+            var status = Budgets.Status(m.Trip!, m.Trip!.Find(budget.Id)!)!;
+            Assert.Equal((90m, 60m), (status.Spent, status.Left));
+            // The whole trip's EUR budget is not this one.
+            Assert.Equal(0m, TripSummaries.Costs(m.Trip!).Single(c => c.Currency == "EUR").Budget);
+            m.Navigate("Plan"); m.Navigate("Costs");
+            var texts = Texts(w).ToArray();
+            Assert.Contains(texts, t => t.Contains(" " + of + " ", StringComparison.Ordinal) && t.Contains(left, StringComparison.Ordinal) && t.Contains("150", StringComparison.Ordinal));
+            Assert.Contains(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == title);
+        }
+        finally { w.Close(); }
+    }
+
     private async Task<MainWindow> Window(string language, string theme)
     {
         var (path, p) = await Trip();

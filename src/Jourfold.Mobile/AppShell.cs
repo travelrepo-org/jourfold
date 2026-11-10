@@ -46,6 +46,7 @@ public sealed class AppShell : UserControl
     public AppShell(MobileSession session)
     {
         Session = session; Classes.Add("shell");
+        session.Strings.Pickers(Resources);
         Content = root; root.Res(Border.BackgroundProperty, "Bg.App");
         root.Child = new Panel { Children = { main, overlays } };
         session.Changed += () => Dispatcher.UIThread.Post(RequestRender);
@@ -211,8 +212,7 @@ public sealed class AppShell : UserControl
             _ => MorePages.Build(Session, Breakpoint)
         };
         drawnPage = page; pageAt = here;
-        if (scrolled is { } offset && PageScroll(page) is { } after)
-            after.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => after.Offset = offset, DispatcherPriority.Loaded);
+        if (scrolled is { } offset && PageScroll(page) is { } after) ScrollPlace.Set(after, () => after.Offset = offset);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
         // page, whatever it holds, so the way back stays where it was; a stretched element narrower than the room is centred.
         if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760 };
@@ -230,6 +230,8 @@ public sealed class AppShell : UserControl
             main.Child = docked ? Ui.Columns("Auto,*,400", side, page, DetailColumn()) : Ui.Columns("Auto,*", side, page);
         }
         Overlays(docked);
+        // The new page takes its scroll position before it is drawn, so its top does not flash up first.
+        ScrollPlace.Settle(main);
         if ((Session.FocusDraft is { } key ? MorePages.DraftPrefix + key : refocus) is { } target)
         {
             Session.FocusDraft = null; refocus = null;

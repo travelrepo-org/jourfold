@@ -47,4 +47,27 @@ public sealed partial class MobileSession
         }
         weatherUpdate = Fetch(); await weatherUpdate;
     }
+
+    /// <summary>
+    /// Fetches the weather again now because the user asked for it, also forecasts that have not expired yet; see
+    /// <see cref="WeatherService.UpdateAsync(TravelRepo.Core.TripSnapshot, bool, CancellationToken)"/>. False when a
+    /// service could not be reached, such as offline; the weather fetched before stays.
+    /// </summary>
+    public async Task<bool> RefreshWeatherAsync(CancellationToken ct = default)
+    {
+        if (!WeatherOn || Trip is not { } trip) return true;
+        if (weatherUpdate is { IsCompleted: false } running) await running;
+        async Task<bool> Fetch()
+        {
+            try
+            {
+                var fetched = await Weathers.UpdateAsync(trip, refresh: true, ct);
+                if (Trip == trip) { Weather = fetched; Changed?.Invoke(); }
+                return fetched.Problems.Count == 0;
+            }
+            catch (Exception ex) when (ex is IOException or HttpRequestException or UnauthorizedAccessException or OperationCanceledException) { return false; }
+        }
+        var update = Fetch(); weatherUpdate = update;
+        return await update;
+    }
 }

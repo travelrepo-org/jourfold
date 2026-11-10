@@ -474,11 +474,16 @@ public static class InspectorView
                 .Res(Border.BackgroundProperty, concern.Severe ? "Danger.Soft" : "Warning.Soft"));
         if (m.Weather.Problems.Count > 0) panel.Children.Add(Ui.Text(WeatherProblem(m), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
         var first = weather.Outlooks[0];
-        var source = WeatherDisplay.Source(first, m.WeatherServices.Providers, s) + (first.Fetched is { } fetched ? " · " + string.Format(s["WeatherAsOf"], Formats.Time(fetched.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).TimeOfDay)) : "");
+        var source = Ui.Text(WeatherDisplay.Source(first, m.WeatherServices.Providers, s), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
+        var fresh = first.Fetched is { } fetched ? WeatherFreshness(w, fetched) : null;
         var credits = Ui.Flow(4, m.Weather.Sources.Select(a => (Control)Ui.Button(a.Text + (a.License is null ? "" : " (" + a.License + ")"), "external-link", "ghost", "compact").Also(b => b.Click += (_, _) => m.Interaction.Open(a.Url))).ToArray());
-        panel.Children.Add(Ui.V(2, Ui.Text(source, "caption"), credits));
+        panel.Children.Add(Ui.V(2, Ui.Flow(4, source, fresh), credits));
         return panel;
     }
+
+    /// <summary>When the weather was fetched, as a button that fetches it again; the plan's toolbar has the same.</summary>
+    internal static Button WeatherFreshness(MainWindow w, Instant fetched, bool iconOnly = false) =>
+        FreshnessButton.Build(w, fetched, w.Model.Strings["WeatherAsOf"], w.Model.Strings["RefreshWeather"], w.Model.RefreshWeatherAsync, w.Model.Strings["WeatherRefreshFailed"], iconOnly);
 
     private static string WeatherProblem(MainViewModel m) => m.Weather.Problems.Any(p => p.Code == "weather.key") ? m.Strings["WeatherKeyProblem"] : m.Strings["WeatherUnavailable"];
 

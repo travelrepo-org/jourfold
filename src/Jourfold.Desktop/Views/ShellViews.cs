@@ -237,9 +237,9 @@ public static class HeaderView
     private static MenuFlyout MoreMenu(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var menu = new MenuFlyout();
-        void Item(string text, string icon, Action action, string? gesture = null, bool enabled = true) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16), IsEnabled = enabled, InputGesture = gesture is null ? null : Avalonia.Input.KeyGesture.Parse(gesture) }; item.Click += (_, _) => action(); menu.Items.Add(item); }
-        Item(s["Undo"], "undo-2", () => m.UndoCommand.Execute(null), Shortcuts.Label("Ctrl+Z"), m.Workspace?.CanUndo == true);
-        Item(s["Redo"], "redo-2", () => m.RedoCommand.Execute(null), Shortcuts.Label("Ctrl+Shift+Z"), m.Workspace?.CanRedo == true);
+        void Item(string text, string icon, Action action, string? gesture = null, bool enabled = true) { var item = new MenuItem { Header = text, Icon = Ui.Icon(icon, 16), IsEnabled = enabled, InputGesture = gesture is null ? null : Shortcuts.Gesture(gesture) }; item.Click += (_, _) => action(); menu.Items.Add(item); }
+        Item(s["Undo"], "undo-2", () => m.UndoCommand.Execute(null), "Ctrl+Z", m.Workspace?.CanUndo == true);
+        Item(s["Redo"], "redo-2", () => m.RedoCommand.Execute(null), "Ctrl+Shift+Z", m.Workspace?.CanRedo == true);
         menu.Items.Add(new Separator());
         Item(s["SyncNow"], "refresh-cw", () => m.SyncCommand.Execute(null), "F5");
         Item(s["AddFile"], "paperclip", () => m.AddFileCommand.Execute(null));

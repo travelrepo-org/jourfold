@@ -90,7 +90,7 @@ public static class TimetableView
             var today = day.Date == s.PhoneToday;
             // As on the desktop: the weekday small above the date, today in the accent colour, the zone only when it is not the trip's.
             var weekday = Ui.Text(day.Date.ToString("ddd", culture).TrimEnd('.').ToUpper(culture), "small", "muted");
-            var date = Ui.Text(day.Date.ToString("d MMM", culture), "strong");
+            var date = Ui.Text(day.Date.ToString(Formats.DayPattern("d MMM", culture), culture), "strong");
             if (today) { weekday.Res(TextBlock.ForegroundProperty, "Accent"); date.Res(TextBlock.ForegroundProperty, "Accent"); }
             var place = zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone), "small", "muted");
             if ((count == 1 ? (Control?)place?.Margin(10, 0, 4, 4) : Ui.V(0, weekday, date, place).Margin(10, 0, 4, 6)) is { } head) header.Children.Add(head.Col(i + 1));

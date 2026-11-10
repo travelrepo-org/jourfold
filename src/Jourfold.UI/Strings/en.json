@@ -710,7 +710,7 @@
   "Expenses": "Expenses",
   "ExpenseAddedFor": "Expense added for {0}",
   "WhoOwesWhomHintIn": "From what is not paid back yet, in the trip's currency {0}: exactly with what cards charged, otherwise estimated.",
-  "EstimatedWithRates": "≈ estimated with the European Central Bank's reference rates, because no charged amount was entered. Enter what the card charged to make it exact.",
+  "EstimatedWithRates": "≈ estimated with the European Central Bank's reference rates of {0}, because no charged amount was entered. These change from day to day; enter what the card charged to make it exact.",
   "NotConvertedHint": "Some expenses have no amount charged in {0} and no exchange rate yet, so they stay in their own currency.",
   "Charged": "Charged",
   "ChargedIn": "Amount charged in {0}",
@@ -719,7 +719,7 @@
   "ChargedShort": "charged {0}",
   "InCurrency": "In {0}",
   "ExactlyCharged": "{0} as charged",
-  "EstimatedAmountRates": "{0} estimated with reference rates",
+  "EstimatedAmountRates": "{0} estimated with the rates of {1}",
   "NotConvertedYet": "Not converted yet: {0}",
   "WithoutChargeCount": "{0} expenses without a charged amount",
   "WithoutChargeOne": "1 expense without a charged amount",
@@ -1883,5 +1883,13 @@
   "CategoriesFor": "Whose part",
   "ByCategoryEveryone": "Every payment in full.",
   "ByCategoryParts": "The part of {0}.",
-  "ByCategoryNone": "Nothing paid by this part yet."
+  "ByCategoryNone": "Nothing paid by this part yet.",
+  "IdeasNotCounted": "Ideas, not counted: {0}",
+  "IdeaPill": "Idea, not counted",
+  "PaidBackAs": "as {0}",
+  "IdeasHint": "Payments for ideas and cancelled bookings say what they would cost. They count once the booking is made.",
+  "CostExportIdeas": "Ideas, not counted",
+  "CostExportStateIdea": "idea, not counted",
+  "CostExportPaidBack": "{0} paid back {1} {2}",
+  "CostExportTransferredAs": "as {0}"
 }

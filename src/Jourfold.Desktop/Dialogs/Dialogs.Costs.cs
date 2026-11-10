@@ -32,7 +32,7 @@ public sealed partial class Dialogs
             if (plan.Items.Count == 0) { result.Children.Add(Ui.Text(S["PayNothing"], "caption")); return; }
             foreach (var p in plan.Payments)
                 result.Children.Add(Ui.Columns("Auto,*,Auto", Ui.Icon("arrow-right", 13, "Text.Subtle").Margin(0, 0, 8, 0), Ui.Line(string.Format(S["PaysTo"], Name(p.From), Name(p.To))), Ui.Text((p.Estimated ? "≈ " : "") + Formats.Money(p.Amount, p.Currency), "strong")));
-            if (plan.Payments.Any(p => p.Estimated)) result.Children.Add(Ui.Text(S["EstimatedWithRates"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+            if (plan.Payments.Any(p => p.Estimated)) result.Children.Add(Ui.Text(string.Format(S["EstimatedWithRates"], request.Rates is { } r ? Formats.Date(NodaTime.LocalDate.FromDateOnly(r.Date)) : ""), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
             foreach (var (currency, total) in plan.Totals.OrderBy(t => t.Key, StringComparer.Ordinal))
                 result.Children.Add(Ui.Text(total == 0 ? string.Format(S["PayEven"], Name(person)) : string.Format(S[total > 0 ? "PayTotalPays" : "PayTotalGets"], Name(person), Formats.Money(Math.Abs(total), currency)), "strong").Margin(0, 4, 0, 0));
             if (plan.Payments.Count == 0 && plan.Totals.Count == 0) result.Children.Add(Ui.Text(string.Format(S["PayEven"], Name(person)), "strong"));

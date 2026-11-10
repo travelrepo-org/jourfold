@@ -321,6 +321,42 @@ public sealed class ExpenseSplitTests : IDisposable
         finally { w.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task IdeasAreListedApartAndPayingBackKeepsWhatWasTransferred()
+    {
+        var w = await Window("en", "Light"); var m = w.Model;
+        try
+        {
+            await m.SetTripCurrencyAsync("EUR");
+            var trip = m.Trip!; var ana = trip.Entities.Values.Single(e => e.Title == "Ana Silva"); var ben = trip.Entities.Values.Single(e => e.Title == "Ben");
+            // A lodge that is only an idea, with what it would cost.
+            var lodge = Entity.Create("booking", "Lakeside lodge"); lodge.Data["status"] = "idea";
+            var maybe = Expense("Lakeside lodge", "800.00", "EUR", ana); maybe.Data["estimated"] = true; maybe.Data.Remove("paid_by");
+            maybe.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = "booking", ["id"] = lodge.Id.ToString() });
+            var budget = Entity.Create("budget", "Trip"); budget.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "1000.00", ["currency"] = "EUR" };
+            await m.Workspace!.ApplyAsync([new(lodge.Id, lodge), new(maybe.Id, maybe), new(budget.Id, budget)]);
+            m.Navigate("Plan"); m.Navigate("Costs");
+            var texts = Texts(w).ToArray();
+            Assert.Contains(texts, t => t == string.Format(m.Strings["IdeasNotCounted"], Formats.Money(800m, "EUR")));
+            Assert.Contains("Idea, not counted", texts);
+            Assert.Equal(0m, Budgets.ForTrip(m.Trip!)!.Planned.Total);
+
+            // A jet boat in NZD that the card charged as 33.60 EUR: paying it back keeps the euros transferred.
+            var boat = Expenses.WithSplit(Expense("Jet boat", "60.00", "NZD", ben), SplitMethod.Equal, [(ana.Id, null), (ben.Id, null)]);
+            await m.Workspace.EditAsync(boat);
+            Assert.True(await m.SetChargeAsync(boat.Id, "33,60", "EUR"));
+            var key = Expenses.Split(m.Trip!, m.Trip!.Find(boat.Id)!).Debts.First(d => d.From == ana.Id).Key;
+            await m.SetDebtPaidAsync(key, true);
+            var paid = Expenses.Split(m.Trip!, m.Trip!.Find(boat.Id)!).Debts.Single(d => d.Key == key);
+            Assert.Equal(("EUR", false), (paid.PaidIn!.Currency, paid.PaidIn.Reference));
+            Assert.Equal(Math.Round(paid.Amount * 0.56m, 2), paid.PaidIn.Value);
+            m.Selected = m.Trip!.Find(boat.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            await Probe.Until(() => Texts(inspector).Any(t => t.Contains("as " + Formats.Money(paid.PaidIn.Value, "EUR"), StringComparison.Ordinal)));
+        }
+        finally { w.Close(); }
+    }
+
     [AvaloniaTheory]
     [InlineData("en", "Still to pay", "Price not recorded", "{0} to pay", "Add")]
     [InlineData("de", "Noch zu zahlen", "Preis nicht erfasst", "{0} zu zahlen", "Hinzufügen")]

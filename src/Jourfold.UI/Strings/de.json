@@ -710,7 +710,7 @@
   "Expenses": "Ausgaben",
   "ExpenseAddedFor": "Ausgabe für {0} erfasst",
   "WhoOwesWhomHintIn": "Aus dem, was noch nicht zurückgezahlt ist, in der Reisewährung {0}: genau mit dem, was die Karten abgebucht haben, sonst geschätzt.",
-  "EstimatedWithRates": "≈ geschätzt mit den Referenzkursen der Europäischen Zentralbank, weil kein abgebuchter Betrag eingetragen ist. Trag ein, was die Karte abgebucht hat, dann ist es genau.",
+  "EstimatedWithRates": "≈ geschätzt mit den Referenzkursen der Europäischen Zentralbank vom {0}, weil kein abgebuchter Betrag eingetragen ist. Diese ändern sich von Tag zu Tag; tragen Sie ein, was die Karte abgebucht hat, damit es genau ist.",
   "NotConvertedHint": "Für einige Ausgaben gibt es weder einen in {0} abgebuchten Betrag noch einen Wechselkurs, deshalb bleiben sie in ihrer Währung.",
   "Charged": "Abgebucht",
   "ChargedIn": "Abgebuchter Betrag in {0}",
@@ -719,7 +719,7 @@
   "ChargedShort": "abgebucht {0}",
   "InCurrency": "In {0}",
   "ExactlyCharged": "{0} wie abgebucht",
-  "EstimatedAmountRates": "{0} mit Referenzkursen geschätzt",
+  "EstimatedAmountRates": "{0} geschätzt mit den Kursen vom {1}",
   "NotConvertedYet": "Noch nicht umgerechnet: {0}",
   "WithoutChargeCount": "{0} Ausgaben ohne abgebuchten Betrag",
   "WithoutChargeOne": "1 Ausgabe ohne abgebuchten Betrag",
@@ -1883,5 +1883,13 @@
   "CategoriesFor": "Wessen Anteil",
   "ByCategoryEveryone": "Jede Zahlung ganz.",
   "ByCategoryParts": "Der Anteil von {0}.",
-  "ByCategoryNone": "Für diesen Anteil ist noch nichts bezahlt."
+  "ByCategoryNone": "Für diesen Anteil ist noch nichts bezahlt.",
+  "IdeasNotCounted": "Ideen, nicht gezählt: {0}",
+  "IdeaPill": "Idee, nicht gezählt",
+  "PaidBackAs": "als {0}",
+  "IdeasHint": "Zahlungen für Ideen und stornierte Buchungen zeigen, was sie kosten würden. Sie zählen, sobald gebucht ist.",
+  "CostExportIdeas": "Ideen, nicht gezählt",
+  "CostExportStateIdea": "Idee, nicht gezählt",
+  "CostExportPaidBack": "{0} hat {1} {2} zurückgezahlt",
+  "CostExportTransferredAs": "als {0}"
 }

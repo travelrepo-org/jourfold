@@ -126,7 +126,8 @@ public static class ExpenseViews
             // Money owed back after a changed split reads the other way round.
             var (from, to, amount) = debt.Open < 0 ? (debt.To, debt.From, -debt.Open) : (debt.From, debt.To, debt.Open == 0 ? debt.Amount : debt.Open);
             var text = string.Format(s["OwesTo"], Name(trip, from), Name(trip, to));
-            var detail = debt.IsSettled && debt.SettledOn is { } day ? string.Format(s["PaidOn"], Formats.Date(day))
+            var transferred = debt.PaidIn is { } t ? " · " + string.Format(s["PaidBackAs"], (t.Reference ? "≈ " : "") + Formats.Money(t.Value, t.Currency)) : "";
+            var detail = debt.IsSettled && debt.SettledOn is { } day ? string.Format(s["PaidOn"], Formats.Date(day)) + transferred
                 : debt.Open > 0 && debt.Settled > 0 ? string.Format(s["OpenOfDebt"], Formats.Money(debt.Settled, debt.Currency), Formats.Money(debt.Amount, debt.Currency)) : null;
             var check = new CheckBox { IsChecked = debt.IsSettled, MinWidth = 0, HorizontalContentAlignment = HorizontalAlignment.Stretch, Content = Ui.V(1, Ui.Line(text), detail is null ? null : Ui.Line(detail, "caption")) };
             AutomationProperties.SetName(check, string.Format(s["MarkPaidFor"], Name(trip, from), Name(trip, to), Formats.Money(amount, debt.Currency)));
@@ -143,8 +144,9 @@ public static class ExpenseViews
     }
 
     /// <summary>A pill for the cost list: still to pay, open, settled, or a split to check. Null when there is nothing to say.</summary>
-    public static Control? Status(Localization s, ExpenseSplit split)
+    public static Control? Status(Localization s, ExpenseSplit split, TripSnapshot? trip = null)
     {
+        if (trip is not null && Expenses.IsIdea(trip, split.Expense)) return Ui.Pill(s["IdeaPill"], "lightbulb", "Bg.Subtle", "Text.Muted");
         if (split.Issues.HasFlag(SplitIssues.Estimated)) return Ui.Pill(s["ToPay"], "clock", "Warning.Soft", "Warning");
         if (split.Issues.HasFlag(SplitIssues.SumMismatch) || split.Issues.HasFlag(SplitIssues.InvalidValue) || split.Issues.HasFlag(SplitIssues.NoPeople)) return Ui.Pill(s["CheckSplit"], "triangle-alert", "Danger.Soft", "Danger");
         if (split.Debts.Count == 0) return null;
@@ -194,7 +196,7 @@ public static class ExpenseViews
                 plan.Children.Add(Ui.H(8, Ui.Icon("arrow-right", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center), Ui.Line(string.Format(s["PaysTo"], Name(trip, t.From), Name(trip, t.To))), Ui.Text(Formats.Money(t.Amount, t.Currency), "strong").Margin(8, 0, 0, 0)));
         }
         body.Children.Add(plan);
-        if (transfers.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        if (transfers.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", m.EstimatedNote));
         var pay = Ui.Button(s["PayBack"], "wallet", "soft"); ToolTip.SetTip(pay, s["PayBackHint"]);
         pay.Click += (_, _) => _ = m.PayAsync();
         var settle = Ui.Button(s["SettleAll"], "circle-check", "link");
@@ -256,7 +258,9 @@ public static class ExpenseViews
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense" && TripSummaries.Money(e.Data["amount"]) is not null).ToArray();
         if (expenses.Length == 0) return null;
         var total = Expenses.Total(expenses, home, m.EstimateRates);
-        var planned = Expenses.Total(expenses, home, m.EstimateRates, planned: true);
+        // Payments for ideas say what they would cost and are listed apart.
+        var ideas = expenses.Where(e => Expenses.IsIdea(trip, e)).ToArray();
+        var planned = Expenses.Total(expenses.Except(ideas), home, m.EstimateRates, planned: true);
         var choice = new SearchChoice(Editors.Currencies, home, s["TripCurrency"]) { Width = 120 };
         ToolTip.SetTip(choice, s["TripCurrencyHint"]);
         void Choose() { if (choice.Value is { } code && code != m.TripCurrencyCode) _ = m.SetTripCurrencyAsync(code); }
@@ -264,8 +268,9 @@ public static class ExpenseViews
         var body = Ui.V(8, Ui.Columns("*,Auto", Ui.Text(string.Format(s["InCurrency"], home), "overline").Also(t => t.VerticalAlignment = VerticalAlignment.Center), choice),
             Ui.Text((total.Estimated > 0 ? "≈ " : "") + Formats.Money(total.Total, home), "h1"),
             Ui.H(5, Ui.Icon("circle-check", 13, "Success"), Ui.Text(string.Format(s["ExactlyCharged"], Formats.Money(total.Exact, home)), "caption")));
-        if (total.Estimated > 0) body.Children.Add(Ui.H(5, Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home)), "caption")));
+        if (total.Estimated > 0) body.Children.Add(Ui.H(5, Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home), m.RatesDay), "caption")));
         if (Sum(planned) is { Length: > 0 } toPay) body.Children.Add(Ui.H(5, Ui.Icon("calendar-clock", 13, "Text.Muted"), Ui.Text(string.Format(s["StillToPayAmount"], toPay), "caption")));
+        if (ideas.Length > 0 && Sum(Expenses.Total(ideas, home, m.EstimateRates, planned: true)) is { Length: > 0 } maybe) body.Children.Add(Ui.H(5, Ui.Icon("lightbulb", 13, "Text.Muted"), Ui.Text(string.Format(s["IdeasNotCounted"], maybe), "caption")));
         if (total.NotConverted.Count > 0) body.Children.Add(Notice("info", "Text.Subtle", string.Format(s["NotConvertedYet"], string.Join(" + ", total.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))))));
         if (total.WithoutCharge > 0 && expenses.Any(e => TripSummaries.Money(e.Data["amount"])!.Currency != home)) body.Children.Add(Ui.Text(total.WithoutCharge == 1 ? s["WithoutChargeOne"] : string.Format(s["WithoutChargeCount"], total.WithoutCharge), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
         return Ui.Card(body, 18).Also(c => c.Width = 300);
@@ -351,7 +356,7 @@ public static class ExpenseViews
         }
         var heading = Ui.V(2, Ui.Text(s["ByCategory"], "h3"), Ui.Text(m.CategoryPeople.Count == 0 ? s["ByCategoryEveryone"] : string.Format(s["ByCategoryParts"], string.Join(", ", m.CategoryPeople.Select(p => trip.Find(p)?.Title).OfType<string>())), "caption"));
         var body = Ui.V(12, heading, whose, totals.Count == 0 ? Ui.Text(s["ByCategoryNone"], "caption") : rows);
-        if (totals.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        if (totals.Any(t => t.Estimated)) body.Children.Add(Notice("info", "Text.Subtle", m.EstimatedNote));
         return Ui.Card(body, 18);
     }
 
@@ -397,7 +402,7 @@ public static class ExpenseViews
         var amount = money is null ? "" : Formats.Money(money.Amount, money.Currency) + (Expenses.ChargeOf(expense) is { } charge ? " · " + string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : "");
         var title = new Button { Content = Ui.Line(expense.Title, "strong"), Padding = new Thickness(0) }.Classed("link");
         AutomationProperties.SetName(title, expense.Title); title.Click += (_, _) => m.Follow(expense);
-        var lines = Ui.V(3, Ui.Columns("*,Auto,Auto", title, Status(s, split)?.Margin(8, 0), Ui.Text(amount, "strong")));
+        var lines = Ui.V(3, Ui.Columns("*,Auto,Auto", title, Status(s, split, trip)?.Margin(8, 0), Ui.Text(amount, "strong")));
         var payers = split.Payers.Select(p => Name(trip, p)).ToArray();
         if (payers.Length > 0) lines.Children.Add(Ui.Line(string.Format(s["PaidBy"], string.Join(", ", payers)), "caption"));
         if (money is not null && split.Shares.Count > 0) lines.Children.Add(Ui.Line(string.Format(s["SharedBy"], string.Join(", ", split.Shares.Select(x => Name(trip, x.Person) + " " + Formats.Money(x.Amount, money.Currency)))), "caption"));
@@ -421,7 +426,7 @@ public static class ExpenseViews
     public static Control? BookingPill(Localization s, TripSnapshot trip, IReadOnlyDictionary<Guid, BookingPayment> payments, Entity booking)
     {
         if (payments.GetValueOrDefault(booking.Id) is not { } payment) return null;
-        if (payment.Coverage == BookingCoverage.Planned)
+        if (payment.Coverage == BookingCoverage.Planned && booking.Data["status"]?.ToString() is not ("idea" or "cancelled"))
             return Ui.Pill(string.Format(s["ToPayAmount"], string.Join(" + ", payment.Planned.Select(e => TripSummaries.Money(e.Data["amount"])).OfType<Money>().GroupBy(x => x.Currency).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key)))), "clock", "Warning.Soft", "Warning");
         if (payment.LegacyPrice is not null && payment.Expenses.Count == 0) return Ui.Pill(s["PriceNotRecorded"], "info", "Bg.Subtle", "Text.Muted");
         return null;
@@ -438,7 +443,8 @@ public static class ExpenseViews
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         // Those due first come first.
-        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.DueOf(e) ?? NodaTime.LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        // Payments for ideas come last, marked, since they do not count.
+        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.IsIdea(trip, e)).ThenBy(e => Expenses.DueOf(e) ?? NodaTime.LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var legacy = Expenses.WithoutExpense(trip);
         if (planned.Length == 0 && legacy.Count == 0) return null;
         var list = Ui.V(4);
@@ -449,7 +455,7 @@ public static class ExpenseViews
             AutomationProperties.SetName(paid, string.Format(s["MarkPaymentPaidFor"], e.Title));
             paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
             var open = new Button { Content = Ui.Line(e.Title), Padding = new Thickness(0) }.Classed("link"); open.Click += (_, _) => m.Follow(e);
-            var due = Expenses.DueOf(e) is { } day ? Ui.Line(string.Format(s["DueOn"], Formats.Date(day)), "caption") : null;
+            var due = Expenses.IsIdea(trip, e) ? Ui.Line(s["IdeaPill"], "caption") : Expenses.DueOf(e) is { } day ? Ui.Line(string.Format(s["DueOn"], Formats.Date(day)), "caption") : null;
             list.Children.Add(Ui.Columns("*,Auto,Auto", Ui.V(0, open, due).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Margin(12, 0).Also(t => t.VerticalAlignment = VerticalAlignment.Center), paid));
         }
         foreach (var booking in legacy)
@@ -544,6 +550,8 @@ public static class ExpenseViews
             var first = whole.Budgets[0]; open.Click += (_, _) => m.Follow(first);
             var status = new BudgetStatus(first, Budgets.Trip, null, new Money(Expenses.Format(whole.Amount, whole.Currency), whole.Currency), whole.Paid.Total, whole.Planned.Total, whole.Approximate, [.. whole.Paid.NotConverted, .. whole.Planned.NotConverted]);
             var line = BudgetLine(s, trip, status).Margin(8, 0);
+            if (whole.Ideas is { } ideas && ideas.Total + ideas.NotConverted.Sum(x => x.Amount) != 0)
+                ((StackPanel)line).Children.Add(Ui.Text(string.Format(s["IdeasNotCounted"], string.Join(" + ", new[] { ideas.Total != 0 ? (ideas.Estimated != 0 ? "≈ " : "") + Formats.Money(ideas.Total, ideas.Currency) : null }.Concat(ideas.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))).OfType<string>())), "caption"));
             if (whole.AmountNotConverted.Count > 0) ((StackPanel)line).Children.Add(Notice("info", "Text.Subtle", string.Format(s["BudgetAmountNotConverted"], string.Join(" + ", whole.AmountNotConverted.Select(x => Formats.Money(x.Amount, x.Currency))))));
             rows.Children.Add(Ui.V(6, open, line));
         }
@@ -555,7 +563,7 @@ public static class ExpenseViews
             rows.Children.Add(Ui.V(6, open, BudgetLine(s, trip, b).Margin(8, 0)));
         }
         var body = Ui.V(12, Ui.Text(s["Budgets"], "h3"), rows);
-        if ((whole?.Approximate ?? false) || limited.Any(b => b.Approximate)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        if ((whole?.Approximate ?? false) || limited.Any(b => b.Approximate)) body.Children.Add(Notice("info", "Text.Subtle", m.EstimatedNote));
         return Ui.Card(body, 18);
     }
 

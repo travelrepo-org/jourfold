@@ -42,6 +42,12 @@ public partial class MainViewModel
     /// <summary>Reference rates for estimates where no charged amount was entered, only when the person allowed fetching them.</summary>
     public ExchangeRates? EstimateRates => RatesOn ? Rates : null;
 
+    /// <summary>The day of the reference rates estimates use, for the note beside ≈, which says the numbers move with them.</summary>
+    public string RatesDay => EstimateRates is { } rates ? Formats.Date(LocalDate.FromDateOnly(rates.Date)) : "";
+
+    /// <summary>The note beside estimates: with the day of the rates, and that they change from day to day.</summary>
+    public string EstimatedNote => string.Format(Strings["EstimatedWithRates"], RatesDay);
+
     /// <summary>Trips whose cost upgrade was postponed in this session; the offer comes again the next time Jourfold starts.</summary>
     private readonly HashSet<string> upgradeLater = [];
 
@@ -166,10 +172,11 @@ public partial class MainViewModel
     }
 
     /// <summary>Marks what one person owes another for an expense as paid back today, or takes the mark back.</summary>
-    public Task SetDebtPaidAsync(DebtKey key, bool paid) => EditExpenseAsync(key.Expense, (trip, e) => paid ? Expenses.Settle(trip, [key], Today).Single() : Expenses.Unsettle(e, key.From, key.To));
+    /// <remarks>Paid back in the trip's currency, what was transferred is kept with the mark, so it no longer moves with the rates.</remarks>
+    public Task SetDebtPaidAsync(DebtKey key, bool paid) => EditExpenseAsync(key.Expense, (trip, e) => paid ? Expenses.Settle(trip, [key], Today, TripCurrencyCode, EstimateRates).Single() : Expenses.Unsettle(e, key.From, key.To));
 
     /// <summary>Marks everything owed for an expense as paid back today, or takes all its marks back.</summary>
-    public Task SetExpensePaidAsync(Guid expenseId, bool paid) => EditExpenseAsync(expenseId, (trip, e) => paid ? Expenses.Settle(trip, e, null, Today) : Expenses.Unsettle(e));
+    public Task SetExpensePaidAsync(Guid expenseId, bool paid) => EditExpenseAsync(expenseId, (trip, e) => paid ? Expenses.Settle(trip, e, null, Today, TripCurrencyCode, EstimateRates) : Expenses.Unsettle(e));
 
     /// <summary>
     /// The pay function: the person (the local user unless another is given) chooses which of their open items to
@@ -187,7 +194,7 @@ public partial class MainViewModel
         if (answer is null || answer.Items.Count == 0) return;
         var items = Expenses.Pay(Workspace.State.Trip, answer.Person, answer.Items).Items.Select(i => i.Key).ToArray();
         if (items.Length == 0) return;
-        await Workspace.ApplyAsync(Expenses.Settle(Workspace.State.Trip, items, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
+        await Workspace.ApplyAsync(Expenses.Settle(Workspace.State.Trip, items, Today, TripCurrencyCode, EstimateRates).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
         Interaction.Toast(string.Format(Strings["PaidItems"], items.Length));
     });
 
@@ -196,7 +203,7 @@ public partial class MainViewModel
     {
         if (Workspace is null || Expenses.Open(Workspace.State.Trip).Count == 0) return;
         if (!await Interaction.ConfirmAsync(Strings["SettleAllTitle"], Strings["SettleAllBody"], Strings["SettleAll"])) return;
-        await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
+        await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today, TripCurrencyCode, EstimateRates).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
     });
 
     /// <summary>Sets what a budget is limited to, such as one person's food; no limits is the trip's budget. One undoable step.</summary>

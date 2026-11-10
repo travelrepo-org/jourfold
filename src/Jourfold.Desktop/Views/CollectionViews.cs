@@ -111,7 +111,7 @@ public static class CollectionViews
             var estimated = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
             var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
             var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
-            var shared = e.Type == "expense" ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
+            var shared = e.Type == "expense" ? ExpenseViews.Status(s, Expenses.Split(trip, e), trip) : null;
             var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                 Ui.Tile(e.Type == "budget" ? "piggy-bank" : ExpenseViews.CategoryIcon(ExpenseCategories.Of(trip, e)), e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
                 Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : ExpenseViews.CategoryName(s, ExpenseCategories.Of(trip, e)), e.Type == "budget" ? null : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),

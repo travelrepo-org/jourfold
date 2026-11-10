@@ -560,10 +560,14 @@ public static class MorePages
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").ToArray();
         var budget = Budgets.ForTrip(trip, s.EstimateRates);
         if (expenses.Length == 0 && budget is null) return null;
-        var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses, home, s.EstimateRates, planned: true);
+        // Payments for ideas say what they would cost and are listed apart.
+        var ideas = expenses.Where(e => Expenses.IsIdea(trip, e)).ToArray();
+        var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses.Except(ideas), home, s.EstimateRates, planned: true);
         string Sum(ConvertedTotal t) => (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home);
         var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text(Sum(paid), "h2"));
         if (planned.Total > 0) body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StillToPayAmount"], Sum(planned)), "caption"));
+        if (ideas.Length > 0 && Expenses.Total(ideas, home, s.EstimateRates, planned: true) is { } maybe && maybe.Total != 0)
+            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["IdeasNotCounted"], Sum(maybe)), "caption"));
         if (paid.NotConverted.Concat(planned.NotConverted).GroupBy(x => x.Currency).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key)).ToArray() is { Length: > 0 } apart)
             body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedYet"], string.Join(" + ", apart)), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
         if (budget is not null)
@@ -585,7 +589,7 @@ public static class MorePages
     private static Control? StillToPay(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings;
-        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.DueOf(e) ?? LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => Expenses.IsIdea(trip, e)).ThenBy(e => Expenses.DueOf(e) ?? LocalDate.MaxIsoValue).ThenBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         if (planned.Length == 0) return null;
         var rows = new List<Control>();
         foreach (var e in planned)
@@ -594,7 +598,7 @@ public static class MorePages
             var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Right; });
             AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
             var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);
-            var due = Expenses.DueOf(e) is { } day ? string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(day)) : null;
+            var due = Expenses.IsIdea(trip, e) ? str["IdeaPill"] : Expenses.DueOf(e) is { } day ? string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(day)) : null;
             rows.Add(Ui.Columns("*,Auto", Ui.V(1, Ui.Text(e.Title), money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency) + (due is null ? "" : " · " + due), "caption")).Also(v => v.VerticalAlignment = VerticalAlignment.Center), paid).Margin(16, 6));
         }
         return Group(str["StillToPay"], rows);
@@ -668,7 +672,8 @@ public static class MorePages
             if (SplitPill(str, split) is { } pill) lines.Children.Add(pill.Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
             if (Expenses.IsPlanned(e))
             {
-                lines.Children.Add(Ui.Pill(Expenses.DueOf(e) is { } due ? str["ToPay"] + " · " + string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(due)) : str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
+                if (Expenses.IsIdea(trip, e)) lines.Children.Add(Ui.Pill(str["IdeaPill"], "lightbulb", "Bg.Subtle", "Text.Muted").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
+                else lines.Children.Add(Ui.Pill(Expenses.DueOf(e) is { } due ? str["ToPay"] + " · " + string.Format(CultureInfo.CurrentCulture, str["DueOn"], Formats.Date(due)) : str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
                 var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; });
                 AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
                 var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);
@@ -734,7 +739,7 @@ public static class MorePages
         foreach (var t in transfers)
             rows.Add(DetailView.Row("arrow-right", string.Format(CultureInfo.CurrentCulture, str["PaysTo"], Name(t.From), Name(t.To)), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency)));
         if (transfers.Any(t => t.Currency != home)) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedHint"], home), "caption").Margin(16, 4).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
-        if (transfers.Any(t => t.Estimated)) rows.Add(Ui.Text(str["EstimatedWithRates"], "caption").Margin(16, 4).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (transfers.Any(t => t.Estimated)) rows.Add(Ui.Text(s.EstimatedNote, "caption").Margin(16, 4).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
         var settle = Ui.Button(str["SettleAll"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; }).Margin(16, 8);
         ((Button)settle).Click += (_, _) => s.ConfirmSettleAll();
         rows.Add(settle);
@@ -772,7 +777,8 @@ public static class MorePages
             {
                 var (from, to, amount) = debt.Open < 0 ? (debt.To, debt.From, -debt.Open) : (debt.From, debt.To, debt.Open == 0 ? debt.Amount : debt.Open);
                 var line = string.Format(CultureInfo.CurrentCulture, str["OwesTo"], trip.Find(from)?.Title, trip.Find(to)?.Title) + " · " + Formats.Money(amount, debt.Currency);
-                var box = new CheckBox { IsChecked = debt.IsSettled, MinHeight = 48, Content = Ui.V(1, Ui.Text(line), debt.IsSettled && debt.SettledOn is { } paidOn ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidOn"], Formats.Date(paidOn)), "caption") : null) };
+                var transferred = debt.PaidIn is { } t ? " · " + string.Format(CultureInfo.CurrentCulture, str["PaidBackAs"], (t.Reference ? "≈ " : "") + Formats.Money(t.Value, t.Currency)) : "";
+                var box = new CheckBox { IsChecked = debt.IsSettled, MinHeight = 48, Content = Ui.V(1, Ui.Text(line), debt.IsSettled && debt.SettledOn is { } paidOn ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidOn"], Formats.Date(paidOn)) + transferred, "caption") : null) };
                 AutomationProperties.SetName(box, string.Format(CultureInfo.CurrentCulture, str["MarkPaidFor"], trip.Find(from)?.Title, trip.Find(to)?.Title, Formats.Money(amount, debt.Currency)));
                 box.IsCheckedChanged += async (_, _) => await s.SetDebtPaidAsync(debt.Key, box.IsChecked == true);
                 body.Children.Add(box);

@@ -111,7 +111,7 @@ public partial class MainViewModel
     private async Task ExportCostsAsync(Jourfold.Application.Workspace w, TripSnapshot trip, ExportChoice choice, ExportLabels labels, CultureInfo culture, Localization strings)
     {
         var options = new CostExportOptions { People = choice.People, Currency = TripCurrencyCode, Rates = EstimateRates };
-        var costLabels = CostLabels(strings);
+        var costLabels = CostLabels(strings, RatesDay);
         var document = CostExport.Document(trip, options, costLabels, culture, labels);
         if (choice.Format == "copy") { await Interaction.CopyAsync(TripExport.Text(document)); Interaction.Toast(Strings["Copied"]); return; }
         var file = CostExport.FileName(trip, options, costLabels, choice.Format);
@@ -127,7 +127,7 @@ public partial class MainViewModel
     }
 
     /// <summary>The words of a cost export in the chosen language.</summary>
-    public static CostExportLabels CostLabels(Localization s) => new()
+    public static CostExportLabels CostLabels(Localization s, string ratesDay = "") => new()
     {
         Title = s["Costs"],
         For = s["CostExportFor"],
@@ -139,7 +139,7 @@ public partial class MainViewModel
         Budget = s["CostExportBudget"],
         BudgetUsed = s["CostExportBudgetUsed"],
         NotConverted = s["NotConvertedYet"],
-        Estimated = s["EstimatedWithRates"],
+        Estimated = string.Format(s["EstimatedWithRates"], ratesDay),
         ByCategory = s["ByCategory"],
         WhoOwesWhom = s["WhoOwesWhom"],
         PaysTo = s["PaysTo"],
@@ -169,6 +169,10 @@ public partial class MainViewModel
         PartOf = s["CostExportPartOf"],
         PartsIn = s["CostExportPartsIn"],
         GeneratedBy = s["ExportFooter"],
+        Ideas = s["CostExportIdeas"],
+        StateIdea = s["CostExportStateIdea"],
+        PaidBack = s["CostExportPaidBack"],
+        TransferredAs = s["CostExportTransferredAs"],
         Categories = ExpenseCategories.Standard.ToDictionary(c => c, c => s["expcat." + c])
     };
 

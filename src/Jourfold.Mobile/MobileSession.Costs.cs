@@ -19,6 +19,9 @@ public sealed partial class MobileSession
     /// <summary>Reference rates for estimates where no charged amount was entered, only when fetching them is allowed.</summary>
     public ExchangeRates? EstimateRates => RatesOn ? Rates : null;
 
+    /// <summary>The note beside estimates, with the day of the rates, which change from day to day.</summary>
+    public string EstimatedNote => string.Format(Strings["EstimatedWithRates"], EstimateRates is { } rates ? Formats.Date(LocalDate.FromDateOnly(rates.Date)) : "");
+
     /// <summary>
     /// Marks what one person owes another for an expense as paid back today in the trip's time zone, or takes the
     /// mark back.
@@ -27,7 +30,8 @@ public sealed partial class MobileSession
     {
         if (Workspace is not { } workspace || workspace.State.Trip.Find(key.Expense) is not { Type: "expense" } expense) return;
         var trip = workspace.State.Trip;
-        await workspace.EditAsync(paid ? Expenses.Settle(trip, [key], TripToday(trip)).Single() : Expenses.Unsettle(expense, key.From, key.To), ct); NoteChange();
+        // Paid back in the trip's currency, what was transferred is kept with the mark.
+        await workspace.EditAsync(paid ? Expenses.Settle(trip, [key], TripToday(trip), TripCurrencyCode, EstimateRates).Single() : Expenses.Unsettle(expense, key.From, key.To), ct); NoteChange();
     }, ct);
 
     /// <summary>Marks a payment that was still to pay as paid, by the local user when it names nobody yet.</summary>
@@ -42,7 +46,7 @@ public sealed partial class MobileSession
     {
         if (Workspace is not { } workspace || Expenses.Open(workspace.State.Trip).Count == 0) return;
         var trip = workspace.State.Trip;
-        await workspace.ApplyAsync(Expenses.SettleAll(trip, TripToday(trip)).Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
+        await workspace.ApplyAsync(Expenses.SettleAll(trip, TripToday(trip), TripCurrencyCode, EstimateRates).Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
     }, ct);
 
     /// <summary>Asks before marking everything as paid back, since it is meant for after everyone paid.</summary>

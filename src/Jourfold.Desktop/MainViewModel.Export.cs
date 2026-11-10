@@ -153,7 +153,8 @@ public partial class MainViewModel
     private ExportChoice InitialExport(TripSnapshot trip)
     {
         var lists = PackingLists.All(trip).Select(l => l.Collection.Id).ToArray();
-        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture) }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false);
+        // Until someone chooses otherwise, an export shows the plan's second time zone too, as the timetable does.
+        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture), OtherTimeZones = SecondZone is { } second ? [second] : [] }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false);
         if (ExportKey is not { } key || Store.Get(key) is not { } saved) return fallback;
         try
         {
@@ -169,7 +170,10 @@ public partial class MainViewModel
                 Comments = json["comments"]?.GetValue<bool>() == true,
                 // A zone this version's time zone database does not know falls back to the trip's.
                 TimeZone = json["timezone"]?.ToString() is { Length: > 0 } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is not null ? zone : null,
-                OtherTimeZones = (json["other_timezones"] as JsonArray ?? []).Select(n => n?.ToString()).OfType<string>().Where(z => NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().ToArray()
+                // A choice saved before this option existed gets the default; a saved empty choice stays empty.
+                OtherTimeZones = json["other_timezones"] is JsonArray chosen
+                    ? chosen.Select(n => n?.ToString()).OfType<string>().Where(z => NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().ToArray()
+                    : fallback.Options.OtherTimeZones
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";

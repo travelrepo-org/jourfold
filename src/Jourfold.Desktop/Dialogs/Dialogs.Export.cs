@@ -51,7 +51,7 @@ public sealed partial class Dialogs
             return picker;
         }
         Control Language() => Row(s["ExportLanguage"], Combo(s["ExportLanguage"], MainViewModel.ExportLanguages.Select(l => new Choice(l, s[l])).ToArray(), language, v => language = v));
-        static string City(string id) => id is "UTC" or "Etc/UTC" ? "UTC" : id[(id.LastIndexOf('/') + 1)..].Replace('_', ' ');
+        static string City(string id) => DateTimeZoneProviders.Tzdb.GetZoneOrNull(id) is { } z ? ExportTimes.City(z) : id;
         // Times in the trip's zone, or all of them in one chosen zone, for example to read the plan at home.
         Control Zone()
         {
@@ -63,12 +63,13 @@ public sealed partial class Dialogs
             });
             if (!otherZone) return Row(s["ExportTimesIn"], choices);
             var search = new SearchChoice(FieldOptions.Timezones, zone, s["Timezone"]);
-            void Chosen() { zone = search.Value; Update(); }
-            search.Input.SelectionChanged += (_, _) => Chosen(); search.Input.TextChanged += (_, _) => Chosen();
+            // A chosen zone changes what "Also in" offers, so that row is drawn again once a zone is picked, not on every keystroke.
+            void Chosen(bool picked) { var before = zone; zone = search.Value; if (picked && zone is not null && zone != before) Render(); else Update(); }
+            search.Input.SelectionChanged += (_, _) => Chosen(true); search.Input.TextChanged += (_, _) => Chosen(false);
             var quick = Ui.Flow(4, setup.Zones.Where(z => z != setup.TripZone).Take(4).Select(z =>
             {
                 var button = Ui.Button(City(z), null, "compact"); AutomationProperties.SetName(button, FieldOptions.ZoneLabel(z));
-                button.Click += (_, _) => { zone = z; search.Select(z); Update(); };
+                button.Click += (_, _) => { zone = z; Render(); };
                 return (Control)button;
             }).ToArray());
             return Row(s["ExportTimesIn"], Ui.V(6, choices, search, quick, Ui.Text(s["ExportZoneHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)));
@@ -77,13 +78,16 @@ public sealed partial class Dialogs
         Control AlsoIn()
         {
             var main = otherZone && zone is not null ? zone : setup.TripZone;
+            // The main zone is never shown beside itself.
+            alsoIn.RemoveAll(z => z == main);
             var chosen = Ui.Flow(4, alsoIn.Select(z =>
             {
                 var remove = Ui.Button(City(z), "x", "compact"); AutomationProperties.SetName(remove, string.Format(s["ExportRemoveZone"], FieldOptions.ZoneLabel(z)));
                 remove.Click += (_, _) => { alsoIn.Remove(z); Render(); };
                 return (Control)remove;
             }).ToArray());
-            var search = new SearchChoice(FieldOptions.Timezones, null, s["Timezone"]);
+            // Named after the row, so screen readers can tell it from the search under "Times in".
+            var search = new SearchChoice(FieldOptions.Timezones, null, s["ExportAlsoIn"]); search.Input.PlaceholderText = s["Timezone"];
             var add = Ui.Button(s["ExportAddZone"], "plus", "compact"); add.IsEnabled = false;
             void Add(string z) { if (z != main && !alsoIn.Contains(z)) alsoIn.Add(z); Render(); }
             void Typed() => add.IsEnabled = search.Value is { } z && z != main && !alsoIn.Contains(z);

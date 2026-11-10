@@ -236,12 +236,21 @@ public sealed class ExportTests : IDisposable
             Assert.Equal(FieldOptions.ZoneLabel("Europe/Berlin"), search.Text);
             Assert.Contains(s["ExportZoneHint"], Texts(Probe.Sheet(w)));
             Press(Probe.Sheet(w), "Tokyo"); Probe.Layout();
-            Assert.Equal(FieldOptions.ZoneLabel("Asia/Tokyo"), search.Text);
+            Assert.Equal(FieldOptions.ZoneLabel("Asia/Tokyo"), Probe.All<AutoCompleteBox>(Probe.Sheet(w)).First().Text);
+            // The two searches have different names for screen readers.
+            Assert.Equal([s["Timezone"], s["ExportAlsoIn"]], Probe.All<AutoCompleteBox>(Probe.Sheet(w)).Select(b => Avalonia.Automation.AutomationProperties.GetName(b)));
 
             // More zones beside each time: the trip's own zone is a quick choice once the main zone is another.
             Assert.Contains(s["ExportAlsoIn"], Texts(Probe.Sheet(w)));
             Press(Probe.Sheet(w), "Auckland"); Probe.Layout();
             Assert.Contains(Probe.All<Button>(Probe.Sheet(w)), b => Avalonia.Automation.AutomationProperties.GetName(b) == string.Format(s["ExportRemoveZone"], FieldOptions.ZoneLabel("Pacific/Auckland")));
+
+            // A zone beside the times that becomes the main zone leaves "Also in", so the dialog shows what the export gets.
+            static Button Named(Control sheet, string name) => Probe.All<Button>(sheet).Single(b => Avalonia.Automation.AutomationProperties.GetName(b) == name);
+            Named(Probe.Sheet(w), string.Format(s["ExportAddThisZone"], FieldOptions.ZoneLabel("Europe/Berlin"))).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout();
+            Named(Probe.Sheet(w), FieldOptions.ZoneLabel("Europe/Berlin")).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout();
+            Assert.DoesNotContain(Probe.All<Button>(Probe.Sheet(w)), b => Avalonia.Automation.AutomationProperties.GetName(b) == string.Format(s["ExportRemoveZone"], FieldOptions.ZoneLabel("Europe/Berlin")));
+            Assert.DoesNotContain(Probe.All<Button>(Probe.Sheet(w)), b => Avalonia.Automation.AutomationProperties.GetName(b) == string.Format(s["ExportAddThisZone"], FieldOptions.ZoneLabel("Europe/Berlin")));
 
             // A calendar file has no such row: calendar apps show times in their own zone.
             Press(Probe.Sheet(w), s["ICS"]); Probe.Layout();
@@ -249,10 +258,33 @@ public sealed class ExportTests : IDisposable
             Press(Probe.Sheet(w), s["ExportTextFile"]); Probe.Layout();
             Probe.All<Button>(Probe.Sheet(w)).Single(b => b.IsDefault).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             var choice = await shown;
-            Assert.Equal("Asia/Tokyo", choice!.Options.TimeZone);
+            Assert.Equal("Europe/Berlin", choice!.Options.TimeZone);
             Assert.Equal(["Pacific/Auckland"], choice.Options.OtherTimeZones);
         }
         finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheExportStartsWithThePlansSecondTimeZoneUntilSomeoneChooses()
+    {
+        var (m, interaction, store, _, _) = await Open();
+        using var _ = m; using var __ = store;
+        m.SetSecondZone("Asia/Tokyo");
+
+        // The first export offers the second zone beside the trip's times...
+        interaction.Answers.Enqueue(Path.Combine(root, "first.txt"));
+        await m.ExportCommand.ExecuteAsync(null);
+        Assert.Null(interaction.ExportSetups[^1].Initial.Options.TimeZone);
+        Assert.Equal(["Asia/Tokyo"], interaction.ExportSetups[^1].Initial.Options.OtherTimeZones);
+
+        // ...and a choice without it is kept, also when the second zone stays set.
+        interaction.Export = setup => setup.Initial with { Format = "txt", Options = setup.Initial.Options with { OtherTimeZones = [] } };
+        interaction.Answers.Enqueue(Path.Combine(root, "second.txt"));
+        await m.ExportCommand.ExecuteAsync(null);
+        interaction.Export = null;
+        interaction.Answers.Enqueue(Path.Combine(root, "third.txt"));
+        await m.ExportCommand.ExecuteAsync(null);
+        Assert.Empty(interaction.ExportSetups[^1].Initial.Options.OtherTimeZones);
     }
 
     [AvaloniaFact]

@@ -29,7 +29,7 @@ public static class MoreView
                 Row(s, "places", "map-pin", str["Places"], string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places)),
                 Row(s, "files", "paperclip", str["Files"], string.Format(CultureInfo.CurrentCulture, str["CountFiles"], files)),
                 Row(s, "costs", "wallet", str["Costs"], currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"]),
-                Row(s, "converter", "coins", str["Converter"], s.Rates is { } rates ? string.Format(CultureInfo.CurrentCulture, str["RatesFromShort"], rates.Date.ToString("d MMM", CultureInfo.GetCultureInfo(str.Language))) : null)),
+                Row(s, "converter", "coins", str["Converter"], s.Rates is { } rates ? string.Format(CultureInfo.CurrentCulture, str["RatesFromShort"], rates.Date.ToString(Formats.DayPattern("d MMM", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))) : null)),
             Group(str["TripTogether"],
                 Row(s, "trip", "pencil", str["TripDetails"], Formats.DateRange(TripQueries.EffectiveDates(trip).Start, TripQueries.EffectiveDates(trip).End) is { Length: > 0 } range ? range : str["NoDatesYet"]),
                 Row(s, "travellers", "users", str["Travellers"], string.Format(CultureInfo.CurrentCulture, str["CountPeople"], people)),

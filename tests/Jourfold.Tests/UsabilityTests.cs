@@ -36,6 +36,16 @@ public sealed class UsabilityTests : IDisposable
     private static Control Sheet(MainWindow w) => Probe.Sheet(w);
 
     [AvaloniaFact]
+    public async Task TheHeaderBuildsWithMacShortcuts()
+    {
+        var w = Window(); await Open(w);
+        // No await while the switch is on: every test that reads it runs on this UI thread.
+        Shortcuts.Mac = true;
+        try { Assert.NotNull(HeaderView.Build(w)); }
+        finally { Shortcuts.Mac = false; }
+    }
+
+    [AvaloniaFact]
     public void ScreenReadersHearChosenOptionsAndPeopleRatherThanDecorations()
     {
         var chosen = Ui.Choice("Planned", "calendar", true, "chip"); var other = Ui.Choice("Idea", null, false, "chip");

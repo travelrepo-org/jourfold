@@ -43,19 +43,55 @@ public static class Lines
         return ScheduleQueries.PrimaryPlace(trip, item)?.Title ?? "";
     }
 
-    /// <summary>The day's weather in one line, such as "☁ 18° / 9° · Rain 60 %", or null without a forecast.</summary>
+    /// <summary>
+    /// The day's weather in one line, such as "☁ 18° / 9° · Rain 60 %", with when it was fetched and a way to fetch it
+    /// again; null without a forecast.
+    /// </summary>
     public static Control? DayWeather(MobileSession s, LocalDate date)
     {
         if (!s.Weather.Days.TryGetValue(date, out var day)) return null;
-        return Ui.H(6, Ui.Icon(WeatherDisplay.Icon(day.Outlook), 16, "Text.Muted"), Ui.Text(WeatherDisplay.Summary(day.Outlook, s.Strings, imperial: false), "caption"))
-            .Also(h => AutomationProperties.SetName(h, s.Strings["Weather"]));
+        var line = Ui.H(6, Ui.Icon(WeatherDisplay.Icon(day.Outlook), 16, "Text.Muted"), Ui.Text(WeatherDisplay.Summary(day.Outlook, s.Strings, imperial: false), "caption"))
+            .Also(h => { h.VerticalAlignment = VerticalAlignment.Center; AutomationProperties.SetName(h, s.Strings["Weather"]); });
+        return day.Outlook.Fetched is { } fetched ? Ui.Flow(4, line, WeatherFetched(s, fetched)) : line;
     }
 
-    /// <summary>What the weather means for a plan, such as rain on a hike; null when nothing matters.</summary>
-    public static Control? ItemWeather(MobileSession s, Guid item)
+    /// <summary>
+    /// What the weather means for a plan, such as rain on a hike; null when nothing matters. With
+    /// <paramref name="fetched"/>, as in the details, it says when that forecast was fetched and offers to fetch it again.
+    /// </summary>
+    public static Control? ItemWeather(MobileSession s, Guid item, bool fetched = false)
     {
         if (!s.Weather.Items.TryGetValue(item, out var weather) || weather.Concerns.Count == 0) return null;
-        return Ui.H(6, Ui.Icon(WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind), 14, "Warning"), Ui.Text(WeatherDisplay.Concerns(weather.Concerns, s.Strings, imperial: false), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        var line = Ui.H(6, Ui.Icon(WeatherDisplay.ConcernIcon(weather.Concerns[0].Kind), 14, "Warning"), Ui.Text(WeatherDisplay.Concerns(weather.Concerns, s.Strings, imperial: false), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        var times = weather.Outlooks.Select(o => o.Fetched).OfType<Instant>().ToArray();
+        return fetched && times.Length > 0 ? Ui.V(0, line, WeatherFetched(s, times.Min()).Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)) : line;
+    }
+
+    private static Button WeatherFetched(MobileSession s, Instant fetched) =>
+        Fetched(s, fetched, s.Strings["WeatherAsOf"], s.Strings["RefreshWeather"], () => s.RefreshWeatherAsync(), s.Strings["WeatherRefreshFailed"]);
+
+    /// <summary>
+    /// When weather or exchange rates on show were fetched, as a quiet button that fetches them again: "as of 14:20 ↻".
+    /// The desktop has the same (<c>FreshnessButton</c>). A failure says so in a notice and keeps what is there.
+    /// </summary>
+    /// <param name="format">The text around the time, such as <c>WeatherAsOf</c>.</param>
+    /// <param name="label">What the button does, for screen readers.</param>
+    /// <param name="refresh">Fetches again; false when that failed.</param>
+    /// <param name="failed">The notice after a failure.</param>
+    public static Button Fetched(MobileSession s, Instant fetched, string format, string label, Func<Task<bool>> refresh, string failed)
+    {
+        var text = Freshness.Text(fetched, s.Now, s.PhoneZone, format);
+        var button = new Button { Content = Ui.H(5, Ui.Text(text, "caption"), Ui.Icon("refresh-cw", 13, "Text.Muted")) }.Classed("ghost", "fresh");
+        AutomationProperties.SetName(button, label + ", " + text);
+        button.Click += async (_, _) =>
+        {
+            // The page is drawn again with what was fetched, so the shell is found before.
+            var shell = Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(button);
+            button.IsEnabled = false;
+            if (!await refresh()) shell?.Notify(failed);
+            button.IsEnabled = true;
+        };
+        return button;
     }
 
     public static string? BookingReference(TripSnapshot trip, Entity item)

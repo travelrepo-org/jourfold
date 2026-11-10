@@ -22,7 +22,11 @@ public sealed record ReportReview(string Text, bool ByMail);
 public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
 public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName, bool GitHubConnected = false, string? GitHubLogin = null);
 /// <summary>What the export dialog offers for the open trip, and the choices it starts with.</summary>
-public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IReadOnlyList<PackingList> Lists, LocalDate? Start, LocalDate? End, bool OnlineMaps, ExportChoice Initial);
+public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IReadOnlyList<PackingList> Lists, LocalDate? Start, LocalDate? End, bool OnlineMaps, ExportChoice Initial, string TripZone = "UTC", IReadOnlyList<string>? ZoneSuggestions = null)
+{
+    /// <summary>Time zones worth offering for an export in another zone: the second zone, those the trip uses, this computer's.</summary>
+    public IReadOnlyList<string> Zones => ZoneSuggestions ?? [];
+}
 /// <summary>The choices made in the export dialog.</summary>
 /// <param name="Kind"><c>plan</c> or <c>packing</c>.</param>
 /// <param name="Format"><c>pdf</c>, <c>html</c>, <c>ics</c>, <c>txt</c>, <c>csv</c>, or <c>copy</c> for text on the clipboard.</param>

@@ -471,8 +471,7 @@ public static class MorePages
         var result = Ui.Text("", "h1").Also(t => t.FontSize = 32);
         void Show()
         {
-            var text = amount.Text?.Replace(',', '.') ?? "";
-            result.Text = decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && rates.Convert(value, from, to) is { } converted
+            result.Text = ExchangeRates.Amount(amount.Text) is { } value && rates.Convert(value, from, to) is { } converted
                 ? Formats.Money(Math.Round(converted, 2), to) : "–";
         }
         amount.TextChanged += (_, _) => Show();
@@ -490,13 +489,15 @@ public static class MorePages
             flow.Children.Add(other);
             return flow;
         }
+        // When the rates were fetched is another thing than their own date below: on a Sunday the newest are Friday's.
+        Control? Fetched() => s.RatesFetched is { } fetched ? Lines.Fetched(s, Instant.FromDateTimeOffset(fetched), str["RatesFetched"], str["RefreshRates"], () => s.RefreshRatesAsync(), str["RatesRefreshFailed"]) : null;
         var swap = Ui.Button(str["SwapCurrencies"], "refresh-cw", "ghost");
         swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.Redraw(); };
         Show();
         return Frame(s, str["Converter"],
-            Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
+            Ui.Card(Ui.V(12, Ui.Columns("*,Auto", Ui.Text(from, "overline").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Fetched()), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
                 Ui.Text(to, "overline"), result, Chips("converter.to", to)), 16).Margin(16, 0),
-            Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString("d MMM yyyy", CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0));
+            Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString(Formats.DayPattern("d MMM yyyy", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0));
     }
 
     private static Control Task(MobileSession s, Entity task, LocalDate? due, bool late)

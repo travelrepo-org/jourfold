@@ -36,4 +36,20 @@ public sealed class Localization
     /// <summary>The failed rules of a schema validation result as short lines, for example "location: Required properties [longitude] are not present".</summary>
     private static string SchemaDetails(string json) => TravelRepo.Serialization.SchemaValidation.Explain(json, 5) is { Count: > 0 } lines ? "\n\n" + string.Join("\n", lines) : "";
     public IReadOnlyDictionary<string, string> All => strings;
+
+    /// <summary>
+    /// Puts the words that Avalonia's time and date pickers show before a value is chosen, such as "hour" and
+    /// "minute", into <paramref name="resources"/> in this language. The Fluent theme reads them from there and only
+    /// has English ones.
+    /// </summary>
+    public void Pickers(Avalonia.Controls.IResourceDictionary resources)
+    {
+        foreach (var (resource, key) in PickerWords) resources[resource] = this[key];
+    }
+
+    private static readonly (string Resource, string Key)[] PickerWords =
+    [
+        ("StringTimePickerHourText", "PickerHour"), ("StringTimePickerMinuteText", "PickerMinute"), ("StringTimePickerSecondText", "PickerSecond"),
+        ("StringDatePickerDayText", "PickerDay"), ("StringDatePickerMonthText", "PickerMonth"), ("StringDatePickerYearText", "PickerYear"),
+    ];
 }

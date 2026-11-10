@@ -96,20 +96,25 @@ public static class Visuals
 /// <summary>Locale-aware display formatting. Canonical values are never formatted with these helpers.</summary>
 public static class Formats
 {
+    private static bool German(CultureInfo culture) => culture.TwoLetterISOLanguageName == "de";
+
+    /// <summary>A date pattern written as "d MMM", with the full stop German puts after the day of the month.</summary>
+    public static string DayPattern(string pattern, CultureInfo culture) => German(culture) ? pattern.Replace("d MMM", "d. MMM", StringComparison.Ordinal) : pattern;
+
     public static string Time(LocalTime time) => time.ToString(CultureInfo.CurrentCulture.DateTimeFormat.ShortTimePattern.Contains('H') ? "HH:mm" : "h:mm tt", CultureInfo.CurrentCulture);
     public static string Time(LocalDateTime time) => Time(time.TimeOfDay);
     public static string DayHeader(LocalDate date) => date.ToString("ddd", CultureInfo.CurrentCulture);
-    public static string DayNumber(LocalDate date) => date.ToString("d MMM", CultureInfo.CurrentCulture);
-    public static string LongDay(LocalDate date) => date.ToString("dddd, d MMMM", CultureInfo.CurrentCulture);
-    public static string Date(LocalDate date) => date.ToString("d MMM yyyy", CultureInfo.CurrentCulture);
-    public static string ShortDate(LocalDate date) => date.ToString("d MMM", CultureInfo.CurrentCulture);
+    public static string DayNumber(LocalDate date) => date.ToString(DayPattern("d MMM", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
+    public static string LongDay(LocalDate date) => date.ToString(DayPattern("dddd, d MMMM", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
+    public static string Date(LocalDate date) => date.ToString(DayPattern("d MMM yyyy", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
+    public static string ShortDate(LocalDate date) => date.ToString(DayPattern("d MMM", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
 
     public static string DateRange(LocalDate? start, LocalDate? end)
     {
         if (start is null && end is null) return "";
         if (start is null || end is null || start == end) return Date((start ?? end)!.Value);
         var a = start.Value; var b = end.Value;
-        if (a.Year == b.Year && a.Month == b.Month) return a.Day.ToString(CultureInfo.CurrentCulture) + "–" + Date(b);
+        if (a.Year == b.Year && a.Month == b.Month) return a.Day.ToString(CultureInfo.CurrentCulture) + (German(CultureInfo.CurrentCulture) ? "." : "") + "–" + Date(b);
         if (a.Year == b.Year) return ShortDate(a) + " – " + Date(b);
         return Date(a) + " – " + Date(b);
     }
@@ -133,7 +138,7 @@ public static class Formats
         if (delta < TimeSpan.FromHours(1)) return string.Format(CultureInfo.CurrentCulture, s["MinutesAgo"], (int)delta.TotalMinutes);
         if (delta < TimeSpan.FromDays(1)) return string.Format(CultureInfo.CurrentCulture, s["HoursAgo"], (int)delta.TotalHours);
         if (delta < TimeSpan.FromDays(7)) return string.Format(CultureInfo.CurrentCulture, s["DaysAgo"], (int)delta.TotalDays);
-        return when.ToLocalTime().ToString("d MMM yyyy", CultureInfo.CurrentCulture);
+        return when.ToLocalTime().ToString(DayPattern("d MMM yyyy", CultureInfo.CurrentCulture), CultureInfo.CurrentCulture);
     }
 
     public static string Money(decimal amount, string currency)

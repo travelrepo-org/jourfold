@@ -50,7 +50,8 @@ public partial class MainViewModel
     /// <see cref="CostUpgrade"/>), showing what changes. Saved as one undoable step and, when nothing else is
     /// unsaved, as a version of its own. Nothing changes without the person's OK.
     /// </summary>
-    public Task OfferCostUpgradeAsync() => RunEditAsync(async () =>
+    // Not an edit while it asks, so the header does not say "Saving" before the answer.
+    public Task OfferCostUpgradeAsync() => RunAsync(async () =>
     {
         if (Workspace is not { } workspace || upgradeLater.Contains(workspace.Repository.Root)) return;
         var plan = CostUpgrade.Plan(workspace.State.Trip, SystemCurrency);
@@ -73,7 +74,7 @@ public partial class MainViewModel
         using (ExecutionContext.SuppressFlow()) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = OfferSharesForAsync(joined));
     }
 
-    private Task OfferSharesForAsync(IReadOnlyList<Guid> joined) => RunEditAsync(async () =>
+    private Task OfferSharesForAsync(IReadOnlyList<Guid> joined) => RunAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip) return;
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();

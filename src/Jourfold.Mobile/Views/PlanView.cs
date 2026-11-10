@@ -183,12 +183,12 @@ public static class PlanView
         }
         scroll.ScrollChanged += (_, _) => { offset = scroll.Offset.Y; Pin(); };
         scroll.LayoutUpdated += (_, _) => Pin();
-        scroll.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() =>
+        Controls.ScrollPlace.Set(scroll, () =>
         {
             var target = sameDay ? restore : Math.Min(restore, strip.Bounds.Top);
             if (target > 0) scroll.Offset = new Vector(0, target);
             offset = scroll.Offset.Y;
-        }, DispatcherPriority.Loaded);
+        });
     }
 
     /// <summary>The current item's extra lines: its notes in short and the way to get there.</summary>

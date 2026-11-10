@@ -45,6 +45,8 @@
     <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
   <Style Selector="Button:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Muted}"/></Style>
+  <!-- Held long enough for a long press (Menus.OnHold): letting go now opens the menu. -->
+  <Style Selector="Button.held, TextBlock.held"><Setter Property="Opacity" Value="0.7"/></Style>
   <Style Selector="Button.primary"><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
   <Style Selector="Button.primary:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Accent.Pressed}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/></Style>
   <Style Selector="Button.soft"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>

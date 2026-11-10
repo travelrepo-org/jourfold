@@ -47,7 +47,9 @@ says what was copied. Only the item happening now or next on the phone's today s
 stay's check-in says how many nights it has, and the night line closes every day, the day of the check-in too.
 
 A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,
-move to another day and delete. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
+move to another day and delete. A long press counts when the finger is lifted after half a second without having
+moved: the item fades a little and the device gives a short vibration once that time is reached, and letting go then
+opens the menu or copies the line. A hold that turns into a scroll or a swipe opens nothing. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
 that says whether it is still on GitHub. Everything in these menus can also be reached without the gesture.
 
 ## Places and the map

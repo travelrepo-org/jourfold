@@ -27,7 +27,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
             Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText,
-            AppVersion: InstalledVersion());
+            AppVersion: InstalledVersion(), Haptic: Haptic);
         base.OnCreate();
     }
 
@@ -42,14 +42,17 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
     }
 
     /// <summary>
-    /// What the system would call this device: a phone when it can make calls (foldables too, as their makers call
-    /// them), a computer-like device such as a Chromebook, otherwise a tablet. The window size does not count; a
-    /// phone on a monitor in DeX stays a phone.
+    /// What the system would call this device; see <see cref="MobileHost.AndroidDevice"/>. The window size does not
+    /// count; a phone on a monitor in DeX stays a phone.
     /// </summary>
     private string Device()
     {
-        if (PackageManager?.HasSystemFeature("android.hardware.type.pc") == true) return "device";
-        return GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true } ? "phone" : "tablet";
+        // The system's own metrics are the built-in screen's, whatever window or monitor the app is on.
+        var screen = global::Android.Content.Res.Resources.System?.DisplayMetrics;
+        var shortest = screen is { Density: > 0 } ? Math.Min(screen.WidthPixels, screen.HeightPixels) / screen.Density : 0;
+        return MobileHost.AndroidDevice(PackageManager?.HasSystemFeature("android.hardware.type.pc") == true,
+            GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true },
+            PackageManager?.HasSystemFeature("android.hardware.sensor.hinge_angle") == true, shortest);
     }
 
     /// <summary>Offers a text, such as a day of the plan, to a messenger or mail app through the share sheet.</summary>
@@ -59,6 +62,9 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         StartActivity(Intent.CreateChooser(send, title)!.AddFlags(ActivityFlags.NewTask));
         return Task.CompletedTask;
     }
+
+    /// <summary>The system's long-press feedback, which follows the user's touch-feedback setting.</summary>
+    private static void Haptic() => MainActivity.Current?.Window?.DecorView.PerformHapticFeedback(global::Android.Views.FeedbackConstants.LongPress);
 
     /// <summary>Full brightness while a ticket is on screen, so a scanner reads it; back to the system's setting after.</summary>
     private static void Bright(bool on)

@@ -471,8 +471,7 @@ public static class MorePages
         var result = Ui.Text("", "h1").Also(t => t.FontSize = 32);
         void Show()
         {
-            var text = amount.Text?.Replace(',', '.') ?? "";
-            result.Text = decimal.TryParse(text, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) && rates.Convert(value, from, to) is { } converted
+            result.Text = ExchangeRates.Amount(amount.Text) is { } value && rates.Convert(value, from, to) is { } converted
                 ? Formats.Money(Math.Round(converted, 2), to) : "–";
         }
         amount.TextChanged += (_, _) => Show();

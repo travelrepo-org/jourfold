@@ -51,7 +51,7 @@ public static class CollectionViews
         var bookings = trip.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => (e.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) && trip.Find(id) is { } item ? ScheduleQueries.Span(trip, item).Start : null).Where(x => x is not null).Min() ?? Instant.MaxValue).ToArray();
         if (bookings.Length == 0) return Page(w, s["Bookings"], s["BookingsHint"], Ui.Card(Ui.EmptyState("ticket", s["NoBookingsTitle"], s["NoBookingsBody"], AddButton(w, s["AddBooking"], "booking")), 0));
         var list = Ui.V(2);
-        var missing = Expenses.WithoutExpense(trip).Select(b => b.Id).ToHashSet();
+        var payments = Expenses.Payments(trip).ToDictionary(p => p.Booking.Id);
         foreach (var b in bookings)
         {
             var items = (b.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>().ToArray();
@@ -67,7 +67,7 @@ public static class CollectionViews
                 Ui.Tile(icon, kind, 38).Margin(0, 0, 14, 0),
                 Ui.V(2, Ui.Line(b.Title, "title"), Ui.Line(string.Join(" · ", new[] { b.Data["provider"]?["name"]?.ToString(), when, items.Length > 1 ? string.Format(s["ItemsCount"], items.Length) : items.FirstOrDefault()?.Title }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(travelers, 24).Margin(8, 0) : null,
-                ExpenseViews.MissingExpensePill(s, missing, b)?.Margin(8, 0),
+                ExpenseViews.MissingExpensePill(s, payments, b)?.Margin(8, 0),
                 Ui.Text(price, "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.TextAlignment = TextAlignment.Right; }),
                 Ui.Pill(s[status], si, sb, sf).Margin(14, 0, 0, 0));
             list.Children.Add(Row(w, b, grid));
@@ -111,15 +111,15 @@ public static class CollectionViews
             var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
             var shared = e.Type == "expense" && !estimated ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
             var grid = Ui.Columns("Auto,*,Auto,Auto,140",
-                Ui.Tile(e.Type == "budget" ? "piggy-bank" : "receipt", e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
-                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
+                Ui.Tile(e.Type == "budget" ? "piggy-bank" : ExpenseViews.CategoryIcon(ExpenseCategories.Of(trip, e)), e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
+                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : ExpenseViews.CategoryName(s, ExpenseCategories.Of(trip, e)), e.Type == "budget" ? null : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : shared?.Margin(8, 0),
                 payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
                 Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
     }
 
     /// <summary>

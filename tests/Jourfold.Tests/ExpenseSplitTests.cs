@@ -178,8 +178,8 @@ public sealed class ExpenseSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "1 booking with a price but no expense", "No expense", "Add Te Anau Lakeview Holiday Park as an expense", "Add")]
-    [InlineData("de", "1 Buchung mit Preis, aber ohne Ausgabe", "Keine Ausgabe", "Te Anau Lakeview Holiday Park als Ausgabe erfassen", "Hinzufügen")]
+    [InlineData("en", "1 booking not fully recorded as expenses", "No expense", "Add Te Anau Lakeview Holiday Park as an expense", "Add")]
+    [InlineData("de", "1 Buchung nicht vollständig als Ausgaben erfasst", "Keine Ausgabe", "Te Anau Lakeview Holiday Park als Ausgabe erfassen", "Hinzufügen")]
     public async Task ABookingsPriceBecomesAnExpenseInOneStep(string language, string heading, string pill, string button, string add)
     {
         var w = await Window(language, "Light"); var m = w.Model;
@@ -211,6 +211,56 @@ public sealed class ExpenseSplitTests : IDisposable
             m.Navigate("Bookings"); m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
             Assert.DoesNotContain(pill, Texts(w));
             await Probe.Until(() => Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Any(b => AutomationProperties.GetName(b) == "Te Anau Lakeview Holiday Park"));
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", "Accommodation", "Souvenirs", "By category", "Rest open", "Add the rest as expense")]
+    [InlineData("de", "Unterkunft", "Souvenirs", "Nach Kategorie", "Rest offen", "Rest als Ausgabe erfassen")]
+    public async Task ExpensesHaveCategoriesAndABookingShowsWhatIsStillOpen(string language, string accommodation, string souvenirs, string byCategory, string restOpen, string addRest)
+    {
+        var w = await Window(language, "Light"); var m = w.Model;
+        try
+        {
+            var stay = Entity.Create("schedule_item", "Park Hotel Ruapehu"); stay.Data["components"] = new System.Text.Json.Nodes.JsonObject { ["accommodation"] = new System.Text.Json.Nodes.JsonObject() };
+            var booking = Entity.Create("booking", "Park Hotel Ruapehu"); booking.Data["status"] = "confirmed"; booking.Data["items"] = new System.Text.Json.Nodes.JsonArray(stay.Id.ToString());
+            booking.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "348.50", ["currency"] = "NZD" };
+            await m.Workspace!.ApplyAsync([new(stay.Id, stay), new(booking.Id, booking)]);
+
+            // A deposit through the form: the stay suggests accommodation.
+            var deposit = m.AddExpenseForBookingAsync(booking.Id);
+            await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
+            var sheet = Probe.Sheet(w);
+            Assert.Contains(Probe.All<ChoiceButton>(sheet), c => AutomationProperties.GetName(c) == accommodation && c.IsSelected);
+            Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value = 100m; Probe.Layout();
+            Probe.Click(sheet, m.Strings["Add"]);
+            await deposit;
+            Assert.Equal(BookingCoverage.Partial, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            Assert.Equal("accommodation", ExpenseCategories.Of(m.Trip!, Expenses.ForBooking(m.Trip!, booking.Id).Single()));
+
+            // The booking says what is open and records the rest in one step.
+            m.Navigate("Bookings"); Assert.Contains(restOpen, Texts(w));
+            m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            await Probe.Until(() => Probe.All<Button>(inspector).Any(b => AutomationProperties.GetName(b) == addRest));
+            var rest = m.AddExpenseForBookingAsync(booking.Id);
+            await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
+            Assert.Equal(248.50m, Probe.All<NumericUpDown>(Probe.Sheet(w)).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value);
+            Probe.Click(Probe.Sheet(w), m.Strings["Add"]);
+            await rest;
+            Assert.Equal(BookingCoverage.Complete, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+
+            // A category of their own, created in the details.
+            var kiwi = Expense("Kiwi plush", "35.00", "NZD", m.Trip!.Entities.Values.Single(e => e.Title == "Ben"));
+            await m.Workspace.EditAsync(kiwi);
+            m.Navigate("Costs"); m.Selected = m.Trip!.Find(kiwi.Id); Probe.ShowDetails(w);
+            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == souvenirs));
+            Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == souvenirs).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => ExpenseCategories.Stored(m.Trip!.Find(kiwi.Id)!) == "souvenirs");
+            m.Navigate("Plan"); m.Navigate("Costs");
+            Assert.Contains(byCategory, Texts(w));
+            Assert.Contains(accommodation, Texts(w));
         }
         finally { w.Close(); }
     }

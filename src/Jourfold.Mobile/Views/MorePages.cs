@@ -598,6 +598,8 @@ public static class MorePages
             var body = Ui.V(10);
             if (Names(trip, expense.Data["paid_by"]) is { Length: > 0 } payers) body.Children.Add(DetailView.Row("user", string.Format(CultureInfo.CurrentCulture, str["PaidBy"], payers), null));
             if (expense.Data["body"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
+            var category = ExpenseCategories.Of(trip, expense);
+            body.Children.Add(DetailView.Row("tag", ExpenseCategories.IsStandard(category) ? str["expcat." + category] : category, str["Category"]));
             if (Expenses.ChargeOf(expense) is { } charge)
                 body.Children.Add(DetailView.Row("wallet", string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), money is null ? null : string.Format(CultureInfo.CurrentCulture, str["ChargedRate"], money.Currency, charge.Rate.ToString("0.####", CultureInfo.CurrentCulture), charge.Currency)));
             // Everyone's part, and a box per debt to mark it as paid back, large enough to tap.

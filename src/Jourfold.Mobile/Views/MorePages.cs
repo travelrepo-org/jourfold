@@ -563,13 +563,16 @@ public static class MorePages
         // Payments for ideas say what they would cost and are listed apart.
         var ideas = expenses.Where(e => Expenses.IsIdea(trip, e)).ToArray();
         var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses.Except(ideas), home, s.EstimateRates, planned: true);
-        string Sum(ConvertedTotal t) => (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home);
-        var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text(Sum(paid), "h2"));
-        if (planned.Total > 0) body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StillToPayAmount"], Sum(planned)), "caption"));
-        if (ideas.Length > 0 && Expenses.Total(ideas, home, s.EstimateRates, planned: true) is { } maybe && maybe.Total != 0)
+        // What is in the trip's currency and, apart, what is not converted yet, without a zero in front: "≈ EUR 40.00 + JPY 5,000.00".
+        string Sum(ConvertedTotal t) => string.Join(" + ", new[] { t.Total != 0 || t.NotConverted.Count == 0 ? (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home) : null }
+            .Concat(t.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))).OfType<string>());
+        var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text((paid.Estimated > 0 ? "≈ " : "") + Formats.Money(paid.Total, home), "h2"));
+        // Paid, but not in the trip's currency yet: listed apart, as on the computer.
+        if (paid.NotConverted.Count > 0)
+            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedYet"], string.Join(" + ", paid.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency)))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (planned.Total != 0 || planned.NotConverted.Count > 0) body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StillToPayAmount"], Sum(planned)), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (ideas.Length > 0 && Expenses.Total(ideas, home, s.EstimateRates, planned: true) is { } maybe && (maybe.Total != 0 || maybe.NotConverted.Count > 0))
             body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["IdeasNotCounted"], Sum(maybe)), "caption"));
-        if (paid.NotConverted.Concat(planned.NotConverted).GroupBy(x => x.Currency).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key)).ToArray() is { Length: > 0 } apart)
-            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedYet"], string.Join(" + ", apart)), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
         if (budget is not null)
         {
             var ratio = budget.Amount <= 0 ? 1 : (double)Math.Min(1m, budget.Used / budget.Amount);

@@ -120,7 +120,8 @@ public static class DetailEdits
     public static void SetMoney(Entity e, string path, decimal? amount, string currency)
     {
         if (amount is { } value && (currency.Length != 3 || !currency.All(char.IsAsciiLetterUpper))) throw new DomainException("money.currency", "A currency is a three-letter code such as EUR.");
-        Set(e, path, amount is { } v ? new JsonObject { ["value"] = v.ToString("0.00", CultureInfo.InvariantCulture), ["currency"] = currency } : null);
+        // With the currency's own decimals: 3600 JPY, 12.50 EUR.
+        Set(e, path, amount is { } v ? new JsonObject { ["value"] = TravelRepo.Core.Expenses.Format(v, currency), ["currency"] = currency } : null);
     }
 
     /// <summary>

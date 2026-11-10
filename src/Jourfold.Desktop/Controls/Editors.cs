@@ -201,7 +201,8 @@ public static class Editors
         {
             var code = currency.Value ?? money?.Currency ?? "EUR"; var next = amount.Value ?? 0m;
             if (money is not null && money.Amount == next && money.Currency == code) return;
-            money = new TravelRepo.Core.Money(next.ToString("0.00", CultureInfo.InvariantCulture), code);
+            // With the currency's own decimals: 3600 JPY, 12.50 EUR.
+            money = new TravelRepo.Core.Money(TravelRepo.Core.Expenses.Format(next, code), code);
             _ = w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, new JsonObject { ["value"] = money.Value, ["currency"] = code }));
         }
         amount.LostFocus += (_, _) => Commit(); currency.Input.LostFocus += (_, _) => Commit();

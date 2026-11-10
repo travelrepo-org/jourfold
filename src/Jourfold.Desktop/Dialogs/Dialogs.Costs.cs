@@ -48,15 +48,19 @@ public sealed partial class Dialogs
                 var (from, to, amount) = debt.Open < 0 ? (debt.To, debt.From, -debt.Open) : (debt.From, debt.To, debt.Open);
                 var title = trip.Find(debt.Expense)?.Title ?? "";
                 var line = string.Format(S["OwesTo"], Name(from), Name(to));
+                // In the trip's currency like the result below; the amount as owed stays beside it.
+                var shown = Formats.Money(amount, debt.Currency);
+                if (request.Currency is { } target && trip.Find(debt.Expense) is { } expense && Expenses.Convert(expense, amount, debt.Currency, target, request.Rates) is { Currency: var code, How: var how } converted && code == target && how != Conversion.Same)
+                { line += " · " + shown; shown = (how == Conversion.Reference ? "≈ " : "") + Formats.Money(converted.Amount, code); }
                 var check = new CheckBox
                 {
                     IsChecked = true,
                     HorizontalAlignment = HorizontalAlignment.Stretch,
                     HorizontalContentAlignment = HorizontalAlignment.Stretch,
                     Margin = new Thickness(2, 2),
-                    Content = Ui.Columns("*,Auto", Ui.V(1, Ui.Line(title), Ui.Line(line, "caption")), Ui.Text(Formats.Money(amount, debt.Currency), "strong").Margin(12, 0, 0, 0))
+                    Content = Ui.Columns("*,Auto", Ui.V(1, Ui.Line(title), Ui.Line(line, "caption")), Ui.Text(shown, "strong").Margin(12, 0, 0, 0))
                 };
-                AutomationProperties.SetName(check, title + ", " + line + ", " + Formats.Money(amount, debt.Currency));
+                AutomationProperties.SetName(check, title + ", " + line + ", " + shown);
                 chosen.Add(debt.Key);
                 check.IsCheckedChanged += (_, _) => { if (check.IsChecked == true) chosen.Add(debt.Key); else chosen.Remove(debt.Key); Summarize(); };
                 items.Children.Add(check); checks.Add(check);
@@ -76,7 +80,7 @@ public sealed partial class Dialogs
         var all = Ui.Button(S["SelectAll"], "square-check", "link"); all.Click += (_, _) => { foreach (var c in checks) c.IsChecked = true; };
         var none = Ui.Button(S["SelectNone"], "square", "link"); none.Click += (_, _) => { foreach (var c in checks) c.IsChecked = false; };
         Fill();
-        var sheet = new DialogSheet(S["PayTitle"], Ui.V(14, chooser, heading, Ui.H(12, all, none), new ScrollViewer { Content = items, MaxHeight = 320 }, Ui.Card(result, 14), Footer(cancel, ok)), 600);
+        var sheet = new DialogSheet(S["PayTitle"], Ui.V(14, chooser, heading, Ui.H(12, all, none), new ScrollViewer { Content = items.Also(i => i.Margin = new Thickness(0, 0, 16, 0)), MaxHeight = 320 }, Ui.Card(result, 14), Footer(cancel, ok)), 600);
         ok.Click += (_, _) => sheet.Close(new PayAnswer(person, chosen.ToArray()));
         cancel.Click += (_, _) => sheet.Close(null);
         return await sheet.ShowDialog<PayAnswer?>(owner);

@@ -125,6 +125,9 @@ public sealed partial class MobileSession : IDisposable
         await RefreshRemoteAsync(ct);
         // Changes left from the last time, for example when Android stopped the app, become a version soon.
         if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) NoteChange();
+        // Costs written by older versions are brought into the current shape once the travellers agree.
+        CostUpgradeLater = false;
+        if (!CostUpgradePlan.IsEmpty) OfferCostUpgrade();
         // Something shared before a trip was chosen goes into this one.
         if (Incoming is not null) Showing = Overlay.Share;
         Changed?.Invoke();

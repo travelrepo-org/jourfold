@@ -141,26 +141,24 @@ public sealed class ExpenseSplitTests : IDisposable
         using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
         using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
         var (path, p) = await Trip(); await m.OpenAsync(path);
-        m.HomeCurrency = "EUR";
+        await m.SetTripCurrencyAsync("EUR");
+        Assert.Equal("EUR", TripCurrency.Stored(m.Trip!));
         var tour = Expense("Hobbiton", "300.00", "NZD", p.Ana); await m.Workspace!.EditAsync(tour);
 
         // Nothing charged yet and no rates: who owes whom stays in NZD.
-        Assert.All(Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
+        Assert.All(Expenses.SettleUp(m.Trip!, m.TripCurrencyCode, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
         Assert.False(await m.SetChargeAsync(tour.Id, "lots", "EUR"));
         Assert.True(await m.SetChargeAsync(tour.Id, "168,30", "EUR"));
         var charge = Expenses.ChargeOf(m.Trip!.Find(tour.Id)!)!;
         Assert.Equal((168.30m, "EUR", 0.561m, m.Today), (charge.Value, charge.Currency, charge.Rate, charge.Date!.Value));
         // Ben and Cleo each owe a third of what the card charged, exactly.
-        var transfers = Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates);
+        var transfers = Expenses.SettleUp(m.Trip!, m.TripCurrencyCode, m.EstimateRates);
         Assert.Equal([56.10m, 56.10m], transfers.Select(t => t.Amount));
         Assert.All(transfers, t => Assert.True(t.Currency == "EUR" && !t.Estimated));
 
         // The pay function pays in euros too, and each expense's own currency is still there to choose.
         interaction.Pay = request => { Assert.Equal("EUR", request.Currency); Assert.Equal([new Transfer(p.Ben.Id, p.Ana.Id, "EUR", 56.10m)], Expenses.Pay(request.Trip, request.Person, Expenses.Open(request.Trip, request.Person).Select(d => d.Key), request.Currency, request.Rates).Payments); return null; };
         await m.PayAsync(p.Ben.Id);
-        m.SettleInHomeCurrency = false;
-        Assert.All(Expenses.SettleUp(m.Trip!, m.SettleCurrency, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
-        m.SettleInHomeCurrency = true;
 
         Assert.True(await m.SetChargeAsync(tour.Id, "", "EUR"));
         Assert.Null(m.Trip!.Find(tour.Id)!.Data["converted"]);
@@ -174,7 +172,7 @@ public sealed class ExpenseSplitTests : IDisposable
         var w = await Window(language, "Light"); var m = w.Model;
         try
         {
-            m.HomeCurrency = "EUR";
+            await m.SetTripCurrencyAsync("EUR");
             var boat = m.Trip!.Entities.Values.Single(e => e.Title.StartsWith("Boat", StringComparison.Ordinal));
             await m.SetSplitMethodAsync(boat.Id, SplitMethod.Equal);
             m.Navigate("Costs"); m.Selected = m.Trip!.Find(boat.Id); Probe.ShowDetails(w);
@@ -186,91 +184,154 @@ public sealed class ExpenseSplitTests : IDisposable
             m.Navigate("Plan"); m.Navigate("Costs");
             var texts = Texts(w).ToArray();
             Assert.Contains(texts, t => t.EndsWith(exact, StringComparison.Ordinal) && t.Contains("123", StringComparison.Ordinal));
-            Assert.Contains(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == chip);
+            Assert.Contains(texts, t => t.Equals(chip, StringComparison.OrdinalIgnoreCase));
             // Everything is in euros now and nothing is estimated.
             Assert.DoesNotContain(texts, t => t.StartsWith("≈", StringComparison.Ordinal));
         }
         finally { w.Close(); }
     }
 
+    [AvaloniaFact]
+    public async Task CostsFromAnOlderVersionAreUpgradedOnceAfterAskingAndNothingOwedChanges()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip();
+        // What an older version wrote: a booking with a price paid in part, one without any payment, and an expense
+        // without a split that Ben already paid back.
+        var repository = new TravelRepository(path); var state = await repository.ReadAsync();
+        var lodge = Entity.Create("booking", "Lodge"); lodge.Data["status"] = "confirmed"; lodge.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "300.00", ["currency"] = "NZD" };
+        var motel = Entity.Create("booking", "Motel"); motel.Data["status"] = "confirmed"; motel.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "120.00", ["currency"] = "NZD" };
+        var deposit = Expense("Lodge deposit", "100.00", "NZD", p.Ana); deposit.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = "booking", ["id"] = lodge.Id.ToString() });
+        deposit.Data["settled"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["person"] = p.Ben.Id.ToString(), ["to"] = p.Ana.Id.ToString(), ["value"] = "33.33" });
+        await repository.ApplyAsync(state, [new(lodge.Id, lodge), new(motel.Id, motel), new(deposit.Id, deposit)]);
+        await new GitRepository(repository, new GitCliBackend()).CreateVersionAsync("Older costs");
+        var before = Expenses.Debts((await repository.ReadAsync()).Trip).Select(d => (d.From, d.To, d.Amount, d.Settled)).ToArray();
+
+        // Opening asks; the test answers yes. The upgrade becomes a version of its own.
+        await m.OpenAsync(path);
+        await Probe.Until(() => interaction.Toasts.Contains("Costs are up to date"));
+        Assert.True(CostUpgrade.Plan(m.Trip!).IsEmpty);
+        var trip = m.Trip!;
+        Assert.Equal("NZD", TripCurrency.Stored(trip));
+        Assert.Null(trip.Find(lodge.Id)!.Data["price"]); Assert.Null(trip.Find(motel.Id)!.Data["price"]);
+        Assert.Equal([("Lodge", "200.00"), ("Motel", "120.00")], trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => e.Title).Select(e => (e.Title, e.Data["amount"]!["value"]!.ToString())));
+        Assert.Equal(before, Expenses.Debts(trip).Select(d => (d.From, d.To, d.Amount, d.Settled)));
+        Assert.True(string.IsNullOrEmpty(await m.Workspace!.Git.StatusAsync()));
+        Assert.StartsWith("Costs brought up to date", (await m.Workspace.Git.HistoryAsync())[0].Message, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
+    public async Task ATravellerWhoJoinsSharesOnlyTheEarlierExpensesChosen()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (path, p) = await Trip(); await m.OpenAsync(path);
+        // Written as an older version did: no split, so every traveller of the moment.
+        var dinner = Expense("Dinner", "90.00", "EUR", p.Ana); var taxi = Expense("Taxi", "30.00", "EUR", p.Ana);
+        await m.Workspace!.ApplyAsync([new(dinner.Id, dinner), new(taxi.Id, taxi)]);
+        dinner = Expenses.SettleAll(m.Trip!).Single(e => e.Id == dinner.Id); await m.Workspace.EditAsync(dinner);
+
+        // Dana joins and should share the taxi only.
+        string[]? offered = null;
+        interaction.Pick = (choices, selected) => { offered = choices.Select(c => c.Label).ToArray(); Assert.Empty(selected); return [choices.Single(c => c.Label.StartsWith("Taxi", StringComparison.Ordinal)).Id]; };
+        interaction.QuickAdds.Enqueue(r => new Jourfold.Application.QuickAddDraft("person", "Dana"));
+        await m.AddAsync("person");
+        await Probe.Until(() => offered is not null && m.Trip!.Entities.Values.Single(e => e.Title == "Taxi") is var t && Expenses.Split(m.Trip!, t).People.Count == 4);
+        var trip = m.Trip!; var dana = trip.Entities.Values.Single(e => e.Title == "Dana");
+        Assert.Equal(2, offered!.Length);
+        // The dinner stays with the three who shared it, and what Ben and Cleo paid back is exactly right still.
+        Assert.Equal([p.Ana.Id, p.Ben.Id, p.Cleo.Id], Expenses.Split(trip, trip.Find(dinner.Id)!).People);
+        Assert.True(Expenses.Split(trip, trip.Find(dinner.Id)!).IsSettled);
+        Assert.Contains(dana.Id, Expenses.Split(trip, trip.Find(taxi.Id)!).People);
+    }
+
     [AvaloniaTheory]
-    [InlineData("en", "1 booking not fully recorded as expenses", "No expense", "Add Te Anau Lakeview Holiday Park as an expense", "Add")]
-    [InlineData("de", "1 Buchung nicht vollständig als Ausgaben erfasst", "Keine Ausgabe", "Te Anau Lakeview Holiday Park als Ausgabe erfassen", "Hinzufügen")]
-    public async Task ABookingsPriceBecomesAnExpenseInOneStep(string language, string heading, string pill, string button, string add)
+    [InlineData("en", "Still to pay", "Price not recorded", "{0} to pay", "Add")]
+    [InlineData("de", "Noch zu zahlen", "Preis nicht erfasst", "{0} zu zahlen", "Hinzufügen")]
+    public async Task AnOlderBookingPriceBecomesAPaymentStillToPay(string language, string heading, string pill, string toPay, string add)
     {
         var w = await Window(language, "Light"); var m = w.Model;
         try
         {
-            var booking = Entity.Create("booking", "Te Anau Lakeview Holiday Park"); booking.Data["status"] = "confirmed";
-            booking.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "347.60", ["currency"] = "NZD" };
+            // A price an older version stored: not counted, and offered as a payment still to pay.
+            var booking = Entity.Create("booking", "Lakeside Holiday Park"); booking.Data["status"] = "confirmed";
+            booking.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "320.00", ["currency"] = "NZD" };
             await m.Workspace!.EditAsync(booking);
             m.Navigate("Bookings");
             Assert.Contains(pill, Texts(w));
             m.Navigate("Costs");
             Assert.Contains(heading, Texts(w));
 
-            var adding = m.AddExpenseForBookingAsync(booking.Id);
+            var adding = m.AddPaymentForBookingAsync(booking.Id, planned: true);
             await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
             var sheet = Probe.Sheet(w);
-            Assert.Equal("Te Anau Lakeview Holiday Park", Probe.Tagged<TextBox>(sheet, "title").Text);
-            Assert.Equal(347.60m, Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value);
+            Assert.Equal("Lakeside Holiday Park", Probe.Tagged<TextBox>(sheet, "title").Text);
+            Assert.Equal(320.00m, Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value);
+            Assert.True(Probe.All<CheckBox>(sheet).Single(c => AutomationProperties.GetName(c) == m.Strings["StillToPay"]).IsChecked);
             Probe.Click(sheet, add);
             await adding;
 
+            // The price is gone; the payment is still to pay, creates no debts and is shared by everyone travelling.
             var expense = Assert.Single(Expenses.ForBooking(m.Trip!, booking.Id));
-            Assert.Equal(("347.60", "NZD"), (expense.Data["amount"]!["value"]!.ToString(), expense.Data["amount"]!["currency"]!.ToString()));
-            Assert.Empty(Expenses.WithoutExpense(m.Trip!));
-            m.Navigate("Plan"); m.Navigate("Costs");
-            Assert.DoesNotContain(heading, Texts(w));
-            Assert.DoesNotContain(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == button);
-            // The booking's details link to its expense now.
-            m.Navigate("Bookings"); m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
-            Assert.DoesNotContain(pill, Texts(w));
-            await Probe.Until(() => Probe.All<Button>(w.FindControl<Control>("InspectorHost")!).Any(b => AutomationProperties.GetName(b) == "Te Anau Lakeview Holiday Park"));
+            Assert.Null(m.Trip!.Find(booking.Id)!.Data["price"]);
+            Assert.True(Expenses.IsPlanned(expense));
+            Assert.Empty(Expenses.Split(m.Trip!, expense).Debts);
+            Assert.Equal(3, Expenses.Split(m.Trip!, expense).People.Count);
+            Assert.Equal(BookingCoverage.Planned, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            m.Navigate("Bookings");
+            Assert.Contains(string.Format(toPay, Formats.Money(320.00m, "NZD")), Texts(w));
+
+            // The booking's details show the payment in place, with a button that marks it as paid.
+            m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            await Probe.Until(() => Probe.All<Button>(inspector).Any(b => AutomationProperties.GetName(b) == string.Format(m.Strings["MarkPaymentPaidFor"], expense.Title)));
+            await m.MarkPaymentPaidAsync(expense.Id);
+            Assert.Equal(BookingCoverage.Paid, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            Assert.False(Expenses.IsPlanned(m.Trip!.Find(expense.Id)!));
         }
         finally { w.Close(); }
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "Accommodation", "Souvenirs", "By category", "Rest open", "Add the rest as expense")]
-    [InlineData("de", "Unterkunft", "Souvenirs", "Nach Kategorie", "Rest offen", "Rest als Ausgabe erfassen")]
-    public async Task ExpensesHaveCategoriesAndABookingShowsWhatIsStillOpen(string language, string accommodation, string souvenirs, string byCategory, string restOpen, string addRest)
+    [InlineData("en", "Accommodation", "Souvenirs", "By category", "{0} to pay")]
+    [InlineData("de", "Unterkunft", "Souvenirs", "Nach Kategorie", "{0} zu zahlen")]
+    public async Task ExpensesHaveCategoriesAndABookingShowsWhatIsStillToPay(string language, string accommodation, string souvenirs, string byCategory, string toPay)
     {
         var w = await Window(language, "Light"); var m = w.Model;
         try
         {
             var stay = Entity.Create("schedule_item", "Park Hotel Ruapehu"); stay.Data["components"] = new System.Text.Json.Nodes.JsonObject { ["accommodation"] = new System.Text.Json.Nodes.JsonObject() };
             var booking = Entity.Create("booking", "Park Hotel Ruapehu"); booking.Data["status"] = "confirmed"; booking.Data["items"] = new System.Text.Json.Nodes.JsonArray(stay.Id.ToString());
-            booking.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "348.50", ["currency"] = "NZD" };
             await m.Workspace!.ApplyAsync([new(stay.Id, stay), new(booking.Id, booking)]);
 
             // A deposit through the form: the stay suggests accommodation.
-            var deposit = m.AddExpenseForBookingAsync(booking.Id);
+            var deposit = m.AddPaymentForBookingAsync(booking.Id);
             await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
             var sheet = Probe.Sheet(w);
             Assert.Contains(Probe.All<ChoiceButton>(sheet), c => AutomationProperties.GetName(c) == accommodation && c.IsSelected);
             Probe.All<NumericUpDown>(sheet).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value = 100m; Probe.Layout();
+            Probe.All<SearchChoice>(sheet).First().Input.Text = "NZD"; Probe.Layout();
             Probe.Click(sheet, m.Strings["Add"]);
             await deposit;
-            Assert.Equal(BookingCoverage.Partial, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            Assert.Equal(BookingCoverage.Paid, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
             Assert.Equal("accommodation", ExpenseCategories.Of(m.Trip!, Expenses.ForBooking(m.Trip!, booking.Id).Single()));
 
-            // The booking says what is open and records the rest in one step.
-            m.Navigate("Bookings"); Assert.Contains(restOpen, Texts(w));
-            m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);
-            var inspector = w.FindControl<Control>("InspectorHost")!;
-            await Probe.Until(() => Probe.All<Button>(inspector).Any(b => AutomationProperties.GetName(b) == addRest));
-            var rest = m.AddExpenseForBookingAsync(booking.Id);
+            // The rest is due on site: a payment still to pay.
+            var rest = m.AddPaymentForBookingAsync(booking.Id, planned: true);
             await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
-            Assert.Equal(248.50m, Probe.All<NumericUpDown>(Probe.Sheet(w)).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value);
+            Probe.All<NumericUpDown>(Probe.Sheet(w)).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value = 248.50m; Probe.Layout();
+            Probe.All<SearchChoice>(Probe.Sheet(w)).First().Input.Text = "NZD"; Probe.Layout();
             Probe.Click(Probe.Sheet(w), m.Strings["Add"]);
             await rest;
-            Assert.Equal(BookingCoverage.Complete, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            Assert.Equal(BookingCoverage.Planned, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
+            m.Navigate("Bookings"); Assert.Contains(string.Format(toPay, Formats.Money(248.50m, "NZD")), Texts(w));
 
             // A category of their own, created in the details.
             var kiwi = Expense("Kiwi plush", "35.00", "NZD", m.Trip!.Entities.Values.Single(e => e.Title == "Ben"));
             await m.Workspace.EditAsync(kiwi);
             m.Navigate("Costs"); m.Selected = m.Trip!.Find(kiwi.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
             await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == souvenirs));
             Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == souvenirs).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             await Probe.Until(() => ExpenseCategories.Stored(m.Trip!.Find(kiwi.Id)!) == "souvenirs");
@@ -282,24 +343,24 @@ public sealed class ExpenseSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "Primary currency")]
-    [InlineData("de", "Primäre Währung")]
-    public async Task ThePrimaryCurrencyIsChosenInSettings(string language, string label)
+    [InlineData("en", "Trip currency")]
+    [InlineData("de", "Reisewährung")]
+    public async Task TheTripCurrencyIsSharedInTheTripDetails(string language, string label)
     {
         var w = await Window(language, "Light"); var m = w.Model;
         try
         {
-            m.HomeCurrency = "EUR";
+            // Not a setting of this computer any more: the trip's details choose it for everyone.
             var settings = ((Dialogs)m.Interaction).SettingsAsync(m); Probe.Layout();
-            // The dialog opens the page used last, so General is chosen first.
             Probe.Click(Probe.Sheet(w), m.Strings["General"]); Probe.Layout();
-            var sheet = Probe.Sheet(w);
-            Assert.Contains(label, Texts(sheet));
-            // The only currency choice on the General page; choosing a currency there is the primary currency at once.
-            var primary = Probe.All<ComboBox>(sheet).Single(c => AutomationProperties.GetName(c) == label);
-            primary.SelectedItem = Editors.Currencies.Single(c => c.Id == "CHF"); Probe.Layout();
-            Assert.Equal("CHF", m.HomeCurrency);
-            Assert.Equal("CHF", m.SettleCurrency);
+            Assert.DoesNotContain(label, Texts(Probe.Sheet(w)));
+            Probe.Click(Probe.Sheet(w), m.Strings["Close"]); Probe.Layout();
+            m.Selected = m.Trip!.Manifest; Probe.ShowDetails(w);
+            await Probe.Until(() => Texts(w.FindControl<Control>("InspectorHost")!).Contains(label));
+            await m.SetTripCurrencyAsync("CHF");
+            Assert.Equal("CHF", TripCurrency.Stored(m.Trip!));
+            Assert.Equal("CHF", m.TripCurrencyCode);
+            Assert.Contains("currency: CHF", File.ReadAllText(Path.Combine(m.Workspace!.Repository.Root, "travel.yaml")), StringComparison.Ordinal);
         }
         finally { w.Close(); }
     }
@@ -489,6 +550,47 @@ public sealed class ExpenseSplitTests : IDisposable
             Assert.True(session.HasChanges);
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ThePhoneShowsABookingsPaymentsAndUpgradesOlderCostsAfterAsking()
+    {
+        var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => tokyo, "en", new MemorySecrets()));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        // An older version stored a price on a booking without payments.
+        var repository = new TravelRepository(path); var state = await repository.ReadAsync();
+        var walk = Entity.Create("booking", "Night walk"); walk.Data["status"] = "confirmed"; walk.Data["price"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "5000", ["currency"] = "JPY" };
+        await repository.ApplyAsync(state, [new(walk.Id, walk)]);
+        await session.OpenAsync(path);
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> All() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => (t.Text ?? "").Replace(' ', ' ')); }
+            // Asked when the trip opens; the answer is yes.
+            Assert.Equal("Update the costs of this trip?", session.Menu?.Title);
+            Assert.Contains("Night walk: the price of JPY 5,000.00 becomes a payment still to pay.", session.Menu!.Detail);
+            await session.Menu.Actions[0].Run(null);
+            await Probe.Until(() => session.CostUpgradePlan.IsEmpty);
+            Assert.True(Expenses.IsPlanned(Assert.Single(Expenses.ForBooking(session.Trip!, walk.Id))));
+
+            // The ryokan is paid at check-in: its payment is shown in the booking and marked as paid there.
+            session.ShowPage("bookings");
+            var ryokan = session.Trip!.Entities.Values.Single(e => e.Type == "booking" && e.Title == "Ryokan in Gion");
+            session.ToggleGroup(ryokan.Id);
+            Assert.Contains("Payments", All());
+            var paid = window.GetVisualDescendants().OfType<Button>().Single(b => AutomationProperties.GetName(b) == "Mark Ryokan in Gion as paid");
+            Assert.True(paid.Bounds.Height >= 44);
+            paid.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => Expenses.Payment(session.Trip!, session.Trip!.Find(ryokan.Id)!).Coverage == BookingCoverage.Paid);
+
+            // Costs are in the trip's currency, as on the computer.
+            session.ShowPage("costs");
+            Assert.Contains("In EUR", All());
+            Assert.Contains(All(), t => t.Contains("EUR 3,500.00", StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
     }
 }
 

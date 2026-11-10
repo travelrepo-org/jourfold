@@ -40,17 +40,17 @@ The map before online maps are enabled. Places and routes come from the trip's o
 
 ![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
 
-Costs per currency with budgets, the total in euros from what the cards charged, and who owes whom with the fewest payments that settle it, with an expense divided equally between both travellers:
+Costs per currency paid in, the total in the trip's currency, euros, from what the cards charged, what is still to pay, and who owes whom with the fewest payments that settle it, with an expense divided equally between both travellers:
 
-![Costs page with totals for euros and yen with budget progress, a total in euros with the home currency chooser and the rail passes not converted yet, and who owes whom in euros and, for the rail passes, in yen, with the buttons to pay back and to mark all as paid; the inspector shows the rail passes with the transport category among the category chips, the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
+![Costs page with totals for euros and yen, paid and still to pay, a total in euros with the trip currency chooser, the yen still to pay and the rail passes not converted yet, and who owes whom in euros and, for the rail passes, in yen, with the buttons to pay back and to mark all as paid; the inspector shows the rail passes with the still to pay switch, the transport category among the category chips, the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 
 ![Packing view for Japan with the list chip, filters for all, mine and unassigned, items grouped into documents, electronics, clothes and food, and chips for Alex and Sam with check marks where they have packed](screenshots/packing.png)
 
-A booking with its confirmation e-mail attached, and the drop area for more. Bookings with a price but no expense yet are marked, and the details offer to add one:
+A booking with its confirmation e-mail attached, and the drop area for more. What a booking costs is its payments, shown in its details; the ryokan is paid at check-in, so its payment is still to pay:
 
-![Bookings page with the ryokan and the tea ceremony marked No expense; the ryokan is selected and the inspector says its price is not recorded as an expense yet, with a button to add it as an expense, and lists the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
+![Bookings page with what each booking cost and the ryokan marked as yen still to pay; the ryokan is selected and the inspector shows its payment with the to pay mark, how it is shared and a button to mark it as paid, buttons to add a payment or one still to pay, and the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
 
 The document window with the confirmation e-mail and with its PDF attachment, searched for a time:
 

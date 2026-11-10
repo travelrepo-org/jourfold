@@ -138,23 +138,28 @@ public static class SampleTrip
         Entity Money(string type, string title, string value, string currency, bool estimated = false, Entity? payer = null)
         {
             var e = Add(Entity.Create(type, title)); e.Data["amount"] = new JsonObject { ["value"] = value, ["currency"] = currency };
-            if (type == "expense") { e.Data["estimated"] = estimated; if (payer is not null) e.Data["paid_by"] = new JsonArray(payer.Id.ToString()); }
+            if (type == "expense")
+            {
+                e.Data["estimated"] = estimated; if (payer is not null) e.Data["paid_by"] = new JsonArray(payer.Id.ToString());
+                // Shared equally by both, and they are named, as Jourfold always does.
+                e.Data["split"] = new JsonObject { ["method"] = "equal", ["parts"] = new JsonArray(new JsonObject { ["person"] = alex.Id.ToString() }, new JsonObject { ["person"] = sam.Id.ToString() }) };
+            }
             return e;
         }
-        Entity Booking(string title, string provider, string reference, string status, string value, string currency, params Entity[] items)
+        // A booking has no price; what it costs is its payments below, paid or still to pay.
+        Entity Booking(string title, string provider, string reference, string status, params Entity[] items)
         {
             var b = Add(Entity.Create("booking", title)); b.Data["provider"] = new JsonObject { ["name"] = provider }; b.Data["reference"] = reference; b.Data["status"] = status;
-            b.Data["price"] = new JsonObject { ["value"] = value, ["currency"] = currency };
             b.Data["travelers"] = new JsonArray(alex.Id.ToString(), sam.Id.ToString());
             b.Data["items"] = new JsonArray(items.Select(i => (JsonNode?)JsonValue.Create(i.Id.ToString())).ToArray());
             foreach (var item in items) item.Data["components"]!["booking"] = new JsonObject { ["ref"] = b.Id.ToString() };
             return b;
         }
-        var flights = Booking("Flights Frankfurt and Japan", "Lufthansa", "LH8KQ2", "confirmed", "1749.80", "EUR", outbound, homebound);
-        var graceryBooking = Booking("Hotel Gracery Shinjuku", "Hotel Gracery", "HG-20931", "confirmed", "46800", "JPY", hotel);
-        var teamLabBooking = Booking("teamLab Planets tickets", "teamLab", "TLP-55120", "confirmed", "7600", "JPY", planets);
-        Booking("Ryokan in Gion", "Gion Ryokan", "GR-1187", "reserved", "96000", "JPY", stay2, kaiseki);
-        Booking("Tea ceremony", "Camellia", "CAM-302", "confirmed", "4400", "JPY", tea);
+        var flights = Booking("Flights Frankfurt and Japan", "Lufthansa", "LH8KQ2", "confirmed", outbound, homebound);
+        var graceryBooking = Booking("Hotel Gracery Shinjuku", "Hotel Gracery", "HG-20931", "confirmed", hotel);
+        var teamLabBooking = Booking("teamLab Planets tickets", "teamLab", "TLP-55120", "confirmed", planets);
+        var ryokanBooking = Booking("Ryokan in Gion", "Gion Ryokan", "GR-1187", "reserved", stay2, kaiseki);
+        var teaBooking = Booking("Tea ceremony", "Camellia", "CAM-302", "confirmed", tea);
 
         var flightCost = Money("expense", "Flights", "1749.80", "EUR", payer: alex); flightCost.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = flights.Id.ToString() });
         // Divided equally between both travellers; Sam has already paid back their half of the flights.
@@ -166,10 +171,16 @@ public static class SampleTrip
         deposit.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = graceryBooking.Id.ToString() });
         tickets.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = teamLabBooking.Id.ToString() });
         tickets.Data["converted"] = new JsonObject { ["value"] = "46.36", ["currency"] = "EUR", ["rate"] = "0.0061", ["rate_date"] = start.PlusDays(-12).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["source"] = "card" };
+        // The ryokan is paid at check-in: a payment still to pay. The tea ceremony was paid in cash.
+        var ryokanCost = Money("expense", "Ryokan in Gion", "96000", "JPY", estimated: true);
+        ryokanCost.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = ryokanBooking.Id.ToString() });
+        var teaCost = Money("expense", "Tea ceremony", "4400", "JPY", payer: sam);
+        teaCost.Data["related"] = new JsonArray(new JsonObject { ["type"] = "booking", ["id"] = teaBooking.Id.ToString() });
         Money("expense", "Rail passes", "100000", "JPY", payer: sam).Data["category"] = "transport";
         Money("expense", "Food and snacks", "60000", "JPY", estimated: true).Data["category"] = "food";
+        // One budget for the trip in the trip's currency, and one for eating out.
         Money("budget", "Trip budget", "3500.00", "EUR");
-        Money("budget", "Spending money in Japan", "250000", "JPY");
+        Money("budget", "Eating out", "400.00", "EUR").Data["category"] = "food";
 
         Entity Task(string title, string status, int dueOffset, Entity owner)
         {
@@ -211,6 +222,7 @@ public static class SampleTrip
 
         var updated = manifest.Copy();
         updated.Data["participants"] = new JsonArray(alex.Id.ToString(), sam.Id.ToString());
+        updated.Data["currency"] = "EUR";
         updated.Data["dates"] = new JsonObject { ["start"] = start.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), ["end"] = start.PlusDays(7).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) };
         updated.Data["extensions"]![Extension] = new JsonObject { ["version"] = 1 };
         updated.Data["variant"]!["title"] = "Main plan";

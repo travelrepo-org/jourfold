@@ -4,8 +4,9 @@ using TravelRepo.Core;
 namespace Jourfold.Desktop;
 
 /// <summary>
-/// Dividing expenses and paying back. The rules (who shares what, rounding, debts, setting off, the pay function)
-/// live in TravelRepo's <see cref="Expenses"/>; this part turns clicks into undoable edits.
+/// Costs: payments, dividing them, paying back, the trip's currency and budget. The rules (who shares what, rounding,
+/// debts, setting off, the pay function, the upgrade of older costs) live in TravelRepo's <see cref="Expenses"/>,
+/// <see cref="Budgets"/> and <see cref="CostUpgrade"/>; this part turns clicks into undoable edits.
 /// </summary>
 public partial class MainViewModel
 {
@@ -13,21 +14,21 @@ public partial class MainViewModel
     public LocalDate Today => SystemClock.Instance.GetCurrentInstant().InZone(Trip is { } trip ? ScheduleQueries.TripZone(trip) : DateTimeZone.Utc).Date;
 
     /// <summary>
-    /// The currency the travellers count in at home, such as EUR: what a card charged is entered in it, and costs and
-    /// paying back can be shown in it. Kept on this computer; the region's currency until chosen.
+    /// The currency the travellers count in, stored in the trip and shared by everyone: the budget, totals and who
+    /// owes whom are in it, and amounts charged are entered in it. Until it is chosen, the one the costs suggest, or
+    /// this computer's region's.
     /// </summary>
-    public string HomeCurrency
-    {
-        get => Store.Get("costs.home") is { Length: 3 } code ? code : ChargedCurrency() ?? SystemCurrency;
-        set { if (ExchangeRates.Code(value) is { } code) { Store.Set("costs.home", code); ContentChanged?.Invoke(this, EventArgs.Empty); } }
-    }
+    public string TripCurrencyCode => Trip is { } trip ? TripCurrency.Of(trip) ?? SystemCurrency : SystemCurrency;
 
-    /// <summary>The currency most amounts in the trip were charged in, which is the travellers' home currency.</summary>
-    private string? ChargedCurrency() => Trip is { } trip ? trip.Entities.Values.Where(e => e.Type == "expense").Select(Expenses.ChargeOf).OfType<Charge>()
-        .GroupBy(c => c.Currency).OrderByDescending(g => g.Count()).ThenBy(g => g.Key, StringComparer.Ordinal).FirstOrDefault()?.Key : null;
+    /// <summary>Sets the trip's currency for everyone, as an undoable step.</summary>
+    public Task SetTripCurrencyAsync(string code) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip || ExchangeRates.Code(code) is not { } currency || TripCurrency.Stored(trip) == currency) return;
+        await Workspace.EditAsync(TripCurrency.With(trip.Manifest, currency));
+    });
 
     /// <summary>The currency of the computer's region, read before Jourfold sets its own language for the interface.</summary>
-    private static readonly string SystemCurrency = ReadSystemCurrency();
+    internal static readonly string SystemCurrency = ReadSystemCurrency();
 
     // A static constructor makes the region be read before the first instance sets the interface culture.
     static MainViewModel() { }
@@ -38,46 +39,103 @@ public partial class MainViewModel
         catch (ArgumentException) { return "EUR"; }
     }
 
-    /// <summary>Whether who owes whom is shown in <see cref="HomeCurrency"/> (the default) or in each expense's own currency.</summary>
-    public bool SettleInHomeCurrency
-    {
-        get => Store.Get("costs.settle") != "each";
-        set { Store.Set("costs.settle", value ? "home" : "each"); ContentChanged?.Invoke(this, EventArgs.Empty); }
-    }
-
-    /// <summary>The currency debts are settled in, or null for each expense's own; see <see cref="Expenses.Balances"/>.</summary>
-    public string? SettleCurrency => SettleInHomeCurrency ? HomeCurrency : null;
-
     /// <summary>Reference rates for estimates where no charged amount was entered, only when the person allowed fetching them.</summary>
     public ExchangeRates? EstimateRates => RatesOn ? Rates : null;
 
+    /// <summary>Trips whose cost upgrade was postponed in this session; the offer comes again the next time Jourfold starts.</summary>
+    private readonly HashSet<string> upgradeLater = [];
+
     /// <summary>
-    /// Records what the card actually charged for an expense, as typed ("190,40" works), in <paramref name="currency"/>
-    /// on today's date; empty text removes it. Text that is no number changes nothing.
+    /// Offers once per trip and session to bring costs written by older versions into the current shape (see
+    /// <see cref="CostUpgrade"/>), showing what changes. Saved as one undoable step and, when nothing else is
+    /// unsaved, as a version of its own. Nothing changes without the person's OK.
     /// </summary>
-    public async Task<bool> SetChargeAsync(Guid expenseId, string? text, string currency)
+    public Task OfferCostUpgradeAsync() => RunEditAsync(async () =>
+    {
+        if (Workspace is not { } workspace || upgradeLater.Contains(workspace.Repository.Root)) return;
+        var plan = CostUpgrade.Plan(workspace.State.Trip, SystemCurrency);
+        if (plan.IsEmpty) return;
+        var lines = Jourfold.UI.CostTexts.Upgrade(Strings, plan);
+        var message = Strings["UpgradeBody"] + "\n\n" + string.Join("\n", lines.Select(l => "• " + l)) + "\n\n" + Strings["UpgradeSafe"];
+        if (!await Interaction.ConfirmAsync(Strings["UpgradeTitle"], message, Strings["UpgradeConfirm"])) { upgradeLater.Add(workspace.Repository.Root); return; }
+        await workspace.UpgradeCostsAsync(CostUpgrade.Plan(workspace.State.Trip, SystemCurrency), Strings["UpgradeVersion"]);
+        await UpdateLocalStateAsync();
+        Interaction.Toast(Strings["UpgradeDone"]);
+    });
+
+    /// <summary>
+    /// After travellers joined, offers to let them share earlier expenses. Nothing is chosen at first, since expenses
+    /// from before usually were not theirs.
+    /// </summary>
+    private void TravellersJoined(IReadOnlyList<Guid> joined)
+    {
+        // Asked after the step that added them is done, outside its edit.
+        using (ExecutionContext.SuppressFlow()) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = OfferSharesForAsync(joined));
+    }
+
+    private Task OfferSharesForAsync(IReadOnlyList<Guid> joined) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip) return;
+        var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        if (expenses.Length == 0) return;
+        var names = string.Join(", ", joined.Select(id => trip.Find(id)?.Title).OfType<string>());
+        var choices = expenses.Select(e => new Choice(e.Id.ToString(), e.Title + (TripSummaries.Money(e.Data["amount"]) is { } m ? " · " + Formats.Money(m.Amount, m.Currency) : ""))).ToArray();
+        var chosen = await Interaction.PickAsync(Strings["ShareEarlierTitle"], string.Format(Strings["ShareEarlierBody"], names), choices, [], Strings["ShareEarlierConfirm"]);
+        if (chosen is not { Count: > 0 }) return;
+        var current = Workspace.State.Trip; var edits = new List<TravelRepo.Repository.EntityEdit>();
+        foreach (var id in chosen.Select(Guid.Parse))
+        {
+            if (current.Find(id) is not { Type: "expense" } expense) continue;
+            var changed = joined.Aggregate(expense, (e, person) => Expenses.WithPerson(current, e, person, true));
+            edits.Add(new(changed.Id, changed));
+        }
+        await Workspace.ApplyAsync(edits.ToArray());
+    });
+
+    /// <summary>
+    /// Records what the card actually charged for an expense, as typed ("190,40" works), in the trip's currency, on
+    /// <paramref name="day"/> or the expense's own day; empty text removes it. Text that is no number changes nothing.
+    /// </summary>
+    public async Task<bool> SetChargeAsync(Guid expenseId, string? text, string currency, LocalDate? day = null)
     {
         if (string.IsNullOrWhiteSpace(text)) { await EditExpenseAsync(expenseId, (_, e) => Expenses.WithoutCharge(e)); return true; }
         if (ExchangeRates.Amount(text) is not { } value) return false;
-        await EditExpenseAsync(expenseId, (_, e) => Expenses.WithCharge(e, value, currency, Today));
+        await EditExpenseAsync(expenseId, (trip, e) => Expenses.WithCharge(e, value, currency, day ?? Expenses.ChargeOf(e)?.Date ?? Expenses.DayOf(trip, e) ?? Today));
         return true;
     }
 
+    /// <summary>Changes the day of an amount charged, keeping the amount.</summary>
+    public Task SetChargeDayAsync(Guid expenseId, LocalDate day) => EditExpenseAsync(expenseId, (_, e) =>
+        Expenses.ChargeOf(e) is { } charge ? Expenses.WithCharge(e, charge.Value, charge.Currency, day, charge.Source ?? "card") : e);
+
     /// <summary>
-    /// Records a booking's price as an expense: the add-expense form opens with the booking's title, price and
-    /// currency, paid by the local user, and the new expense belongs to the booking. Nothing is added when it is cancelled.
+    /// Adds a payment for a booking: the add-expense form opens with the booking's title, paid by the local user,
+    /// shared by the booking's travellers; <paramref name="planned"/> records one still to pay, such as the rest due
+    /// on site. A price an older version stored is offered as the amount.
     /// </summary>
-    public Task AddExpenseForBookingAsync(Guid bookingId) => RunEditAsync(async () =>
+    public Task AddPaymentForBookingAsync(Guid bookingId, bool planned = false) => RunEditAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip || trip.Find(bookingId) is not { Type: "booking" } booking) return;
-        var start = Expenses.FromBooking(trip, booking);
-        var price = TripSummaries.Money(start.Data["amount"])!;
-        var request = new QuickAddRequest("expense", trip, StartDate, null, null, ScheduleQueries.TripZone(trip).Id, Me?.Id, false, price.Currency) { Title = start.Title, Amount = price.Amount, Related = booking.Id };
+        var legacy = TripSummaries.Money(booking.Data["price"]) is { } price ? CostUpgrade.Rest(trip, booking, price) is { Amount: > 0 } rest ? rest : price : null;
+        var currency = legacy?.Currency ?? Expenses.ForBooking(trip, bookingId).Select(e => TripSummaries.Money(e.Data["amount"])?.Currency).OfType<string>().FirstOrDefault() ?? TripCurrencyCode;
+        var request = new QuickAddRequest("expense", trip, StartDate, null, null, ScheduleQueries.TripZone(trip).Id, planned ? null : Me?.Id, false, currency) { Title = booking.Title, Amount = legacy?.Amount, Related = booking.Id, Planned = planned };
         if (await Interaction.QuickAddAsync(request) is not { } draft) return;
-        var (main, edits) = Jourfold.Application.QuickAdd.Build(draft, Workspace.State.Trip);
-        await Workspace.ApplyAsync(edits);
+        var (_, built) = Jourfold.Application.QuickAdd.Build(draft, Workspace.State.Trip);
+        var edits = built.ToList();
+        // The price an older version stored is now recorded as payments.
+        if (legacy is not null && Workspace.State.Trip.Find(bookingId)?.Copy() is { } withoutPrice) { withoutPrice.Data.Remove("price"); edits.Add(new(withoutPrice.Id, withoutPrice)); }
+        await Workspace.ApplyAsync(edits.ToArray());
         Interaction.Toast(string.Format(Strings["ExpenseAddedFor"], booking.Title));
-        Selected = Workspace.State.Trip.Find(main.Id);
+    });
+
+    /// <summary>Marks a payment that was still to pay as paid, by the local user when it names nobody yet.</summary>
+    public Task MarkPaymentPaidAsync(Guid expenseId) => EditExpenseAsync(expenseId, (_, e) => Expenses.MarkPaid(e, Me is { } me ? [me.Id] : null));
+
+    /// <summary>Removes a price an older version stored on a booking, after the travellers looked at it.</summary>
+    public Task DropLegacyPriceAsync(Guid bookingId) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip.Find(bookingId)?.Copy() is not { Type: "booking" } booking || booking.Data["price"] is null) return;
+        booking.Data.Remove("price"); await Workspace.EditAsync(booking);
     });
 
     public Task SetSplitMethodAsync(Guid expenseId, SplitMethod method) => EditExpenseAsync(expenseId, (trip, e) => Expenses.ChangeMethod(trip, e, method));
@@ -100,7 +158,8 @@ public partial class MainViewModel
 
     /// <summary>
     /// The pay function: the person (the local user unless another is given) chooses which of their open items to
-    /// settle now and sees what that comes to; confirming marks the chosen items as paid in one undoable step.
+    /// settle now and sees what that comes to in the trip's currency; confirming marks the chosen items as paid in one
+    /// undoable step.
     /// </summary>
     public Task PayAsync(Guid? person = null) => RunEditAsync(async () =>
     {
@@ -109,7 +168,7 @@ public partial class MainViewModel
         var people = TripPeople.Travelers(trip).Concat(trip.Entities.Values.Where(e => e.Type == "person")).DistinctBy(p => p.Id).ToArray();
         var who = person ?? Me?.Id ?? people.FirstOrDefault(p => Expenses.Open(trip, p.Id).Count > 0)?.Id;
         if (who is null || people.Length == 0) return;
-        var answer = await Interaction.PayAsync(new PayRequest(trip, people, who.Value, Me?.Id) { Currency = SettleCurrency, Rates = EstimateRates });
+        var answer = await Interaction.PayAsync(new PayRequest(trip, people, who.Value, Me?.Id) { Currency = TripCurrencyCode, Rates = EstimateRates });
         if (answer is null || answer.Items.Count == 0) return;
         var items = Expenses.Pay(Workspace.State.Trip, answer.Person, answer.Items).Items.Select(i => i.Key).ToArray();
         if (items.Length == 0) return;
@@ -125,7 +184,7 @@ public partial class MainViewModel
         await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
     });
 
-    /// <summary>Sets what a budget is limited to, such as one person's food; no limits is the whole trip. One undoable step.</summary>
+    /// <summary>Sets what a budget is limited to, such as one person's food; no limits is the trip's budget. One undoable step.</summary>
     public Task SetBudgetFiltersAsync(Guid budgetId, BudgetFilters filters) => RunEditAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip || trip.Find(budgetId) is not { Type: "budget" } budget) return;

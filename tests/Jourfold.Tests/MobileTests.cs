@@ -473,8 +473,11 @@ public sealed class MobileTests : IDisposable
             Assert.Contains("GR-1187", Texts());
 
             session.ShowPage("costs");
-            Assert.Contains("JPY 35,600.00 left", Texts());
-            Assert.Contains("Estimated", Texts());
+            // The trip's one budget in its currency, and payments still to pay.
+            Assert.Contains("In EUR", Texts());
+            Assert.Contains(Texts(), t => t.StartsWith("EUR 3,500.00", StringComparison.Ordinal) || t.Contains("of EUR 3,500.00", StringComparison.Ordinal));
+            Assert.Contains("To pay", Texts());
+            Assert.Contains("Still to pay", Texts());
 
             session.ShowPage("tasks");
             Assert.Contains("Overdue", Texts());

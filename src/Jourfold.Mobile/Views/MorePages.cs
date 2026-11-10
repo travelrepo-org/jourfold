@@ -175,7 +175,8 @@ public static class MorePages
         var when = first?.Start is { } start ? Day(start.Date, s) : str["NoDateYet"];
         var where = first is { } g ? Lines.Where(trip, g.Item) : "";
         var reference = booking.Data["reference"]?.ToString();
-        var price = TripSummaries.Money(booking.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : null;
+        // What it costs is its payments; a price only older versions stored is shown until it is recorded.
+        var price = Jourfold.UI.CostTexts.BookingAmount(trip, booking);
         var summary = Ui.Columns("Auto,*,Auto",
             Ui.Tile(icon, kind, 36).Also(t => t.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
             Ui.V(2, Ui.Text(booking.Title, "strong"), Ui.Text(string.Join(" · ", new[] { when, where }.Where(t => t.Length > 0)), "caption"),
@@ -195,6 +196,7 @@ public static class MorePages
                 body.Children.Add(open);
             }
             if (booking.Data["notes"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
+            body.Children.Add(Payments(s, booking));
             var change = Ui.Button(str["Edit"], "pencil");
             change.Click += (_, _) => s.ShowEditor(booking.Id);
             var details = Ui.Button(str["ShowDetails"], "chevron-right", "ghost");
@@ -521,7 +523,8 @@ public static class MorePages
         var trip = s.Trip!; var str = s.Strings;
         var totals = TripSummaries.Costs(trip);
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").Select(e => (Expense: e, First: FirstItem(trip, e))).ToArray();
-        if (totals.Count == 0) return Frame(s, str["Costs"], Empty("wallet", str["NoCostsTitle"], str["NoCostsBody"]));
+        var upgrade = UpgradeBanner(s);
+        if (totals.Count == 0 && !trip.Entities.Values.Any(e => e.Type == "budget")) return Frame(s, str["Costs"], upgrade, Empty("wallet", str["NoCostsTitle"], str["NoCostsBody"]));
         var columns = totals.Count > 1 ? 2 : 1;
         var tiles = new Grid { ColumnDefinitions = new ColumnDefinitions(columns == 2 ? "*,12,*" : "*"), Margin = new Thickness(16, 0) };
         for (var i = 0; i < totals.Count; i++)
@@ -531,10 +534,137 @@ public static class MorePages
         }
         var dated = expenses.Where(x => x.First?.Start is not null).OrderBy(x => x.First!.Value.Start!.Value.ToInstant()).ToArray();
         var undated = expenses.Except(dated).OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
-        return Frame(s, str["Costs"], tiles, Balances(s),
+        return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
             dated.Length == 0 ? null : Group(str["ByDate"], dated.Select(x => Expense(s, x.Expense, x.First!.Value.Start!.Value.Date)).ToArray()),
             undated.Length == 0 ? null : Group(str["WithoutDay"], undated.Select(x => Expense(s, x.Expense, null)).ToArray()),
             Ui.Columns("Auto,*", Ui.Icon("info", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 6, 0), Ui.Text(str["NoAutoConversion"], "caption")).Margin(20, 0));
+    }
+
+    /// <summary>The offer to bring costs older versions wrote up to date, when it was postponed or not answered yet.</summary>
+    private static Control? UpgradeBanner(MobileSession s)
+    {
+        if (s.CostUpgradePlan.IsEmpty) return null;
+        var str = s.Strings;
+        var update = Ui.Button(str["UpgradeConfirm"], "refresh-cw", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        update.Click += (_, _) => s.OfferCostUpgrade();
+        return Ui.Card(Ui.V(8, Ui.Text(str["UpgradeTitle"], "strong"), Ui.Text(str["UpgradeBody"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), update), 14).Margin(16, 0);
+    }
+
+    /// <summary>
+    /// The trip in its currency: what is paid (exact where charged, ≈ estimated otherwise), what is still to pay, and
+    /// the trip's one budget with a bar.
+    /// </summary>
+    private static Control? TripTotal(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings; var home = s.TripCurrencyCode;
+        var expenses = trip.Entities.Values.Where(e => e.Type == "expense").ToArray();
+        var budget = Budgets.ForTrip(trip, s.EstimateRates);
+        if (expenses.Length == 0 && budget is null) return null;
+        var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses, home, s.EstimateRates, planned: true);
+        string Sum(ConvertedTotal t) => (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home);
+        var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text(Sum(paid), "h2"));
+        if (planned.Total > 0) body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["StillToPayAmount"], Sum(planned)), "caption"));
+        if (paid.NotConverted.Concat(planned.NotConverted).GroupBy(x => x.Currency).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key)).ToArray() is { Length: > 0 } apart)
+            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedYet"], string.Join(" + ", apart)), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (budget is not null)
+        {
+            var ratio = budget.Amount <= 0 ? 1 : (double)Math.Min(1m, budget.Used / budget.Amount);
+            var bar = new Grid { ColumnDefinitions = new ColumnDefinitions($"{ratio.ToString(CultureInfo.InvariantCulture)}*,{(1 - ratio).ToString(CultureInfo.InvariantCulture)}*"), Height = 6 };
+            bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, "Bg.Muted").Col(0, 2));
+            bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, budget.Left < 0 ? "Danger" : ratio > 0.85 ? "Warning" : "Accent"));
+            var approx = budget.Approximate ? "≈ " : "";
+            AutomationProperties.SetName(bar, string.Format(CultureInfo.CurrentCulture, str["BudgetUsed"], approx + Formats.Money(budget.Used, home), Formats.Money(budget.Amount, home)));
+            body.Children.Add(bar);
+            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["BudgetUsed"], approx + Formats.Money(budget.Used, home), Formats.Money(budget.Amount, home)) + " · "
+                + (budget.Left >= 0 ? string.Format(CultureInfo.CurrentCulture, str["BudgetLeft"], approx + Formats.Money(budget.Left, home)) : string.Format(CultureInfo.CurrentCulture, str["BudgetOver"], approx + Formats.Money(-budget.Left, home))), "caption"));
+        }
+        return Ui.Card(body, 14).Margin(16, 0);
+    }
+
+    /// <summary>Payments still to pay, each with a button that marks it as paid.</summary>
+    private static Control? StillToPay(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var planned = trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        if (planned.Length == 0) return null;
+        var rows = new List<Control>();
+        foreach (var e in planned)
+        {
+            var money = TripSummaries.Money(e.Data["amount"]);
+            var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Right; });
+            AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
+            var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);
+            rows.Add(Ui.Columns("*,Auto", Ui.V(1, Ui.Text(e.Title), money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency), "caption")).Also(v => v.VerticalAlignment = VerticalAlignment.Center), paid).Margin(16, 6));
+        }
+        return Group(str["StillToPay"], rows);
+    }
+
+    /// <summary>Budgets for a category, a person or a collection, each with where it stands.</summary>
+    private static Control? BudgetGroup(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var limited = Budgets.Limited(trip, s.EstimateRates);
+        if (limited.Count == 0) return null;
+        var rows = limited.Select(b =>
+        {
+            var f = b.Filters;
+            var what = string.Join(" · ", new[] { f.Category is { } c ? Jourfold.UI.CostTexts.Category(str, c) : null, f.Person is { } p ? trip.Find(p)?.Title : null, f.Collection is { } k ? trip.Find(k)?.Title : null }.OfType<string>());
+            var approx = b.Approximate ? "≈ " : "";
+            var state = string.Format(CultureInfo.CurrentCulture, str["BudgetUsed"], approx + Formats.Money(b.Used, b.Amount.Currency), Formats.Money(b.Amount.Amount, b.Amount.Currency)) + " · "
+                + (b.Left >= 0 ? string.Format(CultureInfo.CurrentCulture, str["BudgetLeft"], approx + Formats.Money(b.Left, b.Amount.Currency)) : string.Format(CultureInfo.CurrentCulture, str["BudgetOver"], approx + Formats.Money(-b.Left, b.Amount.Currency)));
+            return DetailView.Row(b.Left < 0 ? "triangle-alert" : "piggy-bank", b.Budget.Title + (what.Length > 0 ? " · " + what : ""), state);
+        }).ToArray();
+        return Group(str["Budgets"], rows);
+    }
+
+    /// <summary>The paid expenses per category in the trip's currency, largest first.</summary>
+    private static Control? ByCategory(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var totals = ExpenseCategories.Totals(trip, s.TripCurrencyCode, s.EstimateRates);
+        if (totals.Count == 0) return null;
+        return Group(str["ByCategory"], totals.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))).ToArray());
+    }
+
+    /// <summary>
+    /// A booking's payments in its details: paid or still to pay, with the amount, who paid and who shares it, a
+    /// button that marks one still to pay as paid, and buttons to add another.
+    /// </summary>
+    private static Control Payments(MobileSession s, Entity booking)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var payment = Expenses.Payment(trip, booking);
+        var list = Ui.V(8, Ui.Text(str["Payments"], "overline"));
+        if (payment.LegacyPrice is { } legacy) list.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["LegacyPrice"], Formats.Money(legacy.Amount, legacy.Currency)), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (payment.Expenses.Count == 0 && payment.LegacyPrice is null) list.Children.Add(Ui.Text(str["NoPaymentsYet"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        foreach (var e in payment.Expenses)
+        {
+            var split = Expenses.Split(trip, e);
+            var money = split.Amount;
+            var lines = Ui.V(2, Ui.Columns("*,Auto", Ui.Text(e.Title, "strong"), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")));
+            if (Expenses.ChargeOf(e) is { } charge) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), "caption"));
+            if (split.Payers.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidBy"], string.Join(", ", split.Payers.Select(p => trip.Find(p)?.Title))), "caption"));
+            if (money is not null && split.Shares.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["SharedBy"], string.Join(", ", split.Shares.Select(x => trip.Find(x.Person)?.Title + " " + Formats.Money(x.Amount, money.Currency)))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+            if (SplitPill(str, split) is { } pill) lines.Children.Add(pill.Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
+            if (Expenses.IsPlanned(e))
+            {
+                lines.Children.Add(Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
+                var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], e.Title));
+                var id = e.Id; paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(id);
+                lines.Children.Add(paid);
+            }
+            var open = new Button { Content = lines, Padding = new Thickness(12), HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("row", "card");
+            AutomationProperties.SetName(open, e.Title);
+            var target = e.Id; open.Click += (_, _) => s.ShowDetails(target);
+            list.Children.Add(open);
+        }
+        var addPaid = Ui.Button(str["AddPayment"], "plus", "soft").Also(b => b.MinHeight = 44);
+        addPaid.Click += (_, _) => s.ShowPaymentFor(booking.Id);
+        var addPlanned = Ui.Button(str["AddPlannedPayment"], "calendar-clock", "ghost").Also(b => b.MinHeight = 44);
+        addPlanned.Click += (_, _) => s.ShowPaymentFor(booking.Id, planned: true);
+        list.Children.Add(Ui.Flow(8, addPaid, addPlanned));
+        return list;
     }
 
     /// <summary>One currency: what is spent so far, what is still estimated, and how much of the budget is left.</summary>
@@ -563,20 +693,31 @@ public static class MorePages
         : split.IsSettled ? Ui.Pill(str["SettledState"], "circle-check", "Success.Soft", "Success")
         : Ui.Pill(string.Format(CultureInfo.CurrentCulture, str["OpenAmount"], Formats.Money(split.Open, split.Amount.Currency)), "clock", "Warning.Soft", "Warning");
 
-    /// <summary>Who owes whom over what is not paid back yet, and the fewest payments that settle it, from TravelRepo.</summary>
+    /// <summary>
+    /// Who owes whom over what is not paid back yet, in the trip's currency like on the computer, the fewest payments
+    /// that settle it, expenses left out because their split does not add up, and a button for after everyone paid.
+    /// </summary>
     private static Control? Balances(MobileSession s)
     {
-        var trip = s.Trip!; var str = s.Strings;
-        if (Expenses.Debts(trip).Count == 0) return null;
+        var trip = s.Trip!; var str = s.Strings; var home = s.TripCurrencyCode;
+        var problems = Expenses.Problems(trip);
+        if (Expenses.Debts(trip).Count == 0 && problems.Count == 0) return null;
         string Name(Guid id) => (trip.Find(id)?.Title ?? "?") + (s.Me?.Id == id ? " (" + str["You"] + ")" : "");
-        var balances = Expenses.Balances(trip);
-        if (balances.Count == 0) return Group(str["WhoOwesWhom"], [DetailView.Row("circle-check", str["AllEven"], null)]);
         var rows = new List<Control>();
+        foreach (var p in problems) rows.Add(DetailView.Row("triangle-alert", p.Expense.Title, str["CheckSplit"]));
+        var balances = Expenses.Balances(trip, home, s.EstimateRates);
+        if (balances.Count == 0) { rows.Add(DetailView.Row("circle-check", str["AllEven"], null)); return Group(str["WhoOwesWhom"], rows); }
         foreach (var b in balances)
-            rows.Add(DetailView.Row(b.Net > 0 ? "arrow-left" : "arrow-right", Name(b.Person), string.Format(CultureInfo.CurrentCulture, str[b.Net > 0 ? "BalanceOwed" : "BalanceOwes"], Formats.Money(Math.Abs(b.Net), b.Currency))));
+            rows.Add(DetailView.Row(b.Net > 0 ? "arrow-left" : "arrow-right", Name(b.Person), string.Format(CultureInfo.CurrentCulture, str[b.Net > 0 ? "BalanceOwed" : "BalanceOwes"], (b.Estimated ? "≈ " : "") + Formats.Money(Math.Abs(b.Net), b.Currency))));
         rows.Add(Ui.Text(str["SettleUpHint"], "caption").Margin(16, 10, 16, 2).Classed("h3"));
-        foreach (var t in Expenses.SettleUp(trip))
-            rows.Add(DetailView.Row("arrow-right", string.Format(CultureInfo.CurrentCulture, str["PaysTo"], Name(t.From), Name(t.To)), Formats.Money(t.Amount, t.Currency)));
+        var transfers = Expenses.SettleUp(trip, home, s.EstimateRates);
+        foreach (var t in transfers)
+            rows.Add(DetailView.Row("arrow-right", string.Format(CultureInfo.CurrentCulture, str["PaysTo"], Name(t.From), Name(t.To)), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency)));
+        if (transfers.Any(t => t.Currency != home)) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedHint"], home), "caption").Margin(16, 4).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (transfers.Any(t => t.Estimated)) rows.Add(Ui.Text(str["EstimatedWithRates"], "caption").Margin(16, 4).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        var settle = Ui.Button(str["SettleAll"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; }).Margin(16, 8);
+        ((Button)settle).Click += (_, _) => s.ConfirmSettleAll();
+        rows.Add(settle);
         return Group(str["WhoOwesWhom"], rows);
     }
 
@@ -593,7 +734,7 @@ public static class MorePages
             date.Also(c => c.VerticalAlignment = VerticalAlignment.Center),
             Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption")).Margin(12, 0, 8, 0),
             Ui.V(4, money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency), "strong").Also(t => t.HorizontalAlignment = HorizontalAlignment.Right),
-                estimated ? Ui.Pill(str["Estimated"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, Expenses.Split(trip, expense))?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
+                estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, Expenses.Split(trip, expense))?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
         return Unfolding(s, expense.Id, summary, () =>
         {
             var body = Ui.V(10);
@@ -609,12 +750,19 @@ public static class MorePages
                 body.Children.Add(DetailView.Row("users", string.Join(", ", split.Shares.Select(x => (trip.Find(x.Person)?.Title ?? "?") + " " + Formats.Money(x.Amount, money.Currency))), str["Split"]));
             foreach (var debt in split.Debts)
             {
-                var (from, to, amount) = debt.Open < 0 ? (debt.To, debt.From, -debt.Open) : (debt.From, debt.To, debt.Amount);
+                var (from, to, amount) = debt.Open < 0 ? (debt.To, debt.From, -debt.Open) : (debt.From, debt.To, debt.Open == 0 ? debt.Amount : debt.Open);
                 var line = string.Format(CultureInfo.CurrentCulture, str["OwesTo"], trip.Find(from)?.Title, trip.Find(to)?.Title) + " · " + Formats.Money(amount, debt.Currency);
                 var box = new CheckBox { IsChecked = debt.IsSettled, MinHeight = 48, Content = Ui.V(1, Ui.Text(line), debt.IsSettled && debt.SettledOn is { } paidOn ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidOn"], Formats.Date(paidOn)), "caption") : null) };
                 AutomationProperties.SetName(box, string.Format(CultureInfo.CurrentCulture, str["MarkPaidFor"], trip.Find(from)?.Title, trip.Find(to)?.Title, Formats.Money(amount, debt.Currency)));
                 box.IsCheckedChanged += async (_, _) => await s.SetDebtPaidAsync(debt.Key, box.IsChecked == true);
                 body.Children.Add(box);
+            }
+            if (Expenses.IsPlanned(expense))
+            {
+                var paid = Ui.Button(str["MarkPaymentPaid"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; });
+                AutomationProperties.SetName(paid, string.Format(CultureInfo.CurrentCulture, str["MarkPaymentPaidFor"], expense.Title));
+                paid.Click += async (_, _) => await s.MarkPaymentPaidAsync(expense.Id);
+                body.Children.Add(paid);
             }
             var change = Ui.Button(str["Edit"], "pencil");
             change.Click += (_, _) => s.ShowEditor(expense.Id);

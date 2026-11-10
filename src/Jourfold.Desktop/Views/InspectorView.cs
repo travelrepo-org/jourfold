@@ -204,7 +204,14 @@ public static class InspectorView
                 body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "amount", s["Amount"], e.Data["amount"])));
                 if (e.Type == "expense")
                 {
-                    body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["EstimatedToggle"], e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est));
+                    var planned = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
+                    body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["StillToPay"], planned));
+                    if (planned)
+                    {
+                        var paid = Ui.Button(s["MarkPaymentPaid"], "circle-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                        paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
+                        body.Children.Add(Ui.V(4, Ui.Text(s["StillToPayExplained"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), paid));
+                    }
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
                     body.Children.Add(Field(s["Category"], ExpenseViews.CategoryEditor(s, trip, e, change => m.ChangeExpenseAsync(e.Id, change), () => m.Interaction.PromptAsync(s["NewCategory"]))));
                     Add(body, s["Split"], ExpenseViews.SplitEditor(w, e));
@@ -579,6 +586,11 @@ public static class InspectorView
         body.Children.Add(Ui.Columns("*,*", Field(s["Start"], Editors.Date(w, e.Id, "dates/start", s["Start"], e.Data["dates"]?["start"]?.ToString())), Field(s["End"], Editors.Date(w, e.Id, "dates/end", s["End"], e.Data["dates"]?["end"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Ui.Text(s["DatesHint"], "caption"));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "default_timezone", s["Timezone"], e.Data["default_timezone"]?.ToString(), FieldOptions.Timezones)));
+        // Shared by everyone: the budget, totals and who owes whom are in it.
+        var currency = new SearchChoice(Editors.Currencies, m.TripCurrencyCode, s["TripCurrency"]);
+        void Choose() { if (currency.Value is { } code && code != m.TripCurrencyCode) _ = m.SetTripCurrencyAsync(code); }
+        currency.Input.SelectionChanged += (_, _) => Choose(); currency.Input.LostFocus += (_, _) => Choose();
+        body.Children.Add(Field(s["TripCurrency"], Ui.V(4, currency, Ui.Text(s["TripCurrencyHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap))));
         body.Children.Add(Field(s["Language"], Editors.Search(w, e.Id, "language", s["Language"], e.Data["language"]?.ToString(), FieldOptions.Languages)));
         body.Children.Add(Field(s["Participants"], Editors.References(w, e.Id, "participants", s["Participants"], "person")));
         body.Children.Add(Field(s["Cover"], Editors.Reference(w, e.Id, "cover/document", s["Cover"], "document", allowCreate: false)));
@@ -667,9 +679,8 @@ public static class InspectorView
         var m = w.Model; var s = m.Strings;
         body.Children.Add(Field(s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ["idea", "pending", "reserved", "confirmed", "cancelled", "completed"])));
         body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["Reference"], Editors.Text(w, e.Id, "reference", s["Reference"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
-        body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
-        // The price is what it costs; the expense is what was paid, and only that counts in the costs.
-        if (ExpenseViews.BookingExpenses(w, e) is { } expenses) body.Children.Add(Field(s["Expenses"], expenses));
+        // What it costs is its payments, shown here in full: paid, still to pay, who paid and who shares them.
+        Add(body, s["Payments"], ExpenseViews.BookingPayments(w, e));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
         // The plans and the booking point to each other; a plan leaves the booking it had.
         body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item",

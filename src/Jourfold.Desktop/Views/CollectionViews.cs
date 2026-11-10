@@ -59,7 +59,8 @@ public static class CollectionViews
             var when = items.Select(i => ScheduleQueries.Span(trip, i).Start).Where(x => x is not null).Min() is { } first ? Formats.Date(first.InZone(ScheduleQueries.TripZone(trip)).Date) : s["NoDateYet"];
             var status = b.Data["status"]?.ToString() ?? "idea"; var (si, sb, sf) = Visuals.Status(status);
             var reference = b.Data["reference"]?.ToString();
-            var price = TripSummaries.Money(b.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : "";
+            // What it costs is its payments; a price only older versions stored is shown until it is recorded.
+            var price = ExpenseViews.BookingAmount(trip, b) ?? "";
             var copy = reference is null ? null : Ui.IconButton("copy", s["CopyReference"], "small").Also(c => c.Click += async (_, _) => { await m.Interaction.CopyAsync(reference); m.Interaction.Toast(s["Copied"]); });
             var refPill = reference is null ? null : Ui.H(2, new Border { Child = Ui.Text(reference).Also(t => { t.FontFamily = FontFamily.Parse("monospace"); t.FontSize = 12; }), Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6) }.Res(Border.BackgroundProperty, "Bg.Subtle"), copy);
             var travelers = PeopleNames(trip, b.Data["travelers"]).ToArray();
@@ -67,7 +68,7 @@ public static class CollectionViews
                 Ui.Tile(icon, kind, 38).Margin(0, 0, 14, 0),
                 Ui.V(2, Ui.Line(b.Title, "title"), Ui.Line(string.Join(" · ", new[] { b.Data["provider"]?["name"]?.ToString(), when, items.Length > 1 ? string.Format(s["ItemsCount"], items.Length) : items.FirstOrDefault()?.Title }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(travelers, 24).Margin(8, 0) : null,
-                ExpenseViews.MissingExpensePill(s, payments, b)?.Margin(8, 0),
+                ExpenseViews.BookingPill(s, trip, payments, b)?.Margin(8, 0),
                 Ui.Text(price, "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.TextAlignment = TextAlignment.Right; }),
                 Ui.Pill(s[status], si, sb, sf).Margin(14, 0, 0, 0));
             list.Children.Add(Row(w, b, grid));
@@ -83,7 +84,7 @@ public static class CollectionViews
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
         var actions = new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
-        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.MissingExpenses(w), ConverterCard(w)));
+        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.StillToPay(w), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)
         {
@@ -101,7 +102,7 @@ public static class CollectionViews
             }
             tiles.Children.Add(Ui.Card(body, 18).Also(c => c.Width = 300));
         }
-        if (ExpenseViews.HomeTotal(w) is { } home) tiles.Children.Add(home);
+        if (ExpenseViews.TripTotal(w) is { } home) tiles.Children.Add(home);
         var list = Ui.V(2);
         foreach (var e in expenses.Concat(budgets))
         {
@@ -109,17 +110,17 @@ public static class CollectionViews
             var estimated = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
             var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
             var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
-            var shared = e.Type == "expense" && !estimated ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
+            var shared = e.Type == "expense" ? ExpenseViews.Status(s, Expenses.Split(trip, e)) : null;
             var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                 Ui.Tile(e.Type == "budget" ? "piggy-bank" : ExpenseViews.CategoryIcon(ExpenseCategories.Of(trip, e)), e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
                 Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : ExpenseViews.CategoryName(s, ExpenseCategories.Of(trip, e)), e.Type == "budget" ? null : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
-                estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : shared?.Margin(8, 0),
+                shared?.Margin(8, 0),
                 payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
                 Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
     }
 
     /// <summary>

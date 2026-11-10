@@ -73,6 +73,14 @@ public sealed class QuickAddView
     // An expense: still estimated, and the plan or booking it belongs to.
     private readonly ToggleSwitch estimated = new();
     private Guid? related, relatedBefore;
+    // An expense's category, who shares it and what the card booked in the trip's currency, with how they were.
+    private string? category, categoryBefore;
+    private readonly HashSet<Guid> sharing = [];
+    private Guid[] sharingBefore = [];
+    private bool sharingTouched;
+    private SplitMethod? splitMethod = SplitMethod.Equal;
+    private readonly TextBox charged = new();
+    private string? chargedBefore;
     private string? providerBefore;
     // A currency not offered as a chip, such as the one of a country just arrived in.
     private readonly TextBox otherCurrency = new() { MaxLength = 3, Width = 96, HorizontalAlignment = HorizontalAlignment.Left };
@@ -100,7 +108,8 @@ public sealed class QuickAddView
         // With the decimal separator that amounts are shown with (Formats.Money).
         amount.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(amount, str["Amount"]);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
-        estimated.OnContent = estimated.OffContent = str["EstimatedOnly"]; AutomationProperties.SetName(estimated, str["EstimatedOnly"]);
+        estimated.OnContent = estimated.OffContent = str["StillToPay"]; AutomationProperties.SetName(estimated, str["StillToPay"]);
+        charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(charged, string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], s.TripCurrencyCode));
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
         reference.PlaceholderText = str["BookingNumberHint"]; AutomationProperties.SetName(reference, str["BookingNumber"]);
         otherCurrency.PlaceholderText = str["OtherCurrencyHint"]; AutomationProperties.SetName(otherCurrency, str["OtherCurrency"]);
@@ -111,6 +120,14 @@ public sealed class QuickAddView
             if (into is not null) peopleChoice = PeopleChoice.AsGroup;
             else if (s.Me is { } me && kind is "expense") { peopleChoice = PeopleChoice.Chosen; people.Add(me.Id); }
             if (into is not null && trip.Find(into.Value) is { } group && s.Entry(group.Id)?.Day is { } groupDay) day = groupDay;
+            // A payment for a booking: it belongs to the booking, and one still to pay names no payer yet.
+            if (s.QuickAddRelated is { } forBooking && trip.Find(forBooking) is { } booking)
+            {
+                related = forBooking; estimated.IsChecked = s.QuickAddPlanned; title.Text = booking.Title;
+                if (s.QuickAddPlanned) people.Clear();
+                if (TripSummaries.Money(booking.Data["price"]) is { } legacy) { amount.Text = legacy.Amount.ToString(CultureInfo.CurrentCulture); currency = legacy.Currency; }
+            }
+            s.ClearQuickAddPayment();
         }
         day = s.Agenda.Find(s.SelectedDate) is not null ? s.SelectedDate : s.Agenda.Find(s.PhoneToday) is not null ? s.PhoneToday : s.Agenda.Days.FirstOrDefault()?.Date;
         if (item is not null) Load(item);
@@ -153,6 +170,11 @@ public sealed class QuickAddView
         if (item.Type == "booking") LoadBooking(item);
         if (item.Type == "expense")
         {
+            var trip = s.Trip!;
+            category = categoryBefore = ExpenseCategories.Stored(item);
+            var split = Expenses.Split(trip, item);
+            splitMethod = split.Method; sharing.UnionWith(split.People); sharingBefore = [.. split.People]; sharingTouched = true;
+            if (Expenses.ChargeOf(item) is { } charge) charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture);
             estimated.IsChecked = item.Data["estimated"] is System.Text.Json.Nodes.JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
             related = relatedBefore = (item.Data["related"] as System.Text.Json.Nodes.JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? id : (Guid?)null).FirstOrDefault(id => id is not null);
         }
@@ -248,7 +270,7 @@ public sealed class QuickAddView
         if (form.Children.Count == 0) { if (editing is null) form.Children.Add(kinds); form.Children.Add(title); form.Children.Add(rest); }
         rest.Children.Clear();
         // The fields keep what was typed between draws; they leave the layout of the last draw first.
-        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency }.Concat(details.Values.Select(d => d.Box)))
+        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged }.Concat(details.Values.Select(d => d.Box)))
             switch (field.Parent)
             {
                 case Panel panel: panel.Children.Remove(field); break;
@@ -317,6 +339,10 @@ public sealed class QuickAddView
             rest.Children.Add(estimated);
             if (PeopleField(str["Payer"]) is { } payers) rest.Children.Add(payers);
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
+            rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
+            rest.Children.Add(Field(str["Category"], CategoryControls()));
+            // What the card booked in the trip's currency, next to the amount on the bill.
+            if (Currency() != s.TripCurrencyCode) rest.Children.Add(Field(string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], s.TripCurrencyCode), Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
@@ -405,7 +431,8 @@ public sealed class QuickAddView
             statuses.Children.Add(chip);
         }
         rest.Children.Add(Field(str["Status"], statuses));
-        rest.Children.Add(Field(str["Price"], Money()));
+        // A booking has no price; a new one's amount becomes a payment still to pay, and payments are kept with the booking.
+        if (editing is null) rest.Children.Add(Field(str["AmountStillToPay"], Money()));
         var clearDay = Ui.IconButton("x", str["NoFreeCancellation"]); clearDay.Click += (_, _) => { cancelDay.SelectedDate = null; cancelTime.SelectedTime = null; };
         rest.Children.Add(Field(str["FreeCancellationUntil"], Ui.V(6, Ui.Columns("*,Auto", cancelDay, clearDay), Optional(cancelTime))));
         if (PeopleField(str["Travellers"]) is { } travellers) rest.Children.Add(travellers);
@@ -430,6 +457,47 @@ public sealed class QuickAddView
             .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray()));
         list.Children.Add(add);
         return list;
+    }
+
+    /// <summary>
+    /// Who shares an expense: the trip's people as chips, the booking's travellers or the plan's people at first. An
+    /// expense divided by amounts, shares or percent keeps that and is changed in its details.
+    /// </summary>
+    private Control SharingControls()
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        if (!sharingTouched) { sharing.Clear(); sharing.UnionWith(Expenses.PeopleFor(trip, related)); }
+        if (splitMethod is not SplitMethod.Equal)
+            return Ui.Text(string.Format(CultureInfo.CurrentCulture, str["SplitOtherMethod"], string.Join(", ", sharing.Select(p => trip.Find(p)?.Title).OfType<string>())), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        var chips = Ui.Flow(8);
+        foreach (var person in TripPeople.Travelers(trip).Concat(sharing.Select(trip.Find).OfType<Entity>()).DistinctBy(p => p.Id))
+        {
+            var id = person.Id;
+            var chip = Chip(person.Title, sharing.Contains(id) ? "check" : null, sharing.Contains(id), "chip");
+            AutomationProperties.SetName(chip, string.Format(CultureInfo.CurrentCulture, str["SharesExpense"], person.Title));
+            // Somebody always shares it.
+            chip.Click += (_, _) => { if (sharing.Contains(id) && sharing.Count == 1) return; if (!sharing.Remove(id)) sharing.Add(id); sharingTouched = true; Render(); };
+            chips.Children.Add(chip);
+        }
+        return chips;
+    }
+
+    /// <summary>The category as chips: the standard ones and the trip's own, the suggested one marked until another is chosen.</summary>
+    private Control CategoryControls()
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        var probe = Entity.Create("expense", "");
+        if (related is { } id && trip.Find(id) is { } target) probe.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = target.Type, ["id"] = id.ToString() });
+        var current = category ?? ExpenseCategories.Suggested(trip, probe) ?? ExpenseCategories.Other;
+        var chips = Ui.Flow(8);
+        foreach (var c in ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Append(category).OfType<string>().Distinct())
+        {
+            var chosen = c;
+            var chip = Chip(Jourfold.UI.CostTexts.Category(str, c), null, string.Equals(c, current, StringComparison.CurrentCultureIgnoreCase), "chip");
+            chip.Click += (_, _) => { category = chosen == category ? null : chosen; Render(); };
+            chips.Children.Add(chip);
+        }
+        return chips;
     }
 
     /// <summary>The plan or booking an expense belongs to, with buttons to choose another or none.</summary>
@@ -642,6 +710,14 @@ public sealed class QuickAddView
         {
             if (money is { } value) DetailEdits.SetMoney(item, "amount", value, Currency());
             item.Data["estimated"] = estimated.IsChecked == true;
+            if (category != categoryBefore) item = ExpenseCategories.With(trip, item, category);
+            if (splitMethod is SplitMethod.Equal && sharing.Count > 0 && (created || !sharing.SetEquals(sharingBefore))) item = Expenses.WithSplit(item, SplitMethod.Equal, sharing.Select(p => (p, (decimal?)null)));
+            if (Changed(charged.Text, chargedBefore) && Currency() != s.TripCurrencyCode)
+            {
+                if (string.IsNullOrWhiteSpace(charged.Text)) item = Expenses.WithoutCharge(item);
+                else if (ExchangeRates.Amount(charged.Text) is { } booked && TripSummaries.Money(item.Data["amount"]) is { Amount: not 0 })
+                    item = Expenses.WithCharge(item, booked, s.TripCurrencyCode, Expenses.ChargeOf(item)?.Date ?? Expenses.DayOf(trip, item) ?? s.PhoneToday);
+            }
             if (related != relatedBefore)
             {
                 // The form shows the first link; others an expense may have stay.
@@ -657,7 +733,6 @@ public sealed class QuickAddView
             if (item.Data["provider"] is System.Text.Json.Nodes.JsonObject { Count: 0 }) item.Data.Remove("provider");
             if (created || Changed(reference.Text, referenceBefore)) DetailEdits.SetText(item, "reference", reference.Text);
             item.Data["status"] = bookingStatus;
-            DetailEdits.SetMoney(item, "price", money, Currency());
             var zone = item.Data["cancellation"]?["free_until"]?["timezone"]?.ToString()
                 ?? plans.Select(p => s.Entry(p)?.Zone).OfType<string>().FirstOrDefault() ?? ScheduleQueries.TripZone(trip).Id;
             // A day without an hour lasts until its end.

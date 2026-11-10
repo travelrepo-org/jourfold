@@ -178,6 +178,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
         catch { next.Dispose(); throw; }
         Workspace?.Dispose(); Workspace = next; next.Changed += (_, _) => { Refresh(); _ = UpdateLocalStateAsync(); _ = UpdateRemindersAsync(); _ = UpdateWeatherAsync(); };
+        next.TravellersJoined += (_, joined) => TravellersJoined(joined);
         var remotes = await next.Git.RemotesAsync();
         Store.Remember(path, next.State.Trip, remotes.Count > 0 ? "remote" : "local");
         RefreshRecent();
@@ -188,6 +189,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
         Weather = TripWeather.Empty; Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync(); _ = UpdateWeatherAsync(force: true); _ = FetchRatesAsync();
+        // Costs written by older versions are brought into the current shape once the travellers agree.
+        using (ExecutionContext.SuppressFlow()) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = OfferCostUpgradeAsync());
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>

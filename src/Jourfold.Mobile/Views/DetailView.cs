@@ -83,7 +83,7 @@ public static class DetailView
         if (people.Length > 0) page.Children.Add(Row("users", Lines.Names(people, s), null, s));
         if (booking is not null)
         {
-            var price = TripSummaries.Money(booking.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : null;
+            var price = Jourfold.UI.CostTexts.BookingAmount(trip, booking);
             var summary = Ui.V(4, Ui.Text(booking.Title, "strong"),
                 Ui.Text(string.Join(" · ", new[] { Provider(booking), booking.Data["reference"]?.ToString(), str.Optional(booking.Data["status"]?.ToString() ?? ""), price }.Where(t => !string.IsNullOrWhiteSpace(t))), "caption"));
             if (booking.Id == item.Id) page.Children.Add(Section(str["Booking"], Ui.Card(summary, 12)));

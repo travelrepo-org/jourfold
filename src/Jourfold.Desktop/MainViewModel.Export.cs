@@ -260,6 +260,8 @@ public partial class MainViewModel
             Settled = s["ExportSettled"],
             SettleUp = s["ExportSettleUp"],
             PaysTo = s["ExportPaysTo"],
+            ToPay = s["ExportToPay"],
+            BudgetUsed = s["ExportBudgetUsed"],
             Yes = s["ExportYes"],
             No = s["ExportNo"],
             List = s["ExportList"],

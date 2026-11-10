@@ -54,6 +54,8 @@ public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate D
     public decimal? Amount { get; init; }
     /// <summary>What the new expense belongs to, such as the booking it pays for.</summary>
     public Guid? Related { get; init; }
+    /// <summary>Whether the new expense is still to pay, such as the rest of a booking due on site.</summary>
+    public bool Planned { get; init; }
 }
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
 public sealed record ConflictPrompt(string Title, string Field, string Current, string Incoming, IReadOnlyList<string> Actions, string CurrentRaw);

@@ -24,12 +24,13 @@ public sealed class WeatherViewTests : IDisposable
     /// <summary>A service that never goes online: dry everywhere except heavy rain in the mountain village tomorrow from 10:00 to 13:00.</summary>
     private sealed class Rainy : IWeatherProvider
     {
-        public int Calls;
+        public int Calls; public bool Offline;
         public string Id => "open-meteo"; public string Name => "Test weather"; public WeatherAttribution Attribution => new("Test weather data", "https://example.invalid/weather", "CC BY 4.0");
         public bool RequiresKey => false; public int HorizonDays => 16; public bool Covers(GeoPoint point) => true;
         public Task<IReadOnlyList<WeatherForecast?>> ForecastAsync(IReadOnlyList<GeoPoint> points, CancellationToken ct = default)
         {
-            Calls++; var now = SystemClock.Instance.GetCurrentInstant(); var start = Local.AtStartOfDay(Tomorrow.PlusDays(-1)).ToInstant();
+            Calls++; if (Offline) throw new DomainException("weather.unavailable", "offline");
+            var now = SystemClock.Instance.GetCurrentInstant(); var start = Local.AtStartOfDay(Tomorrow.PlusDays(-1)).ToInstant();
             var wetFrom = Local.AtStrictly(Tomorrow.At(new LocalTime(10, 0))).ToInstant(); var wetUntil = wetFrom + Duration.FromHours(3);
             return Task.FromResult<IReadOnlyList<WeatherForecast?>>(points.Select(p => (WeatherForecast?)new WeatherForecast(Id, p, now, now + Duration.FromHours(2), Enumerable.Range(0, 16 * 24).Select(i =>
             {
@@ -126,6 +127,43 @@ public sealed class WeatherViewTests : IDisposable
 
             m.Navigate("List"); Probe.Layout();
             Assert.Contains(Probe.All<Control>(w), c => AutomationProperties.GetName(c) is { } name && name.StartsWith("Heavy rain · 19° / 12°", StringComparison.Ordinal));
+        }
+        finally { await w.Model.SetWeatherAsync(false); w.Close(); }
+    }
+
+    /// <summary>The weather service's clock, ahead by <see cref="By"/>, so forecasts fetched a moment ago count as older.</summary>
+    private sealed class Ahead : IClock { public Duration By; public Instant GetCurrentInstant() => SystemClock.Instance.GetCurrentInstant() + By; }
+
+    [AvaloniaFact]
+    public async Task ThePlanSaysWhenTheWeatherWasFetchedAndFetchesItAgain()
+    {
+        var w = new MainWindow(); w.Model.SetPreference("Language", "en"); w.Model.SetLanes(false); w.Show(); Probe.Layout();
+        var provider = new Rainy(); var clock = new Ahead();
+        w.Model.WeatherFactory = () => new WeatherService([provider], null, new WeatherCache(Path.Combine(root, "weather-cache")), clock: clock);
+        try
+        {
+            var m = w.Model; await m.OpenAsync(await Trip()); var (hike, _) = await Seed(m); m.InboxOpen = false;
+            await m.SetWeatherAsync(true); await Probe.Until(() => m.Weather.Items.Count > 0);
+            m.Navigate("Plan"); m.ShowDate(Tomorrow); m.Selected = m.Workspace!.State.Trip.Find(hike); Probe.Layout(); Probe.ShowDetails(w);
+            var toolbar = w.FindControl<Border>("ToolbarHost")!;
+            Button? Offer(Avalonia.Visual root) => Probe.All<Button>(root).FirstOrDefault(b => AutomationProperties.GetName(b)?.StartsWith("Fetch the weather again, as of ", StringComparison.Ordinal) == true);
+            Assert.NotNull(Offer(toolbar));
+            Assert.NotNull(Offer(Probe.Named<StackPanel>(w, "Inspector")));
+            m.Navigate("List"); Probe.Layout();
+            Assert.NotNull(Offer(toolbar));
+
+            // Fetched a moment ago, so a request does nothing yet; ten minutes later it fetches again.
+            var calls = provider.Calls;
+            Assert.True(await m.RefreshWeatherAsync()); Assert.Equal(calls, provider.Calls);
+            clock.By = Duration.FromMinutes(10);
+            Offer(toolbar)!.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => provider.Calls == calls + 1);
+
+            // Offline: the request says so, and the forecast stays.
+            provider.Offline = true; clock.By = Duration.FromMinutes(20);
+            Assert.False(await m.RefreshWeatherAsync());
+            Assert.Equal(calls + 2, provider.Calls);
+            Assert.NotEmpty(m.Weather.Items[hike].Outlooks);
         }
         finally { await w.Model.SetWeatherAsync(false); w.Close(); }
     }

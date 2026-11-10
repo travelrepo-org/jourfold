@@ -55,6 +55,8 @@
   <Style Selector="Button.row"><Setter Property="Padding" Value="16,12"/><Setter Property="CornerRadius" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
   <Style Selector="Button.card"><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
   <Style Selector="Button.card:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
+  <!-- When data was fetched, next to it (Lines.Fetched): quiet, the size of a caption. -->
+  <Style Selector="Button.fresh"><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="8,4"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
   <Style Selector="Button.chip"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="36"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.chip.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
 

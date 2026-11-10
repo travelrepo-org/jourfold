@@ -12,7 +12,24 @@ public sealed class RateSchedule
 {
     public static readonly TimeSpan Fresh = TimeSpan.FromHours(12);
     public static readonly TimeSpan Retry = TimeSpan.FromMinutes(30);
-    private DateTime? tried;
+    /// <summary>How long a fetch the person asked for keeps another one from starting, so repeated taps fetch once.</summary>
+    public static readonly TimeSpan Again = TimeSpan.FromMinutes(1);
+    private DateTime? tried, asked;
+
+    /// <summary>When the rates kept in <paramref name="file"/> were fetched: the file is written only then.</summary>
+    public static DateTimeOffset? Fetched(string file) => File.Exists(file) ? new DateTimeOffset(File.GetLastWriteTimeUtc(file), TimeSpan.Zero) : null;
+
+    /// <summary>
+    /// Whether to fetch now because the person asked for it, which skips the waits above. False when the person asked
+    /// less than <see cref="Again"/> ago. A yes counts as an attempt from now on.
+    /// </summary>
+    public bool BeginRefresh(DateTime? nowUtc = null)
+    {
+        var now = nowUtc ?? DateTime.UtcNow;
+        if (asked is { } last && now - last < Again) return false;
+        asked = tried = now;
+        return true;
+    }
 
     /// <summary>
     /// Whether to fetch now, given the rates kept in <paramref name="file"/>. A yes counts as an attempt from now on.

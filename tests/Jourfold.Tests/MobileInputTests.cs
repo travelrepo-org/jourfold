@@ -79,6 +79,32 @@ public sealed class MobileInputTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task TimeFieldsSayHourAndMinuteInGerman()
+    {
+        var (session, window) = await OpenAsync("de");
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            var picker = Probe.All<TimePicker>(Form(window)).First(p => p.SelectedTime is null && p.IsEffectivelyVisible);
+            var words = Probe.All<TextBlock>(picker).Select(t => t.Text).ToArray();
+            Assert.Contains("Stunde", words); Assert.Contains("Minute", words);
+            Assert.DoesNotContain("hour", words);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [Fact]
+    public void ThePickersWordsComeFromTheStrings()
+    {
+        var resources = new ResourceDictionary();
+        new Localization("de").Pickers(resources);
+        Assert.Equal(("Stunde", "Minute", "Tag", "Monat", "Jahr"), ((string)resources["StringTimePickerHourText"]!, (string)resources["StringTimePickerMinuteText"]!,
+            (string)resources["StringDatePickerDayText"]!, (string)resources["StringDatePickerMonthText"]!, (string)resources["StringDatePickerYearText"]!));
+        new Localization("en").Pickers(resources);
+        Assert.Equal("hour", resources["StringTimePickerHourText"]);
+    }
+
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 
     private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore

@@ -46,6 +46,7 @@ public sealed class AppShell : UserControl
     public AppShell(MobileSession session)
     {
         Session = session; Classes.Add("shell");
+        session.Strings.Pickers(Resources);
         Content = root; root.Res(Border.BackgroundProperty, "Bg.App");
         root.Child = new Panel { Children = { main, overlays } };
         session.Changed += () => Dispatcher.UIThread.Post(RequestRender);

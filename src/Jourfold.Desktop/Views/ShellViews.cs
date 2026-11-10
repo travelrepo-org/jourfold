@@ -314,11 +314,15 @@ public static class ViewToolbar
                 // Offered when stays were entered one item per night; merging makes each one stay over its nights.
                 var mergeable = m.StayMergeCandidates.Count;
                 var merge = mergeable == 0 ? null : Ui.Button(string.Format(s["MergeStaysChip"], mergeable), "bed-double", "chip").Also(b => { b.Command = m.MergeStaysCommand; ToolTip.SetTip(b, s["MergeStaysBody"]); });
-                return Bar(Ui.Columns("*,Auto", left.Also(l => l.ClipToBounds = true), Ui.H(8, merge, zone, lanes, Ui.H(0, zoomOut, zoomIn))));
+                // The timetable's bar is full, so the weather's time is in the tooltip there.
+                return Bar(Ui.Columns("*,Auto", left.Also(l => l.ClipToBounds = true), Ui.H(8, merge, zone, lanes, Ui.H(0, Weather(iconOnly: true), zoomOut, zoomIn))));
             }
-            return Bar(left);
+            return m.View == "List" && Weather(iconOnly: false) is { } weather ? Bar(Ui.Columns("*,Auto", left, weather)) : Bar(left);
         }
         return new Border { Height = 0 };
+
+        // When the weather in the plan was fetched, and a way to fetch it again; the inspector has the same per item.
+        Control? Weather(bool iconOnly) => m.WeatherOn && Freshness.Fetched(m.Weather) is { } fetched ? InspectorView.WeatherFreshness(w, fetched, iconOnly) : null;
     }
 
     /// <summary>

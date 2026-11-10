@@ -22,17 +22,36 @@ public sealed partial class MobileSession
         await FetchRatesAsync(force: true, ct);
     }
 
+    /// <summary>When the rates on this device were fetched, or null before the first fetch.</summary>
+    public DateTimeOffset? RatesFetched => RateSchedule.Fetched(RatesPath);
+
     /// <summary>Fetches the newest rates when allowed and due, with every sync and when the converter opens; see <see cref="RateSchedule"/>.</summary>
     public async Task FetchRatesAsync(bool force = false, CancellationToken ct = default)
     {
         if (!RatesOn || FetchingRates || !rateSchedule.Begin(Rates, RatesPath, force)) return;
+        await FetchRatesCoreAsync(ct);
+    }
+
+    /// <summary>
+    /// Fetches the rates again now because the user asked for it. False when that failed, such as offline; the last
+    /// rates stay. Asking again within a minute does nothing.
+    /// </summary>
+    public async Task<bool> RefreshRatesAsync(CancellationToken ct = default)
+    {
+        if (!RatesOn || FetchingRates || !rateSchedule.BeginRefresh()) return true;
+        return await FetchRatesCoreAsync(ct);
+    }
+
+    private async Task<bool> FetchRatesCoreAsync(CancellationToken ct)
+    {
         FetchingRates = true; Changed?.Invoke();
         try
         {
             var fresh = await ExchangeRates.FetchAsync(MapsHttp, OnlineIdentity.UserAgent, ct);
             fresh.Save(RatesPath); rates = fresh;
+            return true;
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or System.Xml.XmlException or FormatException or InvalidOperationException) { }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or System.Xml.XmlException or FormatException or InvalidOperationException) { return false; }
         finally { FetchingRates = false; Changed?.Invoke(); }
     }
 

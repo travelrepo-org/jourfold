@@ -91,15 +91,32 @@ public partial class MainViewModel
         var update = UpdateCoreAsync(service, trip); weatherUpdate = update; await update;
     }
 
-    private async Task UpdateCoreAsync(WeatherService service, TripSnapshot trip)
+    /// <summary>
+    /// Fetches the weather again now because the person asked for it, also forecasts that have not expired yet; see
+    /// <see cref="WeatherService.UpdateAsync(TripSnapshot, bool, CancellationToken)"/>. False when a service could not be
+    /// reached; what was fetched before stays.
+    /// </summary>
+    public async Task<bool> RefreshWeatherAsync()
+    {
+        if (!WeatherOn || Workspace is null) return true;
+        if (weatherUpdate is Task<bool> { IsCompleted: false } running) return await running;
+        var service = WeatherServices; service.Preferred = WeatherProvider;
+        lastWeatherUpdate = DateTime.UtcNow;
+        var update = UpdateCoreAsync(service, Workspace.State.Trip, refresh: true); weatherUpdate = update;
+        return await update;
+    }
+
+    /// <summary>Returns whether every service answered.</summary>
+    private async Task<bool> UpdateCoreAsync(WeatherService service, TripSnapshot trip, bool refresh = false)
     {
         TripWeather result;
-        try { result = await service.UpdateAsync(trip); }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException) { return; }
-        if (Workspace?.State.Trip is not { } current || !WeatherOn) return;
+        try { result = await service.UpdateAsync(trip, refresh); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or OperationCanceledException) { return false; }
+        if (Workspace?.State.Trip is not { } current || !WeatherOn) return result.Problems.Count == 0;
         // The trip may have changed meanwhile; the cache has everything that was fetched.
         Show(current == trip ? result : service.Cached(current) with { Problems = result.Problems });
         await UpdateRemindersAsync();
+        return result.Problems.Count == 0;
     }
 
     private void Show(TripWeather weather)

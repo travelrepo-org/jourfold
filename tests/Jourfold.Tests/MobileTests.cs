@@ -1132,6 +1132,34 @@ public sealed class MobileTests : IDisposable
         Assert.True(condition());
     }
 
+    [AvaloniaFact]
+    public async Task ATapBesideATextFieldClosesTheKeyboard()
+    {
+        var now = new LocalDateTime(2027, 5, 10, 9, 0).InZoneStrictly(Berlin).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        session.ShowTab(MobileTab.More); session.ShowPage("packing");
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            var field = Probe.All<TextBox>(window).First(b => b.Name?.StartsWith(MorePages.DraftPrefix, StringComparison.Ordinal) == true);
+            void Tap(Avalonia.Visual target)
+            {
+                var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Touch, true);
+                var properties = new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PointerUpdateKind.LeftButtonPressed);
+                ((Avalonia.Input.InputElement)target).RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(target, pointer, window, new Avalonia.Point(1, 1), 0, properties, Avalonia.Input.KeyModifiers.None));
+                Probe.Layout();
+            }
+            // A tap on a button leaves the field typing, so the button's click is not lost.
+            field.Focus(); Probe.Layout(); Assert.True(field.IsFocused);
+            Tap(Probe.All<Button>(window).First(b => b.IsEffectivelyVisible)); Assert.True(field.IsFocused);
+            // A tap on the page beside it ends the typing, which closes the on-screen keyboard.
+            Tap(Probe.All<TextBlock>(window).First(t => t.Text == "Packing lists" && t.IsEffectivelyVisible)); Assert.False(field.IsFocused);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>The device's calendar, keeping what was written last.</summary>
     private sealed class FakeCalendar : ISystemCalendar
     {

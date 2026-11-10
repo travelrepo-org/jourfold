@@ -60,6 +60,16 @@ public sealed class AppShell : UserControl
         // with a finger they do not, or the last tapped row would stay highlighted.
         AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerPressedEvent, (_, e) => { if (e.Pointer.Type != Avalonia.Input.PointerType.Mouse) Classes.Remove("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // A tap beside the text field being typed in closes the on-screen keyboard, as in other apps. The shell takes
+        // the focus, since Avalonia has no way to just drop it. Taps on buttons and other controls keep it, so their
+        // clicks are not lost to a page drawn again when the field lets go.
+        Focusable = true;
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse || !TypingAnywhere() || e.Source is not Visual source) return;
+            if (Avalonia.VisualTree.VisualExtensions.GetSelfAndVisualAncestors(source).Any(v => v is TextBox or Button or TimePicker or DatePicker or ComboBox or Slider)) return;
+            Focus(Avalonia.Input.NavigationMethod.Pointer);
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
         // Enter in a one-line field sends it, as its button would, so what it added shows at once.
         AddHandler(KeyDownEvent, (_, e) =>
@@ -183,6 +193,8 @@ public sealed class AppShell : UserControl
 
     /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
     private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);
+    /// <summary>Whether any text field has the focus, on the page or in a sheet.</summary>
+    private bool TypingAnywhere() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox;
 
     private void RequestRender()
     {

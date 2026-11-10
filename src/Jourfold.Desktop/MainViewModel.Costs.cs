@@ -125,11 +125,11 @@ public partial class MainViewModel
         await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
     });
 
-    /// <summary>Sets what a budget covers: the whole trip, a category, a person's id or a collection's id, as an undoable step.</summary>
-    public Task SetBudgetScopeAsync(Guid budgetId, string scope, string? target = null) => RunEditAsync(async () =>
+    /// <summary>Sets what a budget is limited to, such as one person's food; no limits is the whole trip. One undoable step.</summary>
+    public Task SetBudgetFiltersAsync(Guid budgetId, BudgetFilters filters) => RunEditAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip || trip.Find(budgetId) is not { Type: "budget" } budget) return;
-        var changed = Budgets.WithScope(trip, budget, scope, target);
+        var changed = Budgets.WithFilters(trip, budget, filters);
         if (!System.Text.Json.Nodes.JsonNode.DeepEquals(changed.Data, budget.Data)) await Workspace.EditAsync(changed);
     });
 

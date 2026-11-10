@@ -690,6 +690,7 @@
   "PayEven": "{0} and the others are even",
   "Budgets": "Budgets",
   "BudgetWholeTrip": "Whole trip",
+  "BudgetAny": "All",
   "BudgetChooseTarget": "choose below",
   "BudgetTarget": "Which one",
   "BudgetNoCollections": "The trip has no collections yet. Create one under Collections to budget for a group of plans.",

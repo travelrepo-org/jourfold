@@ -289,9 +289,9 @@ public sealed class ExpenseSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "Category", "Food", "Eating out", "of", "left")]
-    [InlineData("de", "Kategorie", "Essen", "Eating out", "von", "übrig")]
-    public async Task ABudgetCoversACategoryAndShowsWhatIsLeft(string language, string category, string food, string title, string of, string left)
+    [InlineData("en", "Category", "Food", "Person", "Eating out", "of", "left")]
+    [InlineData("de", "Kategorie", "Essen", "Person", "Eating out", "von", "übrig")]
+    public async Task ABudgetCombinesACategoryAndAPersonAndShowsWhatIsLeft(string language, string category, string food, string person, string title, string of, string left)
     {
         var w = await Window(language, "Light"); var m = w.Model;
         try
@@ -302,20 +302,29 @@ public sealed class ExpenseSplitTests : IDisposable
             await m.Workspace!.EditAsync(budget);
             m.Navigate("Costs"); m.Selected = m.Trip!.Find(budget.Id); Probe.ShowDetails(w);
             var inspector = w.FindControl<Control>("InspectorHost")!;
-            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == category));
-            Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == category).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await Probe.Until(() => Budgets.ScopeOf(m.Trip!.Find(budget.Id)!) == Budgets.Category);
-            Probe.ShowDetails(w);
-            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == food));
-            Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == food).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
-            await Probe.Until(() => Budgets.TargetOf(m.Trip!.Find(budget.Id)!) == "food");
+            void Choose(string name)
+            {
+                Probe.All<ChoiceButton>(inspector).Single(c => AutomationProperties.GetName(c) == name).RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            }
+            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == category + ": " + food));
+            Choose(category + ": " + food);
+            await Probe.Until(() => Budgets.FiltersOf(m.Trip!.Find(budget.Id)!).Category == "food");
             var status = Budgets.Status(m.Trip!, m.Trip!.Find(budget.Id)!)!;
             Assert.Equal((90m, 60m), (status.Spent, status.Left));
             // The whole trip's EUR budget is not this one.
             Assert.Equal(0m, TripSummaries.Costs(m.Trip!).Single(c => c.Currency == "EUR").Budget);
+
+            // Ben's food: his third of the dinner.
+            Probe.ShowDetails(w);
+            await Probe.Until(() => Probe.All<ChoiceButton>(inspector).Any(c => AutomationProperties.GetName(c) == person + ": Ben"));
+            Choose(person + ": Ben");
+            await Probe.Until(() => Budgets.FiltersOf(m.Trip!.Find(budget.Id)!).Person is not null);
+            var both = Budgets.Status(m.Trip!, m.Trip!.Find(budget.Id)!)!;
+            Assert.Equal(("food", 30m), (both.Filters.Category, both.Spent));
             m.Navigate("Plan"); m.Navigate("Costs");
             var texts = Texts(w).ToArray();
             Assert.Contains(texts, t => t.Contains(" " + of + " ", StringComparison.Ordinal) && t.Contains(left, StringComparison.Ordinal) && t.Contains("150", StringComparison.Ordinal));
+            Assert.Contains(food + " · Ben", texts);
             Assert.Contains(Probe.All<Button>(w), b => AutomationProperties.GetName(b) == title);
         }
         finally { w.Close(); }

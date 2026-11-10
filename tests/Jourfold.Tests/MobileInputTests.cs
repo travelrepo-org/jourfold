@@ -105,6 +105,19 @@ public sealed class MobileInputTests : IDisposable
         Assert.Equal("hour", resources["StringTimePickerHourText"]);
     }
 
+    [Theory]
+    [InlineData(false, true, false, 411, "phone")]
+    // A tablet with a SIM, or an emulator, that can make calls.
+    [InlineData(false, true, false, 900, "tablet")]
+    [InlineData(false, false, false, 900, "tablet")]
+    // An unfolded foldable is still a phone, as its maker calls it.
+    [InlineData(false, true, true, 673, "phone")]
+    // A Wi-Fi tablet that is small.
+    [InlineData(false, false, false, 540, "tablet")]
+    [InlineData(true, false, false, 800, "device")]
+    public void AnAndroidDeviceIsCalledWhatItIs(bool computer, bool calls, bool folds, double shortestSide, string expected) =>
+        Assert.Equal(expected, MobileHost.AndroidDevice(computer, calls, folds, shortestSide));
+
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 
     private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore

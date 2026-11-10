@@ -42,14 +42,17 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
     }
 
     /// <summary>
-    /// What the system would call this device: a phone when it can make calls (foldables too, as their makers call
-    /// them), a computer-like device such as a Chromebook, otherwise a tablet. The window size does not count; a
-    /// phone on a monitor in DeX stays a phone.
+    /// What the system would call this device; see <see cref="MobileHost.AndroidDevice"/>. The window size does not
+    /// count; a phone on a monitor in DeX stays a phone.
     /// </summary>
     private string Device()
     {
-        if (PackageManager?.HasSystemFeature("android.hardware.type.pc") == true) return "device";
-        return GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true } ? "phone" : "tablet";
+        // The system's own metrics are the built-in screen's, whatever window or monitor the app is on.
+        var screen = global::Android.Content.Res.Resources.System?.DisplayMetrics;
+        var shortest = screen is { Density: > 0 } ? Math.Min(screen.WidthPixels, screen.HeightPixels) / screen.Density : 0;
+        return MobileHost.AndroidDevice(PackageManager?.HasSystemFeature("android.hardware.type.pc") == true,
+            GetSystemService(TelephonyService) is global::Android.Telephony.TelephonyManager { IsVoiceCapable: true },
+            PackageManager?.HasSystemFeature("android.hardware.sensor.hinge_angle") == true, shortest);
     }
 
     /// <summary>Offers a text, such as a day of the plan, to a messenger or mail app through the share sheet.</summary>

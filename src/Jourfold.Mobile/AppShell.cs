@@ -42,6 +42,13 @@ public sealed class AppShell : UserControl
     // The page drawn last and where it was, so drawing the same page again keeps how far it was scrolled.
     private Control? drawnPage;
     private object? pageAt;
+    // The finger on the screen and how far and fast it has scrolled the page, to tell a tap, a nudge and a scroll apart.
+    // In device-independent pixels: a tap moves less than TapSlop; a scroll ends the typing once it covers
+    // ScrollDistance in all, or moves faster than ScrollSpeed per second, as a flick does.
+    private const double TapSlop = 10, ScrollDistance = 96, ScrollSpeed = 900;
+    private (int Id, Point At, bool OnControl)? touch;
+    private double scrolled, lastScroll;
+    private readonly System.Diagnostics.Stopwatch touchClock = new();
 
     public AppShell(MobileSession session)
     {
@@ -60,16 +67,34 @@ public sealed class AppShell : UserControl
         // with a finger they do not, or the last tapped row would stay highlighted.
         AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerPressedEvent, (_, e) => { if (e.Pointer.Type != Avalonia.Input.PointerType.Mouse) Classes.Remove("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
-        // A tap beside the text field being typed in closes the on-screen keyboard, as in other apps. The shell takes
-        // the focus, since Avalonia has no way to just drop it. Taps on buttons and other controls keep it, so their
-        // clicks are not lost to a page drawn again when the field lets go.
+        // A tap beside the text field being typed in closes the on-screen keyboard, as in other apps, and so does
+        // scrolling the page far or fast; nudging it a little keeps the keyboard. The shell takes the focus, since
+        // Avalonia has no way to just drop it. Taps on buttons and other controls keep it, so their clicks are not
+        // lost to a page drawn again when the field lets go.
         Focusable = true;
         AddHandler(PointerPressedEvent, (_, e) =>
         {
-            if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse || !TypingAnywhere() || e.Source is not Visual source) return;
-            if (Avalonia.VisualTree.VisualExtensions.GetSelfAndVisualAncestors(source).Any(v => v is TextBox or Button or TimePicker or DatePicker or ComboBox or Slider)) return;
-            Focus(Avalonia.Input.NavigationMethod.Pointer);
+            if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) return;
+            var onControl = e.Source is Visual source && Avalonia.VisualTree.VisualExtensions.GetSelfAndVisualAncestors(source).Any(v => v is TextBox or Button or TimePicker or DatePicker or ComboBox or Slider);
+            touch = (e.Pointer.Id, e.GetPosition(this), onControl); scrolled = 0; touchClock.Restart(); lastScroll = 0;
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            if (touch is not { } t || t.Id != e.Pointer.Id) return;
+            touch = null;
+            var moved = e.GetPosition(this) - t.At;
+            if (!t.OnControl && Math.Abs(moved.X) + Math.Abs(moved.Y) < TapSlop && TypingAnywhere()) Focus(Avalonia.Input.NavigationMethod.Pointer);
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>
+        {
+            // Only scrolling by the finger counts: not the page bringing the field into view, nor a flick's glide.
+            if (touch is null || !TypingAnywhere()) return;
+            var step = Math.Abs(e.OffsetDelta.X) + Math.Abs(e.OffsetDelta.Y);
+            if (step == 0) return;
+            var now = touchClock.Elapsed.TotalSeconds; var speed = step / Math.Max(now - lastScroll, 0.008);
+            lastScroll = now; scrolled += step;
+            if (scrolled > ScrollDistance || (speed > ScrollSpeed && scrolled > TapSlop)) Focus(Avalonia.Input.NavigationMethod.Pointer);
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
         // Enter in a one-line field sends it, as its button would, so what it added shows at once.
         AddHandler(KeyDownEvent, (_, e) =>

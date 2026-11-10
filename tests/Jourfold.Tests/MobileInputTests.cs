@@ -139,6 +139,35 @@ public sealed class MobileInputTests : IDisposable
     public void AnAndroidDeviceIsCalledWhatItIs(bool computer, bool calls, bool folds, double shortestSide, string expected) =>
         Assert.Equal(expected, MobileHost.AndroidDevice(computer, calls, folds, shortestSide));
 
+    [Fact]
+    public void ALongPressCountsWhenTheFingerIsLiftedInPlace()
+    {
+        var gesture = new HoldGesture();
+        // A short tap.
+        gesture.Press(new Point(10, 10), 1000);
+        Assert.Equal(HoldOutcome.Tap, gesture.Release(1200));
+        // Held long enough and lifted where it went down, with a little wobble.
+        gesture.Press(new Point(10, 10), 2000);
+        Assert.False(gesture.Move(new Point(14, 13)));
+        Assert.True(gesture.Active);
+        Assert.Equal(HoldOutcome.Hold, gesture.Release(2600));
+        // Moved: a scroll, neither a tap nor a long press.
+        gesture.Press(new Point(10, 10), 3000);
+        Assert.True(gesture.Move(new Point(10, 60)));
+        Assert.Equal(HoldOutcome.None, gesture.Release(3100));
+        // Held, then moved: still a scroll, however long it was held first.
+        gesture.Press(new Point(10, 10), 4000);
+        Assert.False(gesture.Move(new Point(11, 11)));
+        Assert.True(gesture.Move(new Point(10, 80)));
+        Assert.False(gesture.Active);
+        Assert.Equal(HoldOutcome.None, gesture.Release(5500));
+        // Taken over by a list, or the control went away.
+        gesture.Press(new Point(10, 10), 6000); gesture.Cancel();
+        Assert.Equal(HoldOutcome.None, gesture.Release(7000));
+        // A release without a press does nothing.
+        Assert.Equal(HoldOutcome.None, gesture.Release(8000));
+    }
+
     [AvaloniaFact]
     public async Task APageDrawnAgainStaysWhereItWasScrolled()
     {

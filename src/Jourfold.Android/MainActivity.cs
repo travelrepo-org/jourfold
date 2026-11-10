@@ -27,7 +27,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
             Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText,
-            AppVersion: InstalledVersion());
+            AppVersion: InstalledVersion(), Haptic: Haptic);
         base.OnCreate();
     }
 
@@ -62,6 +62,9 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         StartActivity(Intent.CreateChooser(send, title)!.AddFlags(ActivityFlags.NewTask));
         return Task.CompletedTask;
     }
+
+    /// <summary>The system's long-press feedback, which follows the user's touch-feedback setting.</summary>
+    private static void Haptic() => MainActivity.Current?.Window?.DecorView.PerformHapticFeedback(global::Android.Views.FeedbackConstants.LongPress);
 
     /// <summary>Full brightness while a ticket is on screen, so a scanner reads it; back to the system's setting after.</summary>
     private static void Bright(bool on)

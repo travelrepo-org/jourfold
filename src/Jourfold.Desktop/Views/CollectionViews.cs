@@ -119,7 +119,7 @@ public static class CollectionViews
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.MissingExpenses(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
     }
 
     /// <summary>

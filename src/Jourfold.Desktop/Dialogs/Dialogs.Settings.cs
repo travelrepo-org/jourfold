@@ -114,6 +114,13 @@ public sealed partial class Dialogs
                     Row(s["Language"], s["LanguageHint"], Option("Language", model.Strings.Language, "en", "de"));
                     Row(s["OpenView"], s["OpenViewHint"], Option("OpenView", "Remember", "Remember", "Plan", "Map", "List"));
                     Row(s["Units"], s["UnitsHint"], Option("Units", "Metric", "Metric", "Imperial"));
+                    // The same setting as the chooser in the Costs page's total; it belongs to the person and their card, not to a trip.
+                    // A drop-down like the other settings; typing the code's first letters picks it with the keyboard.
+                    var currencies = Editors.Currencies.ToArray();
+                    var primary = new ComboBox { ItemsSource = currencies, SelectedItem = currencies.FirstOrDefault(c => c.Id == model.HomeCurrency), Width = 220, Tag = "HomeCurrency", MaxDropDownHeight = 320 };
+                    AutomationProperties.SetName(primary, s["HomeCurrency"]);
+                    primary.SelectionChanged += (_, _) => { if (primary.SelectedItem is Choice c && c.Id != model.HomeCurrency) model.HomeCurrency = c.Id; };
+                    Row(s["HomeCurrency"], s["HomeCurrencyHint"], primary);
                     var folder = Ui.Button(model.DefaultTripsFolder, "folder-open", "ghost"); folder.MaxWidth = 280; folder.Click += async (_, _) => { if (await FolderAsync(s["TripsFolder"]) is { } chosen) { model.Store.Set("trips.folder", chosen); Render(); } };
                     Row(s["TripsFolder"], s["TripsFolderHint"], folder);
                     Row(s["DesktopNotifications"], s["DesktopNotificationsHint"], Toggle(model.DesktopNotificationsEnabled, model.SetDesktopNotifications, s["DesktopNotifications"]));

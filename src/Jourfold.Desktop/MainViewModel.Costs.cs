@@ -125,6 +125,14 @@ public partial class MainViewModel
         await Workspace.ApplyAsync(Expenses.SettleAll(Workspace.State.Trip, Today).Select(e => new TravelRepo.Repository.EntityEdit(e.Id, e)).ToArray());
     });
 
+    /// <summary>Sets what a budget covers: the whole trip, a category, a person's id or a collection's id, as an undoable step.</summary>
+    public Task SetBudgetScopeAsync(Guid budgetId, string scope, string? target = null) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip || trip.Find(budgetId) is not { Type: "budget" } budget) return;
+        var changed = Budgets.WithScope(trip, budget, scope, target);
+        if (!System.Text.Json.Nodes.JsonNode.DeepEquals(changed.Data, budget.Data)) await Workspace.EditAsync(changed);
+    });
+
     /// <summary>Applies one of TravelRepo's expense edits to the saved expense as an undoable step.</summary>
     public Task ChangeExpenseAsync(Guid id, Func<TripSnapshot, Entity, Entity> change) => EditExpenseAsync(id, change);
 

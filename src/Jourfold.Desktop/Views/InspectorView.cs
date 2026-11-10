@@ -214,7 +214,7 @@ public static class InspectorView
                     Add(body, s["Files"], Confirmations(w, e));
                     if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
                 }
-                else body.Children.Add(Field(s["BudgetScope"], Editors.Choice(w, e.Id, "scope", s["BudgetScope"], e.Data["scope"]?.ToString(), ["trip", "category", "participant", "collection"])));
+                else body.Children.Add(Field(s["BudgetScope"], ExpenseViews.BudgetScopeEditor(w, e)));
                 break;
             case "person": PersonDetails(w, e, body); break;
             case "collection": body.Children.Add(Field(s["Items"], Editors.References(w, e.Id, "items", s["Items"], null))); break;

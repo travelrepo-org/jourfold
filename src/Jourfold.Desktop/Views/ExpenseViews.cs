@@ -370,6 +370,90 @@ public static class ExpenseViews
         return Ui.Card(Ui.V(12, heading, list), 18);
     }
 
+    private static readonly (string Scope, string Icon)[] BudgetScopes = [(Budgets.Trip, "luggage"), (Budgets.Category, "tag"), (Budgets.Participant, "user"), (Budgets.Collection, "layers")];
+
+    /// <summary>What a budget covers, in words, such as "Category · Food" or "Person · Ana".</summary>
+    public static string BudgetFor(Localization s, TripSnapshot trip, BudgetStatus status) => status.Scope switch
+    {
+        Budgets.Trip => s["BudgetWholeTrip"],
+        Budgets.Category => s["category"] + " · " + (status.Target is { } c ? CategoryName(s, c) : s["BudgetChooseTarget"]),
+        _ => s[status.Scope] + " · " + (Guid.TryParse(status.Target, out var id) && trip.Find(id) is { } e ? e.Title : s["BudgetChooseTarget"])
+    };
+
+    /// <summary>
+    /// What a budget covers, as chips: the whole trip, a category, a person or a collection, and then which one.
+    /// </summary>
+    public static Control BudgetScopeEditor(MainWindow w, Entity budget)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var scope = Budgets.ScopeOf(budget); var target = Budgets.TargetOf(budget);
+        var scopes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        foreach (var (option, icon) in BudgetScopes)
+        {
+            var chip = Ui.Choice(s[option], icon, option == scope, "chip");
+            chip.Click += (_, _) => { if (option != scope) _ = m.SetBudgetScopeAsync(budget.Id, option); };
+            scopes.Children.Add(chip);
+        }
+        AutomationProperties.SetName(scopes, s["BudgetScope"]);
+        var panel = Ui.V(8, scopes);
+        IEnumerable<(string Id, string Label, string Icon)> targets = scope switch
+        {
+            Budgets.Category => ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Select(c => (c, CategoryName(s, c), CategoryIcon(c))),
+            Budgets.Participant => TripPeople.Travelers(trip).Select(p => (p.Id.ToString(), p.Title, "user")),
+            Budgets.Collection => trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).Select(c => (c.Id.ToString(), c.Title, "layers")),
+            _ => []
+        };
+        var choices = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
+        foreach (var (id, label, icon) in targets)
+        {
+            var chip = Ui.Choice(label, icon, string.Equals(id, target, StringComparison.CurrentCultureIgnoreCase), "chip");
+            chip.Click += (_, _) => _ = m.SetBudgetScopeAsync(budget.Id, scope, id);
+            choices.Children.Add(chip);
+        }
+        if (choices.Children.Count > 0) { AutomationProperties.SetName(choices, s["BudgetTarget"]); panel.Children.Add(choices); }
+        else if (scope == Budgets.Collection) panel.Children.Add(Notice("info", "Text.Subtle", s["BudgetNoCollections"]));
+        if (Budgets.Status(trip, budget, m.EstimateRates) is { } status) panel.Children.Add(BudgetLine(s, trip, status, 300));
+        return panel;
+    }
+
+    /// <summary>One budget: what it covers, a bar, and what is spent, planned and left, said in words.</summary>
+    private static Control BudgetLine(Localization s, TripSnapshot trip, BudgetStatus b, double? barWidth = null)
+    {
+        var currency = b.Amount.Currency;
+        string Money(decimal x) => (b.Approximate ? "≈ " : "") + Formats.Money(x, currency);
+        var ratio = b.Amount.Amount <= 0 ? 1 : (double)Math.Min(1m, b.Used / b.Amount.Amount);
+        var over = b.Left < 0;
+        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions($"{ratio.ToString(System.Globalization.CultureInfo.InvariantCulture)}*,{(1 - ratio).ToString(System.Globalization.CultureInfo.InvariantCulture)}*"), Height = 8 };
+        if (barWidth is { } width) { bar.Width = width; bar.HorizontalAlignment = HorizontalAlignment.Left; }
+        bar.Children.Add(new Border { CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Bg.Muted").Col(0, 2));
+        bar.Children.Add(new Border { CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, over ? "Danger" : ratio > 0.85 ? "Warning" : "Accent"));
+        AutomationProperties.SetName(bar, string.Format(s["BudgetUsed"], Money(b.Used), Formats.Money(b.Amount.Amount, currency)));
+        var line = Ui.V(4, bar, Ui.H(5, Ui.Icon(over ? "triangle-alert" : "circle-check", 13, over ? "Danger" : "Success"),
+            Ui.Text(string.Format(s["BudgetUsed"], Money(b.Used), Formats.Money(b.Amount.Amount, currency)) + " · " + (over ? string.Format(s["BudgetOver"], Money(-b.Left)) : string.Format(s["BudgetLeft"], Money(b.Left))), "caption")));
+        if (b.Planned > 0) line.Children.Add(Ui.Text(string.Format(s["BudgetPlanned"], Money(b.Planned)), "caption"));
+        if (b.NotIncluded.Count > 0) line.Children.Add(Notice("info", "Text.Subtle", string.Format(s["BudgetNotIncluded"], string.Join(" + ", b.NotIncluded.Select(x => Formats.Money(x.Amount, x.Currency))))));
+        return line;
+    }
+
+    /// <summary>On the Costs page: every budget with what it covers and where it stands. Null without budgets.</summary>
+    public static Control? BudgetsCard(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var budgets = Budgets.All(trip, m.EstimateRates);
+        if (budgets.Count == 0) return null;
+        var rows = Ui.V(14);
+        foreach (var b in budgets)
+        {
+            var open = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(BudgetScopes.First(x => x.Scope == b.Scope).Icon, 14, "Text.Muted").Margin(0, 2, 8, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top), Ui.V(1, Ui.Line(b.Budget.Title, "strong"), Ui.Line(BudgetFor(s, trip, b), "caption"))) }.Classed("row");
+            AutomationProperties.SetName(open, b.Budget.Title);
+            var budget = b.Budget; open.Click += (_, _) => m.Follow(budget);
+            rows.Children.Add(Ui.V(6, open, BudgetLine(s, trip, b).Margin(8, 0)));
+        }
+        var body = Ui.V(12, Ui.Text(s["Budgets"], "h3"), rows);
+        if (budgets.Any(b => b.Approximate)) body.Children.Add(Notice("info", "Text.Subtle", s["EstimatedWithRates"]));
+        return Ui.Card(body, 18);
+    }
+
     private static Control Notice(string icon, string brush, string text) =>
         Ui.Columns("Auto,*", Ui.Icon(icon, 13, brush).Margin(0, 2, 6, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top), Ui.Text(text, "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
 }

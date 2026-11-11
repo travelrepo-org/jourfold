@@ -127,14 +127,16 @@ public sealed class QuickAddView
         body.PlaceholderText = str["Notes"]; AutomationProperties.SetName(body, str["Notes"]);
         // With the decimal separator that amounts are shown with (Formats.Money).
         amount.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(amount, str["Amount"]);
+        // Phones show their keyboard for numbers, with the decimal separator.
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
         estimated.OnContent = estimated.OffContent = str["StillToPay"]; AutomationProperties.SetName(estimated, str["StillToPay"]);
         // Still to pay offers a due day, so the form is drawn again when it changes.
         estimated.IsCheckedChanged += (_, _) => { if (kind == "expense") Avalonia.Threading.Dispatcher.UIThread.Post(() => Render()); };
         charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture);
         AutomationProperties.SetName(paidOn, str["PaidOnLabel"]);
-        // Amounts open the number pad, with the decimal separator and sign, rather than the letters.
-        foreach (var box in new[] { amount, charged }) Avalonia.Input.TextInput.TextInputOptions.SetContentType(box, Avalonia.Input.TextInput.TextInputContentType.Number);
+        // What the card charged opens the number pad like the amount, with the decimal separator and sign.
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(charged, Avalonia.Input.TextInput.TextInputContentType.Number);
         newCategory.PlaceholderText = str["NewCategory"]; AutomationProperties.SetName(newCategory, str["NewCategory"]);
         newCategory.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; TakeNewCategory(); } };
         // The amount decides what an amount split has to add up to.

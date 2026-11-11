@@ -24,6 +24,16 @@ public static class TodayView
         return Ui.Card(Ui.V(8, Ui.Text(s.Strings["WeatherPrompt"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), Ui.H(8, yes, no)), 14).Margin(16, 0);
     }
 
+    /// <summary>Says that the trip has errors, so nothing can be changed until it is repaired on a computer.</summary>
+    private static Control? TripErrors(MobileSession s)
+    {
+        if (s.TripErrors is not { Count: > 0 } errors) return null;
+        var lines = Ui.V(6, Ui.H(8, Ui.Icon("alert-triangle", 18, "Danger"), Ui.Text(s.Strings["TripHasErrors"], "strong")),
+            Ui.Text(s.Strings["TripHasErrorsHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        foreach (var error in errors) lines.Children.Add(Ui.Text("• " + error, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        return Ui.Card(lines, 14).Margin(16, 0);
+    }
+
     /// <summary>Asks once who the user is in the trip, so reminders cover their own plans.</summary>
     private static Control? WhoAmI(MobileSession s)
     {
@@ -37,7 +47,7 @@ public static class TodayView
     {
         var now = s.Now; var phone = s.PhoneZone; var today = s.PhoneToday;
         var day = s.Agenda.Find(today);
-        var page = Ui.V(16, Lines.TripHeader(s), WhoAmI(s));
+        var page = Ui.V(16, Lines.TripHeader(s), TripErrors(s), WhoAmI(s));
         if (day is null) { page.Children.Add(OutsideTrip(s, today)); return Ui.Scroll(page); }
 
         var lines = DayLines(s, day, today, phone);

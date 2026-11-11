@@ -264,15 +264,19 @@ public sealed class PlaceSearch(HttpClient http, string searchUrl)
             using var request = new HttpRequestMessage(HttpMethod.Get, url); OnlineIdentity.Apply(request);
             using var response = await http.SendAsync(request, ct); last = DateTime.UtcNow;
             response.EnsureSuccessStatusCode();
-            using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+            // A sign-in page of a hotel or café network, or a changed server, answers with something else than the
+            // list of places. That reads as a network problem, not as an error of Jourfold.
+            using var document = await ParseAsync(response, ct);
+            if (document.RootElement.ValueKind != JsonValueKind.Array) throw Unexpected();
             var results = new List<PlaceResult>();
             foreach (var item in document.RootElement.EnumerateArray())
             {
-                var display = item.GetProperty("display_name").GetString() ?? "";
-                var name = item.TryGetProperty("name", out var n) && n.GetString() is { Length: > 0 } named ? named : display.Split(',')[0].Trim();
-                if (!double.TryParse(item.GetProperty("lat").GetString(), CultureInfo.InvariantCulture, out var lat) || !double.TryParse(item.GetProperty("lon").GetString(), CultureInfo.InvariantCulture, out var lon)) continue;
-                var osm = item.TryGetProperty("osm_type", out var type) && item.TryGetProperty("osm_id", out var id) ? type.GetString() + "/" + id.GetRawText() : null;
-                var local = item.TryGetProperty("namedetails", out var names) && names.ValueKind == JsonValueKind.Object && names.TryGetProperty("name", out var own) && own.GetString() is { Length: > 0 } ownName && ownName != name ? ownName : null;
+                // A result without a name or position is left out instead of failing the whole search.
+                if (item.ValueKind != JsonValueKind.Object || Text(item, "display_name") is not { } display) continue;
+                var name = Text(item, "name") is { Length: > 0 } named ? named : display.Split(',')[0].Trim();
+                if (!double.TryParse(Text(item, "lat"), CultureInfo.InvariantCulture, out var lat) || !double.TryParse(Text(item, "lon"), CultureInfo.InvariantCulture, out var lon)) continue;
+                var osm = Text(item, "osm_type") is { } type && item.TryGetProperty("osm_id", out var id) ? type + "/" + id.GetRawText() : null;
+                var local = item.TryGetProperty("namedetails", out var names) && names.ValueKind == JsonValueKind.Object && Text(names, "name") is { Length: > 0 } ownName && ownName != name ? ownName : null;
                 results.Add(new(name, display, Math.Round(lat, 6), Math.Round(lon, 6), osm, local));
             }
             if (Recent.Count >= 100) Recent.Clear();
@@ -300,10 +304,22 @@ public sealed class PlaceSearch(HttpClient http, string searchUrl)
             using var response = await http.SendAsync(request, ct); last = DateTime.UtcNow;
             if (!response.IsSuccessStatusCode) return null;
             using var document = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-            var local = document.RootElement.ValueKind == JsonValueKind.Array && document.RootElement.GetArrayLength() > 0 && document.RootElement[0].TryGetProperty("display_name", out var d) ? d.GetString() : null;
+            var local = document.RootElement.ValueKind == JsonValueKind.Array && document.RootElement.GetArrayLength() > 0 && document.RootElement[0].ValueKind == JsonValueKind.Object ? Text(document.RootElement[0], "display_name") : null;
             return string.IsNullOrWhiteSpace(local) || local == result.Address ? null : local;
         }
         catch (JsonException) { return null; }
         finally { Gate.Release(); }
     }
+
+    /// <summary>A property's text, or null when it is missing or not text.</summary>
+    private static string? Text(JsonElement element, string property) =>
+        element.TryGetProperty(property, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
+
+    private static async Task<JsonDocument> ParseAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        try { return await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct); }
+        catch (JsonException ex) { throw Unexpected(ex); }
+    }
+
+    private static HttpRequestException Unexpected(Exception? inner = null) => new("The search server sent an unexpected answer.", inner);
 }

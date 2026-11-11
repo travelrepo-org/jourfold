@@ -73,7 +73,34 @@ public sealed class QuickAddView
     // An expense: still estimated, and the plan or booking it belongs to.
     private readonly ToggleSwitch estimated = new();
     private Guid? related, relatedBefore;
+    // An expense's category, who shares it and what the card booked in the trip's currency, with how they were.
+    private string? category, categoryBefore;
+    private readonly HashSet<Guid> sharing = [];
+    private Guid[] sharingBefore = [];
+    private bool sharingTouched;
+    private SplitMethod? splitMethod = SplitMethod.Equal;
+    private readonly TextBox charged = new();
+    private string? chargedBefore;
+    // The currency of a charge already entered, which can differ from the trip's (entered earlier or elsewhere); it is kept.
+    private string? chargedCurrency;
+    // When a payment still to pay is due.
+    private readonly DatePicker dueDate = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private LocalDate? dueBefore;
     private string? providerBefore;
+    // An expense split by amounts, shares or percent: each person's value as typed, whether the split was changed, and
+    // what is still to divide.
+    private readonly Dictionary<Guid, TextBox> splitBoxes = [];
+    private bool splitTouched;
+    private readonly TextBlock splitState = Ui.Text("", "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+    // The day a paid expense was paid.
+    private readonly DatePicker paidOn = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private LocalDate? paidOnBefore;
+    // A category of the travellers' own, typed in the form.
+    private readonly TextBox newCategory = new();
+    private bool addingCategory;
+    // A budget: what it applies to.
+    private BudgetFilters budgetFilters = BudgetFilters.None, budgetFiltersBefore = BudgetFilters.None;
+    private Button? addButton;
     // A currency not offered as a chip, such as the one of a country just arrived in.
     private readonly TextBox otherCurrency = new() { MaxLength = 3, Width = 96, HorizontalAlignment = HorizontalAlignment.Left };
     private readonly TextBlock problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
@@ -90,8 +117,9 @@ public sealed class QuickAddView
     {
         s = session; editing = item; var str = s.Strings;
         var trip = s.Trip!;
-        if (item is null) { into = s.QuickAddInto; if (s.QuickAddKind is { } preset && Kinds.Any(k => k.Kind == preset)) kind = preset; }
-        currency = TripSummaries.Costs(trip).FirstOrDefault()?.Currency ?? "EUR";
+        if (item is null) { into = s.QuickAddInto; if (s.QuickAddKind is { } preset && (Kinds.Any(k => k.Kind == preset) || preset == "budget")) kind = preset; }
+        // A budget starts in the trip's currency, an expense in the one most paid in.
+        currency = kind == "budget" ? s.TripCurrencyCode : TripSummaries.Costs(trip).FirstOrDefault()?.Currency ?? "EUR";
         title.PlaceholderText = str["QuickAddTitleHint"]; AutomationProperties.SetName(title, str["Title"]);
         AutomationProperties.SetName(start, str["StartTime"]); AutomationProperties.SetName(end, str["EndTime"]);
         place.ItemsSource = from.ItemsSource = trip.Entities.Values.Where(e => e.Type == "place").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
@@ -102,7 +130,18 @@ public sealed class QuickAddView
         // Phones show their keyboard for numbers, with the decimal separator.
         Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
-        estimated.OnContent = estimated.OffContent = str["EstimatedOnly"]; AutomationProperties.SetName(estimated, str["EstimatedOnly"]);
+        estimated.OnContent = estimated.OffContent = str["StillToPay"]; AutomationProperties.SetName(estimated, str["StillToPay"]);
+        // Still to pay offers a due day, so the form is drawn again when it changes.
+        estimated.IsCheckedChanged += (_, _) => { if (kind == "expense") Avalonia.Threading.Dispatcher.UIThread.Post(() => Render()); };
+        charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture);
+        AutomationProperties.SetName(paidOn, str["PaidOnLabel"]);
+        // What the card charged opens the number pad like the amount, with the decimal separator and sign.
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(charged, Avalonia.Input.TextInput.TextInputContentType.Number);
+        newCategory.PlaceholderText = str["NewCategory"]; AutomationProperties.SetName(newCategory, str["NewCategory"]);
+        newCategory.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; TakeNewCategory(); } };
+        // The amount decides what an amount split has to add up to.
+        amount.TextChanged += (_, _) => UpdateSplitState();
+        if (item is null) paidOn.SelectedDate = new DateTimeOffset(s.PhoneToday.ToDateTimeUnspecified(), TimeSpan.Zero);
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
         reference.PlaceholderText = str["BookingNumberHint"]; AutomationProperties.SetName(reference, str["BookingNumber"]);
         otherCurrency.PlaceholderText = str["OtherCurrencyHint"]; AutomationProperties.SetName(otherCurrency, str["OtherCurrency"]);
@@ -113,18 +152,28 @@ public sealed class QuickAddView
             if (into is not null) peopleChoice = PeopleChoice.AsGroup;
             else if (s.Me is { } me && kind is "expense") { peopleChoice = PeopleChoice.Chosen; people.Add(me.Id); }
             if (into is not null && trip.Find(into.Value) is { } group && s.Entry(group.Id)?.Day is { } groupDay) day = groupDay;
+            // A payment for a booking: it belongs to the booking, and one still to pay names no payer yet.
+            if (s.QuickAddRelated is { } forBooking && trip.Find(forBooking) is { } booking)
+            {
+                related = forBooking; estimated.IsChecked = s.QuickAddPlanned; title.Text = booking.Title;
+                if (s.QuickAddPlanned) people.Clear();
+                if (TripSummaries.Money(booking.Data["price"]) is { } legacy) { amount.Text = legacy.Amount.ToString(CultureInfo.CurrentCulture); currency = legacy.Currency; }
+            }
+            s.ClearQuickAddPayment();
         }
         day = s.Agenda.Find(s.SelectedDate) is not null ? s.SelectedDate : s.Agenda.Find(s.PhoneToday) is not null ? s.PhoneToday : s.Agenda.Days.FirstOrDefault()?.Date;
         if (item is not null) Load(item);
 
         var close = Ui.IconButton("x", str["Close"]); close.Click += (_, _) => s.CloseOverlay();
-        var heading = item is not null ? str["Edit"] : into is { } g && trip.Find(g) is { } groupItem ? string.Format(CultureInfo.CurrentCulture, str["NewStepIn"], groupItem.Title) : str["QuickAdd"];
+        var heading = item is not null ? str["Edit"] : kind == "budget" ? str["AddBudget"] : into is { } g && trip.Find(g) is { } groupItem ? string.Format(CultureInfo.CurrentCulture, str["NewStepIn"], groupItem.Title) : str["QuickAdd"];
         Header = Ui.Columns("*,Auto", Ui.Text(heading, "h3").Also(t => t.TextTrimming = Avalonia.Media.TextTrimming.CharacterEllipsis), close).Margin(16, 0, 8, 8);
         var add = Ui.Button(item is null ? str["Add"] : str["Save"], item is null ? "plus" : "check", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
         add.Click += async (_, _) => await SubmitAsync(add);
+        addButton = add;
         View = Ui.V(14, form, problem, add).Margin(16, 0, 16, 24);
         Render();
-        title.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => title.Focus(), Avalonia.Threading.DispatcherPriority.Background);
+        // A new item starts with its title; an item being edited opens without the keyboard, so the form can be seen.
+        if (item is null) title.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => title.Focus(), Avalonia.Threading.DispatcherPriority.Background);
     }
 
     private static TimePicker Clock() => new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
@@ -137,7 +186,8 @@ public sealed class QuickAddView
         var entry = s.Entry(item.Id);
         title.Text = item.Title; body.Text = item.Data["body"]?.ToString();
         // Only plan items have a day and a time; bookings, tasks and notes edit their title and text.
-        kind = item.Type switch { "schedule_item" => Stays.IsStay(item) ? "accommodation" : "activity", "expense" => "expense", "task" => "task", "booking" => "booking", _ => "note" };
+        kind = item.Type switch { "schedule_item" => Stays.IsStay(item) ? "accommodation" : "activity", "expense" => "expense", "budget" => "budget", "task" => "task", "booking" => "booking", _ => "note" };
+        if (item.Type == "budget") budgetFilters = budgetFiltersBefore = Budgets.FiltersOf(item);
         LoadPeople(item);
         if (item.Type == "task" && item.Data["due"]?["date"]?.ToString() is { } due
             && NodaTime.Text.LocalDatePattern.Iso.Parse(due) is { Success: true } parsed) day = parsed.Value;
@@ -155,6 +205,16 @@ public sealed class QuickAddView
         if (item.Type == "booking") LoadBooking(item);
         if (item.Type == "expense")
         {
+            var trip = s.Trip!;
+            category = categoryBefore = ExpenseCategories.Stored(item);
+            var split = Expenses.Split(trip, item);
+            splitMethod = split.Method; sharing.UnionWith(split.People); sharingBefore = [.. split.People]; sharingTouched = true;
+            // Amounts, weights or percentages as stored, to change them here.
+            foreach (var part in (item.Data["split"]?["parts"] as System.Text.Json.Nodes.JsonArray ?? []).OfType<System.Text.Json.Nodes.JsonObject>())
+                if (Guid.TryParse(part["person"]?.ToString(), out var who) && ExchangeRates.Amount(part["value"]?.ToString()) is { } value) SplitBox(who).Text = ValueText(value);
+            if (item.Data["date"] is not null && (paidOnBefore = Expenses.DateOf(trip, item)) is { } paidDay) paidOn.SelectedDate = new DateTimeOffset(paidDay.ToDateTimeUnspecified(), TimeSpan.Zero);
+            if (Expenses.ChargeOf(item) is { } charge) { charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture); chargedCurrency = charge.Currency; }
+            if ((dueBefore = Expenses.DueOf(item)) is { } dueDay) dueDate.SelectedDate = new DateTimeOffset(dueDay.ToDateTimeUnspecified(), TimeSpan.Zero);
             estimated.IsChecked = item.Data["estimated"] is System.Text.Json.Nodes.JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
             related = relatedBefore = (item.Data["related"] as System.Text.Json.Nodes.JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? id : (Guid?)null).FirstOrDefault(id => id is not null);
         }
@@ -236,12 +296,18 @@ public sealed class QuickAddView
     private bool Stay => kind == "accommodation";
     private bool Journey => journey || kind == "transport";
 
-    private void Render()
+    /// <summary>
+    /// Draws the form again. Choosing the kind at the top keeps the keyboard, so a field below the title that had the
+    /// focus gets it back. Any other choice closes the keyboard, so it does not cover the choices below it.
+    /// </summary>
+    private void Render(bool keepFocus = false)
     {
-        // A field below the title that had the focus gets it back, so a chip tapped while typing keeps the keyboard.
-        var focused = TopLevel.GetTopLevel(form)?.FocusManager?.GetFocusedElement() as TextBox;
+        var focusManager = TopLevel.GetTopLevel(form)?.FocusManager;
+        var focused = focusManager?.GetFocusedElement() as TextBox;
         Draw();
-        if (focused is not null && !ReferenceEquals(focused, title) && Avalonia.VisualTree.VisualExtensions.IsAttachedToVisualTree(focused)) focused.Focus();
+        if (keepFocus && focused is not null && !ReferenceEquals(focused, title) && Avalonia.VisualTree.VisualExtensions.IsAttachedToVisualTree(focused)) focused.Focus();
+        else if (!keepFocus && focused is not null) TopLevel.GetTopLevel(form)?.Focus();
+        UpdateSplitState();
     }
 
     private void Draw()
@@ -250,14 +316,14 @@ public sealed class QuickAddView
         if (form.Children.Count == 0) { if (editing is null) form.Children.Add(kinds); form.Children.Add(title); form.Children.Add(rest); }
         rest.Children.Clear();
         // The fields keep what was typed between draws; they leave the layout of the last draw first.
-        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency }.Concat(details.Values.Select(d => d.Box)))
+        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged, dueDate, paidOn, newCategory, splitState }.Concat(splitBoxes.Values).Concat(details.Values.Select(d => d.Box)))
             switch (field.Parent)
             {
                 case Panel panel: panel.Children.Remove(field); break;
                 case ContentControl content: content.Content = null; break;
                 case Decorator decorator: decorator.Child = null; break;
             }
-        if (editing is null)
+        if (editing is null && kind != "budget")
         {
             kinds.Children.Clear();
             // A step of a group is a plan.
@@ -270,7 +336,7 @@ public sealed class QuickAddView
                     // An expense on the road was paid by the user, until the form says otherwise.
                     people.Clear(); peopleChoice = into is not null ? PeopleChoice.AsGroup : PeopleChoice.Everyone;
                     if (kind == "expense" && s.Me is { } me) { peopleChoice = PeopleChoice.Chosen; people.Add(me.Id); }
-                    Render();
+                    Render(keepFocus: true);
                 };
                 kinds.Children.Add(chip);
             }
@@ -284,6 +350,7 @@ public sealed class QuickAddView
             return;
         }
         if (kind == "booking") { BookingFields(); return; }
+        if (kind == "budget") { BudgetFields(); return; }
         if (Scheduled) rest.Children.Add(Field(Stay ? str["FirstNight"] : str["DayLabel"], Days()));
         if (Scheduled)
         {
@@ -316,9 +383,29 @@ public sealed class QuickAddView
         if (kind == "expense")
         {
             rest.Children.Add(Field(str["Amount"], Money()));
+            // What the card booked in the trip's currency (or the one of a charge already entered), next to the amount on the bill.
+            if (Currency() != ChargeCurrency())
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
+                AutomationProperties.SetName(charged, label);
+                rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+            }
             rest.Children.Add(estimated);
+            // A payment still to pay can be due on a day; the phone reminds three days before.
+            if (estimated.IsChecked == true)
+            {
+                var clearDue = Ui.IconButton("x", str["NoDueDate"]); clearDue.Click += (_, _) => dueDate.SelectedDate = null;
+                rest.Children.Add(Field(str["Due"], Ui.Columns("*,Auto", dueDate, clearDue)));
+            }
+            else
+            {
+                var clearPaid = Ui.IconButton("x", str["ClearPaidOn"]); clearPaid.Click += (_, _) => paidOn.SelectedDate = null;
+                rest.Children.Add(Field(str["PaidOnLabel"], Ui.Columns("*,Auto", paidOn, clearPaid)));
+            }
             if (PeopleField(str["Payer"]) is { } payers) rest.Children.Add(payers);
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
+            rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
+            rest.Children.Add(Field(str["Category"], CategoryControls()));
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
@@ -391,6 +478,7 @@ public sealed class QuickAddView
     }
 
     /// <summary>The currency typed or chosen, as a three-letter code.</summary>
+    private string ChargeCurrency() => chargedCurrency ?? s.TripCurrencyCode;
     private string Currency() => otherCurrency.Text?.Trim().ToUpperInvariant() is { Length: > 0 } typed ? typed : currency;
 
     /// <summary>A booking: provider, number, status, price, free cancellation, travellers and the plans it is for.</summary>
@@ -407,7 +495,8 @@ public sealed class QuickAddView
             statuses.Children.Add(chip);
         }
         rest.Children.Add(Field(str["Status"], statuses));
-        rest.Children.Add(Field(str["Price"], Money()));
+        // A booking has no price; a new one's amount becomes a payment still to pay, and payments are kept with the booking.
+        if (editing is null) rest.Children.Add(Field(str["AmountStillToPay"], Money()));
         var clearDay = Ui.IconButton("x", str["NoFreeCancellation"]); clearDay.Click += (_, _) => { cancelDay.SelectedDate = null; cancelTime.SelectedTime = null; };
         rest.Children.Add(Field(str["FreeCancellationUntil"], Ui.V(6, Ui.Columns("*,Auto", cancelDay, clearDay), Optional(cancelTime))));
         if (PeopleField(str["Travellers"]) is { } travellers) rest.Children.Add(travellers);
@@ -432,6 +521,190 @@ public sealed class QuickAddView
             .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray()));
         list.Children.Add(add);
         return list;
+    }
+
+    /// <summary>
+    /// Who shares an expense and how: equally among the people chosen as chips (the booking's travellers or the plan's
+    /// people at first), or by amounts, shares or percent with a value per person and what is still to divide.
+    /// </summary>
+    private Control SharingControls()
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        if (!sharingTouched) { sharing.Clear(); sharing.UnionWith(Expenses.PeopleFor(trip, related)); }
+        if (splitMethod is not { } method)
+            return Ui.Text(str["SplitUnknown"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap);
+        var panel = Ui.V(8);
+        var methods = Ui.Flow(8);
+        foreach (var (option, label, icon) in new[] { (SplitMethod.Equal, "SplitEqual", "users"), (SplitMethod.Amount, "SplitAmount", "coins"), (SplitMethod.Share, "SplitShare", "sliders-horizontal"), (SplitMethod.Percent, "SplitPercent", "circle-dot") })
+        {
+            var chip = Chip(str[label], icon, option == method, "chip"); var chosen = option;
+            chip.Click += (_, _) => ChangeSplitMethod(chosen);
+            methods.Children.Add(chip);
+        }
+        AutomationProperties.SetName(methods, str["SplitMethod"]);
+        panel.Children.Add(methods);
+        var people = TripPeople.Travelers(trip).Concat(sharing.Select(trip.Find).OfType<Entity>()).DistinctBy(p => p.Id).ToArray();
+        if (method == SplitMethod.Equal)
+        {
+            var chips = Ui.Flow(8);
+            foreach (var person in people)
+            {
+                var id = person.Id;
+                var chip = Chip(person.Title, sharing.Contains(id) ? "check" : null, sharing.Contains(id), "chip");
+                AutomationProperties.SetName(chip, string.Format(CultureInfo.CurrentCulture, str["SharesExpense"], person.Title));
+                // Somebody always shares it.
+                chip.Click += (_, _) => { if (sharing.Contains(id) && sharing.Count == 1) return; if (!sharing.Remove(id)) sharing.Add(id); sharingTouched = splitTouched = true; Render(); };
+                chips.Children.Add(chip);
+            }
+            panel.Children.Add(chips);
+            return panel;
+        }
+        panel.Children.Add(Ui.Text(method switch { SplitMethod.Amount => string.Format(CultureInfo.CurrentCulture, str["SplitHintAmount"], Currency()), SplitMethod.Share => str["SplitHintShare"], _ => str["SplitHintPercent"] }, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        foreach (var person in people)
+        {
+            var id = person.Id; var included = sharing.Contains(id);
+            var chip = Chip(person.Title, included ? "check" : null, included, "chip");
+            AutomationProperties.SetName(chip, string.Format(CultureInfo.CurrentCulture, str["SharesExpense"], person.Title));
+            chip.Click += (_, _) =>
+            {
+                if (included && sharing.Count == 1) return;
+                if (included) sharing.Remove(id); else { sharing.Add(id); if (string.IsNullOrWhiteSpace(SplitBox(id).Text)) SplitBox(id).Text = ValueText(method == SplitMethod.Share ? 1m : 0m); }
+                sharingTouched = splitTouched = true; Render();
+            };
+            var suffix = method switch { SplitMethod.Amount => Currency(), SplitMethod.Percent => "%", _ => "×" };
+            panel.Children.Add(Ui.Columns("*,120,40", chip, included ? SplitBox(id) : null, included ? Ui.Text(suffix, "caption").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(8, 0, 0, 0); }) : null));
+        }
+        panel.Children.Add(splitState);
+        return panel;
+    }
+
+    /// <summary>The field for one person's amount, weight or percentage, kept between draws.</summary>
+    private TextBox SplitBox(Guid person)
+    {
+        if (splitBoxes.TryGetValue(person, out var box)) return box;
+        box = new TextBox { HorizontalContentAlignment = HorizontalAlignment.Right, MinHeight = 44 };
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(box, Avalonia.Input.TextInput.TextInputContentType.Number);
+        AutomationProperties.SetName(box, string.Format(CultureInfo.CurrentCulture, s.Strings["SplitValueOf"], s.Trip!.Find(person)?.Title));
+        box.TextChanged += (_, _) => { splitTouched = true; UpdateSplitState(); };
+        // A tap selects the value, so typing replaces it.
+        box.GotFocus += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(box.SelectAll);
+        return splitBoxes[person] = box;
+    }
+
+    private static string ValueText(decimal value) => value.ToString("0.##", CultureInfo.CurrentCulture);
+
+    /// <summary>The people who share it, in the trip's order.</summary>
+    private Guid[] SplitPeople() => TripPeople.Travelers(s.Trip!).Select(p => p.Id).Concat(sharing).Distinct().Where(sharing.Contains).ToArray();
+
+    /// <summary>The expense as the form would save it, for TravelRepo to divide; null when a value is not a number.</summary>
+    private Entity? SplitProbe()
+    {
+        var probe = Entity.Create("expense", "");
+        var code = Currency(); var value = ExchangeRates.Amount(amount.Text) ?? amountBefore?.Value ?? 0m;
+        probe.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = Expenses.Format(value, code.Length == 3 ? code : "EUR"), ["currency"] = code.Length == 3 ? code : "EUR" };
+        var people = SplitPeople();
+        if (splitMethod is SplitMethod.Equal) return Expenses.WithSplit(probe, SplitMethod.Equal, people.Select(p => (p, (decimal?)null)));
+        if (splitMethod is not { } method) return null;
+        var values = people.Select(p => (p, ExchangeRates.Amount(SplitBox(p).Text))).ToArray();
+        return values.Any(v => v.Item2 is null) ? null : Expenses.WithSplit(probe, method, values);
+    }
+
+    /// <summary>Whether the split can be saved: equal, or values that are numbers and add up.</summary>
+    private bool SplitValid() => kind != "expense" || splitMethod is null or SplitMethod.Equal
+        || SplitProbe() is { } probe && (Expenses.Split(s.Trip!, probe).Issues & (SplitIssues.SumMismatch | SplitIssues.InvalidValue | SplitIssues.NoPeople)) == 0;
+
+    /// <summary>Says what is still to divide and allows saving only a split that adds up, as on the computer.</summary>
+    private void UpdateSplitState()
+    {
+        var valid = SplitValid();
+        if (addButton is not null) addButton.IsEnabled = valid;
+        if (kind != "expense" || splitMethod is null or SplitMethod.Equal) { splitState.IsVisible = false; return; }
+        splitState.IsVisible = true;
+        var str = s.Strings;
+        if (SplitProbe() is not { } probe) { splitState.Text = "⚠ " + str["CheckSplit"]; return; }
+        var split = Expenses.Split(s.Trip!, probe);
+        if (split.Issues.HasFlag(SplitIssues.SumMismatch) && split.Target is { } target)
+        {
+            var rest = target - split.Assigned; var currencyCode = split.Amount?.Currency ?? Currency();
+            string F(decimal x) => splitMethod == SplitMethod.Percent ? x.ToString("0.##", CultureInfo.CurrentCulture) + " %" : Formats.Money(x, currencyCode);
+            splitState.Text = "⚠ " + string.Format(CultureInfo.CurrentCulture, str[rest > 0 ? "SplitLeft" : "SplitOver"], F(split.Assigned), F(target), F(Math.Abs(rest)));
+        }
+        else splitState.Text = valid ? string.Join(", ", split.Shares.Select(x => (s.Trip!.Find(x.Person)?.Title ?? "?") + " " + Formats.Money(x.Amount, split.Amount!.Currency))) : "⚠ " + str["CheckSplit"];
+    }
+
+    /// <summary>Another method, keeping the current division as far as it goes (see <see cref="Expenses.ChangeMethod"/>).</summary>
+    private void ChangeSplitMethod(SplitMethod method)
+    {
+        if (method == splitMethod) return;
+        var trip = s.Trip!;
+        var probe = SplitProbe() ?? Expenses.WithSplit(SplitProbe(SplitMethod.Equal)!, SplitMethod.Equal, SplitPeople().Select(p => (p, (decimal?)null)));
+        var changed = Expenses.ChangeMethod(trip, probe, method);
+        foreach (var part in (changed.Data["split"]?["parts"] as System.Text.Json.Nodes.JsonArray ?? []).OfType<System.Text.Json.Nodes.JsonObject>())
+            if (Guid.TryParse(part["person"]?.ToString(), out var who) && ExchangeRates.Amount(part["value"]?.ToString()) is { } value) SplitBox(who).Text = ValueText(value);
+        splitMethod = method; splitTouched = sharingTouched = true;
+        Render();
+    }
+
+    private Entity? SplitProbe(SplitMethod method) { var before = splitMethod; splitMethod = method; var probe = SplitProbe(); splitMethod = before; return probe; }
+
+    /// <summary>The category as chips: the standard ones and the trip's own, the suggested one marked until another is chosen, and a new one.</summary>
+    private Control CategoryControls()
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        var probe = Entity.Create("expense", "");
+        if (related is { } id && trip.Find(id) is { } target) probe.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = target.Type, ["id"] = id.ToString() });
+        var current = category ?? ExpenseCategories.Suggested(trip, probe) ?? ExpenseCategories.Other;
+        var chips = Ui.Flow(8);
+        foreach (var c in ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Append(category).OfType<string>().Distinct(StringComparer.CurrentCultureIgnoreCase))
+        {
+            var chosen = c;
+            var chip = Chip(Jourfold.UI.CostTexts.Category(str, c), null, string.Equals(c, current, StringComparison.CurrentCultureIgnoreCase), "chip");
+            chip.Click += (_, _) => { category = chosen == category ? null : chosen; Render(); };
+            chips.Children.Add(chip);
+        }
+        if (!addingCategory)
+        {
+            var add = Chip(str["NewCategory"], "plus", false, "chip");
+            add.Click += (_, _) => { addingCategory = true; Render(); Avalonia.Threading.Dispatcher.UIThread.Post(() => newCategory.Focus(), Avalonia.Threading.DispatcherPriority.Background); };
+            chips.Children.Add(add);
+            return chips;
+        }
+        var ok = Ui.IconButton("check", str["NewCategory"]); ok.Click += (_, _) => TakeNewCategory();
+        return Ui.V(8, chips, Ui.Columns("*,Auto", newCategory, ok));
+    }
+
+    /// <summary>The category typed as a new one, which both travellers then see.</summary>
+    private void TakeNewCategory()
+    {
+        if (newCategory.Text?.Trim() is { Length: > 0 } typed) category = typed;
+        newCategory.Text = ""; addingCategory = false; Render();
+    }
+
+    /// <summary>A budget: its amount and what it applies to (a category, a person's part, a collection, together).</summary>
+    private void BudgetFields()
+    {
+        var str = s.Strings; var trip = s.Trip!;
+        rest.Children.Add(Field(str["Amount"], Money()));
+        Control Row(string label, string all, string? current, IEnumerable<(string Id, string Label)> options, Func<string?, BudgetFilters> with)
+        {
+            var chips = Ui.Flow(8);
+            foreach (var (id, text) in options.Prepend((null!, all)))
+            {
+                var selected = id is null ? current is null : string.Equals(id, current, StringComparison.CurrentCultureIgnoreCase);
+                var chip = Chip(text, null, selected, "chip");
+                AutomationProperties.SetName(chip, label + ": " + text);
+                chip.Click += (_, _) => { budgetFilters = with(id); Render(); };
+                chips.Children.Add(chip);
+            }
+            return Field(label, chips);
+        }
+        var f = budgetFilters;
+        rest.Children.Add(Ui.Text(str["BudgetScope"], "strong"));
+        rest.Children.Add(Row(str["category"], str["BudgetAny"], f.Category, ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Select(c => (c, Jourfold.UI.CostTexts.Category(str, c))), c => budgetFilters with { Category = c }));
+        rest.Children.Add(Row(str["participant"], str["Everyone"], f.Person?.ToString(), TripPeople.Travelers(trip).Select(p => (p.Id.ToString(), p.Title)), p => budgetFilters with { Person = Guid.TryParse(p, out var id) ? id : null }));
+        var collections = trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
+        if (collections.Length > 0) rest.Children.Add(Row(str["collection"], str["BudgetAny"], f.Collection?.ToString(), collections.Select(c => (c.Id.ToString(), c.Title)), k => budgetFilters with { Collection = Guid.TryParse(k, out var id) ? id : null }));
+        rest.Children.Add(Ui.Text(f.IsWholeTrip ? str["BudgetWholeTripHint"] : str["BudgetLimitedHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
     }
 
     /// <summary>The plan or booking an expense belongs to, with buttons to choose another or none.</summary>
@@ -543,7 +816,8 @@ public sealed class QuickAddView
             var arrivalZoneId = arrivalZone ?? (Journey ? ArrivalZones().First() : null);
             var placeChoice = Choice(place.Text); var fromChoice = Choice(from.Text);
             decimal? money = null;
-            if (kind is "expense" or "booking" && !(kind == "booking" && string.IsNullOrWhiteSpace(amount.Text)))
+            if (kind == "expense" && !SplitValid()) throw new DomainException("mobile.amount", s.Strings["SplitMustAddUp"]);
+            if (kind is "expense" or "booking" or "budget" && !(kind == "booking" && string.IsNullOrWhiteSpace(amount.Text)))
             {
                 // As people type it, "1.234,50" or "1,234.50" alike (see ExchangeRates.Amount). An amount left as it
                 // was keeps its exact value, also one with three decimals that would read as thousands.
@@ -572,7 +846,7 @@ public sealed class QuickAddView
                 To = kind == "transport" ? placeChoice : null,
                 Body = kind == "note" ? body.Text : null,
                 Amount = money,
-                Currency = kind is "expense" or "booking" ? Currency() : null,
+                Currency = kind is "expense" or "booking" or "budget" ? Currency() : null,
                 Reference = kind == "booking" ? reference.Text : null,
                 People = peopleChoice == PeopleChoice.Chosen ? [.. people] : [],
                 Date = Scheduled || kind == "task" ? day : null,
@@ -582,7 +856,7 @@ public sealed class QuickAddView
                 ArrivalTimezone = Journey ? arrivalZoneId : null,
             };
             var added = await s.AddAsync(draft, idea: kind == "idea" || (Scheduled && idea.IsChecked == true), into);
-            if (kind is "booking" or "expense") await SaveOtherAsync(added, money, created: true);
+            if (kind is "booking" or "expense" or "budget") await SaveOtherAsync(added, money, created: true);
             if (receipt is { } photo) await s.AddFilesAsync([photo], added);
             // A new group opens, to add its steps.
             if (kind == "group") s.ShowDetails(added);
@@ -644,6 +918,21 @@ public sealed class QuickAddView
         {
             if (money is { } value) DetailEdits.SetMoney(item, "amount", value, Currency());
             item.Data["estimated"] = estimated.IsChecked == true;
+            var dueDay = estimated.IsChecked == true && dueDate.SelectedDate is { } picked ? LocalDate.FromDateTime(picked.Date) : (LocalDate?)null;
+            if (dueDay != dueBefore || created) item = Expenses.WithDue(item, dueDay);
+            if (category != categoryBefore) item = ExpenseCategories.With(trip, item, category);
+            if (splitMethod is SplitMethod.Equal && sharing.Count > 0 && (created || splitTouched || !sharing.SetEquals(sharingBefore))) item = Expenses.WithSplit(item, SplitMethod.Equal, SplitPeople().Select(p => (p, (decimal?)null)));
+            else if (splitMethod is { } method and not SplitMethod.Equal && sharing.Count > 0 && (created || splitTouched || !sharing.SetEquals(sharingBefore)))
+                item = Expenses.WithSplit(item, method, SplitPeople().Select(p => (p, ExchangeRates.Amount(SplitBox(p).Text))));
+            // The day it was paid, for a paid one; a payment still to pay gets it when it is marked as paid.
+            var paidDay = estimated.IsChecked != true && paidOn.SelectedDate is { } chosenDay ? LocalDate.FromDateTime(chosenDay.Date) : (LocalDate?)null;
+            if (paidDay != paidOnBefore) item = Expenses.WithDate(item, paidDay);
+            if (Changed(charged.Text, chargedBefore) && Currency() != ChargeCurrency())
+            {
+                if (string.IsNullOrWhiteSpace(charged.Text)) item = Expenses.WithoutCharge(item);
+                else if (ExchangeRates.Amount(charged.Text) is { } booked && TripSummaries.Money(item.Data["amount"]) is { Amount: not 0 })
+                    item = Expenses.WithCharge(item, booked, ChargeCurrency(), Expenses.ChargeOf(item)?.Date ?? Expenses.DayOf(trip, item) ?? s.PhoneToday);
+            }
             if (related != relatedBefore)
             {
                 // The form shows the first link; others an expense may have stay.
@@ -653,13 +942,17 @@ public sealed class QuickAddView
                 DetailEdits.Set(item, "related", links.Count == 0 ? null : links);
             }
         }
+        if (kind == "budget")
+        {
+            if (money is { } value && !created) DetailEdits.SetMoney(item, "amount", value, Currency());
+            if (created || budgetFilters != budgetFiltersBefore) item = Budgets.WithFilters(trip, item, budgetFilters);
+        }
         if (kind == "booking")
         {
             if (created || Changed(provider.Text, providerBefore)) DetailEdits.SetText(item, "provider/name", provider.Text);
             if (item.Data["provider"] is System.Text.Json.Nodes.JsonObject { Count: 0 }) item.Data.Remove("provider");
             if (created || Changed(reference.Text, referenceBefore)) DetailEdits.SetText(item, "reference", reference.Text);
             item.Data["status"] = bookingStatus;
-            DetailEdits.SetMoney(item, "price", money, Currency());
             var zone = item.Data["cancellation"]?["free_until"]?["timezone"]?.ToString()
                 ?? plans.Select(p => s.Entry(p)?.Zone).OfType<string>().FirstOrDefault() ?? ScheduleQueries.TripZone(trip).Id;
             // A day without an hour lasts until its end.

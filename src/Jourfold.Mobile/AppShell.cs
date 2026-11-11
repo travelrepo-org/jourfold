@@ -479,7 +479,7 @@ public sealed class AppShell : UserControl
         var label = Session.Strings["QuickAdd"];
         var plus = new Button { Content = Ui.Icon("plus", 26).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("plus");
         AutomationProperties.SetName(plus, label); ToolTip.SetTip(plus, label);
-        plus.Click += (_, _) => Session.ShowQuickAdd();
+        plus.Click += (_, _) => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
         return plus;
     }
 
@@ -516,7 +516,7 @@ public sealed class AppShell : UserControl
     {
         var s = Session.Strings;
         var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (" + Shortcut("N") + ")"); });
-        add.Click += (_, _) => Session.ShowQuickAdd();
+        add.Click += (_, _) => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
         var trip = Session.Trip!;
         var items = Ui.V(4, Ui.Text(trip.Manifest.Title, "strong").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis).Margin(8, 16, 8, 2),
             Ui.Text(Formats.DateRange(TravelRepo.Core.TripQueries.EffectiveDates(trip).Start, TravelRepo.Core.TripQueries.EffectiveDates(trip).End), "caption").Margin(8, 0, 8, 14),

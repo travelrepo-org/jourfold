@@ -73,6 +73,7 @@ public partial class MainViewModel
         {
             case ReminderKind.TaskDue: View = "Tasks"; break;
             case ReminderKind.UnconfirmedBooking: View = "Bookings"; break;
+            case ReminderKind.PaymentDue: View = "Costs"; break;
             case ReminderKind.CancellationDeadline when entity?.Type == "booking": View = "Bookings"; break;
             default:
                 View = "Plan";
@@ -98,6 +99,8 @@ public partial class MainViewModel
             ReminderKind.NightsWithoutStay => string.Format(r.Dates.Count == 1 ? s["ReminderOneNight"] : s["ReminderNights"], r.Dates.Count, string.Join(", ", r.Dates.Select(Formats.ShortDate))),
             ReminderKind.VariantsDeletedOnline => string.Format(GoneVariants.Count == 1 ? s["VariantsDeletedOnlineOne"] : s["VariantsDeletedOnlineMany"], GoneVariants.Count, string.Join(", ", GoneVariants.Select(v => v.Title))),
             ReminderKind.WhoAmI => s["WhoAmIText"],
+            ReminderKind.PaymentDue => (Workspace?.State.Trip.Find(r.Entity ?? default) is { } payment && TripSummaries.Money(payment.Data["amount"]) is { } owed ? Formats.Money(owed.Amount, owed.Currency) + " · " : "")
+                + string.Format(r.Dates.FirstOrDefault() is var due && due < Clock().InZone(zone).Date ? s["ReminderPaymentOverdue"] : s["ReminderPaymentDue"], Formats.LongDay(r.Dates.FirstOrDefault())),
             ReminderKind.UnconfirmedBooking => string.Format(s["ReminderUnconfirmed"], r.Moment is { } b ? Formats.LongDay(b.InZone(zone).Date) : ""),
             ReminderKind.WeatherWarning => (r.Moment is { } at ? Formats.LongDay(at.InZone(zone).Date) + " · " + Formats.Time(at.InZone(zone).TimeOfDay) + ": " : "")
                 + (r.Entity is { } item && Weather.Items.TryGetValue(item, out var weather) ? WeatherDisplay.Concerns(weather.Concerns, s, Imperial) : ""),

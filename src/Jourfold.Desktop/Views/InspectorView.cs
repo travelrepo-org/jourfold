@@ -204,14 +204,40 @@ public static class InspectorView
                 body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "amount", s["Amount"], e.Data["amount"])));
                 if (e.Type == "expense")
                 {
-                    body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["EstimatedToggle"], e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est));
+                    // What the card booked belongs right under the amount on the bill.
+                    if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
+                    var planned = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
+                    body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["StillToPay"], planned));
+                    if (planned)
+                    {
+                        var paid = Ui.Button(s["MarkPaymentPaid"], "circle-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                        paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
+                        // When it is due, such as a deposit's balance; a reminder comes a week before.
+                        var due = new CalendarDatePicker { SelectedDate = Expenses.DueOf(e)?.ToDateTimeUnspecified(), Width = 170 };
+                        AutomationProperties.SetName(due, s["Due"]);
+                        var expenseId = e.Id;
+                        due.SelectedDateChanged += (_, _) => { var picked = due.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != Expenses.DueOf(m.Trip!.Find(expenseId) ?? e)) _ = m.SetDueAsync(expenseId, picked); };
+                        var clear = Ui.IconButton("x", s["NoDueDate"]); clear.Click += (_, _) => _ = m.SetDueAsync(expenseId, null);
+                        body.Children.Add(Ui.V(4, Ui.Text(s["StillToPayExplained"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), Field(s["Due"], Ui.H(4, due, clear)), paid));
+                    }
+                    else
+                    {
+                        // The day it was paid; without one, the day of its plan or charge counts and is shown as the suggestion.
+                        var expenseId = e.Id;
+                        var paidOn = new CalendarDatePicker { SelectedDate = e.Data["date"] is null ? null : Expenses.DateOf(trip, e)?.ToDateTimeUnspecified(), Width = 170, PlaceholderText = Expenses.DateOf(trip, e) is { } suggested ? Formats.Date(suggested) : s["OptionalShort"] };
+                        AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
+                        paidOn.SelectedDateChanged += (_, _) => { var picked = paidOn.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != (m.Trip!.Find(expenseId)?.Data["date"] is null ? null : Expenses.DateOf(m.Trip!, m.Trip!.Find(expenseId)!))) _ = m.SetPaidOnAsync(expenseId, picked); };
+                        body.Children.Add(Field(s["PaidOnLabel"], paidOn));
+                    }
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
+                    body.Children.Add(Field(s["Category"], ExpenseViews.CategoryEditor(s, trip, e, change => m.ChangeExpenseAsync(e.Id, change), () => m.Interaction.PromptAsync(s["NewCategory"]))));
+                    Add(body, s["Split"], ExpenseViews.SplitEditor(w, e));
+                    Add(body, s["PayingBack"], ExpenseViews.PayingBack(w, e));
                     body.Children.Add(Field(s["Related"], Related(w, e)));
                     // A receipt photographed on the phone, or one dropped here.
                     Add(body, s["Files"], Confirmations(w, e));
-                    if (e.Data["converted"] is JsonObject converted) body.Children.Add(Field(s["Converted"], Ui.Text(converted["value"] + " " + converted["currency"] + " · " + string.Format(s["RateOn"], converted["rate"], converted["rate_date"]), "muted")));
                 }
-                else body.Children.Add(Field(s["BudgetScope"], Editors.Choice(w, e.Id, "scope", s["BudgetScope"], e.Data["scope"]?.ToString(), ["trip", "category", "participant", "collection"])));
+                else body.Children.Add(Field(s["BudgetScope"], ExpenseViews.BudgetScopeEditor(w, e)));
                 break;
             case "person": PersonDetails(w, e, body); break;
             case "collection": body.Children.Add(Field(s["Items"], Editors.References(w, e.Id, "items", s["Items"], null))); break;
@@ -576,6 +602,11 @@ public static class InspectorView
         body.Children.Add(Ui.Columns("*,*", Field(s["Start"], Editors.Date(w, e.Id, "dates/start", s["Start"], e.Data["dates"]?["start"]?.ToString())), Field(s["End"], Editors.Date(w, e.Id, "dates/end", s["End"], e.Data["dates"]?["end"]?.ToString())).Margin(10, 0, 0, 0)));
         body.Children.Add(Ui.Text(s["DatesHint"], "caption"));
         body.Children.Add(Field(s["Timezone"], Editors.Search(w, e.Id, "default_timezone", s["Timezone"], e.Data["default_timezone"]?.ToString(), FieldOptions.Timezones)));
+        // Shared by everyone: the budget, totals and who owes whom are in it.
+        var currency = new SearchChoice(Editors.Currencies, m.TripCurrencyCode, s["TripCurrency"]);
+        void Choose() { if (currency.Value is { } code && code != m.TripCurrencyCode) _ = m.SetTripCurrencyAsync(code); }
+        currency.Input.SelectionChanged += (_, _) => Choose(); currency.Input.LostFocus += (_, _) => Choose();
+        body.Children.Add(Field(s["TripCurrency"], Ui.V(4, currency, Ui.Text(s["TripCurrencyHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap))));
         body.Children.Add(Field(s["Language"], Editors.Search(w, e.Id, "language", s["Language"], e.Data["language"]?.ToString(), FieldOptions.Languages)));
         body.Children.Add(Field(s["Participants"], Editors.References(w, e.Id, "participants", s["Participants"], "person")));
         body.Children.Add(Field(s["Cover"], Editors.Reference(w, e.Id, "cover/document", s["Cover"], "document", allowCreate: false)));
@@ -663,8 +694,9 @@ public static class InspectorView
     {
         var m = w.Model; var s = m.Strings;
         body.Children.Add(Field(s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ["idea", "pending", "reserved", "confirmed", "cancelled", "completed"])));
-        body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["Reference"], Editors.Text(w, e.Id, "reference", s["Reference"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
-        body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "price", s["Amount"], e.Data["price"])));
+        body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["BookingNumber"], Editors.Text(w, e.Id, "reference", s["BookingNumber"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
+        // What it costs is its payments, shown here in full: paid, still to pay, who paid and who shares them.
+        Add(body, s["Payments"], ExpenseViews.BookingPayments(w, e));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));
         // The plans and the booking point to each other; a plan leaves the booking it had.
         body.Children.Add(Field(s["BookedItems"], Editors.References(w, e.Id, "items", s["BookedItems"], "schedule_item",

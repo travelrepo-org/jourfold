@@ -25,6 +25,7 @@ public sealed partial class Dialogs
         var language = initial.Language;
         var lists = initial.Lists.ToHashSet(); var people = initial.People.ToHashSet();
         var packFor = initial.UnassignedOnly ? "unassigned" : initial.People.Count > 0 ? "people" : "all";
+        var separator = initial.Separator;
 
         var options = Ui.V(12); var formats = new ContentControl(); var kinds = new ContentControl();
         var hint = Ui.Text("", "caption").Also(t => t.TextWrapping = TextWrapping.Wrap);
@@ -106,7 +107,12 @@ public sealed partial class Dialogs
 
         void Render()
         {
-            kinds.Content = setup.Lists.Count == 0 ? null : ViewToolbar.Segmented([("plan", s["ExportPlan"], "calendar-days"), ("packing", s["ExportPackingLists"], "backpack")], kind, v => { kind = v; format = "pdf"; Render(); });
+            // The plan, packing lists when the trip has some, and costs when it has some.
+            var kindChoices = new List<(string, string, string?)> { ("plan", s["ExportPlan"], "calendar-days") };
+            if (setup.Lists.Count > 0) kindChoices.Add(("packing", s["ExportPackingLists"], "backpack"));
+            if (setup.HasCosts) kindChoices.Add(("costs", s["Costs"], "wallet"));
+            if (kind == "costs" && !setup.HasCosts || kind == "packing" && setup.Lists.Count == 0) { kind = "plan"; format = "pdf"; }
+            kinds.Content = kindChoices.Count == 1 ? null : ViewToolbar.Segmented(kindChoices.ToArray(), kind, v => { kind = v; format = "pdf"; Render(); });
             var formatChoices = kind == "plan"
                 ? new (string, string, string?)[] { ("pdf", s["PDF"], "file-text"), ("html", s["ExportWebPage"], "globe"), ("ics", s["ICS"], "calendar"), ("txt", s["ExportTextFile"], "list") }
                 : [("pdf", s["PDF"], "file-text"), ("txt", s["ExportTextFile"], "list-checks"), ("csv", s["ExportCsv"], "layout-grid")];
@@ -137,6 +143,29 @@ public sealed partial class Dialogs
                     if (format == "pdf") options.Children.Add(Paper());
                     options.Children.Add(Language());
                 }
+            }
+            else if (kind == "costs")
+            {
+                // Everyone's costs, or the parts of the chosen people together, such as a couple's.
+                var who = Ui.V(4);
+                RadioButton Radio(string id, string label, string? caption = null)
+                {
+                    var radio = new RadioButton { GroupName = "export-costs-for", IsChecked = (packFor == "people" ? "people" : "all") == id, Content = Ui.V(1, Ui.Text(label), caption is null ? null : Ui.Text(caption, "caption")) }; AutomationProperties.SetName(radio, label);
+                    radio.IsCheckedChanged += (_, _) => { if (radio.IsChecked == true && packFor != id) { packFor = id; Render(); } };
+                    return radio;
+                }
+                who.Children.Add(Radio("all", s["ExportForEveryone"]));
+                if (setup.People.Count > 0)
+                {
+                    who.Children.Add(Radio("people", s["CostExportForPeople"], s["CostExportForPeopleHint"]));
+                    if (packFor == "people")
+                        who.Children.Add(Ui.Flow(4, setup.People.Select(p => (Control)Check(p.Id == setup.Me?.Id ? string.Format(s["ExportMe"], p.Title) : p.Title, people.Contains(p.Id), on => { if (on) people.Add(p.Id); else people.Remove(p.Id); })).ToArray()).Margin(26, 2, 0, 4));
+                }
+                options.Children.Add(Row(s["ExportFor"], who));
+                if (format == "csv")
+                    options.Children.Add(Row(s["CsvSeparator"], Combo(s["CsvSeparator"], TravelRepo.Repository.CostExport.Separators.Keys.Select(k => new Choice(k, s["separator." + k])).ToArray(), separator, v => separator = v)));
+                if (format == "pdf") options.Children.Add(Paper());
+                options.Children.Add(Language());
             }
             else
             {
@@ -169,12 +198,16 @@ public sealed partial class Dialogs
         void Update()
         {
             var chosenPeople = packFor == "people" ? people.Count : 0;
-            export.IsEnabled = kind == "plan"
-                ? (format == "ics" || (parts & ~(ExportParts.Map | ExportParts.Attachments)) != ExportParts.None) && (from is null || to is null || from <= to) && (format == "ics" || !otherZone || zone is not null)
-                : lists.Count > 0 && (packFor != "people" || chosenPeople > 0);
-            copy.IsVisible = kind == "plan" ? format != "ics" : chosenPeople <= 1;
+            export.IsEnabled = kind switch
+            {
+                "plan" => (format == "ics" || (parts & ~(ExportParts.Map | ExportParts.Attachments)) != ExportParts.None) && (from is null || to is null || from <= to) && (format == "ics" || !otherZone || zone is not null),
+                "costs" => packFor != "people" || chosenPeople > 0,
+                _ => lists.Count > 0 && (packFor != "people" || chosenPeople > 0)
+            };
+            copy.IsVisible = kind switch { "plan" => format != "ics", "costs" => format != "csv", _ => chosenPeople <= 1 };
             copy.IsEnabled = export.IsEnabled;
             export.Content = Ui.H(6, Ui.Icon("download", 15), Ui.Text(kind == "packing" && chosenPeople > 1 ? string.Format(s["ExportFiles"], chosenPeople) : s["ExportAction"]));
+            if (kind == "costs") { hint.Text = format switch { "pdf" => s["CostExportPdfHint"], "csv" => s["CostExportCsvHint"], _ => s["ExportTextHint"] }; return; }
             hint.Text = kind == "plan" && format == "pdf" && (parts & ExportParts.Map) != 0 && !setup.OnlineMaps ? s["ExportMapOffline"]
                 : format switch { "pdf" => s[kind == "packing" ? "ExportPackingPdfHint" : "PDFHint"], "html" => s["HTMLHint"], "ics" => s["ICSHint"], "csv" => s["ExportCsvHint"], _ => s["ExportTextHint"] };
         }
@@ -197,7 +230,8 @@ public sealed partial class Dialogs
                 OtherTimeZones = kind == "plan" && format != "ics" ? [.. alsoIn.Where(z => z != (otherZone ? zone : setup.TripZone))] : []
             };
             return new(kind, chosenFormat, options, language, setup.Lists.Where(l => lists.Contains(l.Collection.Id)).Select(l => l.Collection.Id).ToArray(),
-                packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned");
+                packFor == "people" ? setup.People.Where(p => people.Contains(p.Id)).Select(p => p.Id).ToArray() : [], packFor == "unassigned" && kind == "packing")
+            { Separator = separator };
         }
 
         var sheet = new DialogSheet(s["ExportTitle"], Ui.V(14, kinds, formats, new Border().Classed("divider"), new ScrollViewer { Content = options, MaxHeight = 420, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled }, hint, Footer(cancel, copy, export)), 640);

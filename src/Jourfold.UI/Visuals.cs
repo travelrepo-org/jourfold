@@ -147,6 +147,10 @@ public static class Formats
         {
             var culture = (CultureInfo)CultureInfo.CurrentCulture.Clone();
             culture.NumberFormat.CurrencySymbol = currency;
+            // The currency's own decimals: none for yen, three for dinars; an amount with more keeps what it has.
+            var digits = TravelRepo.Core.Expenses.MinorDigits(currency);
+            while (digits < 6 && decimal.Round(amount, digits) != amount) digits++;
+            culture.NumberFormat.CurrencyDecimalDigits = digits;
             return amount.ToString("C", culture).Replace(currency, currency + " ").Replace("  ", " ").Trim();
         }
         catch (Exception ex) when (ex is FormatException or ArgumentException) { return amount.ToString("0.00", CultureInfo.CurrentCulture) + " " + currency; }

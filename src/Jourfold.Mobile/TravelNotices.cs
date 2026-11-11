@@ -122,6 +122,15 @@ public static class TravelNotices
             notices.Add(new(reminder.Key, NoticeKind.TaskDue, phone.AtLeniently(reminder.Dates[0].At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticeTask"], reminder.Title), "", reminder.Entity));
         }
 
+        // Payments still to pay, three mornings before they are due, for the people who share them.
+        foreach (var payment in trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)))
+        {
+            if (Expenses.DueOf(payment) is not { } due || Expenses.IsIdea(trip, payment) || (me is not null && !Expenses.Split(trip, payment).People.Contains(me.Id))) continue;
+            var amount = TripSummaries.Money(payment.Data["amount"]) is { } money ? Formats.Money(money.Amount, money.Currency) : "";
+            notices.Add(new("payment:" + payment.Id + ":" + due, NoticeKind.Deadline, phone.AtLeniently(due.PlusDays(-3).At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticePayment"], payment.Title),
+                Format(s["NoticePaymentText"], amount, due.ToString(s["DayShortFormat"], CultureInfo.GetCultureInfo(s.Language))), payment.Id));
+        }
+
         // Weather that matters for a plan, on the morning of its day, or two hours before when that is earlier.
         if (weather is not null)
             foreach (var warning in TravelRepo.Providers.Weather.WeatherAdvice.Reminders(trip, weather, now).Where(r => r.Moment is not null && r.Entity is { } id && trip.Find(id) is { } item && TripMe.Concerns(trip, item, me)))

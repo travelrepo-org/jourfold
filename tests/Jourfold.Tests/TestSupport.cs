@@ -96,6 +96,10 @@ public sealed class TestInteraction : IInteraction
     public Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt) { DeletionPrompts.Add(prompt); return Task.FromResult(Deletion is { } answer ? answer(prompt) : prompt.Preselected); }
     /// <summary>Answers check-box lists; without it the preselected options are confirmed.</summary>
     public Func<IReadOnlyList<Choice>, IReadOnlyList<string>, IReadOnlyList<string>?>? Pick { get; set; }
+    /// <summary>Answers the pay function; without it every open item of the chosen person is settled.</summary>
+    public Func<PayRequest, PayAnswer?>? Pay { get; set; }
+    public List<PayRequest> PayRequests { get; } = [];
+    public Task<PayAnswer?> PayAsync(PayRequest request) { PayRequests.Add(request); return Task.FromResult(Pay is { } answer ? answer(request) : new PayAnswer(request.Person, Expenses.Open(request.Trip, request.Person).Select(d => d.Key).ToArray())); }
     public Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm) => Task.FromResult(Pick is { } answer ? answer(choices, selected) : selected);
     public List<Problem> Problems { get; } = [];
     public Task<string?> ProblemAsync(Problem problem) { Problems.Add(problem); Errors.Add(problem.Message); return Task.FromResult(Next(null)); }

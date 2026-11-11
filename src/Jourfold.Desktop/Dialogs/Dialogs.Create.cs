@@ -126,7 +126,7 @@ public sealed partial class Dialogs
     {
         var s = S; var kind = QuickKinds.Any(k => k.Kind == request.Kind) ? request.Kind : request.Kind == "budget" ? "budget" : "activity";
         var trip = request.Trip;
-        var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title" }; AutomationProperties.SetName(title, s["Title"]);
+        var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title", Text = request.Title ?? "" }; AutomationProperties.SetName(title, s["Title"]);
         var date = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
         var hasTime = new CheckBox { Content = s["AtATime"], IsChecked = true };
         var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
@@ -189,29 +189,110 @@ public sealed partial class Dialogs
         time.SelectedTimeChanged += (_, _) => UpdateTravelTime(); arrivalDate.SelectedDateChanged += (_, _) => UpdateTravelTime(); arrivalTime.SelectedTimeChanged += (_, _) => UpdateTravelTime();
         UpdateTravelTime();
         var nights = new NumericUpDown { Value = 1, Minimum = 1, Maximum = 60, Increment = 1, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(nights, s["Nights"]);
-        var amount = new NumericUpDown { Value = null, FormatString = "N2", Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = "0.00" }; AutomationProperties.SetName(amount, s["Amount"]);
+        var amount = new NumericUpDown { Value = request.Amount, FormatString = "N" + Expenses.MinorDigits(request.Currency), Increment = 1, ShowButtonSpinner = false, HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = 0m.ToString("N" + Expenses.MinorDigits(request.Currency), CultureInfo.CurrentCulture) }; AutomationProperties.SetName(amount, s["Amount"]);
         var currency = new SearchChoice(Editors.Currencies, request.Currency, s["Currency"]) { Width = 130 };
         var body = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 100, PlaceholderText = s["NoteWatermark"] }; AutomationProperties.SetName(body, s["Body"]);
-        var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["Reference"]);
+        var reference = new TextBox { PlaceholderText = s["BookingReferenceHint"] }; AutomationProperties.SetName(reference, s["BookingNumber"]);
         var peopleIds = request.Person is { } p ? new HashSet<Guid> { p } : new HashSet<Guid>();
+        var splitDraft = Entity.Create("expense", "");
+        if (request.Related is { } relatedTo && trip.Find(relatedTo) is { } relatedEntity) splitDraft.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = relatedEntity.Type, ["id"] = relatedEntity.Id.ToString() });
+        // Shared by the booking's travellers, the plan's people or all travellers, named from the start.
+        if (Expenses.PeopleFor(trip, request.Related) is { Count: > 0 } sharing) splitDraft = Expenses.WithSplit(splitDraft, SplitMethod.Equal, sharing.Select(x => (x, (decimal?)null)));
+        // Booked but not paid yet, such as the rest of a stay due on site: it counts as planned and creates no debts.
+        var planned = new CheckBox { IsChecked = request.Planned, Content = s["StillToPay"] }; AutomationProperties.SetName(planned, s["StillToPay"]);
+        var splitHost = new ContentControl();
+        var categoryHost = new ContentControl();
+        // An expense: the day it was paid, or when one still to pay is due; what the card charged in the trip's currency;
+        // what it belongs to; a receipt. A budget: what it applies to.
+        var paidOn = new CalendarDatePicker { SelectedDate = (request.Today ?? LocalDate.FromDateTime(DateTime.Today)).ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
+        var due = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"] }; AutomationProperties.SetName(due, s["Due"]);
+        var tripCurrency = request.TripCurrency ?? request.Currency;
+        var charged = new TextBox { PlaceholderText = 0m.ToString("N" + Expenses.MinorDigits(tripCurrency), CultureInfo.CurrentCulture), HorizontalContentAlignment = HorizontalAlignment.Right, Tag = "charged" };
+        AutomationProperties.SetName(charged, string.Format(s["ChargedIn"], tripCurrency));
+        var chargedRow = Ui.V(4, Ui.Columns("*,Auto", charged, Ui.Text(tripCurrency, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center).Margin(8, 0, 0, 0)), Ui.Text(s["ChargedHintShort"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        var belongsChoices = trip.Entities.Values.Where(e => e.Type == "booking" || e.Type == "schedule_item" && e.Data["kind"]?.ToString() != "group")
+            .OrderBy(e => e.Type == "booking" ? 0 : 1).ThenBy(e => e.Title, StringComparer.CurrentCulture)
+            .Select(e => new Choice(e.Id.ToString(), e.Title + " · " + s[e.Type == "booking" ? "booking" : "schedule_item"])).ToArray();
+        var belongsTo = new SearchChoice(belongsChoices, request.Related?.ToString(), s["LinkPlanOrBooking"]);
+        var files = new List<string>(); var fileList = Ui.V(2);
+        var attach = Ui.Button(s["AttachReceipt"], "paperclip", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        var receipt = Ui.V(4, fileList, attach);
+        attach.Click += async (_, _) =>
+        {
+            if (await FileAsync() is not { } picked) return;
+            files.Add(picked);
+            fileList.Children.Add(Ui.H(6, Ui.Icon("paperclip", 13, "Text.Subtle"), Ui.Text(Path.GetFileName(picked), "caption")));
+        };
+        var budgetFilters = BudgetFilters.None; var filtersHost = new ContentControl();
+        void RenderFilters() => filtersHost.Content = ExpenseViews.BudgetFiltersEditor(s, trip, budgetFilters, changed => { budgetFilters = changed; RenderFilters(); });
+        Action? refreshSave = null, relayout = null;
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
             var chip = Ui.Choice(person.Title, null, peopleIds.Contains(person.Id), "chip"); chip.Content = Ui.H(6, Ui.Avatar(person.Title, 18), Ui.Text(person.Title));
-            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); };
+            chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); if (kind == "expense") RenderSplit(); };
             people.Children.Add(chip);
         }
 
+        // An expense can be divided right away with the same editor as in the inspector. It edits a draft expense, so
+        // switching the method keeps the division, and nothing is saved until Add.
+        void SyncSplitAmount()
+        {
+            // With the currency's own decimals, so parts of a JPY amount are whole yen.
+            var code = currency.Value ?? request.Currency;
+            splitDraft.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = Expenses.Format(Math.Round(amount.Value ?? 0m, Expenses.MinorDigits(code)), code), ["currency"] = code };
+            splitDraft.Data["paid_by"] = new System.Text.Json.Nodes.JsonArray(peopleIds.Select(id => (System.Text.Json.Nodes.JsonNode?)id.ToString()).ToArray());
+        }
+        // The category edits the same draft, so a booking's stay already suggests accommodation.
+        void RenderCategory() => categoryHost.Content = ExpenseViews.CategoryEditor(s, trip, splitDraft, change => { splitDraft = change(trip, splitDraft); RenderCategory(); return Task.CompletedTask; }, () => PromptAsync(s["NewCategory"]));
+        void RenderSplit()
+        {
+            SyncSplitAmount();
+            splitHost.Content = ExpenseViews.SplitEditor(s, trip, splitDraft, change => { SyncSplitAmount(); splitDraft = change(trip, splitDraft); RenderSplit(); return Task.CompletedTask; });
+            // A part being typed counts at once, so Add follows what is in the boxes, not only what was confirmed.
+            foreach (var box in PartBoxes()) box.TextChanged += (_, _) => refreshSave?.Invoke();
+            refreshSave?.Invoke();
+        }
+        IEnumerable<TextBox> PartBoxes() => splitHost.Content is Control editor ? Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(editor).OfType<TextBox>().Where(b => b.Tag is string tag && tag.StartsWith(ExpenseViews.SplitValueTag, StringComparison.Ordinal)) : [];
+        // The split with what is typed in the boxes, confirmed or not.
+        Entity Typed()
+        {
+            var draft = splitDraft;
+            foreach (var box in PartBoxes())
+                if (Guid.TryParse(((string)box.Tag!)[ExpenseViews.SplitValueTag.Length..], out var who) && ExchangeRates.Amount(box.Text) is { } typed) draft = Expenses.WithValue(trip, draft, who, typed);
+            return draft;
+        }
+        // Only a split that adds up can be added; the editor says what is missing.
+        bool SplitValid() => kind != "expense" || TripPeople.Travelers(trip).Count == 0
+            || PartBoxes().All(b => ExchangeRates.Amount(b.Text) is not null) && (Expenses.Split(trip, Typed()).Issues & (SplitIssues.SumMismatch | SplitIssues.InvalidValue | SplitIssues.NoPeople | SplitIssues.UnknownMethod)) == 0;
+        amount.ValueChanged += (_, _) => { if (kind is "expense" or "budget") amount.FormatString = "N" + Expenses.MinorDigits(currency.Value ?? request.Currency); if (kind == "expense") RenderSplit(); };
+        currency.Input.SelectionChanged += (_, _) => { amount.FormatString = "N" + Expenses.MinorDigits(currency.Value ?? request.Currency); amount.PlaceholderText = 0m.ToString(amount.FormatString, CultureInfo.CurrentCulture); if (kind == "expense") { RenderSplit(); relayout?.Invoke(); } };
+        planned.IsCheckedChanged += (_, _) => { if (kind == "expense") relayout?.Invoke(); };
+        // Linking it to a plan or booking suggests its category and, while the split is as suggested, who shares it.
+        Guid? related = request.Related;
+        belongsTo.Input.SelectionChanged += (_, _) =>
+        {
+            Guid? next = Guid.TryParse(belongsTo.Value, out var id) ? id : null;
+            if (next == related) return;
+            var wasSuggested = Expenses.Split(trip, splitDraft) is { Method: SplitMethod.Equal } current && current.People.ToHashSet().SetEquals(Expenses.PeopleFor(trip, related));
+            related = next;
+            if (next is { } target && trip.Find(target) is { } entity) splitDraft.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = entity.Type, ["id"] = entity.Id.ToString() });
+            else splitDraft.Data.Remove("related");
+            if (wasSuggested && Expenses.PeopleFor(trip, related) is { Count: > 0 } sharingNow) splitDraft = Expenses.WithSplit(splitDraft, SplitMethod.Equal, sharingNow.Select(x => (x, (decimal?)null)));
+            if (kind == "expense") { RenderCategory(); RenderSplit(); }
+        };
+
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
         // survives; each one is detached from its old row before it is placed again.
-        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine];
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost, categoryHost, planned, paidOn, due, chargedRow, belongsTo, receipt, filtersHost];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
         Control Side(string heading, Control day, Control clock, Control zone) => Ui.V(6, Ui.Text(heading, "label"), day, clock, zone);
         Control TransportWhenRow() => Ui.V(10, Ui.Columns("*,Auto", hasTime, unscheduled.Margin(12, 0, 0, 0)),
             Ui.Columns("*,*", Side(s[mode == "flight" ? "DepartureFlight" : "DepartureLocal"], date, time, departureZone), Side(s["ArrivalLocal"], arrivalDate, arrivalTime, arrivalZone).Margin(12, 0, 0, 0)),
             travelTime);
         Control WhenRow() => Ui.V(8, Ui.Columns("*,Auto", Row(s["Date"], date), unscheduled.Margin(12, 22, 0, 0)), hasTime, Ui.Columns("*,*", Row(s["StartTime"], time), Row(s["DurationMinutes"], length).Margin(10, 0, 0, 0)), zoneLine, zone);
-        var fields = Ui.V(14);
+        // Room on the right for the scroll bar a long expense form gets.
+        var fields = Ui.V(14).Also(f => f.Margin = new Thickness(0, 0, 14, 0));
         var typeGrid = new WrapPanel { ItemSpacing = 8, LineSpacing = 8 };
         var dateLabel = Ui.Text(s["Date"], "label");
         void Layout()
@@ -230,11 +311,24 @@ public sealed partial class Dialogs
                 travelTime.IsVisible = timed; date.IsEnabled = hasTime.IsEnabled = unscheduled.IsChecked != true;
             }
             if (kind == "accommodation") { fields.Children.Add(Row(s["Place"], place)); fields.Children.Add(Ui.Columns("*,*", Row(s["CheckInDate"], date), Row(s["Nights"], nights).Margin(10, 0, 0, 0))); fields.Children.Add(Ui.V(6, zoneLine, zone)); }
-            if (kind is "booking") { fields.Children.Add(Row(s["Reference"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
+            if (kind is "booking") { fields.Children.Add(Row(s["BookingNumber"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
             if (kind is "expense" or "budget") fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0))));
+            // What the card booked belongs right under the amount on the bill, when that is in another currency.
+            if (kind == "expense" && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency) fields.Children.Add(Row(string.Format(s["ChargedIn"], tripCurrency), chargedRow));
+            if (kind == "budget") { RenderFilters(); fields.Children.Add(Row(s["BudgetScope"], filtersHost)); }
             if (kind == "task") fields.Children.Add(Row(s["Due"], date));
             if (kind == "note") fields.Children.Add(Row(s["Body"], body));
             if (kind is "activity" or "food" or "sightseeing" or "transport" or "task" or "expense" or "booking" && people.Children.Count > 0) fields.Children.Add(Row(kind == "expense" ? s["Payer"] : kind == "task" ? s["Assignees"] : s["Who"], people));
+            if (kind == "expense")
+            {
+                fields.Children.Add(planned);
+                fields.Children.Add(planned.IsChecked == true ? Row(s["Due"], due) : Row(s["PaidOnLabel"], paidOn));
+                fields.Children.Add(Row(s["BelongsTo"], belongsTo));
+                RenderCategory(); fields.Children.Add(Row(s["Category"], categoryHost));
+            }
+            if (kind == "expense" && TripPeople.Travelers(trip).Count > 0) { RenderSplit(); fields.Children.Add(Row(s["Split"], splitHost)); }
+            if (kind == "expense") fields.Children.Add(Row(s["Receipt"], receipt));
+            refreshSave?.Invoke();
             typeGrid.Children.Clear();
             foreach (var (k, icon, color) in QuickKinds)
             {
@@ -245,14 +339,25 @@ public sealed partial class Dialogs
             }
         }
         hasTime.IsCheckedChanged += (_, _) => Layout(); unscheduled.IsCheckedChanged += (_, _) => Layout();
-        FillModes(); Layout();
+        FillModes(); Layout(); relayout = Layout;
         var error = Ui.Text("").Res(TextBlock.ForegroundProperty, "Danger"); error.IsVisible = false;
         var save = Ui.Button(s["Add"], "plus", "primary"); save.IsDefault = true; var cancel = Action("Cancel");
+        refreshSave = () => { save.IsEnabled = SplitValid(); ToolTip.SetTip(save, save.IsEnabled ? null : s["SplitMustAddUp"]); };
+        refreshSave();
         var content = Ui.V(18, request.ChooseType ? typeGrid : null, fields, error, Footer(cancel, save));
         var sheet = new DialogSheet(request.ChooseType ? s["AddToTrip"] : s["quick." + kind], content, request.ChooseType ? 660 : 560);
         save.Click += (_, _) =>
         {
             if (string.IsNullOrWhiteSpace(title.Text)) { error.Text = s["TitleRequired"]; error.IsVisible = true; title.Focus(); return; }
+            // Enter adds the expense before a part typed last has left its box, so that value is taken here.
+            if (kind == "expense")
+            {
+                SyncSplitAmount();
+                if (!SplitValid()) { RenderSplit(); error.Text = s["SplitMustAddUp"]; error.IsVisible = true; return; }
+                splitDraft = Typed();
+                if (!SplitValid()) { RenderSplit(); error.Text = s["SplitMustAddUp"]; error.IsVisible = true; return; }
+                if (!string.IsNullOrWhiteSpace(charged.Text) && ExchangeRates.Amount(charged.Text) is not { } _) { error.Text = s["ChargedNotANumber"]; error.IsVisible = true; charged.Focus(); return; }
+            }
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             var idea = scheduled && unscheduled.IsChecked == true;
             LocalDate? day = date.SelectedDate is { } d && !idea ? LocalDate.FromDateTime(d) : null;
@@ -277,7 +382,17 @@ public sealed partial class Dialogs
                 Currency = currency.Value ?? request.Currency,
                 Body = body.Text,
                 Reference = reference.Text,
-                People = peopleIds.ToArray()
+                People = peopleIds.ToArray(),
+                Split = kind == "expense" ? splitDraft.Data["split"] as System.Text.Json.Nodes.JsonObject : null,
+                Related = kind == "expense" ? related : request.Related,
+                Category = kind == "expense" ? ExpenseCategories.Stored(splitDraft) : null,
+                Planned = kind == "expense" && planned.IsChecked == true,
+                PaidOn = kind == "expense" && planned.IsChecked != true && paidOn.SelectedDate is { } paid ? LocalDate.FromDateTime(paid) : null,
+                Due = kind == "expense" && planned.IsChecked == true && due.SelectedDate is { } dueDay ? LocalDate.FromDateTime(dueDay) : null,
+                Charged = kind == "expense" && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency ? ExchangeRates.Amount(charged.Text) : null,
+                ChargedCurrency = tripCurrency,
+                Files = kind == "expense" ? files.ToArray() : [],
+                BudgetFilters = kind == "budget" ? budgetFilters : null
             };
             sheet.Close(draft);
         };

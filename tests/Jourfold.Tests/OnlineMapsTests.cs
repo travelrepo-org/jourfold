@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
 using Jourfold.Infrastructure;
+using Jourfold.UI;
 using Xunit;
 using Jourfold.Application;
 namespace Jourfold.Tests;
@@ -71,6 +75,19 @@ public sealed class OnlineMapsTests : IDisposable
         Assert.Equal((null, false), await tiles.GetAsync(20, 1, 1)); // beyond the server's zoom levels
     }
 
+    [AvaloniaFact]
+    public async Task TheFirstDrawOfTheMapRequestsItsTiles()
+    {
+        // Nothing draws the map a second time here, as on a phone that is left alone: the first draw alone must
+        // start the downloads.
+        var server = new Server(_ => Tile(TimeSpan.FromDays(7)));
+        var surface = new MapSurface(new MapTiles(root, new HttpClient(server), MapProvider.OpenStreetMap));
+        var window = new Window { Width = 400, Height = 400, Content = surface };
+        window.Show(); window.CaptureRenderedFrame();
+        await Probe.Until(() => server.Requests.Count > 0);
+        window.Close();
+    }
+
     [Fact]
     public async Task CacheStaysWithinItsLimitRemovingTheOldestFirst()
     {
@@ -116,6 +133,20 @@ public sealed class OnlineMapsTests : IDisposable
         Assert.Equal("Auckland", Assert.Single(found).Name); Assert.Single(server.Requests);
         Assert.StartsWith("https://search.example.org/search?countrycodes=nz&format=jsonv2", server.Requests[0].RequestUri!.AbsoluteUri);
         Assert.StartsWith("Jourfold/", server.Requests[0].Headers.UserAgent.ToString());
+    }
+
+    [Fact]
+    public async Task ASignInPageInsteadOfResultsReadsAsANetworkProblem()
+    {
+        // A hotel network's sign-in page answers instead of the search server.
+        var portal = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html><body>Welcome to Hotel WiFi</body></html>") })), "https://search.example.org/search");
+        await Assert.ThrowsAsync<HttpRequestException>(() => portal.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en"));
+        var other = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"error":"maintenance"}""") })), "https://search.example.org/search");
+        await Assert.ThrowsAsync<HttpRequestException>(() => other.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en"));
+
+        // A result without a position is left out; the others are found.
+        var partial = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""[{"display_name":"Somewhere"},{"display_name":7,"lat":"1","lon":"2"},{"display_name":"Wanaka, New Zealand","lat":"-44.70","lon":"169.13","osm_type":"node","osm_id":1}]""") })), "https://search.example.org/search");
+        Assert.Equal("Wanaka", Assert.Single(await partial.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en")).Name);
     }
 
     private static string RepositoryRoot()

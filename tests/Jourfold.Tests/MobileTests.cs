@@ -1132,6 +1132,64 @@ public sealed class MobileTests : IDisposable
         Assert.True(condition());
     }
 
+    [AvaloniaFact]
+    public async Task ATapOrAScrollBesideATextFieldClosesTheKeyboardButANudgeDoesNot()
+    {
+        var now = new LocalDateTime(2027, 5, 10, 9, 0).InZoneStrictly(Berlin).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        session.ShowTab(MobileTab.More); session.ShowPage("packing");
+        var window = new Window { Width = 412, Height = 600, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            TextBox Field() => Probe.All<TextBox>(window).First(b => b.Name?.StartsWith(MorePages.DraftPrefix, StringComparison.Ordinal) == true);
+            Avalonia.Visual Text() => Probe.All<TextBlock>(window).First(t => t.Text == "Packing lists" && t.IsEffectivelyVisible);
+            Avalonia.Input.Pointer Press(Avalonia.Visual target)
+            {
+                var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), Avalonia.Input.PointerType.Touch, true);
+                var properties = new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PointerUpdateKind.LeftButtonPressed);
+                ((Avalonia.Input.InputElement)target).RaiseEvent(new Avalonia.Input.PointerPressedEventArgs(target, pointer, window, new Avalonia.Point(1, 1), 0, properties, Avalonia.Input.KeyModifiers.None));
+                Probe.Layout(); return pointer;
+            }
+            void Release(Avalonia.Visual target, Avalonia.Input.Pointer pointer)
+            {
+                var properties = new Avalonia.Input.PointerPointProperties(Avalonia.Input.RawInputModifiers.None, Avalonia.Input.PointerUpdateKind.LeftButtonReleased);
+                ((Avalonia.Input.InputElement)target).RaiseEvent(new Avalonia.Input.PointerReleasedEventArgs(target, pointer, window, new Avalonia.Point(1, 1), 0, properties, Avalonia.Input.KeyModifiers.None, Avalonia.Input.MouseButton.Left));
+                Probe.Layout();
+            }
+            void Tap(Avalonia.Visual target) => Release(target, Press(target));
+            void Scroll(double by) { var view = Probe.All<ScrollViewer>(window).First(v => v.Extent.Height > v.Viewport.Height); view.Offset = new Avalonia.Vector(0, view.Offset.Y + by); Probe.Layout(); }
+            void Type() { Field().Focus(); Probe.Layout(); Assert.True(Field().IsFocused); }
+
+            // A tap on a button is left to the button: the shell does not take the focus from it first.
+            Type();
+            Tap(Probe.All<Button>(Field().GetVisualParent()!).Single());
+            Assert.IsNotType<AppShell>(window.FocusManager?.GetFocusedElement());
+            Type();
+            // A tap on the page beside it ends the typing, which closes the on-screen keyboard.
+            Tap(Text()); Assert.False(Field().IsFocused);
+
+            // Moving the page slowly by a little keeps typing; moving it on, far, ends it.
+            Type();
+            var target = Text(); var finger = Press(target);
+            await Task.Delay(200); Scroll(20); Assert.True(Field().IsFocused);
+            await Task.Delay(200); Scroll(100); Assert.False(Field().IsFocused);
+            Release(target, finger);
+
+            // A quick flick ends it after a short way too.
+            Type();
+            target = Text(); finger = Press(target);
+            await Task.Delay(200); Scroll(-8); Assert.True(Field().IsFocused);
+            Scroll(-30); Assert.False(Field().IsFocused);
+            Release(target, finger);
+
+            // Scrolling without a finger, as when the page brings the field into view, keeps typing.
+            Type(); Scroll(150); Assert.True(Field().IsFocused);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>The device's calendar, keeping what was written last.</summary>
     private sealed class FakeCalendar : ISystemCalendar
     {

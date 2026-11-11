@@ -429,8 +429,8 @@ public sealed class ExpenseSplitTests : IDisposable
         var w = await Window(language, "Light"); var m = w.Model;
         try
         {
-            var stay = Entity.Create("schedule_item", "Park Hotel Ruapehu"); stay.Data["components"] = new System.Text.Json.Nodes.JsonObject { ["accommodation"] = new System.Text.Json.Nodes.JsonObject() };
-            var booking = Entity.Create("booking", "Park Hotel Ruapehu"); booking.Data["status"] = "confirmed"; booking.Data["items"] = new System.Text.Json.Nodes.JsonArray(stay.Id.ToString());
+            var stay = Entity.Create("schedule_item", "Mountain Hotel"); stay.Data["components"] = new System.Text.Json.Nodes.JsonObject { ["accommodation"] = new System.Text.Json.Nodes.JsonObject() };
+            var booking = Entity.Create("booking", "Mountain Hotel"); booking.Data["status"] = "confirmed"; booking.Data["items"] = new System.Text.Json.Nodes.JsonArray(stay.Id.ToString());
             await m.Workspace!.ApplyAsync([new(stay.Id, stay), new(booking.Id, booking)]);
 
             // A deposit through the form: the stay suggests accommodation.
@@ -448,12 +448,12 @@ public sealed class ExpenseSplitTests : IDisposable
             // The rest is due on site: a payment still to pay.
             var rest = m.AddPaymentForBookingAsync(booking.Id, planned: true);
             await Probe.Until(() => Probe.All<TextBox>(Probe.Sheet(w)).Any(t => t.Tag as string == "title"));
-            Probe.All<NumericUpDown>(Probe.Sheet(w)).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value = 248.50m; Probe.Layout();
+            Probe.All<NumericUpDown>(Probe.Sheet(w)).Single(n => AutomationProperties.GetName(n) == m.Strings["Amount"]).Value = 240.00m; Probe.Layout();
             Probe.All<SearchChoice>(Probe.Sheet(w)).First().Input.Text = "NZD"; Probe.Layout();
             Probe.Click(Probe.Sheet(w), m.Strings["Add"]);
             await rest;
             Assert.Equal(BookingCoverage.Planned, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
-            m.Navigate("Bookings"); Assert.Contains(string.Format(toPay, Formats.Money(248.50m, "NZD")), Texts(w));
+            m.Navigate("Bookings"); Assert.Contains(string.Format(toPay, Formats.Money(240.00m, "NZD")), Texts(w));
 
             // A category of their own, created in the details.
             var kiwi = Expense("Kiwi plush", "35.00", "NZD", m.Trip!.Entities.Values.Single(e => e.Title == "Ben"));

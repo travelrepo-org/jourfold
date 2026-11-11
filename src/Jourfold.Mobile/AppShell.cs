@@ -125,6 +125,15 @@ public sealed class AppShell : UserControl
         e.Handled = true;
     }
 
+    /// <summary>
+    /// Whether shortcuts read as on Apple's keyboards, "⌘1" rather than "Ctrl+1": on iPhone and iPad. Headless tests
+    /// keep it off, as their rendering has no font to draw ⌘ with. Either modifier works on every platform.
+    /// </summary>
+    public static bool AppleKeys { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
+
+    /// <summary>A command shortcut with the given key, as the platform writes it.</summary>
+    public static string Shortcut(string key) => AppleKeys ? "⌘" + key : "Ctrl+" + key;
+
     public static WidthClass Classify(double width) => width switch { < 600 => WidthClass.Phone, < 840 => WidthClass.CompactTablet, < 1200 => WidthClass.Tablet, _ => WidthClass.Wide };
 
     /// <summary>
@@ -460,7 +469,7 @@ public sealed class AppShell : UserControl
         var key = Array.FindIndex(Places, p => p.Tab == tab) + 1;
         var button = new ChoiceButton { IsSelected = Session.Tab == tab, Content = Ui.V(3, Ui.Icon(icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
-        ToolTip.SetTip(button, text + " (Ctrl+" + key + ")");
+        ToolTip.SetTip(button, text + " (" + Shortcut(key.ToString(CultureInfo.InvariantCulture)) + ")");
         button.Click += (_, _) => Session.ShowTab(tab);
         return button;
     }
@@ -506,7 +515,7 @@ public sealed class AppShell : UserControl
     private Control Sidebar()
     {
         var s = Session.Strings;
-        var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (Ctrl+N)"); });
+        var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (" + Shortcut("N") + ")"); });
         add.Click += (_, _) => Session.ShowQuickAdd();
         var trip = Session.Trip!;
         var items = Ui.V(4, Ui.Text(trip.Manifest.Title, "strong").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis).Margin(8, 16, 8, 2),
@@ -519,7 +528,7 @@ public sealed class AppShell : UserControl
             var button = new ChoiceButton
             {
                 IsSelected = Session.Tab == tab && !(tab == MobileTab.More && Session.Page is not null),
-                Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text("Ctrl+" + (i + 1), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
+                Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(Shortcut((i + 1).ToString(CultureInfo.InvariantCulture)), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
             }.Classed("sidebar");
             AutomationProperties.SetName(button, text);
             button.Click += (_, _) => Session.ShowTab(tab);

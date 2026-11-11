@@ -467,6 +467,7 @@ public static class MorePages
         string Pick(string key, string fallback) => s.Drafts.GetValueOrDefault(key) is { Length: 3 } c && rates.Currencies.Contains(c) ? c : fallback;
         var from = Pick("converter.from", currencies.FirstOrDefault(c => c != "EUR") ?? "USD"); var to = Pick("converter.to", "EUR");
         var amount = Draft(s, "converter.amount", new TextBox { Text = s.Drafts.GetValueOrDefault("converter.amount") ?? "100", FontSize = 28 });
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         AutomationProperties.SetName(amount, str["Amount"]);
         var result = Ui.Text("", "h1").Also(t => t.FontSize = 32);
         void Show()

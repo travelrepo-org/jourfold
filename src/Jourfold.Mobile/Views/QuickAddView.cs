@@ -99,6 +99,8 @@ public sealed class QuickAddView
         body.PlaceholderText = str["Notes"]; AutomationProperties.SetName(body, str["Notes"]);
         // With the decimal separator that amounts are shown with (Formats.Money).
         amount.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(amount, str["Amount"]);
+        // Phones show their keyboard for numbers, with the decimal separator.
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
         estimated.OnContent = estimated.OffContent = str["EstimatedOnly"]; AutomationProperties.SetName(estimated, str["EstimatedOnly"]);
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);

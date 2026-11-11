@@ -1220,6 +1220,36 @@ public sealed class MobileTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [Fact]
+    public void ShortcutsReadAsOnTheKeyboardOfThePlatform()
+    {
+        var before = AppShell.AppleKeys;
+        try
+        {
+            AppShell.AppleKeys = true; Assert.Equal("⌘2", AppShell.Shortcut("2")); Assert.Equal("⌘N", AppShell.Shortcut("N"));
+            AppShell.AppleKeys = false; Assert.Equal("Ctrl+2", AppShell.Shortcut("2"));
+        }
+        finally { AppShell.AppleKeys = before; }
+    }
+
+    [AvaloniaFact]
+    public async Task AmountsAreTypedOnTheNumberKeyboard()
+    {
+        var now = new LocalDateTime(2027, 5, 10, 9, 0).InZoneStrictly(Berlin).ToInstant();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Berlin, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            bool NumberField(string name) => Probe.All<TextBox>(window).Any(b => AutomationProperties.GetName(b) == name && Avalonia.Input.TextInput.TextInputOptions.GetContentType(b) == Avalonia.Input.TextInput.TextInputContentType.Number);
+            session.ShowQuickAdd("expense"); Probe.Layout();
+            Assert.True(NumberField("Amount"));
+            // The title is text and keeps the letters.
+            Assert.Equal(Avalonia.Input.TextInput.TextInputContentType.Normal, Avalonia.Input.TextInput.TextInputOptions.GetContentType(Probe.All<TextBox>(window).First(b => b.IsEffectivelyVisible)));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>The device's calendar, keeping what was written last.</summary>
     private sealed class FakeCalendar : ISystemCalendar
     {

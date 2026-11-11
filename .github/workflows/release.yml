@@ -6,11 +6,12 @@ name: Release
 # commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
-# Publish the release as a pre-release: the installers only use the latest full release, so they never see it
-# before its files are attached. Afterwards, a tag without a suffix (v1.2.3) becomes a full, latest release; tags
-# with a suffix (v1.2.3-beta.1) stay pre-releases. A release published as a full release also works: the previous
-# release is kept as latest while the files are built. If anything fails, the release goes back to draft; fix the
-# problem and publish it again.
+# The first step turns the published release into a pre-release, however it was published: the installers only use
+# the latest full release, so they never see it before its files are attached. Once everything is attached, a tag
+# without a suffix (v1.2.3) becomes a full, latest release; tags with a suffix (v1.2.3-beta.1) stay pre-releases.
+# Title and notes may be left empty: a release without a title is named "Jourfold <version> “<code name>”", and the
+# notes from docs/releases are written below whatever the release already says. If anything fails, the release goes
+# back to draft; fix the problem and publish it again.
 #
 # The macOS packages are built on an Apple silicon runner, where the Intel (x64) one is cross-compiled and not tested.
 # ARM64 Linux and Windows packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the
@@ -36,10 +37,14 @@ jobs:
       contents: write
     outputs:
       travelrepo: ${{ steps.travelrepo.outputs.tag }}
-      latest: ${{ steps.latest.outputs.latest }}
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
+      # Before anything else, so that a release published as a full release leaves "latest" to the previous one at
+      # once and the installers do not pick it up without its files.
+      - name: Make the release a pre-release until its files are attached
+        if: github.event_name == 'release' && github.event.release.prerelease != true
+        run: gh release edit "$TAG" --prerelease --latest=false --repo "$GITHUB_REPOSITORY"
       - uses: actions/checkout@v4
         with:
           ref: ${{ env.TAG }}
@@ -86,17 +91,6 @@ jobs:
           if [ -z "$TITLE" ] || [ "$TITLE" = "$TAG" ]; then
             # shellcheck disable=SC1111 # typographic quotes are part of the title
             gh release edit "$TAG" --title "Jourfold ${TAG#v} “$name”" --repo "$GITHUB_REPOSITORY"
-          fi
-      - id: latest
-        name: Keep the previous release as latest until the packages are attached
-        if: github.event.release.prerelease != true
-        run: |
-          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2> /dev/null || true)
-          if [ "$latest" = "$TAG" ]; then
-            echo "latest=true" >> "$GITHUB_OUTPUT"
-            gh release edit "$TAG" --latest=false --repo "$GITHUB_REPOSITORY"
-          else
-            echo "latest=false" >> "$GITHUB_OUTPUT"
           fi
   package:
     needs: version
@@ -207,13 +201,10 @@ jobs:
       - name: Attach packages to the release
         run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
       - name: Turn the pre-release into a full release
-        # Publish as a pre-release; once everything is attached, a tag without a suffix (v1.2.3) becomes a full,
-        # latest release. Tags with a suffix (v1.2.3-beta.1) stay pre-releases.
-        if: github.event_name == 'release' && github.event.release.prerelease && !contains(env.TAG, '-')
+        # Every published release starts as a pre-release (see the first step); once everything is attached, a tag
+        # without a suffix (v1.2.3) becomes a full, latest release. Tags with a suffix (v1.2.3-beta.1) stay pre-releases.
+        if: github.event_name == 'release' && !contains(env.TAG, '-')
         run: gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
-      - name: Make the release latest again
-        if: needs.version.outputs.latest == 'true'
-        run: gh release edit "$TAG" --latest --repo "$GITHUB_REPOSITORY"
   return-to-draft:
     needs: [version, package, android, publish]
     if: failure() && github.event_name == 'release'

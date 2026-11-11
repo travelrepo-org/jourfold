@@ -194,9 +194,12 @@ public static class Editors
     public static Control Money(MainWindow w, Guid id, string path, string label, JsonNode? value)
     {
         var money = TripSummaries.Money(value);
-        var amount = new NumericUpDown { Value = money?.Amount, FormatString = "N2", Increment = 1, HorizontalAlignment = HorizontalAlignment.Stretch, ShowButtonSpinner = false, Tag = path };
+        var initial = money?.Currency ?? w.Model.Store.Get("currency") ?? "EUR";
+        // With the currency's own decimals: no ".00" after yen.
+        var amount = new NumericUpDown { Value = money?.Amount, FormatString = "N" + TravelRepo.Core.Expenses.MinorDigits(initial), Increment = 1, HorizontalAlignment = HorizontalAlignment.Stretch, ShowButtonSpinner = false, Tag = path };
         AutomationProperties.SetName(amount, label);
-        var currency = new SearchChoice(Currencies, money?.Currency ?? w.Model.Store.Get("currency") ?? "EUR", w.Model.Strings["Currency"]) { Width = 150 };
+        var currency = new SearchChoice(Currencies, initial, w.Model.Strings["Currency"]) { Width = 150 };
+        currency.Input.SelectionChanged += (_, _) => { if (currency.Value is { } chosen) amount.FormatString = "N" + TravelRepo.Core.Expenses.MinorDigits(chosen); };
         void Commit()
         {
             var code = currency.Value ?? money?.Currency ?? "EUR"; var next = amount.Value ?? 0m;
@@ -210,7 +213,10 @@ public static class Editors
     }
 
     public static IReadOnlyList<Choice> Currencies { get; } = CultureInfo.GetCultures(CultureTypes.SpecificCultures).Select(c => { try { return new RegionInfo(c.Name); } catch (ArgumentException) { return null; } }).OfType<RegionInfo>()
-        .DistinctBy(r => r.ISOCurrencySymbol).Where(r => r.ISOCurrencySymbol.Length == 3).OrderBy(r => r.ISOCurrencySymbol).Select(r => new Choice(r.ISOCurrencySymbol, r.ISOCurrencySymbol + " " + r.CurrencySymbol)).ToArray();
+        .DistinctBy(r => r.ISOCurrencySymbol).Where(r => r.ISOCurrencySymbol.Length == 3).OrderBy(r => r.ISOCurrencySymbol).Select(r => new Choice(r.ISOCurrencySymbol, r.ISOCurrencySymbol + (Symbol(r) is { } symbol ? " " + symbol : ""))).ToArray();
+
+    // Full-width signs such as ￥ become the ordinary ¥ the interface font has; a symbol that only repeats the code is left out.
+    private static string? Symbol(RegionInfo region) => region.CurrencySymbol.Normalize(System.Text.NormalizationForm.FormKC).Trim() is { Length: > 0 } symbol && symbol != region.ISOCurrencySymbol ? symbol : null;
 
     /// <summary>A button showing the current reference; opens a searchable picker that can also create entities.</summary>
     /// <param name="save">Saves the choice in place of setting the path, for a reference that needs more than one change.</param>

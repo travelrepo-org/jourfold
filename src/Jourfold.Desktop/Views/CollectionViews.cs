@@ -77,6 +77,39 @@ public static class CollectionViews
         return Page(w, s["Bookings"], string.Format(s["BookingsSummary"], bookings.Length, confirmed), Ui.Card(list, 6), AddButton(w, s["AddBooking"], "booking"));
     }
 
+    /// <summary>
+    /// The payments that fit the search, grouped by the day they were paid (see <see cref="Expenses.DateOf"/>), latest
+    /// day first, and those without a day at the end. Each row opens the payment.
+    /// </summary>
+    private static Control ExpenseList(MainWindow w, IReadOnlyList<Entity> expenses, string search)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var found = expenses.Where(e => Jourfold.UI.CostTexts.Matches(s, trip, e, search)).Select(e => (Expense: e, Day: Expenses.DateOf(trip, e))).ToArray();
+        var list = Ui.V(2);
+        if (found.Length == 0) { list.Children.Add(Ui.Text(string.Format(s["NoCostsFound"], search.Trim()), "muted").Margin(4, 8)); return list; }
+        foreach (var group in found.GroupBy(x => x.Day).OrderBy(g => g.Key is null ? 1 : 0).ThenByDescending(g => g.Key))
+        {
+            var heading = group.Key is { } day ? Formats.LongDay(day) : s["WithoutDay"];
+            list.Children.Add(Ui.Text(heading, "overline").Margin(4, list.Children.Count == 0 ? 0 : 12, 0, 4));
+            foreach (var (e, _) in group.OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture))
+            {
+                var money = TripSummaries.Money(e.Data["amount"]);
+                var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
+                var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
+                var category = ExpenseCategories.Of(trip, e);
+                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(t => !string.IsNullOrEmpty(t)));
+                var grid = Ui.Columns("Auto,*,Auto,Auto,140",
+                    Ui.Tile(ExpenseViews.CategoryIcon(category), "Food", 34).Margin(0, 0, 12, 0),
+                    Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),
+                    ExpenseViews.Status(s, Expenses.Split(trip, e), trip)?.Margin(8, 0),
+                    payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
+                    Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
+                list.Children.Add(Row(w, e, grid));
+            }
+        }
+        return list;
+    }
+
     private static Control Costs(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
@@ -104,25 +137,17 @@ public static class CollectionViews
             tiles.Children.Add(Ui.Card(body, 18).Also(c => c.Width = 300));
         }
         if (ExpenseViews.TripTotal(w) is { } home) tiles.Children.Add(home);
-        var list = Ui.V(2);
-        foreach (var e in expenses.Concat(budgets))
-        {
-            var money = TripSummaries.Money(e.Data["amount"]);
-            var estimated = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
-            var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
-            var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
-            var shared = e.Type == "expense" ? ExpenseViews.Status(s, Expenses.Split(trip, e), trip) : null;
-            var grid = Ui.Columns("Auto,*,Auto,Auto,140",
-                Ui.Tile(e.Type == "budget" ? "piggy-bank" : ExpenseViews.CategoryIcon(ExpenseCategories.Of(trip, e)), e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
-                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(string.Join(" · ", new[] { e.Type == "budget" ? s["budget"] : ExpenseViews.CategoryName(s, ExpenseCategories.Of(trip, e)), e.Type == "budget" ? null : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
-                shared?.Margin(8, 0),
-                payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
-                Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
-            list.Children.Add(Row(w, e, grid));
-        }
+        // The payments by the day they were paid, with a search over title, category, people and what they belong to.
+        var listHost = new ContentControl();
+        void RenderList() => listHost.Content = ExpenseList(w, expenses, m.CostSearch);
+        var search = new TextBox { Text = m.CostSearch, PlaceholderText = s["SearchCosts"], InnerLeftContent = Ui.Icon("search", 14, "Text.Subtle").Margin(10, 0, 0, 0), Tag = "cost-search" };
+        AutomationProperties.SetName(search, s["SearchCosts"]);
+        search.TextChanged += (_, _) => { m.CostSearch = search.Text ?? ""; RenderList(); };
+        RenderList();
+        var list = Ui.V(10, Ui.Columns("*,Auto", Ui.Text(s["Payments"], "h3").Also(t => t.VerticalAlignment = VerticalAlignment.Center), search.Also(b => b.Width = 300)), listHost);
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
         // The payments come before the converter, which is a tool rather than part of the trip's costs.
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), Ui.Card(list, 6), note, ConverterCard(w)), actions);
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), Ui.Card(list, 18), note, ConverterCard(w)), actions);
     }
 
     /// <summary>

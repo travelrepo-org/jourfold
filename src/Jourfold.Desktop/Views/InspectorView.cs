@@ -220,6 +220,15 @@ public static class InspectorView
                         var clear = Ui.IconButton("x", s["NoDueDate"]); clear.Click += (_, _) => _ = m.SetDueAsync(expenseId, null);
                         body.Children.Add(Ui.V(4, Ui.Text(s["StillToPayExplained"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), Field(s["Due"], Ui.H(4, due, clear)), paid));
                     }
+                    else
+                    {
+                        // The day it was paid; without one, the day of its plan or charge counts and is shown as the suggestion.
+                        var expenseId = e.Id;
+                        var paidOn = new CalendarDatePicker { SelectedDate = e.Data["date"] is null ? null : Expenses.DateOf(trip, e)?.ToDateTimeUnspecified(), Width = 170, PlaceholderText = Expenses.DateOf(trip, e) is { } suggested ? Formats.Date(suggested) : s["OptionalShort"] };
+                        AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
+                        paidOn.SelectedDateChanged += (_, _) => { var picked = paidOn.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != (m.Trip!.Find(expenseId)?.Data["date"] is null ? null : Expenses.DateOf(m.Trip!, m.Trip!.Find(expenseId)!))) _ = m.SetPaidOnAsync(expenseId, picked); };
+                        body.Children.Add(Field(s["PaidOnLabel"], paidOn));
+                    }
                     body.Children.Add(Field(s["Payer"], Editors.References(w, e.Id, "paid_by", s["Payer"], "person")));
                     body.Children.Add(Field(s["Category"], ExpenseViews.CategoryEditor(s, trip, e, change => m.ChangeExpenseAsync(e.Id, change), () => m.Interaction.PromptAsync(s["NewCategory"]))));
                     Add(body, s["Split"], ExpenseViews.SplitEditor(w, e));
@@ -685,7 +694,7 @@ public static class InspectorView
     {
         var m = w.Model; var s = m.Strings;
         body.Children.Add(Field(s["Status"], Editors.StatusChips(w, e.Id, e.Data["status"]?.ToString(), ["idea", "pending", "reserved", "confirmed", "cancelled", "completed"])));
-        body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["Reference"], Editors.Text(w, e.Id, "reference", s["Reference"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
+        body.Children.Add(Ui.Columns("*,*", Field(s["Provider"], Editors.Text(w, e.Id, "provider/name", s["Provider"], e.Data["provider"]?["name"]?.ToString())), Field(s["BookingNumber"], Editors.Text(w, e.Id, "reference", s["BookingNumber"], e.Data["reference"]?.ToString())).Margin(10, 0, 0, 0)));
         // What it costs is its payments, shown here in full: paid, still to pay, who paid and who shares them.
         Add(body, s["Payments"], ExpenseViews.BookingPayments(w, e));
         body.Children.Add(Field(s["Travelers"], Editors.References(w, e.Id, "travelers", s["Travelers"], "person")));

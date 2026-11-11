@@ -46,6 +46,7 @@ public static class TodayView
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
             Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone), Lines.DayWeather(s, today)).Margin(16, 0));
         if (WeatherPrompt(s) is { } prompt) page.Children.Add(prompt);
+        if (PaymentsDue(s) is { } due) page.Children.Add(due);
         var next = current is null ? null : NextCard(s, current, now, phone);
         var rail = Ui.V(10);
         var nowShown = false;
@@ -168,7 +169,37 @@ public static class TodayView
             list.Children.Add(Ui.Divider().Margin(52, 0, 0, 0));
             list.Children.Add(Row("tasks", "square-check", str["Tasks"], string.Format(CultureInfo.CurrentCulture, str["CountOpen"], open)));
         }
+        if (DuePayments(s) is { Count: > 0 } payments)
+        {
+            list.Children.Add(Ui.Divider().Margin(52, 0, 0, 0));
+            list.Children.Add(Row("costs", "calendar-clock", str["PaymentsDue"], DueText(s, payments)));
+        }
         return Ui.V(8, Ui.Text(str["BeforeTheTrip"], "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
+    }
+
+    /// <summary>
+    /// Payments still to pay that are due within two weeks or overdue, soonest first, for the user when the phone knows
+    /// who they are. Payments for ideas and cancelled bookings are not due.
+    /// </summary>
+    private static IReadOnlyList<(Entity Payment, LocalDate Due)> DuePayments(MobileSession s)
+    {
+        var trip = s.Trip!; var me = s.Me; var limit = s.PhoneToday.PlusDays(14);
+        return trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e) && !Expenses.IsIdea(trip, e))
+            .Select(e => (Payment: e, Due: Expenses.DueOf(e))).Where(x => x.Due is { } d && d <= limit && (me is null || Expenses.Split(trip, x.Payment).People.Contains(me.Id)))
+            .Select(x => (x.Payment, x.Due!.Value)).OrderBy(x => x.Value).ToArray();
+    }
+
+    private static string DueText(MobileSession s, IReadOnlyList<(Entity Payment, LocalDate Due)> payments) =>
+        string.Join(" · ", payments.Take(2).Select(p => p.Payment.Title + " " + string.Format(CultureInfo.CurrentCulture, s.Strings["DueOn"], Formats.Date(p.Due)))) + (payments.Count > 2 ? " · …" : "");
+
+    /// <summary>During the trip: payments due soon, such as the rest of a stay paid on site, opening the costs.</summary>
+    private static Control? PaymentsDue(MobileSession s)
+    {
+        if (DuePayments(s) is not { Count: > 0 } payments) return null;
+        var row = new Button { Content = Ui.Columns("Auto,*,Auto", Ui.Icon("calendar-clock", 20, "Warning").Margin(0, 0, 16, 0), Ui.V(1, Ui.Text(s.Strings["PaymentsDue"], "strong"), Ui.Text(DueText(s, payments), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), Ui.Icon("chevron-right", 18, "Text.Subtle")), Padding = new Thickness(16, 12), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch }.Classed("row", "card");
+        Avalonia.Automation.AutomationProperties.SetName(row, s.Strings["PaymentsDue"]);
+        row.Click += (_, _) => s.OpenPage("costs");
+        return row.Margin(16, 0);
     }
 
     /// <summary>The first journey, the first stay and the first activity of the trip, in time order. Ideas and cancelled items are left out.</summary>

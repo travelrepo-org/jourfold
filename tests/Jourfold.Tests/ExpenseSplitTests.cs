@@ -406,7 +406,9 @@ public sealed class ExpenseSplitTests : IDisposable
             Assert.Equal(3, Expenses.Split(m.Trip!, expense).People.Count);
             Assert.Equal(BookingCoverage.Planned, Expenses.Payment(m.Trip!, m.Trip!.Find(booking.Id)!).Coverage);
             m.Navigate("Bookings");
-            Assert.Contains(string.Format(toPay, Formats.Money(320.00m, "NZD")), Texts(w));
+            // Nothing is paid yet, so the amount beside it is what is to pay and the mark only says so.
+            Assert.Contains(m.Strings["ToPay"], Texts(w));
+            Assert.Contains(Formats.Money(320.00m, "NZD"), Texts(w));
 
             // The booking's details show the payment in place, with a button that marks it as paid.
             m.Selected = m.Trip!.Find(booking.Id); Probe.ShowDetails(w);

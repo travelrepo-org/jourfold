@@ -109,7 +109,7 @@ public sealed class MobileEditingTests : IDisposable
             // Edited: only an estimate so far, and paid by the other traveller alone.
             session.ShowEditor(expense.Id);
             Field<ToggleSwitch>(window, "Still to pay").IsChecked = true;
-            Tap(window, session.Me!.Title + " (Me)");
+            Tap(window, session.Me!.Title + " (You)");
             Tap(window, "Save");
             await Probe.Until(() => session.Trip!.Find(expense.Id)!.Data["estimated"]?.GetValue<bool>() == true);
             Assert.Equal([other.Id], Jourfold.Application.DetailEdits.People(session.Trip!.Find(expense.Id)!, "paid_by"));

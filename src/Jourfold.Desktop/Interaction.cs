@@ -56,6 +56,10 @@ public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate D
 {
     /// <summary>A title to start with, for example a booking's when its price becomes an expense.</summary>
     public string? Title { get; init; }
+    /// <summary>The trip's currency, which what a card charged is entered in.</summary>
+    public string? TripCurrency { get; init; }
+    /// <summary>Today in the trip's time zone, the day a payment entered now was paid.</summary>
+    public LocalDate? Today { get; init; }
     /// <summary>An amount to start with, in <see cref="Currency"/>.</summary>
     public decimal? Amount { get; init; }
     /// <summary>What the new expense belongs to, such as the booking it pays for.</summary>

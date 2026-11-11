@@ -75,6 +75,15 @@ public static class DetailView
         var tasks = Linked(trip, item, "task").Where(t => t.Data["status"]?.ToString() is not ("done" or "completed" or "cancelled")).ToArray();
         if (tasks.Length > 0) page.Children.Add(Section(str["OpenTasks"], Ui.V(4, tasks.Select(t => (Control)TaskRow(s, t)).ToArray())));
 
+        // An expense shows what its row on the Costs page shows: amount, day, who paid, its parts and paying back.
+        if (item.Type == "expense") page.Children.Add(MorePages.ExpenseFacts(s, item, withAmount: true));
+        // A budget: what it covers and where it stands.
+        if (item.Type == "budget" && Budgets.Status(trip, item, s.EstimateRates) is { } budget)
+        {
+            var approx = budget.Approximate ? "≈ " : "";
+            page.Children.Add(Row("piggy-bank", string.Format(CultureInfo.CurrentCulture, str["BudgetUsed"], approx + Formats.Money(budget.Used, budget.Amount.Currency), Formats.Money(budget.Amount.Amount, budget.Amount.Currency)),
+                budget.Filters.IsWholeTrip ? str["BudgetWholeTrip"] : string.Join(" · ", new[] { budget.Filters.Category is { } c ? Jourfold.UI.CostTexts.Category(str, c) : null, budget.Filters.Person is { } p ? trip.Find(p)?.Title : null, budget.Filters.Collection is { } k ? trip.Find(k)?.Title : null }.OfType<string>()), s));
+        }
         if (item.Type == "schedule_item" && Group(s, item) is { } group) page.Children.Add(group);
         if (item.Type == "booking" && Booked(s, item) is { } booked) page.Children.Add(booked);
 

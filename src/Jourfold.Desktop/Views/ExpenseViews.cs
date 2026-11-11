@@ -176,12 +176,12 @@ public static class ExpenseViews
             return Ui.Card(body, 18);
         }
         var people = new WrapPanel { ItemSpacing = 18, LineSpacing = 10 };
-        foreach (var b in balances)
+        // One entry per person, with every currency they get or owe.
+        foreach (var (person, direction, line) in Jourfold.UI.CostTexts.Balances(s, balances))
         {
-            var name = Name(trip, b.Person) + (m.Me?.Id == b.Person ? " (" + s["You"] + ")" : "");
-            var owed = b.Net > 0;
-            var line = string.Format(s[owed ? "BalanceOwed" : "BalanceOwes"], (b.Estimated ? "≈ " : "") + Formats.Money(Math.Abs(b.Net), b.Currency));
-            people.Children.Add(Ui.H(8, Ui.Avatar(Name(trip, b.Person), 26), Ui.V(0, Ui.Line(name, "strong"), Ui.H(4, Ui.Icon(owed ? "arrow-left" : "arrow-right", 12, owed ? "Success" : "Warning"), Ui.Line(line, "caption")))));
+            var name = Name(trip, person) + (m.Me?.Id == person ? " (" + s["You"] + ")" : "");
+            var (icon, brush) = direction switch { > 0 => ("arrow-left", "Success"), < 0 => ("arrow-right", "Warning"), _ => ("coins", "Text.Subtle") };
+            people.Children.Add(Ui.H(8, Ui.Avatar(Name(trip, person), 26), Ui.V(0, Ui.Line(name, "strong"), Ui.H(4, Ui.Icon(icon, 12, brush), Ui.Line(line, "caption")))));
         }
         body.Children.Add(people);
         var transfers = Expenses.SettleUp(trip, currency, m.EstimateRates);
@@ -218,7 +218,7 @@ public static class ExpenseViews
         if (money.Currency == home && charge is null) return null;
         var currency = charge?.Currency ?? home;
         var shown = charge is { } c ? c.Value.ToString("N" + Expenses.MinorDigits(c.Currency), System.Globalization.CultureInfo.CurrentCulture) : "";
-        var box = new TextBox { Text = shown, Width = 130, HorizontalContentAlignment = HorizontalAlignment.Right, PlaceholderText = "0.00", Tag = "charged" };
+        var box = new TextBox { Text = shown, Width = 130, HorizontalContentAlignment = HorizontalAlignment.Right, PlaceholderText = 0m.ToString("N" + Expenses.MinorDigits(currency), System.Globalization.CultureInfo.CurrentCulture), Tag = "charged" };
         AutomationProperties.SetName(box, string.Format(s["ChargedIn"], currency));
         var original = shown;
         async Task Commit()
@@ -267,10 +267,10 @@ public static class ExpenseViews
         choice.Input.SelectionChanged += (_, _) => Choose(); choice.Input.LostFocus += (_, _) => Choose();
         var body = Ui.V(8, Ui.Columns("*,Auto", Ui.Text(string.Format(s["InCurrency"], home), "overline").Also(t => t.VerticalAlignment = VerticalAlignment.Center), choice),
             Ui.Text((total.Estimated > 0 ? "≈ " : "") + Formats.Money(total.Total, home), "h1"),
-            Ui.H(5, Ui.Icon("circle-check", 13, "Success"), Ui.Text(string.Format(s["ExactlyCharged"], Formats.Money(total.Exact, home)), "caption")));
-        if (total.Estimated > 0) body.Children.Add(Ui.H(5, Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home), m.RatesDay), "caption")));
-        if (Sum(planned) is { Length: > 0 } toPay) body.Children.Add(Ui.H(5, Ui.Icon("calendar-clock", 13, "Text.Muted"), Ui.Text(string.Format(s["StillToPayAmount"], toPay), "caption")));
-        if (ideas.Length > 0 && Sum(Expenses.Total(ideas, home, m.EstimateRates, planned: true)) is { Length: > 0 } maybe) body.Children.Add(Ui.H(5, Ui.Icon("lightbulb", 13, "Text.Muted"), Ui.Text(string.Format(s["IdeasNotCounted"], maybe), "caption")));
+            IconLine(Ui.Icon("circle-check", 13, "Success"), Ui.Text(string.Format(s["ExactlyCharged"], Formats.Money(total.Exact, home)), "caption")));
+        if (total.Estimated > 0) body.Children.Add(IconLine(Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home), m.RatesDay), "caption")));
+        if (Sum(planned) is { Length: > 0 } toPay) body.Children.Add(IconLine(Ui.Icon("calendar-clock", 13, "Text.Muted"), Ui.Text(string.Format(s["StillToPayAmount"], toPay), "caption")));
+        if (ideas.Length > 0 && Sum(Expenses.Total(ideas, home, m.EstimateRates, planned: true)) is { Length: > 0 } maybe) body.Children.Add(IconLine(Ui.Icon("lightbulb", 13, "Text.Muted"), Ui.Text(string.Format(s["IdeasNotCounted"], maybe), "caption")));
         if (total.NotConverted.Count > 0) body.Children.Add(Notice("info", "Text.Subtle", string.Format(s["NotConvertedYet"], string.Join(" + ", total.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))))));
         if (total.WithoutCharge > 0 && expenses.Any(e => TripSummaries.Money(e.Data["amount"])!.Currency != home)) body.Children.Add(Ui.Text(total.WithoutCharge == 1 ? s["WithoutChargeOne"] : string.Format(s["WithoutChargeCount"], total.WithoutCharge), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
         return Ui.Card(body, 18).Also(c => c.Width = 300);
@@ -426,6 +426,9 @@ public static class ExpenseViews
     public static Control? BookingPill(Localization s, TripSnapshot trip, IReadOnlyDictionary<Guid, BookingPayment> payments, Entity booking)
     {
         if (payments.GetValueOrDefault(booking.Id) is not { } payment) return null;
+        // When nothing is paid yet, the amount beside it already says what is to pay.
+        if (payment.Coverage == BookingCoverage.Planned && payment.Paid.Count == 0 && booking.Data["status"]?.ToString() is not ("idea" or "cancelled"))
+            return Ui.Pill(s["ToPay"], "clock", "Warning.Soft", "Warning");
         if (payment.Coverage == BookingCoverage.Planned && booking.Data["status"]?.ToString() is not ("idea" or "cancelled"))
             return Ui.Pill(string.Format(s["ToPayAmount"], string.Join(" + ", payment.Planned.Select(e => TripSummaries.Money(e.Data["amount"])).OfType<Money>().GroupBy(x => x.Currency).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key)))), "clock", "Warning.Soft", "Warning");
         if (payment.LegacyPrice is not null && payment.Expenses.Count == 0) return Ui.Pill(s["PriceNotRecorded"], "info", "Bg.Subtle", "Text.Muted");
@@ -487,7 +490,17 @@ public static class ExpenseViews
     public static Control BudgetScopeEditor(MainWindow w, Entity budget)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
-        var filters = Budgets.FiltersOf(budget);
+        var panel = BudgetFiltersEditor(s, trip, Budgets.FiltersOf(budget), changed => _ = m.SetBudgetFiltersAsync(budget.Id, changed));
+        if (Budgets.Status(trip, budget, m.EstimateRates) is { } status) panel.Children.Add(Ui.V(4, Ui.Text(BudgetFor(s, trip, status), "strong"), BudgetLine(s, trip, status, 300)));
+        return panel;
+    }
+
+    /// <summary>
+    /// What a budget applies to, as chips per category, person and collection, all applying together; used in the
+    /// budget's details and when a budget is added. <paramref name="changed"/> gets the new limits.
+    /// </summary>
+    public static StackPanel BudgetFiltersEditor(Localization s, TripSnapshot trip, BudgetFilters filters, Action<BudgetFilters> changed)
+    {
         Control Row(string label, string all, string? current, IEnumerable<(string Id, string Label, string Icon)> options, Func<string?, BudgetFilters> with)
         {
             var chips = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
@@ -496,7 +509,7 @@ public static class ExpenseViews
                 var selected = id is null ? current is null : string.Equals(id, current, StringComparison.CurrentCultureIgnoreCase);
                 var chip = Ui.Choice(text, icon, selected, "chip");
                 AutomationProperties.SetName(chip, label + ": " + text);
-                chip.Click += (_, _) => { if (!selected) _ = m.SetBudgetFiltersAsync(budget.Id, with(id)); };
+                chip.Click += (_, _) => { if (!selected) changed(with(id)); };
                 chips.Children.Add(chip);
             }
             AutomationProperties.SetName(chips, label);
@@ -508,7 +521,6 @@ public static class ExpenseViews
         var collections = trip.Entities.Values.Where(e => e.Type == "collection" && !PackingLists.IsList(e)).OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         if (collections.Length > 0)
             panel.Children.Add(Row(s["collection"], s["BudgetAny"], filters.Collection?.ToString(), collections.Select(c => (c.Id.ToString(), c.Title, "layers")), k => filters with { Collection = Guid.TryParse(k, out var id) ? id : null }));
-        if (Budgets.Status(trip, budget, m.EstimateRates) is { } status) panel.Children.Add(Ui.V(4, Ui.Text(BudgetFor(s, trip, status), "strong"), BudgetLine(s, trip, status, 300)));
         return panel;
     }
 
@@ -566,6 +578,10 @@ public static class ExpenseViews
         if ((whole?.Approximate ?? false) || limited.Any(b => b.Approximate)) body.Children.Add(Notice("info", "Text.Subtle", m.EstimatedNote));
         return Ui.Card(body, 18);
     }
+
+    /// <summary>An icon beside a caption that wraps within its card instead of running past it.</summary>
+    private static Control IconLine(Control icon, TextBlock text) =>
+        Ui.Columns("Auto,*", icon.Margin(0, 2, 5, 0).Also(i => i.VerticalAlignment = VerticalAlignment.Top), text.Also(t => t.TextWrapping = TextWrapping.Wrap));
 
     /// <summary>
     /// The offer to bring costs older versions wrote up to date, for when it was postponed: the same as on the phone.

@@ -38,7 +38,7 @@ public sealed partial class MobileSession
     public Task MarkPaymentPaidAsync(Guid expenseId, CancellationToken ct = default) => ChangeAsync(async () =>
     {
         if (Workspace is not { } workspace || workspace.State.Trip.Find(expenseId) is not { Type: "expense" } expense) return;
-        await workspace.EditAsync(Expenses.MarkPaid(expense, Me is { } me ? [me.Id] : null), ct); NoteChange();
+        await workspace.EditAsync(Expenses.MarkPaid(expense, Me is { } me ? [me.Id] : null, TripToday(workspace.State.Trip)), ct); NoteChange();
     }, ct);
 
     /// <summary>After everyone paid what the suggestion says, marks every open item of the trip as paid back today.</summary>
@@ -47,6 +47,51 @@ public sealed partial class MobileSession
         if (Workspace is not { } workspace || Expenses.Open(workspace.State.Trip).Count == 0) return;
         var trip = workspace.State.Trip;
         await workspace.ApplyAsync(Expenses.SettleAll(trip, TripToday(trip), TripCurrencyCode, EstimateRates).Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
+    }, ct);
+
+    /// <summary>Whose open items the pay function shows; the user at first.</summary>
+    public Guid? PayPerson { get; private set; }
+
+    /// <summary>The open items chosen in the pay function; null until a person is chosen, then all of theirs.</summary>
+    public HashSet<DebtKey>? PayChosen { get; private set; }
+
+    /// <summary>
+    /// Opens the pay function: the person (the user, otherwise the first with something open) chooses which open items
+    /// to settle now and sees what that comes to in the trip's currency.
+    /// </summary>
+    public void ShowPay()
+    {
+        if (Trip is not { } trip) return;
+        var person = Me is { } me && Expenses.Open(trip, me.Id).Count > 0 ? me.Id : TripPeople.Travelers(trip).Select(p => p.Id).FirstOrDefault(p => Expenses.Open(trip, p).Count > 0);
+        ChoosePayPerson(person == Guid.Empty ? Me?.Id : person, redraw: false);
+        OpenPage("pay");
+    }
+
+    /// <summary>Shows another person's open items, all of them chosen.</summary>
+    public void ChoosePayPerson(Guid? person, bool redraw = true)
+    {
+        PayPerson = person;
+        PayChosen = Trip is { } trip && person is { } p ? Expenses.Open(trip, p).Select(d => d.Key).ToHashSet() : [];
+        if (redraw) Changed?.Invoke();
+    }
+
+    /// <summary>Chooses an open item in the pay function, or takes it out.</summary>
+    public void TogglePayItem(DebtKey key)
+    {
+        if (PayChosen is null) return;
+        if (!PayChosen.Remove(key)) PayChosen.Add(key);
+        Changed?.Invoke();
+    }
+
+    /// <summary>Marks the chosen items as paid back today, in one change, and goes back.</summary>
+    public Task PayChosenAsync(CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        if (Workspace is not { } workspace || PayPerson is not { } person || PayChosen is not { Count: > 0 } chosen) return;
+        var trip = workspace.State.Trip;
+        var items = Expenses.Pay(trip, person, chosen).Items.Select(i => i.Key).ToArray();
+        if (items.Length == 0) return;
+        await workspace.ApplyAsync(Expenses.Settle(trip, items, TripToday(trip), TripCurrencyCode, EstimateRates).Select(e => new EntityEdit(e.Id, e)).ToArray(), ct); NoteChange();
+        PayChosen = null; GoBack();
     }, ct);
 
     /// <summary>Asks before marking everything as paid back, since it is meant for after everyone paid.</summary>

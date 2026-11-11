@@ -251,6 +251,16 @@ usual spelling and the phone number below.
   a failed attempt waits 30 minutes, so an offline phone does not keep trying. At the top of the converter it says
   when the rates were fetched; a tap there fetches them again now, at most once a minute, and keeps the last rates
   when that fails.
+- **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
+  still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
+  category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was
+  paid, what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
+  shares or percent; only a split that adds up can be saved), a category or a new one. **Pay back…** is the pay
+  function: whose open items, which to settle now, and what that comes to. Budgets are added and changed there, with
+  what they apply to. Payments due within two weeks show on Today. Choosing a chip below the title closes the
+  keyboard, so it does not cover the rest of the form; editing opens without the keyboard. Not on the phone yet, as
+  possible later additions: changing the trip currency (and converting budgets with it) and exporting costs as PDF or
+  CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold
   needs no camera permission); the photo is turned upright, made at most 1600 pixels on the longer side and attached
   to the expense, which the user paid unless the form says otherwise. There is no text recognition (ML Kit would

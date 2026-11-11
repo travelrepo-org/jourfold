@@ -24,7 +24,15 @@ public partial class MainViewModel
     public Task SetTripCurrencyAsync(string code) => RunEditAsync(async () =>
     {
         if (Workspace?.State.Trip is not { } trip || ExchangeRates.Code(code) is not { } currency || TripCurrency.Stored(trip) == currency) return;
-        await Workspace.EditAsync(TripCurrency.With(trip.Manifest, currency));
+        var edits = new List<TravelRepo.Repository.EntityEdit> { new(trip.Manifest.Id, TripCurrency.With(trip.Manifest, currency)) };
+        // Budgets set in the old currency: converted only when the travellers agree; otherwise they stay as they are.
+        if (Budgets.ConvertTo(trip, currency, EstimateRates) is { Count: > 0 } converted)
+        {
+            var lines = converted.Select(c => "• " + c.Budget.Title + ": " + Formats.Money(c.Before.Amount, c.Before.Currency) + " → ≈ " + Formats.Money(c.After.Amount, c.After.Currency));
+            if (await Interaction.ConfirmAsync(Strings["ConvertBudgetsTitle"], string.Format(Strings["ConvertBudgetsBody"], currency, RatesDay) + "\n\n" + string.Join("\n", lines), Strings["ConvertBudgets"]))
+                edits.AddRange(converted.Select(c => new TravelRepo.Repository.EntityEdit(c.Budget.Id, c.Budget)));
+        }
+        await Workspace.ApplyAsync(edits.ToArray());
     });
 
     /// <summary>The currency of the computer's region, read before Jourfold sets its own language for the interface.</summary>
@@ -128,18 +136,25 @@ public partial class MainViewModel
         if (Workspace?.State.Trip is not { } trip || trip.Find(bookingId) is not { Type: "booking" } booking) return;
         var legacy = TripSummaries.Money(booking.Data["price"]) is { } price ? CostUpgrade.Rest(trip, booking, price) is { Amount: > 0 } rest ? rest : price : null;
         var currency = legacy?.Currency ?? Expenses.ForBooking(trip, bookingId).Select(e => TripSummaries.Money(e.Data["amount"])?.Currency).OfType<string>().FirstOrDefault() ?? TripCurrencyCode;
-        var request = new QuickAddRequest("expense", trip, StartDate, null, null, ScheduleQueries.TripZone(trip).Id, planned ? null : Me?.Id, false, currency) { Title = booking.Title, Amount = legacy?.Amount, Related = booking.Id, Planned = planned };
+        var request = new QuickAddRequest("expense", trip, StartDate, null, null, ScheduleQueries.TripZone(trip).Id, planned ? null : Me?.Id, false, currency) { Title = booking.Title, Amount = legacy?.Amount, Related = booking.Id, Planned = planned, TripCurrency = TripCurrencyCode, Today = Today };
         if (await Interaction.QuickAddAsync(request) is not { } draft) return;
         var (_, built) = Jourfold.Application.QuickAdd.Build(draft, Workspace.State.Trip);
         var edits = built.ToList();
         // The price an older version stored is now recorded as payments.
         if (legacy is not null && Workspace.State.Trip.Find(bookingId)?.Copy() is { } withoutPrice) { withoutPrice.Data.Remove("price"); edits.Add(new(withoutPrice.Id, withoutPrice)); }
         await Workspace.ApplyAsync(edits.ToArray());
+        if (draft.Files.Count > 0) await AddFilesAsync(draft.Files, built[0].Id);
         Interaction.Toast(string.Format(Strings["ExpenseAddedFor"], booking.Title));
     });
 
+    /// <summary>Sets the day a payment was paid, or none, so its own day no longer overrides its plan's.</summary>
+    public Task SetPaidOnAsync(Guid expenseId, LocalDate? day) => EditExpenseAsync(expenseId, (_, e) => Expenses.WithDate(e, day));
+
     /// <summary>Sets the day a payment still to pay is due, or none; a reminder comes a week before.</summary>
     public Task SetDueAsync(Guid expenseId, LocalDate? day) => EditExpenseAsync(expenseId, (_, e) => Expenses.WithDue(e, day));
+
+    /// <summary>What the payments on the Costs page are searched for; empty shows all of them.</summary>
+    public string CostSearch { get; set; } = "";
 
     /// <summary>Whose parts "By category" counts: empty for every expense in full, otherwise the chosen people's parts together.</summary>
     public HashSet<Guid> CategoryPeople { get; } = [];
@@ -153,7 +168,7 @@ public partial class MainViewModel
     }
 
     /// <summary>Marks a payment that was still to pay as paid, by the local user when it names nobody yet.</summary>
-    public Task MarkPaymentPaidAsync(Guid expenseId) => EditExpenseAsync(expenseId, (_, e) => Expenses.MarkPaid(e, Me is { } me ? [me.Id] : null));
+    public Task MarkPaymentPaidAsync(Guid expenseId) => EditExpenseAsync(expenseId, (_, e) => Expenses.MarkPaid(e, Me is { } me ? [me.Id] : null, Today));
 
     /// <summary>Removes a price an older version stored on a booking, after the travellers looked at it.</summary>
     public Task DropLegacyPriceAsync(Guid bookingId) => RunEditAsync(async () =>

@@ -33,10 +33,12 @@ public partial class MainViewModel
         if (kind == "file") { await AddFilesAsync(null); return; }
         var trip = Workspace.State.Trip;
         // A budget is in the trip's currency; an expense starts in the currency paid in last, paid by the person at this computer.
-        var request = new QuickAddRequest(kind, trip, date ?? StartDate, start, length, ScheduleQueries.TripZone(trip).Id, person ?? (kind == "expense" && !chooseType ? Me?.Id : null), chooseType, kind == "budget" ? TripCurrencyCode : Store.Get("currency") ?? DefaultCurrency(trip));
+        var request = new QuickAddRequest(kind, trip, date ?? StartDate, start, length, ScheduleQueries.TripZone(trip).Id, person ?? (kind == "expense" && !chooseType ? Me?.Id : null), chooseType, kind == "budget" ? TripCurrencyCode : Store.Get("currency") ?? DefaultCurrency(trip)) { TripCurrency = TripCurrencyCode, Today = Today };
         var draft = await Interaction.QuickAddAsync(request); if (draft is null) return;
         var (main, edits) = Application.QuickAdd.Build(draft, Workspace.State.Trip);
         await Workspace.ApplyAsync(edits);
+        // A receipt or other file chosen in the form is attached to what was just added.
+        if (draft.Files.Count > 0) await AddFilesAsync(draft.Files, main.Id);
         if (draft.Currency is { } currency && draft.Kind != "budget") Store.Set("currency", currency);
         Selected = Workspace.State.Trip.Find(main.Id);
         var target = main.Type switch { "person" => "People", "place" => "Places", "booking" => "Bookings", "task" => "Tasks", "expense" or "budget" => "Costs", "collection" => "Collections", "note" => View, _ => View is "Plan" or "List" or "Map" ? View : "Plan" };

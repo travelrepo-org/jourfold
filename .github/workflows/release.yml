@@ -9,7 +9,9 @@ name: Release
 # The first step turns the published release into a pre-release, however it was published: the installers only use
 # the latest full release, so they never see it before its files are attached. Once everything is attached, a tag
 # without a suffix (v1.2.3) becomes a full, latest release; tags with a suffix (v1.2.3-beta.1) stay pre-releases.
-# If anything fails, the release goes back to draft; fix the problem and publish it again.
+# Title and notes may be left empty: a release without a title is named "Jourfold <version> “<code name>”", and the
+# notes from docs/releases are written below whatever the release already says. If anything fails, the release goes
+# back to draft; fix the problem and publish it again.
 #
 # The macOS packages are built on an Apple silicon runner, where the Intel (x64) one is cross-compiled and not tested.
 # ARM64 Linux and Windows packages are cross-compiled on x64 runners and not tested there. To build and test them natively, set the

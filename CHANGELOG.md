@@ -2,6 +2,33 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.10.0 “Oceanic Osprey” – 2026-11-11
+
+### Highlights
+
+- Costs are reworked. A trip has one currency for its totals, its budget and who owes whom. What a card charged stays exact; everything else is estimated with the day's rates and marked as such. A booking costs what its payments come to, paid or still to pay with a due date.
+- Expenses are divided equally, by amounts, by shares or in percent. Who owes whom shows one line per person, and "Pay back…" settles it with the fewest payments.
+- Phones and tablets have the full Costs page too, with budgets, splits, paying back and the search. Today lists payments that are due soon.
+
+### Changes
+
+- Adding an expense asks for everything at once, on the computer and on phones and tablets. That covers the amount and what the card charged, whether it is still to pay with a due date or the day it was paid, and who paid. It also covers what it belongs to, the category, the split and a receipt. It can only be added once the split adds up.
+- A trip has one budget, and more budgets can be limited to a category, a person or a collection. When you change the trip currency, Jourfold offers to convert budgets in the old one. A budget that cannot be converted yet is shown in its own currency.
+- Payments are listed by day. A search finds them by name, category, the people involved, and the booking or place they belong to.
+- Costs can be exported on the computer as PDF, as CSV with a chosen separator, or as text, for everyone or for the part of chosen people.
+- When a trip has costs from an older version, Jourfold offers to bring them up to date and lists what changes. Booking prices become payments still to pay, and nothing that was paid, owed or paid back changes. If you put it off, the Costs page offers it again.
+- Amounts are shown with the decimals of their currency, so yen have none. You are marked "(You)" everywhere, and the German texts consistently say "Sie".
+- On phones and tablets, amounts open the number keyboard. Tapping beside a field or scrolling the page closes the keyboard.
+- On phones and tablets, the GitHub sign-in code can be copied again with "Copy code" or by holding it, for when GitHub's own sign-in has replaced the clipboard.
+
+### Fixes
+
+- Attached e-mails keep their line endings, whatever Git is set to convert. On a Mac set to convert them, every other copy of the trip reported the e-mail as damaged and refused all changes. The computer that attached the e-mail repairs the trip with its next saved version, for example when you agree to update the costs. Other copies are repaired by downloading the trip again.
+- Phones and tablets explain a failed change instead of closing, for example "This is me" in a trip with errors. Unexpected errors are written to a log on the device and nothing is sent. Today shows a card when the open trip has errors.
+- The place search reads a hotel network's sign-in page as a network problem instead of failing, and leaves out results without a name or position.
+- Street maps load on the first draw. Before, they could stay empty until something drew the map again.
+- The currency picker shows the yen sign correctly, and a booking's reference is labelled "Booking number".
+
 ## 0.9.0 “Swift Salamander” – 2026-11-10
 
 ### Highlights

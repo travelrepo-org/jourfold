@@ -1,6 +1,10 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Avalonia.Controls;
+using Avalonia.Headless;
+using Avalonia.Headless.XUnit;
 using Jourfold.Infrastructure;
+using Jourfold.UI;
 using Xunit;
 using Jourfold.Application;
 namespace Jourfold.Tests;
@@ -69,6 +73,19 @@ public sealed class OnlineMapsTests : IDisposable
         var (bytes, skipped) = await tiles.GetAsync(5, 2, 2, stillWanted: () => false);
         Assert.Null(bytes); Assert.True(skipped); Assert.Single(server.Requests);
         Assert.Equal((null, false), await tiles.GetAsync(20, 1, 1)); // beyond the server's zoom levels
+    }
+
+    [AvaloniaFact]
+    public async Task TheFirstDrawOfTheMapRequestsItsTiles()
+    {
+        // Nothing draws the map a second time here, as on a phone that is left alone: the first draw alone must
+        // start the downloads.
+        var server = new Server(_ => Tile(TimeSpan.FromDays(7)));
+        var surface = new MapSurface(new MapTiles(root, new HttpClient(server), MapProvider.OpenStreetMap));
+        var window = new Window { Width = 400, Height = 400, Content = surface };
+        window.Show(); window.CaptureRenderedFrame();
+        await Probe.Until(() => server.Requests.Count > 0);
+        window.Close();
     }
 
     [Fact]

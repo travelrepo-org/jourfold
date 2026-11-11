@@ -198,7 +198,7 @@ public sealed class MapSurface : Control
     private void DrawTiles(DrawingContext context)
     {
         var count = 1 << Zoom; var originX = centerX * Scale - Bounds.Width / 2; var originY = centerY * Scale - Bounds.Height / 2;
-        var visible = new HashSet<(int, int, int)>();
+        var visible = new HashSet<(int, int, int)>(); var missing = new List<(int, int, int)>();
         var x0 = (int)Math.Floor(originX / 256); var y0 = (int)Math.Floor(originY / 256); var x1 = (int)Math.Floor((originX + Bounds.Width) / 256); var y1 = (int)Math.Floor((originY + Bounds.Height) / 256);
         for (var ty = Math.Max(0, y0); ty <= Math.Min(count - 1, y1); ty++)
             for (var tx = x0; tx <= x1; tx++)
@@ -206,9 +206,12 @@ public sealed class MapSurface : Control
                 var key = (Zoom, ((tx % count) + count) % count, ty); visible.Add(key);
                 var rect = new Rect(tx * 256 - originX, ty * 256 - originY, 256, 256);
                 if (cache.TryGetValue(key, out var bitmap)) { if (bitmap is not null) context.DrawImage(bitmap, rect); continue; }
-                if (pending.Add(key)) _ = LoadAsync(key);
+                if (pending.Add(key)) missing.Add(key);
             }
+        // The view is known before any tile loads: a loader may ask at once whether its tile is still on screen, and
+        // with the previous view it would drop the new tiles until something happened to draw the map again.
         onScreen = visible;
+        foreach (var key in missing) _ = LoadAsync(key);
     }
     private async Task LoadAsync((int Z, int X, int Y) key)
     {

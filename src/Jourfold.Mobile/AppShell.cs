@@ -152,12 +152,12 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>
-    /// A tap whose change fails, for example because the trip has errors, shows why instead of ending the app. Buttons
-    /// run their changes without waiting, so the failure arrives here.
+    /// A tap whose action fails shows why instead of ending the app, for example when the trip has errors or a server
+    /// answers unexpectedly. Buttons run their actions without waiting, so the failure arrives here.
     /// </summary>
     private void OnUnhandled(object? sender, DispatcherUnhandledExceptionEventArgs e)
     {
-        if (e.Handled || !MobileSession.IsExpected(e.Exception)) return;
+        if (e.Handled) return;
         Session.ShowProblem(e.Exception); e.Handled = true;
     }
 
@@ -342,11 +342,12 @@ public sealed class AppShell : UserControl
     {
         var s = Session.Strings;
         var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
-        var card = Ui.Card(Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(s["NotSaved"], "title")),
+        var title = Session.ProblemTitle ?? s["NotSaved"];
+        var card = Ui.Card(Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")),
                 Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap), Ui.Columns("*,Auto", null, close.Col(1))), 20)
             .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
         Avalonia.Automation.AutomationProperties.SetLiveSetting(card, Avalonia.Automation.AutomationLiveSetting.Assertive);
-        AutomationProperties.SetName(card, s["NotSaved"] + ". " + problem);
+        AutomationProperties.SetName(card, title + ". " + problem);
         Dispatcher.UIThread.Post(() => close.Focus(), DispatcherPriority.Background);
         return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }

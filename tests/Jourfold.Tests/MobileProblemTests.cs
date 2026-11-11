@@ -45,6 +45,29 @@ public sealed class MobileProblemTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task AnUnexpectedErrorIsShownAndLoggedOnTheDeviceInsteadOfEndingTheApp()
+    {
+        var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => tokyo, "en", new MemorySecrets(), AppVersion: "9.9.9"));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            IEnumerable<string> Texts() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text ?? ""); }
+            session.ShowMenu(new ActionMenu("Test", null, [new MenuAction("Break", "x", _ => throw new InvalidOperationException("A bug in an action"))])); Probe.Layout();
+            Probe.Click(window, "Break");
+            await Probe.Until(() => session.ChangeProblem is not null);
+            Assert.Contains("Something went wrong", Texts());
+            Assert.Contains("Jourfold could not finish this. The details are kept in a log on this device and are not sent anywhere.", Texts());
+            var log = await File.ReadAllTextAsync(session.ErrorLog);
+            Assert.Contains("Jourfold 9.9.9", log); Assert.Contains("A bug in an action", log);
+
+            Probe.Click(window, "Close");
+            Assert.Null(session.ChangeProblem); Assert.DoesNotContain("Something went wrong", Texts());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }
 
     private sealed class MemorySecrets : TravelRepo.Providers.ISecretStore

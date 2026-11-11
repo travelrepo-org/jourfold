@@ -19,6 +19,8 @@ public sealed class MobileApp : Avalonia.Application
     {
         var host = Host ?? throw new InvalidOperationException("The platform app must set MobileApp.Host before starting.");
         var session = Session ??= new MobileSession(host);
+        // A failure nobody waited for ends nothing, but is kept in the error log on this device.
+        TaskScheduler.UnobservedTaskException += (_, e) => { session.LogError(e.Exception); e.SetObserved(); };
         Control Shell() => new AppShell(session);
         if (ApplicationLifetime is IActivityApplicationLifetime activity) activity.MainViewFactory = Shell;
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single) single.MainView = Shell();

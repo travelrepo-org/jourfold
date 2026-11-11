@@ -552,6 +552,7 @@
   "NotSaved": "Nicht gespeichert",
   "TripHasErrors": "Diese Reise enthält Fehler",
   "TripHasErrorsHint": "Änderungen werden abgelehnt, bis sie repariert ist. Öffne die Reise dazu in Jourfold auf einem Computer.",
+  "UnexpectedErrorPhone": "Jourfold konnte das nicht abschließen. Die Details stehen in einem Protokoll auf diesem Gerät und werden nirgendwohin gesendet.",
   "traveler": "Reisende Person",
   "organizer": "Organisation",
   "NoNotesYet": "Noch keine Notizen.",

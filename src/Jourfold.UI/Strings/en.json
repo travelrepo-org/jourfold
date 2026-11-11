@@ -1459,6 +1459,7 @@
   "WithoutDay": "Not linked to a day",
   "YouOnThisPhone": "You on this {device}",
   "YouOnThisPhoneHint": "Versions made on this {device} are saved under this name. Others who share the trip see it.",
+  "CopyCode": "Copy code",
   "CodeIsCopied": "Opening GitHub copies the code, so you only need to paste it there.",
   "EnterCodeOnGitHub": "Enter this code on GitHub",
   "GetTripFromGitHub": "Get a trip from GitHub",

@@ -1459,6 +1459,7 @@
   "WithoutDay": "Keinem Tag zugeordnet",
   "YouOnThisPhone": "Sie auf diesem {device}",
   "YouOnThisPhoneHint": "Versionen von diesem {device} werden unter diesem Namen gespeichert. Alle, mit denen Sie die Reise teilen, sehen ihn.",
+  "CopyCode": "Code kopieren",
   "CodeIsCopied": "Beim Öffnen von GitHub wird der Code kopiert. Sie müssen ihn dort nur einfügen.",
   "EnterCodeOnGitHub": "Geben Sie diesen Code bei GitHub ein",
   "GetTripFromGitHub": "Reise von GitHub holen",

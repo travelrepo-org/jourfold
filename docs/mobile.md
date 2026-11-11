@@ -49,7 +49,9 @@ says what was copied. Only the item happening now or next on the phone's today s
 stay's check-in says how many nights it has, and the night line closes every day, the day of the check-in too.
 
 A long press on an item opens a menu with details, edit, status, Navigate, copy the booking reference, duplicate,
-move to another day and delete. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
+move to another day and delete. A long press counts when the finger is lifted after half a second without having
+moved: the item fades a little and the device gives a short vibration once that time is reached, and letting go then
+opens the menu or copies the line. A hold that turns into a scroll or a swipe opens nothing. A swipe to the next day that starts on an item is only a swipe. A long press on a trip in the trip list removes it from the phone after a question
 that says whether it is still on GitHub. Everything in these menus can also be reached without the gesture.
 
 ## Places and the map
@@ -259,14 +261,17 @@ usual spelling and the phone number below.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.
   Fetching asks once; afterwards the rates come with every sync and when the converter opens, and nothing about the
   trip is sent. Rates fetched in the last 12 hours count as new, because the bank publishes on working days only, and
-  a failed attempt waits 30 minutes, so an offline phone does not keep trying.
+  a failed attempt waits 30 minutes, so an offline phone does not keep trying. At the top of the converter it says
+  when the rates were fetched; a tap there fetches them again now, at most once a minute, and keeps the last rates
+  when that fails.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold
   needs no camera permission); the photo is turned upright, made at most 1600 pixels on the longer side and attached
   to the expense, which the user paid unless the form says otherwise. There is no text recognition (ML Kit would
   rule out F-Droid).
 - **Weather**: after a yes in Today or Settings, as on the desktop, each day's forecast shows in Today and Plan, and
   what it means for a plan on Today's next plan and in the details. Forecasts are kept on the device; warnings
-  become notifications on the morning of the plan.
+  become notifications on the morning of the plan. The day's weather and the details say when the forecast was
+  fetched; a tap there fetches it again now, and a notice says so when that fails.
 - **Share a day** (Plan → share): the day as plain text with times, places and OpenStreetMap links, for people
   without Jourfold.
 

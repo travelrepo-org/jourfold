@@ -43,6 +43,8 @@ public sealed class QuickAddView
     private readonly ToggleSwitch idea = new();
     private readonly TextBox body = new() { AcceptsReturn = true, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MinHeight = 96 };
     private readonly TextBox amount = new();
+    // The amount an edited item had, as it was put into the field.
+    private (string Text, decimal Value)? amountBefore;
     private string currency;
     // A journey's arrival: the time, how many days after the departure day, and the zone it is read in.
     private readonly TimePicker arrival = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
@@ -95,7 +97,8 @@ public sealed class QuickAddView
         place.ItemsSource = from.ItemsSource = trip.Entities.Values.Where(e => e.Type == "place").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
         place.PlaceholderText = from.PlaceholderText = str["PlaceOptional"]; AutomationProperties.SetName(place, str["Place"]); AutomationProperties.SetName(from, str["From"]);
         body.PlaceholderText = str["Notes"]; AutomationProperties.SetName(body, str["Notes"]);
-        amount.PlaceholderText = "0.00"; AutomationProperties.SetName(amount, str["Amount"]);
+        // With the decimal separator that amounts are shown with (Formats.Money).
+        amount.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(amount, str["Amount"]);
         idea.OnContent = idea.OffContent = str["OnlyAnIdea"];
         estimated.OnContent = estimated.OffContent = str["EstimatedOnly"]; AutomationProperties.SetName(estimated, str["EstimatedOnly"]);
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
@@ -146,7 +149,7 @@ public sealed class QuickAddView
             place.Text = placeBefore = PlaceEdits.Current(s.Trip!, item, journey ? PlaceSlot.To : PlaceSlot.Place)?.Title ?? "";
             if (journey) from.Text = fromBefore = PlaceEdits.Current(s.Trip!, item, PlaceSlot.From)?.Title ?? "";
         }
-        if (TripSummaries.Money(item.Data[item.Type == "booking" ? "price" : "amount"]) is { } money) { amount.Text = money.Amount.ToString(CultureInfo.InvariantCulture); currency = money.Currency; }
+        if (TripSummaries.Money(item.Data[item.Type == "booking" ? "price" : "amount"]) is { } money) { amount.Text = money.Amount.ToString(CultureInfo.InvariantCulture); amountBefore = (amount.Text, money.Amount); currency = money.Currency; }
         if (item.Type == "booking") LoadBooking(item);
         if (item.Type == "expense")
         {
@@ -540,8 +543,10 @@ public sealed class QuickAddView
             decimal? money = null;
             if (kind is "expense" or "booking" && !(kind == "booking" && string.IsNullOrWhiteSpace(amount.Text)))
             {
-                if (!decimal.TryParse(amount.Text?.Replace(',', '.'), NumberStyles.Number, CultureInfo.InvariantCulture, out var value)) throw new DomainException("mobile.amount", s.Strings["EnterAmount"]);
-                money = value;
+                // As people type it, "1.234,50" or "1,234.50" alike (see ExchangeRates.Amount). An amount left as it
+                // was keeps its exact value, also one with three decimals that would read as thousands.
+                money = amountBefore is { } before && before.Text == amount.Text ? before.Value
+                    : ExchangeRates.Amount(amount.Text) ?? throw new DomainException("mobile.amount", s.Strings["EnterAmount"]);
             }
             if (money is not null && Currency() is var code && (code.Length != 3 || !code.All(char.IsAsciiLetterUpper))) throw new DomainException("mobile.amount", s.Strings["EnterCurrency"]);
             if (editing is not null)

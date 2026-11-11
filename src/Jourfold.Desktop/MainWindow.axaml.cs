@@ -34,6 +34,8 @@ public partial class MainWindow : Window
         MainViewModel? vm = null; var store = App.Services.GetRequiredService<LocalStore>();
         Dialogs = new Dialogs(this, () => vm?.Strings ?? new Localization("en"));
         vm = new MainViewModel(store, App.Services.GetRequiredService<IGitBackend>(), App.Services.GetRequiredService<OsSecretStore>(), Dialogs); Model = vm; DataContext = Model;
+        Model.Strings.Pickers(Resources);
+        Model.PropertyChanged += (_, e) => { if (e.PropertyName == nameof(MainViewModel.Strings)) Model.Strings.Pickers(Resources); };
         Model.ContentChanged += (_, _) => QueueRender();
         Model.SelectionChanged += (_, _) => { if (Model.HasTrip) { RenderInspector(); if (!ShowSelection()) RenderMain(); } };
         Model.PropertyChanged += (_, e) =>

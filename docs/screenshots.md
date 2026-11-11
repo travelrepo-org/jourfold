@@ -34,7 +34,7 @@ The trip library:
 
 The day-by-day list:
 
-![List view grouped by day with times, places, people and status](screenshots/list.png)
+![List view grouped by day with times, places, people and status, and in the toolbar when the weather was fetched](screenshots/list.png)
 
 The map before online maps are enabled. Places and routes come from the trip's own coordinates:
 
@@ -60,7 +60,7 @@ The document window with the confirmation e-mail and with its PDF attachment, se
 
 The weather of an outdoor activity with rain in the forecast, and the day forecasts above the timetable:
 
-![Timetable with weather icons and temperatures in each day header; the inspector shows Kegon Falls with the outdoor estimate, an hourly forecast, a rain warning, sunrise and sunset and the data source](screenshots/weather.png)
+![Timetable with weather icons and temperatures in each day header; the inspector shows Kegon Falls with the outdoor estimate, an hourly forecast, a rain warning, sunrise and sunset, the data source, and when the forecast was fetched with a button to fetch it again](screenshots/weather.png)
 
 Quick Add:
 

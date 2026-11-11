@@ -42,7 +42,8 @@ public partial class MainViewModel
         var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var initial = InitialExport(trip); if (preset is not null) initial = preset(initial);
-        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial)) : initial;
+        var zones = (SecondZone is { } second ? SecondZoneSuggestions().Prepend(second) : SecondZoneSuggestions()).Distinct().ToArray();
+        var choice = ask ? await Interaction.ExportAsync(new ExportSetup(people, Me, PackingLists.All(trip), start, end, OnlineMaps, initial, ScheduleQueries.TripZone(trip).Id, zones)) : initial;
         if (choice is null) return;
         if (ask) RememberExport(choice);
         var strings = choice.Language == Strings.Language ? Strings : new Localization(choice.Language);
@@ -152,7 +153,8 @@ public partial class MainViewModel
     private ExportChoice InitialExport(TripSnapshot trip)
     {
         var lists = PackingLists.All(trip).Select(l => l.Collection.Id).ToArray();
-        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture) }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false);
+        // Until someone chooses otherwise, an export shows the plan's second time zone too, as the timetable does.
+        var fallback = new ExportChoice("plan", "pdf", new ExportOptions { Paper = ExportOptions.PaperFor(CultureInfo.CurrentCulture), OtherTimeZones = SecondZone is { } second ? [second] : [] }, Strings.Language, lists, Me is { } me ? [me.Id] : [], false);
         if (ExportKey is not { } key || Store.Get(key) is not { } saved) return fallback;
         try
         {
@@ -165,7 +167,13 @@ public partial class MainViewModel
                 Paper = json["paper"]?.ToString() == "letter" ? PaperSize.Letter : json["paper"]?.ToString() == "a4" ? PaperSize.A4 : fallback.Options.Paper,
                 Person = Person(json["person"]),
                 Timeline = json["timeline"]?.GetValue<bool>() != false,
-                Comments = json["comments"]?.GetValue<bool>() == true
+                Comments = json["comments"]?.GetValue<bool>() == true,
+                // A zone this version's time zone database does not know falls back to the trip's.
+                TimeZone = json["timezone"]?.ToString() is { Length: > 0 } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is not null ? zone : null,
+                // A choice saved before this option existed gets the default; a saved empty choice stays empty.
+                OtherTimeZones = json["other_timezones"] is JsonArray chosen
+                    ? chosen.Select(n => n?.ToString()).OfType<string>().Where(z => NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().ToArray()
+                    : fallback.Options.OtherTimeZones
             };
             var savedLists = (json["lists"] as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? id : Guid.Empty).Where(lists.Contains).ToArray();
             var kind = json["kind"]?.ToString() == "packing" && lists.Length > 0 ? "packing" : "plan";
@@ -188,6 +196,8 @@ public partial class MainViewModel
             ["person"] = choice.Options.Person?.ToString(),
             ["timeline"] = choice.Options.Timeline,
             ["comments"] = choice.Options.Comments,
+            ["timezone"] = choice.Options.TimeZone,
+            ["other_timezones"] = new JsonArray(choice.Options.OtherTimeZones.Select(z => (JsonNode)z).ToArray()),
             ["language"] = choice.Language,
             ["unassigned"] = choice.UnassignedOnly,
             ["lists"] = new JsonArray(choice.Lists.Select(l => (JsonNode)l.ToString()).ToArray()),
@@ -257,6 +267,7 @@ public partial class MainViewModel
             NightAt = s["ExportNightAt"],
             NightOf = s["ExportNightOf"],
             TimeZone = s["ExportTimeZone"],
+            TimeZones = s["ExportTimeZones"],
             Comments = s["Comments"],
             Someone = s["Someone"],
             DayParts = new[] { "morning", "afternoon", "evening", "night" }.ToDictionary(k => k, k => s[k]),

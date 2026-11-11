@@ -150,9 +150,12 @@ public static class CollectionViews
         var swap = Ui.IconButton("refresh-cw", s["SwapCurrencies"]);
         swap.Click += (_, _) => { var a = from.Value; var b = to.Value; from.Select(b); to.Select(a); Show(); };
         Show();
+        // The rates' own date is the European Central Bank's; when they were fetched is a different thing, as rates
+        // fetched on a Sunday are Friday's.
+        var fresh = m.RatesFetched is { } fetched ? FreshnessButton.Build(w, NodaTime.Instant.FromDateTimeOffset(fetched), s["RatesFetched"], s["RefreshRates"], m.RefreshRatesAsync, s["RatesRefreshFailed"]) : null;
         return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
             Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result),
-            Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)), 18);
+            Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), fresh?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left))), 18);
     }
 
     private static Control Tasks(MainWindow w)

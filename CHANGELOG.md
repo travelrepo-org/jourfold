@@ -2,6 +2,28 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.9.0 “Swift Salamander” – 2026-11-10
+
+### Highlights
+
+- A plan can be exported in another time zone, for example to read it at home, and can show each time in more time zones below it. The plan's second time zone is added on its own until you choose otherwise.
+- Weather and exchange rates say when they were fetched, and a click or tap there fetches them again now, on the computer, phone and tablet.
+
+### Changes
+
+- On phones and tablets, a long press opens its menu when you lift your finger. Once you have held long enough, the item fades a little and the device vibrates briefly. A hold that turns into scrolling no longer opens a menu.
+- The timetable on tablets keeps its place when it is drawn again for the same days, for example after a tap on a plan.
+- The export dialog names its two time zone searches differently for screen readers.
+
+### Fixes
+
+- On a Mac, the window's header no longer fails to build with "Requested value '⌘Z' was not found".
+- German dates have a full stop after the day, such as "Freitag, 25. Dezember", in the app on all devices and in exports.
+- On phones and tablets, an amount such as 1.234 is read as one thousand two hundred thirty-four, and 1.234,56 is accepted. Before, 1.234 was saved as 1.23.
+- Time and date fields in German no longer show the English words "hour" and "minute".
+- Tablets that can make calls are called tablets, not phones.
+- Tapping on a page that is scrolled down no longer makes its top flash up for a moment.
+
 ## 0.8.0 “Zealous Zander” – 2026-11-05
 
 ### Highlights

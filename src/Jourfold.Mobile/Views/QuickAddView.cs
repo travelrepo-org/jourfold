@@ -133,6 +133,8 @@ public sealed class QuickAddView
         estimated.IsCheckedChanged += (_, _) => { if (kind == "expense") Avalonia.Threading.Dispatcher.UIThread.Post(() => Render()); };
         charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture);
         AutomationProperties.SetName(paidOn, str["PaidOnLabel"]);
+        // Amounts open the number pad, with the decimal separator and sign, rather than the letters.
+        foreach (var box in new[] { amount, charged }) Avalonia.Input.TextInput.TextInputOptions.SetContentType(box, Avalonia.Input.TextInput.TextInputContentType.Number);
         newCategory.PlaceholderText = str["NewCategory"]; AutomationProperties.SetName(newCategory, str["NewCategory"]);
         newCategory.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; TakeNewCategory(); } };
         // The amount decides what an amount split has to add up to.
@@ -579,6 +581,7 @@ public sealed class QuickAddView
     {
         if (splitBoxes.TryGetValue(person, out var box)) return box;
         box = new TextBox { HorizontalContentAlignment = HorizontalAlignment.Right, MinHeight = 44 };
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(box, Avalonia.Input.TextInput.TextInputContentType.Number);
         AutomationProperties.SetName(box, string.Format(CultureInfo.CurrentCulture, s.Strings["SplitValueOf"], s.Trip!.Find(person)?.Title));
         box.TextChanged += (_, _) => { splitTouched = true; UpdateSplitState(); };
         // A tap selects the value, so typing replaces it.

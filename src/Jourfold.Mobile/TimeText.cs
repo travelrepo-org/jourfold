@@ -14,7 +14,10 @@ namespace Jourfold.Mobile;
 public sealed record ClockText(string Start, string? End = null, string? Zone = null, string? Arrival = null, string? Other = null)
 {
     /// <summary>One line, for example "11:00–13:00", "13:20 Berlin" or "All day".</summary>
-    public string Primary => Start + (End is null ? "" : "–" + End) + (Zone is null ? "" : " " + Zone);
+    public string Primary => Start + (End is null ? "" : TimeText.RangeDash + End) + (Zone is null ? "" : " " + Zone);
+
+    /// <summary><see cref="Primary"/> without the invisible joiners, for text that is shared or copied.</summary>
+    public string Plain => Primary.Replace("\u2060", "", StringComparison.Ordinal);
 }
 
 /// <summary>
@@ -42,6 +45,16 @@ public static class TimeText
 
     /// <summary>The place a zone is named after, such as "Berlin" or "New York".</summary>
     public static string Place(DateTimeZone zone) => zone.Id is "UTC" or "Etc/UTC" ? "UTC" : Formats.ZoneName(zone.Id);
+
+    /// <summary>The dash between two times, joined to both so that "16:00–18:00" never breaks across lines.</summary>
+    public const string RangeDash = "\u2060–\u2060";
+
+    /// <summary>
+    /// What to call a day's zone, as its lines do: the town where the first plan in that zone starts, such as Frankfurt
+    /// am Main for a flight from there, otherwise the place the zone is named after (Berlin).
+    /// </summary>
+    public static string Place(DateTimeZone zone, TripSnapshot? trip, IEnumerable<AgendaEntry> lines) =>
+        trip is not null && lines.FirstOrDefault(e => e.Zone == zone.Id) is { } first ? Place(zone, trip, first.Item, end: false) : Place(zone);
 
     /// <summary>
     /// What to call an item's zone: the town of the place where it starts or ends, read from its address, otherwise the

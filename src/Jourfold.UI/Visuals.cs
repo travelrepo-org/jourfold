@@ -123,12 +123,14 @@ public static class Formats
     public static string? TravelTime(NodaTime.Instant? departs, NodaTime.Instant? arrives, Localization s) =>
         departs is { } from && arrives is { } to && to > from ? Duration(to - from, s) : null;
 
+    /// <summary>A duration such as "11 h 15 min", with no-break spaces so that it stays on one line.</summary>
     public static string Duration(NodaTime.Duration duration, Localization s)
     {
         var minutes = (long)Math.Round(duration.TotalMinutes);
-        if (minutes < 60) return string.Format(CultureInfo.CurrentCulture, s["DurationMinutesShort"], minutes);
-        if (minutes % 60 == 0) return string.Format(CultureInfo.CurrentCulture, s["DurationHoursShort"], minutes / 60);
-        return string.Format(CultureInfo.CurrentCulture, s["DurationHoursMinutesShort"], minutes / 60, minutes % 60);
+        var text = minutes < 60 ? string.Format(CultureInfo.CurrentCulture, s["DurationMinutesShort"], minutes)
+            : minutes % 60 == 0 ? string.Format(CultureInfo.CurrentCulture, s["DurationHoursShort"], minutes / 60)
+            : string.Format(CultureInfo.CurrentCulture, s["DurationHoursMinutesShort"], minutes / 60, minutes % 60);
+        return text.Replace(' ', '\u00A0');
     }
 
     public static string Relative(DateTimeOffset when, Localization s)

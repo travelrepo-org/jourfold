@@ -68,7 +68,7 @@ public sealed class DesktopTravelTests : IDisposable
 
             // The first flight says how long there is to change and where, and which flight follows.
             m.Navigate("Plan"); m.Selected = m.Trip!.Find(first.Id); Probe.ShowDetails(w);
-            await Probe.Until(() => Texts(w).Contains("2 h 30 min to change at Hub airport"));
+            await Probe.Until(() => Texts(w).Contains("2\u00a0h\u00a030\u00a0min to change at Hub airport"));
             Assert.Contains("Continues with", Texts(w));
             m.Selected = m.Trip!.Find(second.Id); Probe.ShowDetails(w);
             await Probe.Until(() => Texts(w).Contains("Comes from"));

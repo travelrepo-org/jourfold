@@ -18,7 +18,7 @@ public sealed partial class MobileSession
         foreach (var entry in day.Entries.Where(e => e.Role is AgendaRole.Item or AgendaRole.CheckIn && !e.IsIdea && e.Status != "cancelled").SelectMany(e => e.IsGroup ? e.Steps : [e]))
         {
             var time = TimeText.Local(entry, PhoneZone, Strings, trip);
-            var when = entry.IsTimed ? time.Primary + (time.Arrival is { } arrival ? " – " + arrival : "") : Strings["AllDay"];
+            var when = entry.IsTimed ? time.Plain + (time.Arrival is { } arrival ? " – " + arrival : "") : Strings["AllDay"];
             var where = Lines.Where(trip, entry.Item);
             text.AppendLine().Append(when).Append("  ").Append(entry.Item.Title);
             if (where.Length > 0) text.Append(" · ").Append(where);

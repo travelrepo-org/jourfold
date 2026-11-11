@@ -75,7 +75,7 @@ public static class ExpenseViews
             if (method != SplitMethod.Equal && included)
             {
                 var stored = (expense.Data["split"]?["parts"] as System.Text.Json.Nodes.JsonArray ?? []).FirstOrDefault(p => p?["person"]?.ToString() == person.ToString())?["value"]?.ToString();
-                var shown = ExchangeRates.Amount(stored) is { } v ? v.ToString(method == SplitMethod.Amount ? "N2" : "0.##", System.Globalization.CultureInfo.CurrentCulture) : "";
+                var shown = ExchangeRates.Amount(stored) is { } v ? v.ToString(method == SplitMethod.Amount ? "N" + Expenses.MinorDigits(currency) : "0.##", System.Globalization.CultureInfo.CurrentCulture) : "";
                 var box = new TextBox { Text = shown, Width = 92, HorizontalContentAlignment = HorizontalAlignment.Right, Tag = SplitValueTag + person };
                 AutomationProperties.SetName(box, string.Format(s["SplitValueOf"], name));
                 var original = shown;
@@ -217,7 +217,7 @@ public static class ExpenseViews
         var charge = Expenses.ChargeOf(expense);
         if (money.Currency == home && charge is null) return null;
         var currency = charge?.Currency ?? home;
-        var shown = charge is { } c ? c.Value.ToString("N2", System.Globalization.CultureInfo.CurrentCulture) : "";
+        var shown = charge is { } c ? c.Value.ToString("N" + Expenses.MinorDigits(c.Currency), System.Globalization.CultureInfo.CurrentCulture) : "";
         var box = new TextBox { Text = shown, Width = 130, HorizontalContentAlignment = HorizontalAlignment.Right, PlaceholderText = "0.00", Tag = "charged" };
         AutomationProperties.SetName(box, string.Format(s["ChargedIn"], currency));
         var original = shown;
@@ -252,7 +252,7 @@ public static class ExpenseViews
     /// </summary>
     public static Control? TripTotal(MainWindow w)
     {
-        // What is in the trip's currency and what is not, without a zero in front: "≈ EUR 40.00 + JPY 5,000.00".
+        // What is in the trip's currency and what is not, without a zero in front: "≈ EUR 40.00 + JPY 5,000".
         string Sum(ConvertedTotal t) => string.Join(" + ", new[] { t.Total != 0 ? (t.Estimated != 0 ? "≈ " : "") + Formats.Money(t.Total, t.Currency) : null }.Concat(t.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))).OfType<string>());
         var m = w.Model; var s = m.Strings; var trip = m.Trip!; var home = m.TripCurrencyCode;
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense" && TripSummaries.Money(e.Data["amount"]) is not null).ToArray();
@@ -527,7 +527,7 @@ public static class ExpenseViews
         var line = Ui.V(4, bar, Ui.H(5, Ui.Icon(over ? "triangle-alert" : "circle-check", 13, over ? "Danger" : "Success"),
             Ui.Text(string.Format(s["BudgetUsed"], Money(b.Used), Formats.Money(b.Amount.Amount, currency)) + " · " + (over ? string.Format(s["BudgetOver"], Money(-b.Left)) : string.Format(s["BudgetLeft"], Money(b.Left))), "caption")));
         if (b.Planned > 0) line.Children.Add(Ui.Text(string.Format(s["BudgetPlanned"], Money(b.Planned)), "caption"));
-        if (b.NotIncluded.Count > 0) line.Children.Add(Notice("info", "Text.Subtle", string.Format(s["BudgetNotIncluded"], string.Join(" + ", b.NotIncluded.Select(x => Formats.Money(x.Amount, x.Currency))))));
+        if (b.NotIncluded.Count > 0) line.Children.Add(Notice("info", "Text.Subtle", string.Format(s["BudgetNotIncluded"], string.Join(" + ", b.NotIncluded.GroupBy(x => x.Currency, StringComparer.Ordinal).Select(g => Formats.Money(g.Sum(x => x.Amount), g.Key))))));
         return line;
     }
 
@@ -565,6 +565,19 @@ public static class ExpenseViews
         var body = Ui.V(12, Ui.Text(s["Budgets"], "h3"), rows);
         if ((whole?.Approximate ?? false) || limited.Any(b => b.Approximate)) body.Children.Add(Notice("info", "Text.Subtle", m.EstimatedNote));
         return Ui.Card(body, 18);
+    }
+
+    /// <summary>
+    /// The offer to bring costs older versions wrote up to date, for when it was postponed: the same as on the phone.
+    /// Null when nothing needs it.
+    /// </summary>
+    public static Control? UpgradeBanner(MainWindow w)
+    {
+        var m = w.Model; var s = m.Strings;
+        if (!m.CostUpgradePending) return null;
+        var update = Ui.Button(s["UpgradeConfirm"], "refresh-cw", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        update.Click += (_, _) => _ = m.OfferCostUpgradeAsync(again: true);
+        return Ui.Card(Ui.V(8, Ui.Text(s["UpgradeTitle"], "h3"), Ui.Text(s["UpgradeBody"].TrimEnd(':') + ".", "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), update), 18);
     }
 
     private static Control Notice(string icon, string brush, string text) =>

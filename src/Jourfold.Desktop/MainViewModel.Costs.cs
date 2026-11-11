@@ -48,6 +48,9 @@ public partial class MainViewModel
     /// <summary>The note beside estimates: with the day of the rates, and that they change from day to day.</summary>
     public string EstimatedNote => string.Format(Strings["EstimatedWithRates"], RatesDay);
 
+    /// <summary>Whether the open trip still has costs in the form older versions wrote, so the Costs page offers the upgrade.</summary>
+    public bool CostUpgradePending => Workspace is { } workspace && !CostUpgrade.Plan(workspace.State.Trip, SystemCurrency).IsEmpty;
+
     /// <summary>Trips whose cost upgrade was postponed in this session; the offer comes again the next time Jourfold starts.</summary>
     private readonly HashSet<string> upgradeLater = [];
 
@@ -57,9 +60,9 @@ public partial class MainViewModel
     /// unsaved, as a version of its own. Nothing changes without the person's OK.
     /// </summary>
     // Not an edit while it asks, so the header does not say "Saving" before the answer.
-    public Task OfferCostUpgradeAsync() => RunAsync(async () =>
+    public Task OfferCostUpgradeAsync(bool again = false) => RunAsync(async () =>
     {
-        if (Workspace is not { } workspace || upgradeLater.Contains(workspace.Repository.Root)) return;
+        if (Workspace is not { } workspace || !again && upgradeLater.Contains(workspace.Repository.Root)) return;
         var plan = CostUpgrade.Plan(workspace.State.Trip, SystemCurrency);
         if (plan.IsEmpty) return;
         var lines = Jourfold.UI.CostTexts.Upgrade(Strings, plan);

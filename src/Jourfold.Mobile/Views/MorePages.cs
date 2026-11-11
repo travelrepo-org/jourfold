@@ -50,6 +50,13 @@ public static class MorePages
         return Ui.Scroll(page);
     }
 
+    /// <summary>Rows of a cost group with room around them, where a row brought no margin of its own.</summary>
+    private static IReadOnlyList<Control> Padded(IReadOnlyList<Control> rows)
+    {
+        foreach (var row in rows) if (row.Margin == default) row.Margin = new Thickness(16, 10);
+        return rows;
+    }
+
     private static Control Group(string title, IReadOnlyList<Control> rows, Control? action = null)
     {
         var list = Ui.V(0);
@@ -524,7 +531,10 @@ public static class MorePages
         var totals = TripSummaries.Costs(trip);
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").Select(e => (Expense: e, First: FirstItem(trip, e))).ToArray();
         var upgrade = UpgradeBanner(s);
-        if (totals.Count == 0 && !trip.Entities.Values.Any(e => e.Type == "budget")) return Frame(s, str["Costs"], upgrade, Empty("wallet", str["NoCostsTitle"], str["NoCostsBody"]));
+        // Adding an expense starts here, as a booking does on its page.
+        var add = Ui.Button(str["AddExpense"], "plus", "soft").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.MinHeight = 44; }).Margin(16, 0);
+        ((Button)add).Click += (_, _) => s.ShowQuickAdd("expense");
+        if (totals.Count == 0 && !trip.Entities.Values.Any(e => e.Type == "budget")) return Frame(s, str["Costs"], upgrade, Empty("wallet", str["NoCostsTitle"], str["NoCostsBody"]), add);
         var columns = totals.Count > 1 ? 2 : 1;
         var tiles = new Grid { ColumnDefinitions = new ColumnDefinitions(columns == 2 ? "*,12,*" : "*"), Margin = new Thickness(16, 0) };
         for (var i = 0; i < totals.Count; i++)
@@ -534,7 +544,7 @@ public static class MorePages
         }
         var dated = expenses.Where(x => x.First?.Start is not null).OrderBy(x => x.First!.Value.Start!.Value.ToInstant()).ToArray();
         var undated = expenses.Except(dated).OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
-        return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
+        return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, add, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
             dated.Length == 0 ? null : Group(str["ByDate"], dated.Select(x => Expense(s, x.Expense, x.First!.Value.Start!.Value.Date)).ToArray()),
             undated.Length == 0 ? null : Group(str["WithoutDay"], undated.Select(x => Expense(s, x.Expense, null)).ToArray()),
             Ui.Columns("Auto,*", Ui.Icon("info", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 6, 0), Ui.Text(str["NoAutoConversion"], "caption")).Margin(20, 0));
@@ -547,7 +557,7 @@ public static class MorePages
         var str = s.Strings;
         var update = Ui.Button(str["UpgradeConfirm"], "refresh-cw", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         update.Click += (_, _) => s.OfferCostUpgrade();
-        return Ui.Card(Ui.V(8, Ui.Text(str["UpgradeTitle"], "strong"), Ui.Text(str["UpgradeBody"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), update), 14).Margin(16, 0);
+        return Ui.Card(Ui.V(8, Ui.Text(str["UpgradeTitle"], "strong"), Ui.Text(str["UpgradeBody"].TrimEnd(':') + ".", "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), update), 14).Margin(16, 0);
     }
 
     /// <summary>
@@ -563,7 +573,7 @@ public static class MorePages
         // Payments for ideas say what they would cost and are listed apart.
         var ideas = expenses.Where(e => Expenses.IsIdea(trip, e)).ToArray();
         var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses.Except(ideas), home, s.EstimateRates, planned: true);
-        // What is in the trip's currency and, apart, what is not converted yet, without a zero in front: "≈ EUR 40.00 + JPY 5,000.00".
+        // What is in the trip's currency and, apart, what is not converted yet, without a zero in front: "≈ EUR 40.00 + JPY 5,000".
         string Sum(ConvertedTotal t) => string.Join(" + ", new[] { t.Total != 0 || t.NotConverted.Count == 0 ? (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home) : null }
             .Concat(t.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))).OfType<string>());
         var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text((paid.Estimated > 0 ? "≈ " : "") + Formats.Money(paid.Total, home), "h2"));
@@ -622,7 +632,7 @@ public static class MorePages
                 + (b.Left >= 0 ? string.Format(CultureInfo.CurrentCulture, str["BudgetLeft"], approx + Formats.Money(b.Left, b.Amount.Currency)) : string.Format(CultureInfo.CurrentCulture, str["BudgetOver"], approx + Formats.Money(-b.Left, b.Amount.Currency)));
             return DetailView.Row(b.Left < 0 ? "triangle-alert" : "piggy-bank", b.Budget.Title + (what.Length > 0 ? " · " + what : ""), state);
         }).ToArray();
-        return Group(str["Budgets"], rows);
+        return Group(str["Budgets"], Padded(rows));
     }
 
     /// <summary>
@@ -649,8 +659,14 @@ public static class MorePages
         }
         var rows = new List<Control> { chips.Margin(16, 8) };
         if (totals.Count == 0) rows.Add(Ui.Text(str["ByCategoryNone"], "caption").Margin(16, 4));
-        rows.AddRange(totals.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))));
-        return Group(str["ByCategory"], rows);
+        // In the trip's currency first; what could not be converted follows under its own heading, as on the computer.
+        var home = s.TripCurrencyCode;
+        foreach (var group in totals.GroupBy(t => t.Currency, StringComparer.Ordinal).OrderBy(g => g.Key == home ? 0 : 1))
+        {
+            if (group.Key != home) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedIn"], group.Key), "caption").Margin(16, 8, 16, 2));
+            rows.AddRange(group.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))));
+        }
+        return Group(str["ByCategory"], Padded(rows));
     }
 
     /// <summary>
@@ -734,7 +750,7 @@ public static class MorePages
         var rows = new List<Control>();
         foreach (var p in problems) rows.Add(DetailView.Row("triangle-alert", p.Expense.Title, str["CheckSplit"]));
         var balances = Expenses.Balances(trip, home, s.EstimateRates);
-        if (balances.Count == 0) { rows.Add(DetailView.Row("circle-check", str["AllEven"], null)); return Group(str["WhoOwesWhom"], rows); }
+        if (balances.Count == 0) { rows.Add(DetailView.Row("circle-check", str["AllEven"], null)); return Group(str["WhoOwesWhom"], Padded(rows)); }
         foreach (var b in balances)
             rows.Add(DetailView.Row(b.Net > 0 ? "arrow-left" : "arrow-right", Name(b.Person), string.Format(CultureInfo.CurrentCulture, str[b.Net > 0 ? "BalanceOwed" : "BalanceOwes"], (b.Estimated ? "≈ " : "") + Formats.Money(Math.Abs(b.Net), b.Currency))));
         rows.Add(Ui.Text(str["SettleUpHint"], "caption").Margin(16, 10, 16, 2).Classed("h3"));
@@ -746,7 +762,7 @@ public static class MorePages
         var settle = Ui.Button(str["SettleAll"], "circle-check", "soft").Also(b => { b.MinHeight = 44; b.HorizontalAlignment = HorizontalAlignment.Left; }).Margin(16, 8);
         ((Button)settle).Click += (_, _) => s.ConfirmSettleAll();
         rows.Add(settle);
-        return Group(str["WhoOwesWhom"], rows);
+        return Group(str["WhoOwesWhom"], Padded(rows));
     }
 
     private static Control Expense(MobileSession s, Entity expense, LocalDate? day)
@@ -771,7 +787,7 @@ public static class MorePages
             var category = ExpenseCategories.Of(trip, expense);
             body.Children.Add(DetailView.Row("tag", ExpenseCategories.IsStandard(category) ? str["expcat." + category] : category, str["Category"]));
             if (Expenses.ChargeOf(expense) is { } charge)
-                body.Children.Add(DetailView.Row("wallet", string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), money is null ? null : string.Format(CultureInfo.CurrentCulture, str["ChargedRate"], money.Currency, charge.Rate.ToString("0.####", CultureInfo.CurrentCulture), charge.Currency)));
+                body.Children.Add(DetailView.Row("wallet", Formats.Money(charge.Value, charge.Currency), str["Charged"] + (money is null ? "" : " · " + string.Format(CultureInfo.CurrentCulture, str["ChargedRate"], money.Currency, charge.Rate.ToString("0.####", CultureInfo.CurrentCulture), charge.Currency))));
             // Everyone's part, and a box per debt to mark it as paid back, large enough to tap.
             var split = Expenses.Split(trip, expense);
             if (split.Shares.Count > 0 && money is not null)

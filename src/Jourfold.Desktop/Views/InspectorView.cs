@@ -204,6 +204,8 @@ public static class InspectorView
                 body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "amount", s["Amount"], e.Data["amount"])));
                 if (e.Type == "expense")
                 {
+                    // What the card booked belongs right under the amount on the bill.
+                    if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
                     var planned = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
                     body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["StillToPay"], planned));
                     if (planned)
@@ -225,7 +227,6 @@ public static class InspectorView
                     body.Children.Add(Field(s["Related"], Related(w, e)));
                     // A receipt photographed on the phone, or one dropped here.
                     Add(body, s["Files"], Confirmations(w, e));
-                    if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
                 }
                 else body.Children.Add(Field(s["BudgetScope"], ExpenseViews.BudgetScopeEditor(w, e)));
                 break;

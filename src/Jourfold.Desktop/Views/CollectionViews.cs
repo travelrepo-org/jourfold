@@ -85,7 +85,7 @@ public static class CollectionViews
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
         var export = Ui.Button(s["ExportCosts"], "download", "ghost"); export.Click += (_, _) => m.ShareExportCommand.Execute("costs");
         var actions = expenses.Length > 0 ? new Control[] { export, AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") } : new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
-        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.StillToPay(w), ConverterCard(w)));
+        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.StillToPay(w), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)
         {
@@ -121,7 +121,8 @@ public static class CollectionViews
             list.Children.Add(Row(w, e, grid));
         }
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), ConverterCard(w), Ui.Card(list, 6), note), actions);
+        // The payments come before the converter, which is a tool rather than part of the trip's costs.
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), Ui.Card(list, 6), note, ConverterCard(w)), actions);
     }
 
     /// <summary>

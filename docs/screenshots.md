@@ -42,7 +42,7 @@ The map before online maps are enabled. Places and routes come from the trip's o
 
 Costs per currency paid in, the total in the trip's currency, euros, from what the cards charged, what is still to pay, and who owes whom with the fewest payments that settle it, with an expense divided equally between both travellers:
 
-![Costs page with the export, budget and add expense buttons, totals for euros and yen, paid and still to pay, a total in euros with the trip currency chooser, the yen still to pay and the rail passes not converted yet, and who owes whom in euros and, for the rail passes, in yen, with the buttons to pay back and to mark all as paid; the inspector shows the rail passes with the still to pay switch, the transport category among the category chips, the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
+![Costs page with the export, budget and add expense buttons, totals for euros and yen, paid and still to pay, a total in euros with the trip currency chooser, the yen still to pay and the rail passes not converted yet, and who owes whom in euros and, for the rail passes, in yen, with the buttons to pay back and to mark all as paid back; the inspector shows the rail passes with the field for what the card charged, the still to pay switch, the transport category among the category chips, the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 

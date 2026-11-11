@@ -34,7 +34,8 @@ public partial class MainViewModel
     private Task ShareExport(string action) => action switch
     {
         "packing" => ExportWith(c => c with { Kind = "packing", Format = c.Kind == "packing" ? c.Format : "pdf" }, true),
-        "costs" => ExportWith(c => c with { Kind = "costs", Format = c.Kind == "costs" ? c.Format : "pdf" }, true),
+        // Costs start with everyone's, not with the part of whoever packed last; a choice made for costs before is kept.
+        "costs" => ExportWith(c => c with { Kind = "costs", Format = c.Kind == "costs" ? c.Format : "pdf", People = c.Kind == "costs" ? c.People : [], UnassignedOnly = false }, true),
         _ => ExportWith(c => c with { Kind = "plan", Format = action }, false)
     };
 

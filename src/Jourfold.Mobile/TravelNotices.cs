@@ -125,7 +125,7 @@ public static class TravelNotices
         // Payments still to pay, three mornings before they are due, for the people who share them.
         foreach (var payment in trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)))
         {
-            if (Expenses.DueOf(payment) is not { } due || (me is not null && !Expenses.Split(trip, payment).People.Contains(me.Id))) continue;
+            if (Expenses.DueOf(payment) is not { } due || Expenses.IsIdea(trip, payment) || (me is not null && !Expenses.Split(trip, payment).People.Contains(me.Id))) continue;
             var amount = TripSummaries.Money(payment.Data["amount"]) is { } money ? Formats.Money(money.Amount, money.Currency) : "";
             notices.Add(new("payment:" + payment.Id + ":" + due, NoticeKind.Deadline, phone.AtLeniently(due.PlusDays(-3).At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticePayment"], payment.Title),
                 Format(s["NoticePaymentText"], amount, due.ToString(s["DayShortFormat"], CultureInfo.GetCultureInfo(s.Language))), payment.Id));

@@ -49,6 +49,21 @@ public sealed class ExpenseSplitTests : IDisposable
         return e;
     }
 
+    [Fact]
+    public void MoneyIsShownWithTheCurrencysOwnDecimals()
+    {
+        var before = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("en-US");
+        try
+        {
+            // Yen have no smaller unit; an amount that has more digits than its currency keeps them.
+            Assert.Equal("JPY 5,000", Formats.Money(5000m, "JPY"));
+            Assert.Equal("EUR 12.50", Formats.Money(12.5m, "EUR"));
+            Assert.Equal("JPY 12.5", Formats.Money(12.5m, "JPY"));
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = before; }
+    }
+
     [AvaloniaFact]
     public async Task SplitsAreEditedAndPaidBackAsUndoableSteps()
     {
@@ -105,7 +120,7 @@ public sealed class ExpenseSplitTests : IDisposable
             return new PayAnswer(request.Person, chosen);
         };
         await m.PayAsync(p.Ben.Id);
-        Assert.Contains("2 items marked as paid", interaction.Toasts);
+        Assert.Contains("2 items marked as paid back", interaction.Toasts);
         var open = Expenses.Open(m.Trip!, p.Ben.Id);
         Assert.All(open, d => Assert.True(d.Expense == museum.Id || d.Expense == taxi.Id && d.From == p.Cleo.Id));
         // One step undoes the whole payment.
@@ -623,9 +638,9 @@ public sealed class ExpenseSplitTests : IDisposable
             var dinner = Probe.All<CheckBox>(sheet).Single(c => (AutomationProperties.GetName(c) ?? "").StartsWith("Dinner", StringComparison.Ordinal));
             dinner.IsChecked = false; Probe.Layout();
             Assert.Contains("Noch nichts ausgewählt.", Texts(sheet));
-            Assert.False(Probe.Button(sheet, "Als bezahlt markieren").IsEnabled);
+            Assert.False(Probe.Button(sheet, "Als zurückgezahlt markieren").IsEnabled);
             Probe.Click(sheet, m.Strings["SelectAll"]); Probe.Layout();
-            Probe.Click(sheet, "Als bezahlt markieren");
+            Probe.Click(sheet, "Als zurückgezahlt markieren");
             await paying;
             Assert.Empty(Expenses.Open(m.Trip!, ben));
             // Long German labels stay inside the window.
@@ -681,7 +696,7 @@ public sealed class ExpenseSplitTests : IDisposable
             IEnumerable<string> All() { Probe.Layout(); return window.GetVisualDescendants().OfType<TextBlock>().Select(t => (t.Text ?? "").Replace(' ', ' ')); }
             // Asked when the trip opens; the answer is yes.
             Assert.Equal("Update the costs of this trip?", session.Menu?.Title);
-            Assert.Contains("Night walk: the price of JPY 5,000.00 becomes a payment still to pay.", session.Menu!.Detail);
+            Assert.Contains("Night walk: the price of JPY 5,000 becomes a payment still to pay.", session.Menu!.Detail);
             await session.Menu.Actions[0].Run(null);
             await Probe.Until(() => session.CostUpgradePlan.IsEmpty);
             Assert.True(Expenses.IsPlanned(Assert.Single(Expenses.ForBooking(session.Trip!, walk.Id))));

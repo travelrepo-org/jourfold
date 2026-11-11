@@ -344,6 +344,13 @@ public sealed class QuickAddView
         if (kind == "expense")
         {
             rest.Children.Add(Field(str["Amount"], Money()));
+            // What the card booked in the trip's currency (or the one of a charge already entered), next to the amount on the bill.
+            if (Currency() != ChargeCurrency())
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
+                AutomationProperties.SetName(charged, label);
+                rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+            }
             rest.Children.Add(estimated);
             // A payment still to pay can be due on a day; the phone reminds three days before.
             if (estimated.IsChecked == true)
@@ -355,13 +362,6 @@ public sealed class QuickAddView
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
             rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
             rest.Children.Add(Field(str["Category"], CategoryControls()));
-            // What the card booked in the trip's currency (or the one of a charge already entered), next to the amount on the bill.
-            if (Currency() != ChargeCurrency())
-            {
-                var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
-                AutomationProperties.SetName(charged, label);
-                rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
-            }
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);

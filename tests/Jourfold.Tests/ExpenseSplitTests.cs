@@ -373,9 +373,9 @@ public sealed class ExpenseSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "Still to pay", "Price not recorded", "{0} to pay", "Add")]
-    [InlineData("de", "Noch zu zahlen", "Preis nicht erfasst", "{0} zu zahlen", "Hinzufügen")]
-    public async Task AnOlderBookingPriceBecomesAPaymentStillToPay(string language, string heading, string pill, string toPay, string add)
+    [InlineData("en", "Still to pay", "Price not recorded", "Add")]
+    [InlineData("de", "Noch zu zahlen", "Preis nicht erfasst", "Hinzufügen")]
+    public async Task AnOlderBookingPriceBecomesAPaymentStillToPay(string language, string heading, string pill, string add)
     {
         var w = await Window(language, "Light"); var m = w.Model;
         try

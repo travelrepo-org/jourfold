@@ -586,8 +586,14 @@ public static class MorePages
             if (trip.Find(debt.Expense) is { } expense && Expenses.Convert(expense, amount, debt.Currency, home, s.EstimateRates) is { Currency: var code, How: var how } converted && code == home && how != Conversion.Same)
             { line += " · " + shown; shown = (how == Conversion.Reference ? "≈ " : "") + Formats.Money(converted.Amount, code); }
             var key = debt.Key;
-            var box = new CheckBox { IsChecked = chosen.Contains(key), MinHeight = 56, HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Stretch,
-                Content = Ui.Columns("*,Auto", Ui.V(1, Ui.Text(trip.Find(debt.Expense)?.Title ?? ""), Ui.Text(line, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), Ui.Text(shown, "strong").Margin(8, 0, 0, 0)) };
+            var box = new CheckBox
+            {
+                IsChecked = chosen.Contains(key),
+                MinHeight = 56,
+                HorizontalAlignment = HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = HorizontalAlignment.Stretch,
+                Content = Ui.Columns("*,Auto", Ui.V(1, Ui.Text(trip.Find(debt.Expense)?.Title ?? ""), Ui.Text(line, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), Ui.Text(shown, "strong").Margin(8, 0, 0, 0))
+            };
             AutomationProperties.SetName(box, (trip.Find(debt.Expense)?.Title ?? "") + ", " + line + ", " + shown);
             box.IsCheckedChanged += (_, _) => s.TogglePayItem(key);
             rows.Add(box.Margin(16, 2));

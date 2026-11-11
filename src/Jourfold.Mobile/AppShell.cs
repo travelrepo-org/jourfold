@@ -119,6 +119,7 @@ public sealed class AppShell : UserControl
             top.ScalingChanged += (_, _) => Inset();
         }
         top.BackRequested += OnBack;
+        Dispatcher.UIThread.UnhandledException += OnUnhandled;
         // Pages end above the on-screen keyboard and scroll the field being typed in into view. Sheets keep clear of
         // the keyboard themselves.
         if (top.InputPane is { } pane)
@@ -146,7 +147,18 @@ public sealed class AppShell : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is { } top) top.BackRequested -= OnBack;
+        Dispatcher.UIThread.UnhandledException -= OnUnhandled;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// A tap whose change fails, for example because the trip has errors, shows why instead of ending the app. Buttons
+    /// run their changes without waiting, so the failure arrives here.
+    /// </summary>
+    private void OnUnhandled(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        if (e.Handled || !MobileSession.IsExpected(e.Exception)) return;
+        Session.ShowProblem(e.Exception); e.Handled = true;
     }
 
     /// <summary>
@@ -155,6 +167,7 @@ public sealed class AppShell : UserControl
     /// </summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
+        if (Session.ChangeProblem is not null) { Session.DismissProblem(); e.Handled = true; return; }
         if (Session.Asking is not null || Session.Menu is not null) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.TaxiCard is not null) { Session.ShowTaxiCard(null); e.Handled = true; return; }
         if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
@@ -321,6 +334,21 @@ public sealed class AppShell : UserControl
         if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
         if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
         if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+        if (Session.ChangeProblem is { } problem) overlays.Children.Add(Problem(problem));
+    }
+
+    /// <summary>Why a change was not saved, above everything else until it is closed.</summary>
+    private Control Problem(string problem)
+    {
+        var s = Session.Strings;
+        var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
+        var card = Ui.Card(Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(s["NotSaved"], "title")),
+                Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap), Ui.Columns("*,Auto", null, close.Col(1))), 20)
+            .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
+        Avalonia.Automation.AutomationProperties.SetLiveSetting(card, Avalonia.Automation.AutomationLiveSetting.Assertive);
+        AutomationProperties.SetName(card, s["NotSaved"] + ". " + problem);
+        Dispatcher.UIThread.Post(() => close.Focus(), DispatcherPriority.Background);
+        return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }
 
     /// <summary>A long-press menu: a list of actions from the bottom on phones, a card in the middle on wider screens.</summary>

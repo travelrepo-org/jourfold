@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Jourfold.Mobile.Controls;
 using TravelRepo.Core;
 
 namespace Jourfold.Mobile.Views;
@@ -17,41 +18,65 @@ namespace Jourfold.Mobile.Views;
 public static class Menus
 {
     /// <summary>
-    /// Runs <paramref name="open"/> on a long press or a right click on the control, such as opening a menu. On a
-    /// button neither the tap that ends a long press nor a finger that moved counts as a click, so call this before
-    /// adding its click handler.
+    /// Runs <paramref name="open"/> on a long press or a right click on the control, such as opening a menu. A long
+    /// press counts when the finger is lifted after <see cref="HoldGesture.Threshold"/> without having moved; the control
+    /// looks pressed more strongly and the device gives a short vibration once that time is reached, so people know they
+    /// can let go. On a button neither the tap that ends a long press nor a finger that moved counts as a click, so call
+    /// this before adding its click handler.
     /// </summary>
     public static void OnHold(Control button, Action open)
     {
-        // Timed here rather than with Avalonia's holding gesture, which does not fire for touch on Android.
-        var held = false; var moved = false; Point? from = null, pressed = null; IDisposable? timer = null;
-        void Stop() { timer?.Dispose(); timer = null; from = null; }
+        // Read here rather than with Avalonia's holding gesture, which does not fire for touch on Android.
+        var gesture = new HoldGesture(); var held = false; var moved = false; IDisposable? timer = null;
+        void Settle() { timer?.Dispose(); timer = null; button.Classes.Remove("held"); }
+        void Cancel() { gesture.Cancel(); Settle(); }
         button.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
-            held = false; moved = false; pressed = null; Stop();
-            if (e.Pointer.Type == PointerType.Mouse) return;
-            from = pressed = e.GetPosition(button); var pointer = e.Pointer;
+            held = false; moved = false; Settle();
+            if (e.Pointer.Type == PointerType.Mouse) { gesture.Cancel(); return; }
+            gesture.Press(e.GetPosition(button), e.Timestamp); var pointer = e.Pointer;
+            // Only a sign that letting go now opens the menu; nothing opens while the finger is down.
             timer = DispatcherTimer.RunOnce(() =>
             {
-                timer = null; from = null;
-                // A swipe that took the finger over, or a page that changed meanwhile, is not a long press here.
-                if (!button.IsAttachedToVisualTree() || pointer.Captured is Visual taken && taken != button && !button.IsVisualAncestorOf(taken)) return;
-                held = true; open();
-            }, TimeSpan.FromMilliseconds(500));
+                timer = null;
+                if (!gesture.Active || !button.IsAttachedToVisualTree() || TakenOver(pointer)) { Cancel(); return; }
+                button.Classes.Add("held"); MobileApp.Host?.Haptic?.Invoke();
+            }, HoldGesture.Threshold);
+            // A scrolling list that took the finger over gets its release, so the end of the press is also read here.
+            if (TopLevel.GetTopLevel(button) is { } top)
+            {
+                void Ended(object? sender, PointerReleasedEventArgs r)
+                {
+                    if (r.Pointer != pointer) return;
+                    top.RemoveHandler(InputElement.PointerReleasedEvent, Ended);
+                    Cancel();
+                }
+                top.AddHandler(InputElement.PointerReleasedEvent, Ended, RoutingStrategies.Bubble, handledEventsToo: true);
+            }
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        bool TakenOver(IPointer pointer) => pointer.Captured is Visual taken && taken != button && !button.IsVisualAncestorOf(taken);
         // Moving the finger is a scroll or a swipe, not a long press, and not a tap either: where nothing scrolls, such
         // as at the end of a list, the button keeps the finger and would take letting go over it as a click.
         button.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
         {
-            if (pressed is not { } start || Point.Distance(start, e.GetPosition(button)) <= 10) return;
-            moved = true; pressed = null; Stop();
+            if (gesture.Move(e.GetPosition(button))) { moved = true; Settle(); }
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
-        button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => Stop(), RoutingStrategies.Tunnel, handledEventsToo: true);
+        // Before the button's own release, so the click that follows is known to end a long press.
+        button.AddHandler(InputElement.PointerReleasedEvent, (_, e) =>
+        {
+            Settle();
+            if (gesture.Release(e.Timestamp) != HoldOutcome.Hold || !button.IsAttachedToVisualTree()) return;
+            // A swipe that took the finger over is not a long press here.
+            if (TakenOver(e.Pointer)) return;
+            held = true; open();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
         // The button clicks while the release passes it, so afterwards a click from TalkBack or the keyboard counts again.
         button.AddHandler(InputElement.PointerReleasedEvent, (_, _) => moved = false, RoutingStrategies.Bubble, handledEventsToo: true);
-        button.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Stop(), RoutingStrategies.Bubble, handledEventsToo: true);
-        button.DetachedFromVisualTree += (_, _) => Stop();
-        button.ContextRequested += (_, e) => { if (!held) open(); e.Handled = true; };
+        button.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => Cancel(), RoutingStrategies.Bubble, handledEventsToo: true);
+        button.DetachedFromVisualTree += (_, _) => Cancel();
+        // A right click, the menu key, or a platform that reports a long press itself. While a finger is down the menu
+        // waits for it to be lifted, and a long press that already opened it does not open it twice.
+        button.ContextRequested += (_, e) => { if (!held && !gesture.Active) open(); e.Handled = true; };
         button.AddHandler(Button.ClickEvent, (_, e) => { if (held || moved) { held = false; moved = false; e.Handled = true; } });
     }
 

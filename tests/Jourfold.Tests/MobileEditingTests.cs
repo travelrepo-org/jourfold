@@ -56,11 +56,14 @@ public sealed class MobileEditingTests : IDisposable
             await PickAsync(session, "Senso-ji and Asakusa");
             Tap(window, "Add");
             await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Type == "booking" && e.Title == "Temple tour"));
-            await Probe.Until(() => session.Trip!.Entities.Values.Single(e => e.Title == "Temple tour").Data["provider"] is not null);
+            await Probe.Until(() => session.Trip!.Entities.Values.Single(e => e.Type == "booking" && e.Title == "Temple tour").Data["provider"] is not null);
 
-            var booking = session.Trip!.Entities.Values.Single(e => e.Title == "Temple tour");
+            var booking = session.Trip!.Entities.Values.Single(e => e.Type == "booking" && e.Title == "Temple tour");
             Assert.Equal(("City Walks", "CW-204", "confirmed"), (booking.Data["provider"]!["name"]!.ToString(), booking.Data["reference"]!.ToString(), booking.Data["status"]!.ToString()));
-            Assert.Equal(("48.50", "USD"), (booking.Data["price"]!["value"]!.ToString(), booking.Data["price"]!["currency"]!.ToString()));
+            // A booking has no price: the amount is a payment still to pay that belongs to it.
+            Assert.Null(booking.Data["price"]);
+            var payment = Assert.Single(Expenses.ForBooking(session.Trip!, booking.Id));
+            Assert.Equal(("48.50", "USD", true), (payment.Data["amount"]!["value"]!.ToString(), payment.Data["amount"]!["currency"]!.ToString(), Expenses.IsPlanned(payment)));
             Assert.Equal(booking.Id, TripCommands.BookingOf(session.Trip!.Find(temple.Id)!));
 
             // Later the tour is cancelled and the plan no longer belongs to it; free cancellation was until the day before.
@@ -97,17 +100,47 @@ public sealed class MobileEditingTests : IDisposable
             Tap(window, "Add");
             await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Museum tickets" && e.Data["related"] is not null));
             var expense = session.Trip!.Entities.Values.Single(e => e.Title == "Museum tickets");
-            Assert.Equal(("3600.00", "JPY"), (expense.Data["amount"]!["value"]!.ToString(), expense.Data["amount"]!["currency"]!.ToString()));
+            Assert.Equal(("3600", "JPY"), (expense.Data["amount"]!["value"]!.ToString(), expense.Data["amount"]!["currency"]!.ToString()));
+            // Shared by the people of the plan it belongs to, named.
+            Assert.False(Expenses.SharesWithEveryone(expense));
             Assert.Equal(new[] { session.Me!.Id, other.Id }.Order(), Jourfold.Application.DetailEdits.People(expense, "paid_by").Order());
             Assert.Equal("teamLab Planets", session.Trip!.Find(Guid.Parse(expense.Data["related"]![0]!["id"]!.ToString()))!.Title);
 
             // Edited: only an estimate so far, and paid by the other traveller alone.
             session.ShowEditor(expense.Id);
-            Field<ToggleSwitch>(window, "Only estimated so far").IsChecked = true;
-            Tap(window, session.Me!.Title + " (Me)");
+            Field<ToggleSwitch>(window, "Still to pay").IsChecked = true;
+            Tap(window, session.Me!.Title + " (You)");
             Tap(window, "Save");
             await Probe.Until(() => session.Trip!.Find(expense.Id)!.Data["estimated"]?.GetValue<bool>() == true);
             Assert.Equal([other.Id], Jourfold.Application.DetailEdits.People(session.Trip!.Find(expense.Id)!, "paid_by"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AnAmountChargedIsInTheTripCurrencyAndAnEarlierOneKeepsItsOwn()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            Assert.Equal("EUR", session.TripCurrencyCode);
+            var tickets = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "teamLab tickets");
+            session.ShowEditor(tickets.Id);
+            Field<TextBox>(window, "Amount charged in EUR").Text = "46.10";
+            Tap(window, "Save");
+            await Probe.Until(() => Expenses.ChargeOf(session.Trip!.Find(tickets.Id)!)?.Value == 46.10m);
+            Assert.Equal("EUR", Expenses.ChargeOf(session.Trip!.Find(tickets.Id)!)!.Currency);
+
+            // A charge entered in another currency (earlier, or by another app) is edited in that currency.
+            var tea = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+            var charged = Expenses.WithCharge(tea, 29.50m, "USD", new LocalDate(2027, 5, 17));
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(charged.Id, charged)]);
+            session.ShowEditor(tea.Id);
+            Assert.DoesNotContain(Probe.All<TextBox>(Form(window)), t => AutomationProperties.GetName(t) == "Amount charged in EUR");
+            Field<TextBox>(window, "Amount charged in USD").Text = "28.90";
+            Tap(window, "Save");
+            await Probe.Until(() => Expenses.ChargeOf(session.Trip!.Find(tea.Id)!)?.Value == 28.90m);
+            Assert.Equal("USD", Expenses.ChargeOf(session.Trip!.Find(tea.Id)!)!.Currency);
         }
         finally { window.Close(); session.Dispose(); }
     }

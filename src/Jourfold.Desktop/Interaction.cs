@@ -22,7 +22,13 @@ public sealed record ReportReview(string Text, bool ByMail);
 public sealed record TripDraft(string Title, string Language, string? Start, string? End, string? Timezone, string[] Participants, string? RemoteUrl, string? Destination = null, string? MyName = null, string? GitHubRepository = null);
 public sealed record NewTripDefaults(string Folder, string Language, string Timezone, string? MyName, bool GitHubConnected = false, string? GitHubLogin = null);
 /// <summary>What the export dialog offers for the open trip, and the choices it starts with.</summary>
-public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IReadOnlyList<PackingList> Lists, LocalDate? Start, LocalDate? End, bool OnlineMaps, ExportChoice Initial);
+public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IReadOnlyList<PackingList> Lists, LocalDate? Start, LocalDate? End, bool OnlineMaps, ExportChoice Initial, string TripZone = "UTC", IReadOnlyList<string>? ZoneSuggestions = null)
+{
+    /// <summary>Time zones worth offering for an export in another zone: the second zone, those the trip uses, this computer's.</summary>
+    public IReadOnlyList<string> Zones => ZoneSuggestions ?? [];
+    /// <summary>Whether the trip has costs to export.</summary>
+    public bool HasCosts { get; init; }
+}
 /// <summary>The choices made in the export dialog.</summary>
 /// <param name="Kind"><c>plan</c> or <c>packing</c>.</param>
 /// <param name="Format"><c>pdf</c>, <c>html</c>, <c>ics</c>, <c>txt</c>, <c>csv</c>, or <c>copy</c> for text on the clipboard.</param>
@@ -31,9 +37,36 @@ public sealed record ExportSetup(IReadOnlyList<Entity> People, Entity? Me, IRead
 /// <param name="Lists">Packing lists to export.</param>
 /// <param name="People">Packing lists for these people, one file each; empty for one list with everybody.</param>
 /// <param name="UnassignedOnly">Only the packing items nobody brings yet.</param>
-public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly);
+public sealed record ExportChoice(string Kind, string Format, TravelRepo.Repository.ExportOptions Options, string Language, IReadOnlyList<Guid> Lists, IReadOnlyList<Guid> People, bool UnassignedOnly)
+{
+    /// <summary>For a CSV file of costs: comma, semicolon, tab or pipe (see <see cref="TravelRepo.Repository.CostExport.Separators"/>).</summary>
+    public string Separator { get; init; } = "comma";
+}
+/// <summary>What the pay function offers: the trip, the people to pay for, who starts chosen, and the local user.</summary>
+public sealed record PayRequest(TripSnapshot Trip, IReadOnlyList<Entity> People, Guid Person, Guid? Me)
+{
+    /// <summary>The currency to pay in, or null for each expense's own; amounts charged convert exactly, others with <see cref="Rates"/> as estimates.</summary>
+    public string? Currency { get; init; }
+    public ExchangeRates? Rates { get; init; }
+}
+/// <summary>The open items a person chose to settle now.</summary>
+public sealed record PayAnswer(Guid Person, IReadOnlyList<DebtKey> Items);
 public sealed record FormField(string Key, string Label, string Kind = "text", string Value = "", IReadOnlyList<Choice>? Choices = null, bool Required = false, string? Hint = null);
-public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency);
+public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate Date, LocalTime? Start, Duration? Length, string Zone, Guid? Person, bool ChooseType, string Currency)
+{
+    /// <summary>A title to start with, for example a booking's when its price becomes an expense.</summary>
+    public string? Title { get; init; }
+    /// <summary>The trip's currency, which what a card charged is entered in.</summary>
+    public string? TripCurrency { get; init; }
+    /// <summary>Today in the trip's time zone, the day a payment entered now was paid.</summary>
+    public LocalDate? Today { get; init; }
+    /// <summary>An amount to start with, in <see cref="Currency"/>.</summary>
+    public decimal? Amount { get; init; }
+    /// <summary>What the new expense belongs to, such as the booking it pays for.</summary>
+    public Guid? Related { get; init; }
+    /// <summary>Whether the new expense is still to pay, such as the rest of a booking due on site.</summary>
+    public bool Planned { get; init; }
+}
 public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
 public sealed record ConflictPrompt(string Title, string Field, string Current, string Incoming, IReadOnlyList<string> Actions, string CurrentRaw);
 public sealed record ConflictAnswer(string Action, string? Text = null);
@@ -72,6 +105,8 @@ public interface IInteraction
     /// </summary>
     Task<IReadOnlyList<Guid>?> ConfirmDeletionAsync(DeletionPrompt prompt);
     /// <summary>A list of options with check boxes, all explained by <paramref name="message"/>. Returns the chosen IDs, or <c>null</c> when cancelled.</summary>
+    /// <summary>The pay function: choose which open items to settle now, seeing what they come to.</summary>
+    Task<PayAnswer?> PayAsync(PayRequest request);
     Task<IReadOnlyList<string>?> PickAsync(string title, string message, IReadOnlyList<Choice> choices, IReadOnlyList<string> selected, string confirm);
     /// <summary>Asks what to export and how. Null when cancelled.</summary>
     Task<ExportChoice?> ExportAsync(ExportSetup setup);

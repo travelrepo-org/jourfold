@@ -114,12 +114,21 @@ public static class TravelNotices
         // Free cancellation two days before it ends, tasks on the morning they are due.
         foreach (var reminder in TripReminders.For(trip, now + Duration.FromDays(2)).Where(r => r.Kind == ReminderKind.CancellationDeadline && r.Moment is not null))
             notices.Add(new("deadline:" + reminder.Key, NoticeKind.Deadline, reminder.Moment!.Value - Duration.FromDays(2), Format(s["NoticeDeadline"], reminder.Title),
-                Format(s["NoticeDeadlineText"], reminder.Moment.Value.InZone(phone).ToString("ddd d MMM HH:mm", CultureInfo.GetCultureInfo(s.Language))), reminder.Entity));
+                Format(s["NoticeDeadlineText"], reminder.Moment.Value.InZone(phone).ToString(s["DayShortFormat"] + " HH:mm", CultureInfo.GetCultureInfo(s.Language))), reminder.Entity));
         foreach (var reminder in TripReminders.For(trip, now + Duration.FromDays(1)).Where(r => r.Kind == ReminderKind.TaskDue && r.Dates.Count > 0))
         {
             var task = trip.Find(reminder.Entity!.Value);
             if (task is not null && me is not null && task.Data["assigned_to"] is System.Text.Json.Nodes.JsonArray { Count: > 0 } assigned && !assigned.Any(a => a?.ToString() == me.Id.ToString())) continue;
             notices.Add(new(reminder.Key, NoticeKind.TaskDue, phone.AtLeniently(reminder.Dates[0].At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticeTask"], reminder.Title), "", reminder.Entity));
+        }
+
+        // Payments still to pay, three mornings before they are due, for the people who share them.
+        foreach (var payment in trip.Entities.Values.Where(e => e.Type == "expense" && Expenses.IsPlanned(e)))
+        {
+            if (Expenses.DueOf(payment) is not { } due || Expenses.IsIdea(trip, payment) || (me is not null && !Expenses.Split(trip, payment).People.Contains(me.Id))) continue;
+            var amount = TripSummaries.Money(payment.Data["amount"]) is { } money ? Formats.Money(money.Amount, money.Currency) : "";
+            notices.Add(new("payment:" + payment.Id + ":" + due, NoticeKind.Deadline, phone.AtLeniently(due.PlusDays(-3).At(new LocalTime(9, 0))).ToInstant(), Format(s["NoticePayment"], payment.Title),
+                Format(s["NoticePaymentText"], amount, due.ToString(s["DayShortFormat"], CultureInfo.GetCultureInfo(s.Language))), payment.Id));
         }
 
         // Weather that matters for a plan, on the morning of its day, or two hours before when that is earlier.

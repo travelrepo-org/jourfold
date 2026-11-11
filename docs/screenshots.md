@@ -15,7 +15,7 @@ dotnet run --project eng/Screenshots -c Release --no-restore -- docs/screenshots
 
 This writes the fourteen images below, at 1440 × 900 pixels except the document window at 1100 × 820. Two options help when checking changes:
 
-- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, the export dialog for a plan and for packing lists, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf`, `itinerary-full.pdf` (every part and the map), `packing-lists.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
+- `--all` adds every main view, dialogs (palette, schedule editor, share, Create Version, new trip, the open-source notices, Connect an AI assistant, the pay function, the export dialog for a plan and for packing lists, deleting a linked stay, a Git problem with its fix, accommodation details and the reminders, weather settings, What's new and the version history), variants with comparison and conflict resolution, plus `itinerary.pdf`, `itinerary-full.pdf` (every part and the map), `packing-lists.pdf` and `itinerary.html`. Use it with a scratch directory, not `docs/screenshots`.
 - `--lang de` captures the German interface.
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
@@ -34,23 +34,23 @@ The trip library:
 
 The day-by-day list:
 
-![List view grouped by day with times, places, people and status](screenshots/list.png)
+![List view grouped by day with times, places, people and status, and in the toolbar when the weather was fetched](screenshots/list.png)
 
 The map before online maps are enabled. Places and routes come from the trip's own coordinates:
 
 ![Offline map with places, train and flight routes and the prompt to show a street map](screenshots/map.png)
 
-Costs per currency with budgets, and the currency converter, which waits for permission to fetch exchange rates:
+Costs per currency paid in, the total in the trip's currency, euros, from what the cards charged, what is still to pay, and who owes whom with the fewest payments that settle it, with an expense divided equally between both travellers:
 
-![Costs page with totals for euros and yen, budget progress, the currency converter asking to fetch exchange rates, and the list of expenses](screenshots/costs.png)
+![Costs page with the export, budget and add expense buttons, totals for euros and yen, paid and still to pay, a total in euros with the trip currency chooser, the yen still to pay and the rail passes not converted yet, and who owes whom, one line per person with euros and, for the rail passes, yen, with the buttons to pay back and to mark all as paid back; the inspector shows the rail passes with the field for what the card charged, the still to pay switch, the day it was paid, the transport category among the category chips, the split chips, each traveller's part and the line to mark as paid back](screenshots/costs.png)
 
 A packing list with groups, who brings what, what each person has packed, and one item nobody has taken yet:
 
 ![Packing view for Japan with the list chip, filters for all, mine and unassigned, items grouped into documents, electronics, clothes and food, and chips for Alex and Sam with check marks where they have packed](screenshots/packing.png)
 
-A booking with its confirmation e-mail attached, and the drop area for more:
+A booking with its confirmation e-mail attached, and the drop area for more. What a booking costs is its payments, shown in its details; the ryokan is paid at check-in, so its payment is still to pay:
 
-![Bookings page with a ryokan booking selected; the inspector lists the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
+![Bookings page with what each booking cost and the ryokan marked as yen still to pay; the ryokan is selected and the inspector shows its payment with the to pay mark, how it is shared and a button to mark it as paid, buttons to add a payment or one still to pay, and the attached confirmation e-mail under Confirmations and files](screenshots/booking-confirmation.png)
 
 The document window with the confirmation e-mail and with its PDF attachment, searched for a time:
 
@@ -60,7 +60,7 @@ The document window with the confirmation e-mail and with its PDF attachment, se
 
 The weather of an outdoor activity with rain in the forecast, and the day forecasts above the timetable:
 
-![Timetable with weather icons and temperatures in each day header; the inspector shows Kegon Falls with the outdoor estimate, an hourly forecast, a rain warning, sunrise and sunset and the data source](screenshots/weather.png)
+![Timetable with weather icons and temperatures in each day header; the inspector shows Kegon Falls with the outdoor estimate, an hourly forecast, a rain warning, sunrise and sunset, the data source, and when the forecast was fetched with a button to fetch it again](screenshots/weather.png)
 
 Quick Add:
 

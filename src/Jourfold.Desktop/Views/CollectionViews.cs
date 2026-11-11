@@ -51,6 +51,7 @@ public static class CollectionViews
         var bookings = trip.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => (e.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) && trip.Find(id) is { } item ? ScheduleQueries.Span(trip, item).Start : null).Where(x => x is not null).Min() ?? Instant.MaxValue).ToArray();
         if (bookings.Length == 0) return Page(w, s["Bookings"], s["BookingsHint"], Ui.Card(Ui.EmptyState("ticket", s["NoBookingsTitle"], s["NoBookingsBody"], AddButton(w, s["AddBooking"], "booking")), 0));
         var list = Ui.V(2);
+        var payments = Expenses.Payments(trip).ToDictionary(p => p.Booking.Id);
         foreach (var b in bookings)
         {
             var items = (b.Data["items"] as JsonArray ?? []).Select(i => Guid.TryParse(i?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>().ToArray();
@@ -58,14 +59,16 @@ public static class CollectionViews
             var when = items.Select(i => ScheduleQueries.Span(trip, i).Start).Where(x => x is not null).Min() is { } first ? Formats.Date(first.InZone(ScheduleQueries.TripZone(trip)).Date) : s["NoDateYet"];
             var status = b.Data["status"]?.ToString() ?? "idea"; var (si, sb, sf) = Visuals.Status(status);
             var reference = b.Data["reference"]?.ToString();
-            var price = TripSummaries.Money(b.Data["price"]) is { } money ? Formats.Money(money.Amount, money.Currency) : "";
+            // What it costs is its payments; a price only older versions stored is shown until it is recorded.
+            var price = ExpenseViews.BookingAmount(trip, b) ?? "";
             var copy = reference is null ? null : Ui.IconButton("copy", s["CopyReference"], "small").Also(c => c.Click += async (_, _) => { await m.Interaction.CopyAsync(reference); m.Interaction.Toast(s["Copied"]); });
             var refPill = reference is null ? null : Ui.H(2, new Border { Child = Ui.Text(reference).Also(t => { t.FontFamily = FontFamily.Parse("monospace"); t.FontSize = 12; }), Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6) }.Res(Border.BackgroundProperty, "Bg.Subtle"), copy);
             var travelers = PeopleNames(trip, b.Data["travelers"]).ToArray();
-            var grid = Ui.Columns("Auto,*,Auto,Auto,120,Auto",
+            var grid = Ui.Columns("Auto,*,Auto,Auto,Auto,120,Auto",
                 Ui.Tile(icon, kind, 38).Margin(0, 0, 14, 0),
                 Ui.V(2, Ui.Line(b.Title, "title"), Ui.Line(string.Join(" · ", new[] { b.Data["provider"]?["name"]?.ToString(), when, items.Length > 1 ? string.Format(s["ItemsCount"], items.Length) : items.FirstOrDefault()?.Title }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
                 refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(travelers, 24).Margin(8, 0) : null,
+                ExpenseViews.BookingPill(s, trip, payments, b)?.Margin(8, 0),
                 Ui.Text(price, "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.TextAlignment = TextAlignment.Right; }),
                 Ui.Pill(s[status], si, sb, sf).Margin(14, 0, 0, 0));
             list.Children.Add(Row(w, b, grid));
@@ -74,14 +77,48 @@ public static class CollectionViews
         return Page(w, s["Bookings"], string.Format(s["BookingsSummary"], bookings.Length, confirmed), Ui.Card(list, 6), AddButton(w, s["AddBooking"], "booking"));
     }
 
+    /// <summary>
+    /// The payments that fit the search, grouped by the day they were paid (see <see cref="Expenses.DateOf"/>), latest
+    /// day first, and those without a day at the end. Each row opens the payment.
+    /// </summary>
+    private static Control ExpenseList(MainWindow w, IReadOnlyList<Entity> expenses, string search)
+    {
+        var m = w.Model; var s = m.Strings; var trip = m.Trip!;
+        var found = expenses.Where(e => Jourfold.UI.CostTexts.Matches(s, trip, e, search)).Select(e => (Expense: e, Day: Expenses.DateOf(trip, e))).ToArray();
+        var list = Ui.V(2);
+        if (found.Length == 0) { list.Children.Add(Ui.Text(string.Format(s["NoCostsFound"], search.Trim()), "muted").Margin(4, 8)); return list; }
+        foreach (var group in found.GroupBy(x => x.Day).OrderBy(g => g.Key is null ? 1 : 0).ThenByDescending(g => g.Key))
+        {
+            var heading = group.Key is { } day ? Formats.LongDay(day) : s["WithoutDay"];
+            list.Children.Add(Ui.Text(heading, "overline").Margin(4, list.Children.Count == 0 ? 0 : 12, 0, 4));
+            foreach (var (e, _) in group.OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture))
+            {
+                var money = TripSummaries.Money(e.Data["amount"]);
+                var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
+                var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
+                var category = ExpenseCategories.Of(trip, e);
+                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(t => !string.IsNullOrEmpty(t)));
+                var grid = Ui.Columns("Auto,*,Auto,Auto,140",
+                    Ui.Tile(ExpenseViews.CategoryIcon(category), "Food", 34).Margin(0, 0, 12, 0),
+                    Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),
+                    ExpenseViews.Status(s, Expenses.Split(trip, e), trip)?.Margin(8, 0),
+                    payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
+                    Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
+                list.Children.Add(Row(w, e, grid));
+            }
+        }
+        return list;
+    }
+
     private static Control Costs(MainWindow w)
     {
         var m = w.Model; var s = m.Strings; var trip = m.Trip!;
         var totals = TripSummaries.Costs(trip);
         var expenses = trip.Entities.Values.Where(e => e.Type == "expense").OrderBy(e => e.Title, StringComparer.CurrentCulture).ToArray();
         var budgets = trip.Entities.Values.Where(e => e.Type == "budget").ToArray();
-        var actions = new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
-        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ConverterCard(w)));
+        var export = Ui.Button(s["ExportCosts"], "download", "ghost"); export.Click += (_, _) => m.ShareExportCommand.Execute("costs");
+        var actions = expenses.Length > 0 ? new Control[] { export, AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") } : new Control[] { AddButton(w, s["AddBudget"], "budget", false), AddButton(w, s["AddExpense"], "expense") };
+        if (expenses.Length == 0 && budgets.Length == 0) return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), Ui.Card(Ui.EmptyState("wallet", s["NoCostsTitle"], s["NoCostsBody"], actions), 0), ExpenseViews.StillToPay(w), ConverterCard(w)));
         var tiles = new WrapPanel { ItemSpacing = 14, LineSpacing = 14 };
         foreach (var total in totals)
         {
@@ -99,23 +136,18 @@ public static class CollectionViews
             }
             tiles.Children.Add(Ui.Card(body, 18).Also(c => c.Width = 300));
         }
-        var list = Ui.V(2);
-        foreach (var e in expenses.Concat(budgets))
-        {
-            var money = TripSummaries.Money(e.Data["amount"]);
-            var estimated = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
-            var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
-            var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
-            var grid = Ui.Columns("Auto,*,Auto,Auto,140",
-                Ui.Tile(e.Type == "budget" ? "piggy-bank" : "receipt", e.Type == "budget" ? "Nature" : "Food", 34).Margin(0, 0, 12, 0),
-                Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(e.Type == "budget" ? s["budget"] : related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : ""), "caption")),
-                estimated ? Ui.Pill(s["Estimated"], "clock", "Warning.Soft", "Warning").Margin(8, 0) : null,
-                payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
-                Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
-            list.Children.Add(Row(w, e, grid));
-        }
+        if (ExpenseViews.TripTotal(w) is { } home) tiles.Children.Add(home);
+        // The payments by the day they were paid, with a search over title, category, people and what they belong to.
+        var listHost = new ContentControl();
+        void RenderList() => listHost.Content = ExpenseList(w, expenses, m.CostSearch);
+        var search = new TextBox { Text = m.CostSearch, PlaceholderText = s["SearchCosts"], InnerLeftContent = Ui.Icon("search", 14, "Text.Subtle").Margin(10, 0, 0, 0), Tag = "cost-search" };
+        AutomationProperties.SetName(search, s["SearchCosts"]);
+        search.TextChanged += (_, _) => { m.CostSearch = search.Text ?? ""; RenderList(); };
+        RenderList();
+        var list = Ui.V(10, Ui.Columns("*,Auto", Ui.Text(s["Payments"], "h3").Also(t => t.VerticalAlignment = VerticalAlignment.Center), search.Also(b => b.Width = 300)), listHost);
         var note = Ui.H(6, Ui.Icon("info", 13, "Text.Subtle"), Ui.Text(s["NoAutoConversion"], "caption"));
-        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, tiles, ConverterCard(w), Ui.Card(list, 6), note), actions);
+        // The payments come before the converter, which is a tool rather than part of the trip's costs.
+        return Page(w, s["Costs"], s["CostsHint"], Ui.V(20, ExpenseViews.UpgradeBanner(w), tiles, ExpenseViews.WhoOwesWhom(w), ExpenseViews.StillToPay(w), ExpenseViews.BudgetsCard(w), ExpenseViews.ByCategory(w), Ui.Card(list, 18), note, ConverterCard(w)), actions);
     }
 
     /// <summary>
@@ -150,9 +182,12 @@ public static class CollectionViews
         var swap = Ui.IconButton("refresh-cw", s["SwapCurrencies"]);
         swap.Click += (_, _) => { var a = from.Value; var b = to.Value; from.Select(b); to.Select(a); Show(); };
         Show();
+        // The rates' own date is the European Central Bank's; when they were fetched is a different thing, as rates
+        // fetched on a Sunday are Friday's.
+        var fresh = m.RatesFetched is { } fetched ? FreshnessButton.Build(w, NodaTime.Instant.FromDateTimeOffset(fetched), s["RatesFetched"], s["RefreshRates"], m.RefreshRatesAsync, s["RatesRefreshFailed"]) : null;
         return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
             Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result),
-            Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap)), 18);
+            Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), fresh?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left))), 18);
     }
 
     private static Control Tasks(MainWindow w)

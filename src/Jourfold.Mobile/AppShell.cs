@@ -42,10 +42,18 @@ public sealed class AppShell : UserControl
     // The page drawn last and where it was, so drawing the same page again keeps how far it was scrolled.
     private Control? drawnPage;
     private object? pageAt;
+    // The finger on the screen and how far and fast it has scrolled the page, to tell a tap, a nudge and a scroll apart.
+    // In device-independent pixels: a tap moves less than TapSlop; a scroll ends the typing once it covers
+    // ScrollDistance in all, or moves faster than ScrollSpeed per second, as a flick does.
+    private const double TapSlop = 10, ScrollDistance = 96, ScrollSpeed = 900;
+    private (int Id, Point At, bool OnControl)? touch;
+    private double scrolled, lastScroll;
+    private readonly System.Diagnostics.Stopwatch touchClock = new();
 
     public AppShell(MobileSession session)
     {
         Session = session; Classes.Add("shell");
+        session.Strings.Pickers(Resources);
         Content = root; root.Res(Border.BackgroundProperty, "Bg.App");
         root.Child = new Panel { Children = { main, overlays } };
         session.Changed += () => Dispatcher.UIThread.Post(RequestRender);
@@ -59,6 +67,34 @@ public sealed class AppShell : UserControl
         // with a finger they do not, or the last tapped row would stay highlighted.
         AddHandler(PointerMovedEvent, (_, e) => { if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) Classes.Add("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
         AddHandler(PointerPressedEvent, (_, e) => { if (e.Pointer.Type != Avalonia.Input.PointerType.Mouse) Classes.Remove("mouse"); }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        // A tap beside the text field being typed in closes the on-screen keyboard, as in other apps, and so does
+        // scrolling the page far or fast; nudging it a little keeps the keyboard. The shell takes the focus, since
+        // Avalonia has no way to just drop it. Taps on buttons and other controls keep it, so their clicks are not
+        // lost to a page drawn again when the field lets go.
+        Focusable = true;
+        AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (e.Pointer.Type == Avalonia.Input.PointerType.Mouse) return;
+            var onControl = e.Source is Visual source && Avalonia.VisualTree.VisualExtensions.GetSelfAndVisualAncestors(source).Any(v => v is TextBox or Button or TimePicker or DatePicker or ComboBox or Slider);
+            touch = (e.Pointer.Id, e.GetPosition(this), onControl); scrolled = 0; touchClock.Restart(); lastScroll = 0;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(PointerReleasedEvent, (_, e) =>
+        {
+            if (touch is not { } t || t.Id != e.Pointer.Id) return;
+            touch = null;
+            var moved = e.GetPosition(this) - t.At;
+            if (!t.OnControl && Math.Abs(moved.X) + Math.Abs(moved.Y) < TapSlop && TypingAnywhere()) Focus(Avalonia.Input.NavigationMethod.Pointer);
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        AddHandler(ScrollViewer.ScrollChangedEvent, (_, e) =>
+        {
+            // Only scrolling by the finger counts: not the page bringing the field into view, nor a flick's glide.
+            if (touch is null || !TypingAnywhere()) return;
+            var step = Math.Abs(e.OffsetDelta.X) + Math.Abs(e.OffsetDelta.Y);
+            if (step == 0) return;
+            var now = touchClock.Elapsed.TotalSeconds; var speed = step / Math.Max(now - lastScroll, 0.008);
+            lastScroll = now; scrolled += step;
+            if (scrolled > ScrollDistance || (speed > ScrollSpeed && scrolled > TapSlop)) Focus(Avalonia.Input.NavigationMethod.Pointer);
+        }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
         // Enter in a one-line field sends it, as its button would, so what it added shows at once.
         AddHandler(KeyDownEvent, (_, e) =>
@@ -89,6 +125,15 @@ public sealed class AppShell : UserControl
         e.Handled = true;
     }
 
+    /// <summary>
+    /// Whether shortcuts read as on Apple's keyboards, "⌘1" rather than "Ctrl+1": on iPhone and iPad. Headless tests
+    /// keep it off, as their rendering has no font to draw ⌘ with. Either modifier works on every platform.
+    /// </summary>
+    public static bool AppleKeys { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
+
+    /// <summary>A command shortcut with the given key, as the platform writes it.</summary>
+    public static string Shortcut(string key) => AppleKeys ? "⌘" + key : "Ctrl+" + key;
+
     public static WidthClass Classify(double width) => width switch { < 600 => WidthClass.Phone, < 840 => WidthClass.CompactTablet, < 1200 => WidthClass.Tablet, _ => WidthClass.Wide };
 
     /// <summary>
@@ -118,6 +163,7 @@ public sealed class AppShell : UserControl
             top.ScalingChanged += (_, _) => Inset();
         }
         top.BackRequested += OnBack;
+        Dispatcher.UIThread.UnhandledException += OnUnhandled;
         // Pages end above the on-screen keyboard and scroll the field being typed in into view. Sheets keep clear of
         // the keyboard themselves.
         if (top.InputPane is { } pane)
@@ -145,7 +191,18 @@ public sealed class AppShell : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is { } top) top.BackRequested -= OnBack;
+        Dispatcher.UIThread.UnhandledException -= OnUnhandled;
         base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// A tap whose action fails shows why instead of ending the app, for example when the trip has errors or a server
+    /// answers unexpectedly. Buttons run their actions without waiting, so the failure arrives here.
+    /// </summary>
+    private void OnUnhandled(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        if (e.Handled) return;
+        Session.ShowProblem(e.Exception); e.Handled = true;
     }
 
     /// <summary>
@@ -154,6 +211,7 @@ public sealed class AppShell : UserControl
     /// </summary>
     private void OnBack(object? sender, RoutedEventArgs e)
     {
+        if (Session.ChangeProblem is not null) { Session.DismissProblem(); e.Handled = true; return; }
         if (Session.Asking is not null || Session.Menu is not null) { Session.CloseOverlay(); e.Handled = true; return; }
         if (Session.TaxiCard is not null) { Session.ShowTaxiCard(null); e.Handled = true; return; }
         if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
@@ -182,6 +240,8 @@ public sealed class AppShell : UserControl
 
     /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
     private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);
+    /// <summary>Whether any text field has the focus, on the page or in a sheet.</summary>
+    private bool TypingAnywhere() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox;
 
     private void RequestRender()
     {
@@ -211,8 +271,7 @@ public sealed class AppShell : UserControl
             _ => MorePages.Build(Session, Breakpoint)
         };
         drawnPage = page; pageAt = here;
-        if (scrolled is { } offset && PageScroll(page) is { } after)
-            after.AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(() => after.Offset = offset, DispatcherPriority.Loaded);
+        if (scrolled is { } offset && PageScroll(page) is { } after) ScrollPlace.Set(after, () => after.Offset = offset);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
         // page, whatever it holds, so the way back stays where it was; a stretched element narrower than the room is centred.
         if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760 };
@@ -230,6 +289,8 @@ public sealed class AppShell : UserControl
             main.Child = docked ? Ui.Columns("Auto,*,400", side, page, DetailColumn()) : Ui.Columns("Auto,*", side, page);
         }
         Overlays(docked);
+        // The new page takes its scroll position before it is drawn, so its top does not flash up first.
+        ScrollPlace.Settle(main);
         if ((Session.FocusDraft is { } key ? MorePages.DraftPrefix + key : refocus) is { } target)
         {
             Session.FocusDraft = null; refocus = null;
@@ -319,6 +380,22 @@ public sealed class AppShell : UserControl
         if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
         if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
         if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+        if (Session.ChangeProblem is { } problem) overlays.Children.Add(Problem(problem));
+    }
+
+    /// <summary>Why a change was not saved, above everything else until it is closed.</summary>
+    private Control Problem(string problem)
+    {
+        var s = Session.Strings;
+        var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
+        var title = Session.ProblemTitle ?? s["NotSaved"];
+        var card = Ui.Card(Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")),
+                Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap), Ui.Columns("*,Auto", null, close.Col(1))), 20)
+            .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
+        Avalonia.Automation.AutomationProperties.SetLiveSetting(card, Avalonia.Automation.AutomationLiveSetting.Assertive);
+        AutomationProperties.SetName(card, title + ". " + problem);
+        Dispatcher.UIThread.Post(() => close.Focus(), DispatcherPriority.Background);
+        return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }
 
     /// <summary>A long-press menu: a list of actions from the bottom on phones, a card in the middle on wider screens.</summary>
@@ -392,7 +469,7 @@ public sealed class AppShell : UserControl
         var key = Array.FindIndex(Places, p => p.Tab == tab) + 1;
         var button = new ChoiceButton { IsSelected = Session.Tab == tab, Content = Ui.V(3, Ui.Icon(icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
-        ToolTip.SetTip(button, text + " (Ctrl+" + key + ")");
+        ToolTip.SetTip(button, text + " (" + Shortcut(key.ToString(CultureInfo.InvariantCulture)) + ")");
         button.Click += (_, _) => Session.ShowTab(tab);
         return button;
     }
@@ -402,7 +479,7 @@ public sealed class AppShell : UserControl
         var label = Session.Strings["QuickAdd"];
         var plus = new Button { Content = Ui.Icon("plus", 26).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("plus");
         AutomationProperties.SetName(plus, label); ToolTip.SetTip(plus, label);
-        plus.Click += (_, _) => Session.ShowQuickAdd();
+        plus.Click += (_, _) => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
         return plus;
     }
 
@@ -438,8 +515,8 @@ public sealed class AppShell : UserControl
     private Control Sidebar()
     {
         var s = Session.Strings;
-        var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (Ctrl+N)"); });
-        add.Click += (_, _) => Session.ShowQuickAdd();
+        var add = Ui.Button(s["QuickAdd"], "plus", "primary").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Stretch; ToolTip.SetTip(b, s["QuickAdd"] + " (" + Shortcut("N") + ")"); });
+        add.Click += (_, _) => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
         var trip = Session.Trip!;
         var items = Ui.V(4, Ui.Text(trip.Manifest.Title, "strong").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis).Margin(8, 16, 8, 2),
             Ui.Text(Formats.DateRange(TravelRepo.Core.TripQueries.EffectiveDates(trip).Start, TravelRepo.Core.TripQueries.EffectiveDates(trip).End), "caption").Margin(8, 0, 8, 14),
@@ -451,7 +528,7 @@ public sealed class AppShell : UserControl
             var button = new ChoiceButton
             {
                 IsSelected = Session.Tab == tab && !(tab == MobileTab.More && Session.Page is not null),
-                Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text("Ctrl+" + (i + 1), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
+                Content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20).Margin(0, 0, 12, 0), Ui.Text(text).Also(t => t.VerticalAlignment = VerticalAlignment.Center), Ui.Text(Shortcut((i + 1).ToString(CultureInfo.InvariantCulture)), "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center))
             }.Classed("sidebar");
             AutomationProperties.SetName(button, text);
             button.Click += (_, _) => Session.ShowTab(tab);

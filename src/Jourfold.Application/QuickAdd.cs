@@ -35,6 +35,25 @@ public sealed record QuickAddDraft(string Kind, string Title)
     public string? Body { get; init; }
     public string? Reference { get; init; }
     public IReadOnlyList<Guid> People { get; init; } = [];
+    /// <summary>For an expense, how it is divided, as TravelRepo's <see cref="Expenses"/> wrote it; null divides it equally among all travellers.</summary>
+    public JsonObject? Split { get; init; }
+    /// <summary>What the item belongs to, such as the booking an expense pays for.</summary>
+    public Guid? Related { get; init; }
+    /// <summary>For an expense, its category; null follows what it belongs to.</summary>
+    public string? Category { get; init; }
+    /// <summary>For an expense, whether it is still to pay, such as the rest of a booking paid on site.</summary>
+    public bool Planned { get; init; }
+    /// <summary>For an expense that is paid, the day it was paid.</summary>
+    public LocalDate? PaidOn { get; init; }
+    /// <summary>For an expense still to pay, the day it is due.</summary>
+    public LocalDate? Due { get; init; }
+    /// <summary>For an expense in another currency, what the card charged, in <see cref="ChargedCurrency"/>.</summary>
+    public decimal? Charged { get; init; }
+    public string? ChargedCurrency { get; init; }
+    /// <summary>Files to attach once it is created, such as a receipt.</summary>
+    public IReadOnlyList<string> Files { get; init; } = [];
+    /// <summary>For a budget, what it is limited to; null for the whole trip.</summary>
+    public BudgetFilters? BudgetFilters { get; init; }
 }
 
 /// <summary>Builds canonical entities for Quick Add. The result is applied as one undoable repository command.</summary>
@@ -49,7 +68,8 @@ public static class QuickAdd
         var zone = draft.Timezone ?? trip.Manifest.Data["default_timezone"]?.ToString() ?? "Etc/UTC";
         string? Place(PlaceChoice? choice) => PlaceEdits.Resolve(trip, choice, edits);
         JsonObject Participants() => new() { ["inherit"] = false, ["values"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray()) };
-        JsonNode Money() => new JsonObject { ["value"] = (draft.Amount ?? 0m).ToString("0.00", CultureInfo.InvariantCulture), ["currency"] = draft.Currency ?? "EUR" };
+        // The currency's own decimals: 1000 JPY, 12.50 EUR, 1.250 KWD.
+        JsonNode Money() => new JsonObject { ["value"] = Expenses.Format(draft.Amount ?? 0m, draft.Currency ?? "EUR"), ["currency"] = draft.Currency ?? "EUR" };
 
         Entity main;
         switch (draft.Kind)
@@ -120,8 +140,14 @@ public static class QuickAdd
             case "booking":
                 main = Entity.Create("booking", draft.Title.Trim()); main.Data["status"] = "pending";
                 if (!string.IsNullOrWhiteSpace(draft.Reference)) main.Data["reference"] = draft.Reference.Trim();
-                if (draft.Amount is not null) main.Data["price"] = Money();
                 if (draft.People.Count > 0) main.Data["travelers"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
+                // A booking has no price: an amount given is a payment still to pay, shared by its travellers.
+                if (draft.Amount is { } toPay && toPay != 0 && draft.Currency is { } code)
+                {
+                    var withBooking = trip with { Entities = trip.Entities.Values.Append(main).ToDictionary(e => e.Id) };
+                    var payment = Expenses.FromBooking(withBooking, main, new Money(Expenses.Format(toPay, code), code), planned: true);
+                    edits.Add(new(payment.Id, payment));
+                }
                 break;
             case "place":
                 var choice = draft.Place ?? new PlaceChoice(null, draft.Title);
@@ -136,7 +162,21 @@ public static class QuickAdd
                 break;
             case "expense" or "budget":
                 main = Entity.Create(draft.Kind, draft.Title.Trim()); main.Data["amount"] = Money();
-                if (draft.Kind == "expense") { main.Data["estimated"] = false; if (draft.People.Count > 0) main.Data["paid_by"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray()); }
+                if (draft.Kind == "expense")
+                {
+                    main.Data["estimated"] = draft.Planned;
+                    if (draft.People.Count > 0) main.Data["paid_by"] = new JsonArray(draft.People.Select(p => (JsonNode?)JsonValue.Create(p.ToString())).ToArray());
+                    if (draft.Related is { } related && trip.Find(related) is { } target) main.Data["related"] = new JsonArray(new JsonObject { ["type"] = target.Type, ["id"] = target.Id.ToString() });
+                    // Who shares it is always named: as chosen, otherwise the booking's travellers, the plan's people or all travellers.
+                    if (draft.Split is { } split && (split["parts"] as JsonArray ?? []).Count > 0) main.Data["split"] = split.DeepClone();
+                    else main = Expenses.WithSplit(main, SplitMethod.Equal, Expenses.PeopleFor(trip, draft.Related).Select(p => (p, (decimal?)null)));
+                    if (draft.Category is { Length: > 0 } category) main = ExpenseCategories.With(trip, main, category);
+                    if (draft.Planned && draft.Due is { } dueDay) main = Expenses.WithDue(main, dueDay);
+                    if (!draft.Planned && draft.PaidOn is { } paidOn) main = Expenses.WithDate(main, paidOn);
+                    if (draft.Charged is { } charged && charged != 0 && draft.ChargedCurrency is { } chargedIn && chargedIn != draft.Currency && (draft.Amount ?? 0) != 0)
+                        main = Expenses.WithCharge(main, charged, chargedIn, draft.PaidOn ?? Expenses.DayOf(trip, main));
+                }
+                else if (draft.BudgetFilters is { IsWholeTrip: false } filters) main = Budgets.WithFilters(trip, main, filters);
                 break;
             case "collection":
                 main = Entity.Create("collection", draft.Title.Trim()); main.Data["items"] = new JsonArray();

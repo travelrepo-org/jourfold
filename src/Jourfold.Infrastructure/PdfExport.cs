@@ -286,6 +286,8 @@ public static class PdfExport
             var leadLines = Wrap(row.Lead, F(9.5), lead - 10);
             // Times with two zones break after the dash, so each end stays on its own line.
             if (leadLines.Count > 1 && row.Lead.Split(" – ") is [var from, var until]) leadLines = [.. Wrap(from + " –", F(9.5), lead - 10), .. Wrap(until, F(9.5), lead - 10)];
+            // The same time in the export's other time zones follows below, such as "Berlin 09:00–10:30".
+            foreach (var other in row.OtherTimes) leadLines.AddRange(Wrap(other, F(9.5), lead - 10));
             var titleLines = Wrap(row.Title, F(11, true), width - lead - (pill is null ? 0 : pillWidth + 8) - bubble);
             var summaryLines = summary.Length > 0 ? Wrap(summary, F(9), width - lead) : [];
             var detailLines = row.DetailLines.SelectMany(d => Wrap(d, F(9), width - lead)).ToList();

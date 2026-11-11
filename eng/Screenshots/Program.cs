@@ -98,7 +98,8 @@ try
             m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Shinkansen to Kyoto");
             m.View = "List"; await Capture("list");
             m.View = "Map"; m.Selected = null; await Capture("map");
-            m.View = "Costs"; await Capture("costs");
+            // An expense divided between both travellers, with who owes whom and what is paid back.
+            m.View = "Costs"; m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "expense" && e.Title == "Rail passes"); await Settle(300); await Capture("costs");
             m.View = "Packing"; m.PackingFilter = "all"; m.Selected = null; await Settle(300); await Capture("packing");
             // A booking confirmation e-mail with its ticket, attached to a booking and shown in the document window.
             {
@@ -148,6 +149,7 @@ try
                 m.Selected = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Day trip to Nikko"); await Capture("nested");
                 m.Selected = m.Workspace.State.Trip.Manifest; await Capture("trip-details");
                 await Dialog(() => m.SearchCommand.ExecuteAsync(null), "palette", m.Strings["Close"]);
+                m.View = "Costs"; await Dialog(() => m.PayAsync(), "pay", m.Strings["Cancel"]);
                 await Dialog(() => m.Interaction.ScheduleAsync(m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Flight to Tokyo").Data["time"] as System.Text.Json.Nodes.JsonObject, start, "Asia/Tokyo"), "date-time", m.Strings["Cancel"]);
                 await Dialog(() => m.ShareCommand.ExecuteAsync(null), "share", m.Strings["Close"]);
                 var item = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Explore Shinjuku").Copy(); item.Data["status"] = "confirmed"; await m.Workspace.EditAsync(item);

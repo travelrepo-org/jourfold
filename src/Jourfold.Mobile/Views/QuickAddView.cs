@@ -81,6 +81,8 @@ public sealed class QuickAddView
     private SplitMethod? splitMethod = SplitMethod.Equal;
     private readonly TextBox charged = new();
     private string? chargedBefore;
+    // The currency of a charge already entered, which can differ from the trip's (entered earlier or elsewhere); it is kept.
+    private string? chargedCurrency;
     // When a payment still to pay is due.
     private readonly DatePicker dueDate = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private LocalDate? dueBefore;
@@ -114,7 +116,7 @@ public sealed class QuickAddView
         estimated.OnContent = estimated.OffContent = str["StillToPay"]; AutomationProperties.SetName(estimated, str["StillToPay"]);
         // Still to pay offers a due day, so the form is drawn again when it changes.
         estimated.IsCheckedChanged += (_, _) => { if (kind == "expense") Avalonia.Threading.Dispatcher.UIThread.Post(Render); };
-        charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture); AutomationProperties.SetName(charged, string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], s.TripCurrencyCode));
+        charged.PlaceholderText = 0m.ToString("0.00", CultureInfo.CurrentCulture);
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
         reference.PlaceholderText = str["BookingNumberHint"]; AutomationProperties.SetName(reference, str["BookingNumber"]);
         otherCurrency.PlaceholderText = str["OtherCurrencyHint"]; AutomationProperties.SetName(otherCurrency, str["OtherCurrency"]);
@@ -179,7 +181,7 @@ public sealed class QuickAddView
             category = categoryBefore = ExpenseCategories.Stored(item);
             var split = Expenses.Split(trip, item);
             splitMethod = split.Method; sharing.UnionWith(split.People); sharingBefore = [.. split.People]; sharingTouched = true;
-            if (Expenses.ChargeOf(item) is { } charge) charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture);
+            if (Expenses.ChargeOf(item) is { } charge) { charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture); chargedCurrency = charge.Currency; }
             if ((dueBefore = Expenses.DueOf(item)) is { } dueDay) dueDate.SelectedDate = new DateTimeOffset(dueDay.ToDateTimeUnspecified(), TimeSpan.Zero);
             estimated.IsChecked = item.Data["estimated"] is System.Text.Json.Nodes.JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
             related = relatedBefore = (item.Data["related"] as System.Text.Json.Nodes.JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? id : (Guid?)null).FirstOrDefault(id => id is not null);
@@ -353,8 +355,13 @@ public sealed class QuickAddView
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
             rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
             rest.Children.Add(Field(str["Category"], CategoryControls()));
-            // What the card booked in the trip's currency, next to the amount on the bill.
-            if (Currency() != s.TripCurrencyCode) rest.Children.Add(Field(string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], s.TripCurrencyCode), Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+            // What the card booked in the trip's currency (or the one of a charge already entered), next to the amount on the bill.
+            if (Currency() != ChargeCurrency())
+            {
+                var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
+                AutomationProperties.SetName(charged, label);
+                rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+            }
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
@@ -427,6 +434,7 @@ public sealed class QuickAddView
     }
 
     /// <summary>The currency typed or chosen, as a three-letter code.</summary>
+    private string ChargeCurrency() => chargedCurrency ?? s.TripCurrencyCode;
     private string Currency() => otherCurrency.Text?.Trim().ToUpperInvariant() is { Length: > 0 } typed ? typed : currency;
 
     /// <summary>A booking: provider, number, status, price, free cancellation, travellers and the plans it is for.</summary>
@@ -726,11 +734,11 @@ public sealed class QuickAddView
             if (dueDay != dueBefore || created) item = Expenses.WithDue(item, dueDay);
             if (category != categoryBefore) item = ExpenseCategories.With(trip, item, category);
             if (splitMethod is SplitMethod.Equal && sharing.Count > 0 && (created || !sharing.SetEquals(sharingBefore))) item = Expenses.WithSplit(item, SplitMethod.Equal, sharing.Select(p => (p, (decimal?)null)));
-            if (Changed(charged.Text, chargedBefore) && Currency() != s.TripCurrencyCode)
+            if (Changed(charged.Text, chargedBefore) && Currency() != ChargeCurrency())
             {
                 if (string.IsNullOrWhiteSpace(charged.Text)) item = Expenses.WithoutCharge(item);
                 else if (ExchangeRates.Amount(charged.Text) is { } booked && TripSummaries.Money(item.Data["amount"]) is { Amount: not 0 })
-                    item = Expenses.WithCharge(item, booked, s.TripCurrencyCode, Expenses.ChargeOf(item)?.Date ?? Expenses.DayOf(trip, item) ?? s.PhoneToday);
+                    item = Expenses.WithCharge(item, booked, ChargeCurrency(), Expenses.ChargeOf(item)?.Date ?? Expenses.DayOf(trip, item) ?? s.PhoneToday);
             }
             if (related != relatedBefore)
             {

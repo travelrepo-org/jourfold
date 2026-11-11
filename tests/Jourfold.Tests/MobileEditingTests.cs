@@ -118,6 +118,34 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AnAmountChargedIsInTheTripCurrencyAndAnEarlierOneKeepsItsOwn()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            Assert.Equal("EUR", session.TripCurrencyCode);
+            var tickets = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "teamLab tickets");
+            session.ShowEditor(tickets.Id);
+            Field<TextBox>(window, "Amount charged in EUR").Text = "46.10";
+            Tap(window, "Save");
+            await Probe.Until(() => Expenses.ChargeOf(session.Trip!.Find(tickets.Id)!)?.Value == 46.10m);
+            Assert.Equal("EUR", Expenses.ChargeOf(session.Trip!.Find(tickets.Id)!)!.Currency);
+
+            // A charge entered in another currency (earlier, or by another app) is edited in that currency.
+            var tea = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+            var charged = Expenses.WithCharge(tea, 29.50m, "USD", new LocalDate(2027, 5, 17));
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(charged.Id, charged)]);
+            session.ShowEditor(tea.Id);
+            Assert.DoesNotContain(Probe.All<TextBox>(Form(window)), t => AutomationProperties.GetName(t) == "Amount charged in EUR");
+            Field<TextBox>(window, "Amount charged in USD").Text = "28.90";
+            Tap(window, "Save");
+            await Probe.Until(() => Expenses.ChargeOf(session.Trip!.Find(tea.Id)!)?.Value == 28.90m);
+            Assert.Equal("USD", Expenses.ChargeOf(session.Trip!.Find(tea.Id)!)!.Currency);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task APlanIsForChosenPeopleAndAStepForItsGroup()
     {
         var (session, window) = await OpenAsync();

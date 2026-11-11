@@ -564,6 +564,36 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheSignInCodeCanBeCopiedAgainWhileGitHubWaits()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets(), new WaitingGitHub()));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        var signIn = session.SignInAsync("Iv23-test");
+        try
+        {
+            await Probe.Until(() => session.SignInCode is not null);
+            Probe.Layout();
+            // Signing in on GitHub first can leave something else in the clipboard, such as a one-time code.
+            await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(window.Clipboard!, "123456");
+            Probe.Click(window, "Copy code");
+            await Probe.Until(() => Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!).GetAwaiter().GetResult() == "WDJB-MJHT");
+            Assert.Contains("Copied to the clipboard", Probe.All<TextBlock>(window).Select(t => t.Text));
+        }
+        finally { session.CancelSignIn(); await signIn; window.Close(); session.Dispose(); }
+    }
+
+    /// <summary>GitHub while the user has not entered the code yet.</summary>
+    private sealed class WaitingGitHub : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct) => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+        {
+            Content = new StringContent(request.RequestUri!.AbsolutePath == "/login/device/code"
+                ? """{ "device_code": "device", "user_code": "WDJB-MJHT", "verification_uri": "https://github.com/login/device", "expires_in": 900, "interval": 1 }"""
+                : """{ "error": "authorization_pending" }""", System.Text.Encoding.UTF8, "application/json"),
+        });
+    }
+
+    [AvaloniaFact]
     public async Task TwoPhonesSyncAndCombineTheirChanges()
     {
         var git = new GitCliBackend();

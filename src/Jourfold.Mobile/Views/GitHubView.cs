@@ -77,11 +77,22 @@ public static class GitHubView
         return button;
     }
 
-    /// <summary>The code to type on GitHub. Opening GitHub copies it, so it only needs pasting there.</summary>
+    /// <summary>
+    /// The code to type on GitHub. Opening GitHub copies it, so it only needs pasting there. Signing in to GitHub first,
+    /// with a password or a one-time code, can replace what was copied, so the code can be copied again here, with the
+    /// button or by holding it.
+    /// </summary>
     private static Control Code(MobileSession s, DeviceAuthorization code)
     {
         var str = s.Strings;
-        var digits = Ui.Text(code.UserCode, "h1").Also(t => { t.FontFamily = FontFamily.Parse("monospace"); t.LetterSpacing = 2; t.HorizontalAlignment = HorizontalAlignment.Center; });
+        var digits = Ui.Text(code.UserCode, "h1").Also(t => { t.FontFamily = FontFamily.Parse("monospace"); t.LetterSpacing = 2; t.HorizontalAlignment = HorizontalAlignment.Center; }).Copies(s);
+        var copy = Ui.Button(str["CopyCode"], "copy", "chip").Also(b => b.HorizontalAlignment = HorizontalAlignment.Center);
+        copy.Click += async (_, _) =>
+        {
+            if (TopLevel.GetTopLevel(copy)?.Clipboard is not { } clipboard) return;
+            await clipboard.SetTextAsync(code.UserCode);
+            copy.Content = Ui.H(6, Ui.Icon("check", 15), Ui.Text(str["Copied"]));
+        };
         var open = Ui.Button(str["OpenGitHub"], "external-link", "primary").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
         open.Click += async (_, _) =>
         {
@@ -91,7 +102,7 @@ public static class GitHubView
         };
         var cancel = Ui.Button(str["Cancel"], null, "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Center);
         cancel.Click += (_, _) => s.CancelSignIn();
-        return Ui.Card(Ui.V(12, Ui.Text(str["EnterCodeOnGitHub"], "strong"), digits, Ui.Text(str["CodeIsCopied"], "caption"), open,
+        return Ui.Card(Ui.V(12, Ui.Text(str["EnterCodeOnGitHub"], "strong"), digits, copy, Ui.Text(str["CodeIsCopied"], "caption"), open,
             Ui.H(8, new ProgressBar { IsIndeterminate = true, Width = 24, MinWidth = 24, Height = 4 }, Ui.Text(str["WaitingForGitHub"], "caption")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Center),
             cancel), 16);
     }

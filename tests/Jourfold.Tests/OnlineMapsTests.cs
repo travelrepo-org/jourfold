@@ -118,6 +118,20 @@ public sealed class OnlineMapsTests : IDisposable
         Assert.StartsWith("Jourfold/", server.Requests[0].Headers.UserAgent.ToString());
     }
 
+    [Fact]
+    public async Task ASignInPageInsteadOfResultsReadsAsANetworkProblem()
+    {
+        // A hotel network's sign-in page answers instead of the search server.
+        var portal = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("<html><body>Welcome to Hotel WiFi</body></html>") })), "https://search.example.org/search");
+        await Assert.ThrowsAsync<HttpRequestException>(() => portal.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en"));
+        var other = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""{"error":"maintenance"}""") })), "https://search.example.org/search");
+        await Assert.ThrowsAsync<HttpRequestException>(() => other.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en"));
+
+        // A result without a position is left out; the others are found.
+        var partial = new PlaceSearch(new HttpClient(new Server(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("""[{"display_name":"Somewhere"},{"display_name":7,"lat":"1","lon":"2"},{"display_name":"Wanaka, New Zealand","lat":"-44.70","lon":"169.13","osm_type":"node","osm_id":1}]""") })), "https://search.example.org/search");
+        Assert.Equal("Wanaka", Assert.Single(await partial.SearchAsync("Wanaka " + Guid.NewGuid().ToString("N")[..6], "en")).Name);
+    }
+
     private static string RepositoryRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

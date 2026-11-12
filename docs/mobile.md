@@ -162,7 +162,14 @@ Versions are saved under a name and email that everyone who can open the trip se
 `Jourfold.Application`). The email is the first of: the one the trip has for the person the user is ("This is me"),
 the one under Settings, the one the GitHub account shows publicly, and GitHub's private address for commits
 (`ID+login@users.noreply.github.com`). Without any of them, versions wait on the phone, and Sync and versions says
-how to give a name and email instead of reporting the trip as synced. Settings open from the trip list (the gear at
+how to give a name and email instead of reporting the trip as synced.
+
+The first time a trip opens on the phone and the user is not recognised in it, a sheet asks **Who are you in this
+trip?** (`TripWelcome` in `Jourfold.Application`, `TripWelcomeView`): the trip's people, adding oneself, or not being
+part of the trip; **Not now** closes it and the card on Today keeps the question. When the trip has no email for the
+chosen person, or for a new one, the sheet asks for it, filled in from Settings or the GitHub account, with GitHub's
+private address as an option, and saves it with the GitHub login on that person. Without an email under Settings, a
+check box (on by default) keeps it there for other trips. The sample trip never asks. Settings open from the trip list (the gear at
 the top) and under More; they are kept in `settings.json` in the app's private folder, never in a trip.
 
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and

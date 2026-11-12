@@ -32,4 +32,29 @@ public sealed class CommitIdentityTests
         Assert.Equal(("Alex Example", "alex@users.noreply.github.com"), CommitIdentity.Resolve(null, null, " ", ("alex", null, null), "Alex Example"));
         Assert.Null(CommitIdentity.Resolve(unknown, "Alex", null, null));
     }
+
+    [Fact]
+    public void OnAComputerGitsOwnSettingsComeAfterTheAppAndBeforeGitHub()
+    {
+        var gitHub = ("alex", (long?)1234567, (string?)"alex@public.invalid");
+        var unknown = Person("Alex");
+        var gitConfig = ((string?)"Alex Git", (string?)"alex@git.invalid");
+        Assert.Equal("alex@app.invalid", CommitIdentity.Resolve(unknown, "Alex", "alex@app.invalid", gitHub, gitConfig: gitConfig)?.Email);
+        Assert.Equal(("Alex", "alex@git.invalid"), CommitIdentity.Resolve(unknown, null, null, gitHub, gitConfig: gitConfig));
+        // The placeholder a computer makes from a name is no address.
+        Assert.Equal("alex@git.invalid", CommitIdentity.Resolve(unknown, "Alex", "alex@localhost", gitHub, gitConfig: gitConfig)?.Email);
+        Assert.Equal("alex@git.invalid", CommitIdentity.Suggest("alex@localhost", "alex@git.invalid", gitHub));
+        Assert.Equal("1234567+alex@users.noreply.github.com", CommitIdentity.Suggest(null, null, ("alex", 1234567, null)));
+        Assert.True(CommitIdentity.IsPlaceholder("sam@localhost"));
+    }
+
+    [Theory]
+    [InlineData("alex@example.org", true)]
+    [InlineData(" alex@example.org ", true)]
+    [InlineData("alex@example", false)]
+    [InlineData("alex example.org", false)]
+    [InlineData("@example.org", false)]
+    [InlineData("alex@.org", false)]
+    [InlineData("", false)]
+    public void AnEmailNeedsAnAtAndADomain(string text, bool email) => Assert.Equal(email, CommitIdentity.LooksLikeEmail(text));
 }

@@ -68,17 +68,18 @@ public partial class MainViewModel
     private Task AddIdentity() => RunAsync(async () =>
     {
         if (Workspace is null) return;
-        var name = Store.Get("identity.name"); var email = Store.Get("identity.email");
+        // The placeholder made from a name is not an address to put on a person; the form asks for a real one.
+        var name = Store.Get("identity.name"); var email = OwnEmail;
         if (name is null || email is null)
         {
             var values = await Interaction.FormAsync(Strings["AddMyself"], [new("name", Strings["YourName"], Value: name ?? Environment.UserName, Required: true), new("email", Strings["EmailOptional"], Value: email ?? "", Hint: Strings["EmailHint"])]);
-            if (values is null) return; name = values["name"]; email = values["email"] is { Length: > 0 } e ? e : LocalEmail(name);
-            Store.Set("identity.name", name); Store.Set("identity.email", email);
+            if (values is null) return; name = values["name"]; email = Jourfold.Application.CommitIdentity.LooksLikeEmail(values["email"]) ? values["email"].Trim() : null;
+            Store.Set("identity.name", name); Store.Set("identity.email", email ?? Store.Get("identity.email") ?? LocalEmail(name));
         }
-        var person = TripSummaries.PersonForGitEmail(Workspace.State.Trip, email)?.Copy() ?? Entity.Create("person", name);
-        person.Data["identities"] ??= new JsonObject(); person.Data["identities"]!["git"] ??= new JsonArray(new JsonObject { ["name"] = name, ["email"] = email });
+        var person = (email is null ? null : TripSummaries.PersonForGitEmail(Workspace.State.Trip, email)?.Copy()) ?? Entity.Create("person", name);
+        if (email is not null) { person.Data["identities"] ??= new JsonObject(); person.Data["identities"]!["git"] ??= new JsonArray(new JsonObject { ["name"] = name, ["email"] = email }); }
         var manifest = Workspace.State.Trip.Manifest.Copy(); var participants = manifest.Data["participants"] as JsonArray ?? []; if (manifest.Data["participants"] is null) manifest.Data["participants"] = participants; if (!participants.Any(p => p?.ToString() == person.Id.ToString())) participants.Add(person.Id.ToString());
-        await Workspace.ApplyAsync([new(person.Id, person), new(manifest.Id, manifest)]); await Workspace.Git.SetIdentityAsync(name, email); RememberMe(person); Selected = Workspace.State.Trip.Find(person.Id);
+        await Workspace.ApplyAsync([new(person.Id, person), new(manifest.Id, manifest)]); RememberMe(person); Selected = Workspace.State.Trip.Find(person.Id);
     });
 
 

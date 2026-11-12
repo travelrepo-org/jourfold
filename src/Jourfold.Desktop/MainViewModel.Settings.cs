@@ -33,7 +33,7 @@ public partial class MainViewModel
     public Task SaveIdentityAsync(string name, string email) => RunAsync(async () =>
     {
         Store.Set("identity.name", name.Trim()); Store.Set("identity.email", email.Trim().Length > 0 ? email.Trim() : LocalEmail(name));
-        if (Workspace is not null && name.Trim().Length > 0) await Workspace.Git.SetIdentityAsync(name.Trim(), Store.Get("identity.email")!);
+        await ApplyIdentityAsync();
         Interaction.Toast(Strings["SavedIdentity"]);
     });
 

@@ -39,7 +39,7 @@ public static class TodayView
     {
         if (!s.AskWhoAmI) return null;
         var choose = Ui.Button(s.Strings["ChooseWhoIAm"], "user-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-        choose.Click += (_, _) => s.OpenPage("travellers");
+        choose.Click += (_, _) => s.ShowWelcome();
         return Ui.Card(Ui.V(8, Ui.Text(s.Strings["WhoAmITitle"], "strong"), Ui.Text(s.Strings["WhoAmIPhone"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), choose), 14).Margin(16, 0);
     }
 

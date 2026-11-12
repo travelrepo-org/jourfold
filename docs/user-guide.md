@@ -95,7 +95,11 @@ Packing lists are saved in the trip like everything else. Older versions of Jour
 
 ### Who you are in a trip
 
-Jourfold needs to know which person you are for **Mine** and for your own check boxes. It recognises you when your GitHub account or the e-mail under **Settings**, **You** is stored on a person of the trip. When someone else added you before you joined, the bell asks once **Who are you in this trip?**: pick yourself, add yourself as a new person, or say you are not part of the trip. You can also open a person and choose **This is me**. Your choice is remembered on this computer only. Optionally, Jourfold saves your e-mail and GitHub name on that person, so the history shows your versions under your name and your other computers recognise you; everyone who can open the trip sees them, and Jourfold warns when the person already has someone else's.
+Jourfold needs to know which person you are for **Mine** and for your own check boxes. It recognises you when your GitHub account or the e-mail under **Settings**, **You** is stored on a person of the trip. When it does not recognise you, the trip asks **Who are you in this trip?** the first time it opens on this computer: pick yourself, add yourself as a new person, or say you are not part of the trip. **Cancel** asks later; the bell keeps the question until you answer. You can also open a person and choose **This is me**. Your choice is remembered on this computer only.
+
+When the trip has no e-mail for the person you pick, or you add yourself, Jourfold asks for one, filled in from **Settings**, **You**, your Git settings or your GitHub account, with GitHub's private address as an option. It is saved on that person, so the history shows your versions under your name and your other computers and phones recognise you; everyone who can open the trip sees it. When **Settings**, **You** has no e-mail yet, a check box keeps it there for other trips too. For a person who already has an e-mail, Jourfold can save yours and your GitHub name next to it, and warns when it belongs to someone else.
+
+Versions are saved under the e-mail the trip has for you; otherwise the one under **Settings**, **You**, the one in your Git settings, your GitHub account's public e-mail, or GitHub's private address for your account, in that order. Without any of them, saving a version says how to give one.
 
 ## Versions, variants and sharing
 

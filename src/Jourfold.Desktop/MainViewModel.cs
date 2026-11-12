@@ -189,8 +189,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";
         StartDate = TripStart(next.State.Trip);
         Weather = TripWeather.Empty; Refresh(); await UpdateLocalStateAsync(); _ = UpdateSyncStatusAsync(); await UpdateGoneVariantsAsync(); _ = UpdateWeatherAsync(force: true); _ = FetchRatesAsync();
-        // Costs written by older versions are brought into the current shape once the travellers agree.
-        using (ExecutionContext.SuppressFlow()) Avalonia.Threading.Dispatcher.UIThread.Post(() => _ = OfferCostUpgradeAsync());
+        await ApplyIdentityAsync();
+        // Costs written by older versions are brought into the current shape once the travellers agree. The first time
+        // a trip opens here, it asks who the user is in it.
+        using (ExecutionContext.SuppressFlow()) Avalonia.Threading.Dispatcher.UIThread.Post(async () => { await WelcomeAsync(); await OfferCostUpgradeAsync(); });
     }
 
     /// <summary>The first day to show: the trip's first scheduled day, its start date, or today.</summary>

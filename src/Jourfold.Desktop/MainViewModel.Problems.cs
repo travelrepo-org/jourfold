@@ -20,7 +20,8 @@ public partial class MainViewModel
             catch (DomainException) { }
         }
         var fixes = await FixesAsync(exception, health);
-        var message = Strings.Error(exception) + (exception is DomainException domain && Strings.All.TryGetValue("problem." + domain.Code, out var hint) ? "\n\n" + hint : "");
+        var message = Jourfold.Application.CommitIdentity.IsMissing(exception) ? Strings["VersionNeedsIdentityComputer"]
+            : Strings.Error(exception) + (exception is DomainException domain && Strings.All.TryGetValue("problem." + domain.Code, out var hint) ? "\n\n" + hint : "");
         var choice = await Interaction.ProblemAsync(new(Strings["SomethingWentWrong"], message, ProblemDetails(exception, health), fixes.Select(f => f.Choice).ToArray()));
         return fixes.FirstOrDefault(f => f.Choice.Id == choice).Run;
     }
@@ -31,6 +32,8 @@ public partial class MainViewModel
         if (Workspace is not { } workspace) return list;
         IReadOnlyDictionary<string, string> remotes = exception is GitCommandException { Failure: GitFailure.Authentication } ? await RemotesAsync() : new Dictionary<string, string>();
         var git = workspace.Git;
+        // Without a name and email Git saves no version; saying who one is in the trip gives them.
+        if (Jourfold.Application.CommitIdentity.IsMissing(exception)) list.Add((new("whoami", Strings["WhoAmITitle"], "user"), () => ChooseMeCommand.ExecuteAsync(null)));
         switch ((exception as GitCommandException)?.Failure)
         {
             case GitFailure.Locked when health?.LockAge >= StaleLockAge:

@@ -137,8 +137,38 @@ public sealed class MainActivity : AvaloniaMainActivity
             OpenNotice(trip, item, ticket, tries: 25);
             return;
         }
+        if (intent?.GetBooleanExtra(ExtraOpenSample, false) == true) { OpenSample(tries: 150); return; }
         if (AndroidSharing.Read(this, intent) is { } shared) Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.Session?.Receive(shared));
     }
+
+    /// <summary>
+    /// Starts with the sample trip open, for the smoke test in .github/workflows/android-check.yml
+    /// (<c>adb shell am start -n dev.jourfold.app/… --ez open-sample true</c>). The sample trip is made through Git, so it
+    /// also shows that libgit2 loads and works; the result is written to the system log under the tag "Jourfold".
+    /// </summary>
+    public const string ExtraOpenSample = "open-sample";
+
+    private static void OpenSample(int tries) => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+    {
+        if (MobileApp.Session is not { } session)
+        {
+            if (tries > 0) { await Task.Delay(200); OpenSample(tries - 1); }
+            else global::Android.Util.Log.Error("Jourfold", "open-sample: the app did not start");
+            return;
+        }
+        try
+        {
+            var folder = await session.CreateSampleAsync();
+            await session.OpenAsync(folder);
+            var head = await session.Host.Git.ExecuteAsync(folder, ["rev-parse", "HEAD"]);
+            if (head.ExitCode == 0) global::Android.Util.Log.Info("Jourfold", "open-sample: version " + head.Output.Trim());
+            else global::Android.Util.Log.Error("Jourfold", "open-sample: no version: " + head.Error);
+        }
+        catch (Exception ex)
+        {
+            global::Android.Util.Log.Error("Jourfold", "open-sample: " + ex);
+        }
+    });
 
     /// <summary>Opens what a notification is about once the app is ready; after a cold start that takes a moment.</summary>
     private static void OpenNotice(string trip, Guid? item, bool ticket, int tries) => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>

@@ -1,0 +1,124 @@
+name: Android check
+# Builds the Android app for every change that can affect it and starts it on an emulator, so that a change which
+# breaks Android shows up in its pull request and not only when a release is built. android.yml stays the workflow that
+# builds the signed APK for releases and previews; this one needs no key and no approval.
+#
+# - libgit2 for Android is built from source (cached by its commit, the NDK and the build script, as in android.yml).
+# - The app is built in Release, as for a release, for arm64 phones and x86_64 emulators. Without the release key the
+#   build signs it with the debug key, so the APK is only good for this check.
+# - The APK is started on an x86_64 emulator with the sample trip open (eng/android-smoke.sh). The sample trip is made
+#   through Git, so its version shows that libgit2 loads and works. The screen and the system log are kept.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/Jourfold.Android/**'
+      - 'src/Jourfold.Mobile/**'
+      - 'src/Jourfold.UI/**'
+      - 'src/Jourfold.Application/**'
+      - 'Directory.Build.props'
+      - 'eng/sdk.json'
+      - 'eng/android-smoke.sh'
+      - '.github/workflows/android-check.yml'
+  pull_request:
+    paths:
+      - 'src/Jourfold.Android/**'
+      - 'src/Jourfold.Mobile/**'
+      - 'src/Jourfold.UI/**'
+      - 'src/Jourfold.Application/**'
+      - 'Directory.Build.props'
+      - 'eng/sdk.json'
+      - 'eng/android-smoke.sh'
+      - '.github/workflows/android-check.yml'
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+env:
+  LIBGIT2_COMMIT: 5853918c4c6a7b12f8becf4bd11ff4362ebb9020
+  NDK_VERSION: 28.2.13676358
+  CMAKE_VERSION: 3.31.6
+  EMULATOR_API: 34
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: jourfold
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: jourfold
+      # As in CI: the TravelRepo branch with the same name when it exists, otherwise its default branch.
+      - id: travelrepo
+        working-directory: .
+        env:
+          REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
+          BRANCH: ${{ github.head_ref || github.ref_name }}
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/$REPO.git" "$BRANCH" > /dev/null; then
+            echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.TRAVELREPO_REPOSITORY }}
+          ref: ${{ steps.travelrepo.outputs.ref }}
+          path: travelrepo
+      - name: Use the pinned SDK
+        run: cp eng/sdk.json global.json
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: jourfold/eng/sdk.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: dotnet workload install android
+      - run: "\"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager\" --install \"ndk;$NDK_VERSION\" \"cmake;$CMAKE_VERSION\" > /dev/null"
+      - id: libgit2
+        uses: actions/cache@v4
+        with:
+          path: jourfold/artifacts/libgit2-android
+          key: libgit2-android-${{ env.LIBGIT2_COMMIT }}-ndk-${{ env.NDK_VERSION }}-${{ hashFiles('travelrepo/eng/build-libgit2-android.sh') }}
+      - if: steps.libgit2.outputs.cache-hit != 'true'
+        run: |
+          git init -q "$RUNNER_TEMP/libgit2" && git -C "$RUNNER_TEMP/libgit2" fetch -q --depth 1 https://github.com/libgit2/libgit2.git "$LIBGIT2_COMMIT"
+          git -C "$RUNNER_TEMP/libgit2" checkout -q FETCH_HEAD
+          ANDROID_NDK="$ANDROID_HOME/ndk/$NDK_VERSION" PATH="$ANDROID_HOME/cmake/$CMAKE_VERSION/bin:$PATH" \
+            sh ../travelrepo/eng/build-libgit2-android.sh "$RUNNER_TEMP/libgit2" artifacts/libgit2-android
+      - run: dotnet restore src/Jourfold.Android --locked-mode
+      - name: Build in Release, as for a release
+        timeout-minutes: 40
+        run: |
+          dotnet publish src/Jourfold.Android -c Release --no-restore -o "$RUNNER_TEMP/apk" -p:AndroidBuildNumber=${{ github.run_number }}
+          echo "APK=$RUNNER_TEMP/apk/dev.jourfold.app-Signed.apk" >> "$GITHUB_ENV"
+      # The emulator needs hardware acceleration, which the runner offers through KVM.
+      - name: Let the emulator use KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Start on an emulator with the sample trip open
+        timeout-minutes: 20
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ env.EMULATOR_API }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          working-directory: jourfold
+          script: sh eng/android-smoke.sh "$APK" "$RUNNER_TEMP/android"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-check
+          path: ${{ runner.temp }}/android
+          if-no-files-found: ignore
+          retention-days: 14

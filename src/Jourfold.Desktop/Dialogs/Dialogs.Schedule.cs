@@ -22,14 +22,14 @@ public sealed partial class Dialogs
         var first = initial?["start"] ?? initial?["earliest"]; var last = initial?["end"] ?? initial?["latest"];
         LocalDateTime Parse(JsonNode? node, LocalDateTime fallback) => node?["local"] is { } v && LocalDateTimePattern.ExtendedIso.Parse(v.ToString()).TryGetValue(default, out var t) ? t : fallback;
         var start = Parse(first, date.At(new LocalTime(9, 0))); var end = Parse(last, start.PlusHours(1));
-        var startDate = new CalendarDatePicker { Tag = "startDate", SelectedDate = start.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(startDate, s["StartDate"]);
+        var startDate = new DateField { Tag = "startDate", SelectedDate = start.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(startDate, s["StartDate"]);
         var startTime = new TimePicker { Tag = "startTime", ClockIdentifier = "24HourClock", SelectedTime = start.TimeOfDay.ToTimeOnly().ToTimeSpan(), MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(startTime, s["StartTime"]);
-        var endDate = new CalendarDatePicker { Tag = "endDate", SelectedDate = end.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(endDate, s["EndDate"]);
+        var endDate = new DateField { Tag = "endDate", SelectedDate = end.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(endDate, s["EndDate"]);
         var endTime = new TimePicker { Tag = "endTime", ClockIdentifier = "24HourClock", SelectedTime = end.TimeOfDay.ToTimeOnly().ToTimeSpan(), MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(endTime, s["EndTime"]);
         var startZone = new SearchChoice(FieldOptions.Timezones, first?["timezone"]?.ToString() ?? zone, s["StartTimezone"]);
         var endZone = new SearchChoice(FieldOptions.Timezones, last?["timezone"]?.ToString() ?? first?["timezone"]?.ToString() ?? zone, s["EndTimezone"]);
         var differentZone = new CheckBox { Content = s["ArrivesInOtherZone"], IsChecked = (last?["timezone"]?.ToString() ?? first?["timezone"]?.ToString()) != (first?["timezone"]?.ToString() ?? zone) };
-        var day = new CalendarDatePicker { Tag = "day", SelectedDate = (initial?["date"] is { } d && LocalDatePattern.Iso.Parse(d.ToString()).TryGetValue(default, out var parsed) ? parsed : date).ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(day, s["Date"]);
+        var day = new DateField { Tag = "day", SelectedDate = (initial?["date"] is { } d && LocalDatePattern.Iso.Parse(d.ToString()).TryGetValue(default, out var parsed) ? parsed : date).ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(day, s["Date"]);
         var dayPart = initial?["day_part"]?.ToString() ?? "morning";
         var dayZone = new SearchChoice(FieldOptions.Timezones, initial?["timezone"]?.ToString() ?? zone, s["Timezone"]) { Tag = "dayZone" };
 

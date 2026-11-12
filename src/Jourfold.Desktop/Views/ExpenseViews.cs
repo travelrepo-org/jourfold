@@ -233,7 +233,7 @@ public static class ExpenseViews
         // The day of the charge, the expense's own day until changed; it keeps the rate historically right.
         if (charge is { } done)
         {
-            var day = new CalendarDatePicker { SelectedDate = done.Date is { } d ? d.ToDateTimeUnspecified() : null, Width = 150 };
+            var day = new DateField { SelectedDate = done.Date is { } d ? d.ToDateTimeUnspecified() : null, Width = 150 };
             AutomationProperties.SetName(day, s["ChargedOn"]);
             day.SelectedDateChanged += (_, _) => { if (day.SelectedDate is { } picked && NodaTime.LocalDate.FromDateTime(picked) is var chosen && chosen != done.Date) _ = m.SetChargeDayAsync(expense.Id, chosen); };
             row.Children.Add(day.Margin(8, 0, 0, 0));

@@ -14,6 +14,7 @@ public partial class App : Avalonia.Application
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
     public override void OnFrameworkInitializationCompleted()
     {
+        WheelScrollsPage.Install();
         // Only the real desktop app may show system dialogs for stored secrets; headless tests run without anyone to answer.
         var services = new ServiceCollection(); services.AddSingleton<LocalStore>(); services.AddSingleton(new OsSecretStore(interactive: ApplicationLifetime is IClassicDesktopStyleApplicationLifetime)); services.AddSingleton<IGitBackend>(sp => new GitCliBackend(credentialBroker: new GitHubCredentialBroker(sp.GetRequiredService<OsSecretStore>()))); Services = services.BuildServiceProvider();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

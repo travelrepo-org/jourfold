@@ -28,7 +28,7 @@ public sealed class Sheet : Grid
     // Where a drag started and how tall the sheet was then; the height follows the finger from there.
     private double? dragFrom, dragHeight;
     private double dragStartHeight;
-    private double keyboard;
+    private double keyboard, bottomInset;
 
     /// <summary>Raised when the sheet closes, by dragging down, tapping outside, the back gesture or <see cref="Close"/>.</summary>
     public event Action? Closed;
@@ -108,8 +108,35 @@ public sealed class Sheet : Grid
     protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
     {
         base.OnAttachedToVisualTree(e);
-        if (TopLevel.GetTopLevel(this)?.InputPane is { } pane)
-            pane.StateChanged += (_, args) => { keyboard = args.NewState == Avalonia.Controls.Platform.InputPaneState.Open ? args.EndRect.Height : 0; Place(); };
+        if (TopLevel.GetTopLevel(this)?.InputPane is { } pane) pane.StateChanged += OnKeyboard;
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        if (TopLevel.GetTopLevel(this)?.InputPane is { } pane) pane.StateChanged -= OnKeyboard;
+        base.OnDetachedFromVisualTree(e);
+    }
+
+    /// <summary>
+    /// Follows the keyboard at once. Its bottom moves with the keyboard right away, so a height that glided after it
+    /// made the sheet jump and slide back each time the keyboard was hidden.
+    /// </summary>
+    private void OnKeyboard(object? sender, Avalonia.Controls.Platform.InputPaneStateEventArgs args)
+    {
+        keyboard = args.NewState == Avalonia.Controls.Platform.InputPaneState.Open ? args.EndRect.Height : 0;
+        var glide = panel.Transitions; panel.Transitions = null;
+        Place();
+        if (glide is not null) Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (dragFrom is null) panel.Transitions ??= glide; }, Avalonia.Threading.DispatcherPriority.Render);
+    }
+
+    /// <summary>
+    /// The room the system's own controls take at the bottom of the screen, such as Android's back, home and recent
+    /// buttons or the gesture bar. The sheet's background reaches the edge, but its content ends above them.
+    /// </summary>
+    public double BottomInset
+    {
+        get => bottomInset;
+        set { if (bottomInset != value) { bottomInset = value; Place(); } }
     }
 
     /// <summary>Replaces what the sheet shows, keeping its detent and the scroll position.</summary>
@@ -128,6 +155,8 @@ public sealed class Sheet : Grid
     {
         if (Bounds.Height <= 0) return;
         panel.Margin = new Thickness(0, 0, 0, keyboard);
+        // Above the keyboard the system's buttons are covered anyway.
+        scroll.Padding = new Thickness(0, 0, 0, keyboard > 0 ? 0 : bottomInset);
         if (side) return;
         var available = Bounds.Height - keyboard;
         // With the keyboard up the sheet takes the room above it.

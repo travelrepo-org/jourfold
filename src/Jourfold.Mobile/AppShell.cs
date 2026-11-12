@@ -50,6 +50,20 @@ public sealed class AppShell : UserControl
     private double scrolled, lastScroll;
     private readonly System.Diagnostics.Stopwatch touchClock = new();
 
+    static AppShell()
+    {
+        // A date or time wheel opens over the page, but Avalonia passes its touches on to the field it belongs to and
+        // the form around it. A finger between two wheels, which no wheel takes, scrolled the form behind instead.
+        // Inside a wheel the wheel scrolls as before.
+        static void KeepTouch(Control presenter, Avalonia.Input.PointerPressedEventArgs e)
+        {
+            if (e.Source is Visual source && !Avalonia.VisualTree.VisualExtensions.GetSelfAndVisualAncestors(source).TakeWhile(v => v != presenter).Any(v => v is ScrollViewer))
+                e.PreventGestureRecognition();
+        }
+        Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<DatePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
+        Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<TimePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
+    }
+
     public AppShell(MobileSession session)
     {
         Session = session; Classes.Add("shell");
@@ -257,6 +271,8 @@ public sealed class AppShell : UserControl
         var bar = Session.Workspace is not null && Breakpoint == WidthClass.Phone;
         root.Padding = new Thickness(safeArea.Left, safeArea.Top, safeArea.Right, bar ? 0 : safeArea.Bottom);
         if (bottomBar is not null) bottomBar.Padding = new Thickness(0, 0, 0, safeArea.Bottom);
+        // Sheets reach the screen's edge too, so their last button stays above the system's buttons.
+        if (sheet is not null) sheet.BottomInset = bar ? safeArea.Bottom : 0;
     }
 
     /// <summary>Where the user is. When it changes, the page is drawn at once, even while someone types.</summary>
@@ -274,7 +290,11 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>Draws what waited while someone typed.</summary>
-    private void Catch() { if (pending && !Typing()) Render(); }
+    private void Catch()
+    {
+        if (keyboard && !TypingAnywhere()) Keyboard(false, 0);
+        if (pending && !Typing()) Render();
+    }
 
     private void Render()
     {
@@ -282,6 +302,9 @@ public sealed class AppShell : UserControl
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
         bottomBar = null;
         Inset();
+        // The keyboard goes with the field typed in. Android does not always say so, for example when back leaves the
+        // trip while it is up; the page would then end half way up the screen, without the bottom bar, from then on.
+        if (keyboard && !TypingAnywhere()) Keyboard(false, 0);
         if (Session.Workspace is null) { main.Child = TripListView.Build(Session, Breakpoint); Overlays(docked: false); return; }
         // Ticking something off, or any change that draws the page again, leaves it where it was scrolled to. The plan
         // keeps its own place per day, and the map has none.
@@ -395,7 +418,7 @@ public sealed class AppShell : UserControl
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);
-            if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); }
+            if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); Inset(); }
         }
         // A long-press menu sits above the page and the sheet, a question above everything else.
         foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);

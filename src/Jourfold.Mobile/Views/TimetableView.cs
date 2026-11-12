@@ -95,7 +95,7 @@ public static class TimetableView
             var weekday = Ui.Text(day.Date.ToString("ddd", culture).TrimEnd('.').ToUpper(culture), "small", "muted");
             var date = Ui.Text(day.Date.ToString(Formats.DayPattern("d MMM", culture), culture), "strong");
             if (today) { weekday.Res(TextBlock.ForegroundProperty, "Accent"); date.Res(TextBlock.ForegroundProperty, "Accent"); }
-            var place = zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone), "small", "muted");
+            var place = zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone, s.Trip, lines), "small", "muted");
             if ((count == 1 ? (Control?)place?.Margin(10, 0, 4, 4) : Ui.V(0, weekday, date, place).Margin(10, 0, 4, 6)) is { } head) header.Children.Add(head.Col(i + 1));
             var lane = new Canvas { ClipToBounds = true };
             grid.Children.Add(new Border { BorderThickness = new Thickness(1, 0, 0, 0), Child = lane }.Res(Border.BorderBrushProperty, "Line").Col(i + 1));

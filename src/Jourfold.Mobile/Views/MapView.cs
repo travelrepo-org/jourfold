@@ -118,12 +118,15 @@ public sealed class MapPage : UserControl
         Place();
     }
 
-    /// <summary>The part of the map that the date strip and the sheet leave free: above the sheet on phones, left of it on tablets.</summary>
+    /// <summary>
+    /// The part of the map that the date strip, the controls on the right and the sheet leave free: above the sheet on
+    /// phones, left of it on tablets.
+    /// </summary>
     private Rect Visible()
     {
-        const double strip = 72;
-        return sideSheet ? new Rect(0, strip, Math.Max(200, Bounds.Width - 400), Math.Max(200, Bounds.Height - strip))
-            : new Rect(0, strip, Bounds.Width, Math.Max(160, Bounds.Height * 0.58 - strip));
+        const double strip = 72, controls = 64;
+        return sideSheet ? new Rect(0, strip, Math.Max(200, Bounds.Width - 400 - controls), Math.Max(200, Bounds.Height - strip))
+            : new Rect(0, strip, Math.Max(200, Bounds.Width - controls), Math.Max(160, Bounds.Height * 0.58 - strip));
     }
 
     /// <summary>Moves what is in the middle of the map into the middle of the free part.</summary>

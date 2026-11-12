@@ -96,6 +96,7 @@ public sealed class AppShell : UserControl
             if (scrolled > ScrollDistance || (speed > ScrollSpeed && scrolled > TapSlop)) Focus(Avalonia.Input.NavigationMethod.Pointer);
         }, RoutingStrategies.Bubble, handledEventsToo: true);
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
+        AddHandler(KeyDownEvent, OnCommandKey, RoutingStrategies.Tunnel);
         // Enter in a one-line field sends it, as its button would, so what it added shows at once.
         AddHandler(KeyDownEvent, (_, e) =>
         {
@@ -133,6 +134,30 @@ public sealed class AppShell : UserControl
 
     /// <summary>A command shortcut with the given key, as the platform writes it.</summary>
     public static string Shortcut(string key) => AppleKeys ? "⌘" + key : "Ctrl+" + key;
+
+    /// <summary>Whether text fields take ⌘ for copy and paste, as on an iPad with a keyboard. Tests set it.</summary>
+    public static bool CommandEditing { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
+
+    /// <summary>
+    /// ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z in a text field. Avalonia knows these keys only with Ctrl on iOS, so ⌘V would type a
+    /// "v" instead of pasting.
+    /// </summary>
+    private void OnCommandKey(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (!CommandEditing || e.Source is not TextBox box || !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta)) return;
+        var shift = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift);
+        switch (e.Key)
+        {
+            case Avalonia.Input.Key.C: box.Copy(); break;
+            case Avalonia.Input.Key.X: box.Cut(); break;
+            case Avalonia.Input.Key.V: box.Paste(); break;
+            case Avalonia.Input.Key.A: box.SelectAll(); break;
+            case Avalonia.Input.Key.Z when shift: box.Redo(); break;
+            case Avalonia.Input.Key.Z: box.Undo(); break;
+            default: return;
+        }
+        e.Handled = true;
+    }
 
     public static WidthClass Classify(double width) => width switch { < 600 => WidthClass.Phone, < 840 => WidthClass.CompactTablet, < 1200 => WidthClass.Tablet, _ => WidthClass.Wide };
 

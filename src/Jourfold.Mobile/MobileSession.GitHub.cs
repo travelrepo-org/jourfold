@@ -117,6 +117,8 @@ public sealed partial class MobileSession
                 GitHubLogin = account?.Login ?? "GitHub"; Settings.GitHubLogin = account?.Login;
                 if (Settings.Name is null && account?.Name is { Length: > 0 } name) Settings.Name = name;
                 Settings.Save();
+                // A trip open during the sign-in saves its next versions under the account.
+                if (Workspace is { } workspace && Identity is ({ } who, { } email)) await workspace.Git.SetIdentityAsync(who, email, token);
             }
             catch (Exception ex) when (GitHubProvider.IsTransient(ex, token)) { }
             // A first sign-in leaves the App without repositories; say so right away instead of after a search.
@@ -189,8 +191,12 @@ public sealed partial class MobileSession
         try
         {
             await SaveChangesAsync(ct);
+            // Changes that are not in a version would not be sent, and the trip would only look synced.
+            if (VersionProblem is { } notSaved) { SyncProblem = notSaved; return; }
             var state = await workspace.Git.SyncAsync(remote, ct);
             PendingMerge = null;
+            // Changes made while the sync ran are not sent yet, and nothing was combined; the next sync takes them.
+            if (state == SyncState.LocalChanges) { SyncProblem = Strings["SyncChangesWaiting"]; return; }
             if (state == SyncState.Diverged)
             {
                 var branch = "refs/remotes/" + remote + "/" + await workspace.Git.CurrentBranchAsync(ct);

@@ -1002,7 +1002,11 @@ public static class MorePages
     private static Control Sync(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings;
-        var state = s.HasChanges
+        // Changes that could not become a version say why; they are not sent until they can.
+        var state = s.HasChanges && s.VersionProblem is { } why
+            ? Ui.Columns("Auto,*", Ui.Icon("alert-triangle", 22, "Danger").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"),
+                Ui.Text(why, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); })))
+            : s.HasChanges
             ? Ui.Columns("Auto,*", Ui.Icon("pencil", 22, "Text.Muted").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"), Ui.Text(str["ChangesBecomeVersion"], "caption")))
             : Ui.Columns("Auto,*", Ui.Icon("circle-check", 22, "Success").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["AllSavedOnPhone"], "strong"),
                 s.LastVersion is { } last ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["LastVersionAt"], Formats.Relative(last, str)), "caption") : null));

@@ -637,6 +637,80 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APhoneSignedInWithoutAnEmailSavesVersionsUnderItsGitHubAddress()
+    {
+        // Signing in fills in the account's name, but GitHub does not tell the email, and Android has no Git settings.
+        var settings = Path.Combine(root, "alex"); Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "Name": "Alex" }""");
+        var git = new GitCliBackend();
+        var session = new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets()));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        // A trip copied from GitHub has no identity of its own.
+        foreach (var key in new[] { "user.name", "user.email" }) await git.ExecuteAsync(path, ["config", "--local", "--unset", key]);
+        await session.OpenAsync(path);
+        Assert.Equal(("Alex", "alex@users.noreply.github.com"), session.Identity);
+        Assert.Equal("alex@users.noreply.github.com", (await git.ExecuteAsync(path, ["config", "--local", "user.email"])).Output.Trim());
+        // An email of one's own wins.
+        await session.SaveSettingsAsync("Alex", "alex@example.invalid");
+        Assert.Equal("alex@example.invalid", (await git.ExecuteAsync(path, ["config", "--local", "user.email"])).Output.Trim());
+        session.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task ChangesThatCannotBecomeAVersionSayWhyAndAreNotReportedAsSynced()
+    {
+        var git = new GitCliBackend();
+        var shared = Path.Combine(root, "shared.git"); Directory.CreateDirectory(shared);
+        Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
+        var secrets = new MemorySecrets(); await secrets.WriteAsync("github.user-token", "token");
+        var settings = Path.Combine(root, "alex"); Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "Name": "Alex", "Email": "alex@example.invalid" }""");
+        var session = new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
+        await session.LoadGitHubAsync();
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await session.OpenAsync(path); await session.Workspace!.Git.AddRemoteAsync("origin", shared);
+        await session.OpenAsync(path);
+        while (session.Syncing) await Task.Delay(20);
+        var synced = session.LastSync; Assert.NotNull(synced); Assert.Null(session.SyncProblem);
+
+        var wifi = session.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+        await session.SetTaskDoneAsync(wifi.Id, true);
+        // Git cannot store the version, here because another program holds the trip's index.
+        var held = Path.Combine(path, ".git", "index.lock"); await File.WriteAllTextAsync(held, "");
+        await session.SyncAsync(quiet: true);
+        Assert.True(session.HasChanges);
+        Assert.NotNull(session.VersionProblem);
+        Assert.Equal(session.VersionProblem, session.SyncProblem);
+        Assert.Equal(synced, session.LastSync);
+        session.OpenPage("sync");
+        Assert.Contains(session.VersionProblem, Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(MorePages.Build(session, WidthClass.Phone)).OfType<TextBlock>().Select(t => t.Text));
+
+        // Once Git can store it again, the next sync sends it.
+        File.Delete(held);
+        await session.SyncAsync(quiet: true);
+        Assert.False(session.HasChanges); Assert.Null(session.VersionProblem); Assert.Null(session.SyncProblem);
+        Assert.Equal((await git.ExecuteAsync(path, ["rev-parse", "HEAD"])).Output, (await git.ExecuteAsync(shared, ["rev-parse", "main"])).Output);
+        session.Dispose();
+    }
+
+    [AvaloniaFact]
+    public async Task TappingATripTwiceWhileItOpensOpensItOnce()
+    {
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets()));
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        var first = session.OpenAsync(path); var second = session.OpenAsync(path);
+        await Task.WhenAll(first, second);
+        Assert.NotNull(session.Workspace); Assert.Null(session.ChangeProblem);
+        // Leaving with a change saves it as a version on the way out; opening the trip right away waits for that.
+        var wifi = session.Trip!.Entities.Values.Single(e => e.Title == "Rent pocket Wi-Fi");
+        await session.SetTaskDoneAsync(wifi.Id, true);
+        session.Close();
+        await session.OpenAsync(path);
+        Assert.Equal("completed", session.Trip!.Find(wifi.Id)!.Data["status"]!.ToString());
+        session.Dispose();
+    }
+
+    [AvaloniaFact]
     public async Task TripsAppearInTheCalendarToReadAndGoWithTheTrip()
     {
         var calendar = new FakeCalendar();

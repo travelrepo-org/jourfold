@@ -109,15 +109,38 @@ public sealed partial class MobileSession : IDisposable
         return path;
     }
 
-    public async Task OpenAsync(string path, CancellationToken ct = default)
+    public Task OpenAsync(string path, CancellationToken ct = default)
+    {
+        // A second tap on a trip that is still opening waits for it instead of opening it again, which would find the
+        // trip held by the first. Otherwise trips open one after the other.
+        var full = Path.GetFullPath(path);
+        if (pendingOpen is { } pending && pending.Path == full && !pending.Task.IsCompleted) return pending.Task;
+        var task = OpenInTurnAsync(path, ct);
+        pendingOpen = (full, task);
+        return task;
+    }
+
+    private (string Path, Task Task)? pendingOpen;
+    private readonly SemaphoreSlim opening = new(1, 1);
+
+    private async Task OpenInTurnAsync(string path, CancellationToken ct)
+    {
+        await opening.WaitAsync(ct);
+        try { await OpenCoreAsync(path, ct); }
+        finally { opening.Release(); }
+    }
+
+    private async Task OpenCoreAsync(string path, CancellationToken ct)
     {
         Close();
+        // A trip just left may still be saving its last version, and holds the trip until it is done.
+        await closing;
         var workspace = new Workspace(path, Host.Git);
         // Not while the system's "Sync now" is moving this trip forward.
         await SystemCalendars.TripGate.WaitAsync(ct);
         try { await workspace.OpenAsync(ct); }
         finally { SystemCalendars.TripGate.Release(); }
-        if (Settings.Name is { Length: > 0 } name && Settings.Email is { Length: > 0 } email) await workspace.Git.SetIdentityAsync(name, email, ct);
+        if (Identity is ({ } name, { } email)) await workspace.Git.SetIdentityAsync(name, email, ct);
         Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
         Agenda = TripAgenda.Build(workspace.State.Trip);
         Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
@@ -150,7 +173,7 @@ public sealed partial class MobileSession : IDisposable
 
     private void Reset()
     {
-        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; PendingMerge = null; Drafts.Remove("version");
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; VersionProblem = null; PendingMerge = null; Drafts.Remove("version");
         viewing.Clear(); FileProblem = null; TaxiCard = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
@@ -162,7 +185,7 @@ public sealed partial class MobileSession : IDisposable
             if (!string.IsNullOrEmpty(await workspace.Git.StatusAsync()))
                 await workspace.Git.CreateVersionAsync(Strings["AutoVersion"], "auto-version");
         }
-        catch (DomainException) { }
+        catch (Exception ex) when (IsExpected(ex)) { }
         finally { workspace.Dispose(); }
     }
 
@@ -234,8 +257,23 @@ public sealed partial class MobileSession : IDisposable
         Settings.Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
         Settings.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         Settings.Save();
-        if (Workspace is { } workspace && Settings.Name is { } n && Settings.Email is { } e) await workspace.Git.SetIdentityAsync(n, e, ct);
+        if (Workspace is { } workspace && Identity is ({ } n, { } e)) await workspace.Git.SetIdentityAsync(n, e, ct);
         Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// The name and email versions made on this phone are saved under: the ones from the settings, or else the GitHub
+    /// account's name and its private address on GitHub. Without any of them the trip keeps the identity it has, as
+    /// the sample trip does. Git refuses every version without an identity, and Android has no Git settings of its own.
+    /// </summary>
+    public (string Name, string Email)? Identity
+    {
+        get
+        {
+            var login = Settings.GitHubLogin is { Length: > 0 } known ? known : null;
+            var email = Settings.Email is { Length: > 0 } own ? own : login is not null ? login + "@users.noreply.github.com" : null;
+            return email is null ? null : (Settings.Name is { Length: > 0 } name ? name : login ?? email, email);
+        }
     }
 
     /// <summary>Reads the versions and whether there are open changes; the page is drawn again only if they differ.</summary>
@@ -257,7 +295,7 @@ public sealed partial class MobileSession : IDisposable
         if (Workspace is not { } workspace) return;
         quiet?.Dispose(); quiet = null;
         await workspace.Git.CreateVersionAsync(message.Trim(), "user-version", ct);
-        Drafts.Remove("version");
+        Drafts.Remove("version"); VersionProblem = null;
         LastVersion = DateTimeOffset.Now;
         await RefreshVersionsAsync(force: true, ct);
     }
@@ -294,14 +332,26 @@ public sealed partial class MobileSession : IDisposable
         await saving.WaitAsync(ct);
         try
         {
-            if (string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) { HasChanges = false; return; }
+            if (string.IsNullOrEmpty(await workspace.Git.StatusAsync(ct))) { HasChanges = false; VersionProblem = null; return; }
             await workspace.Git.CreateVersionAsync(Strings["AutoVersion"], "auto-version", ct);
-            LastVersion = DateTimeOffset.Now; HasChanges = false;
+            LastVersion = DateTimeOffset.Now; HasChanges = false; VersionProblem = null;
             if (Page == "sync") History = await workspace.Git.HistoryAsync(ct);
         }
-        catch (DomainException) { HasChanges = true; }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // The changes stay on the phone, and the sync page and the sync say why they are not in a version. The
+            // details, such as what Git answered, go to the log on this device.
+            HasChanges = true; LogError(ex);
+            VersionProblem = IsExpected(ex) ? Strings.Error(ex) : Strings["UnexpectedErrorPhone"];
+        }
         finally { saving.Release(); Changed?.Invoke(); }
     }
+
+    /// <summary>
+    /// Why the open changes could not become a version the last time it was tried, such as errors in the trip. Null
+    /// when the last try worked. Until it works, the changes stay on this phone and are not sent.
+    /// </summary>
+    public string? VersionProblem { get; private set; }
 
     public void ShowDate(LocalDate date) { SelectedDate = date; SelectedItem = null; Changed?.Invoke(); }
     public void Select(Guid? item) { SelectedItem = SelectedItem == item ? null : item; Changed?.Invoke(); }

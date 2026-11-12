@@ -1,0 +1,19 @@
+# Release notes for Jourfold 0.11.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.11.0
+date: 2026-11-12
+highlights:
+  - icon: smartphone
+    en: Jourfold runs on iPhone and iPad, with the same trips, Today, plan, map, costs and packing lists as on Android, sync with GitHub, reminders and the trips in the calendar. It is not in the App Store. Each release has the app attached, to install with your Apple ID through AltStore, SideStore or Sideloadly.
+    de: Jourfold läuft auf iPhone und iPad, mit denselben Reisen, „Heute“, Plan, Karte, Kosten und Packlisten wie auf Android, mit Sync über GitHub, Erinnerungen und den Reisen im Kalender. Die App ist nicht im App Store. Jedes Release enthält sie zum Installieren mit Ihrer Apple-ID über AltStore, SideStore oder Sideloadly.
+changes:
+  - en: On phones and tablets, "Show everything" on the map shows a long route whole, such as Frankfurt to Tokyo, and keeps it clear of the map's buttons.
+    de: Auf Handys und Tablets zeigt „Alles zeigen“ auf der Karte auch eine lange Strecke ganz, etwa Frankfurt–Tokio, und hält sie von den Schaltflächen der Karte frei.
+  - en: The timeline names a day's time zone by the town where its first plan starts, such as Frankfurt am Main, as the list does, instead of the city the zone is named after.
+    de: Die Zeitleiste benennt die Zeitzone eines Tages nach dem Ort, an dem sein erster Plan beginnt, etwa Frankfurt am Main, wie die Liste, statt nach der Stadt, nach der die Zone heißt.
+  - en: Time ranges such as 16:00–18:00 and durations such as 11 h 15 min no longer break across two lines.
+    de: Zeitspannen wie 16:00–18:00 und Dauern wie 11 Std. 15 Min. brechen nicht mehr über zwei Zeilen um.
+  - en: On an iPad with a keyboard, ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z work in text fields, and shortcuts are shown with ⌘.
+    de: Auf einem iPad mit Tastatur funktionieren ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z und ⇧⌘Z in Textfeldern, und Tastenkürzel werden mit ⌘ angezeigt.
+  - en: On iPhone and iPad, "Navigate" opens Apple Maps, and the calendar settings say whether the trips' calendars are kept in iCloud or another online account.
+    de: Auf iPhone und iPad öffnet „Navigieren“ Apple Karten, und die Kalendereinstellungen sagen, ob die Kalender der Reisen in iCloud oder einem anderen Online-Konto liegen.

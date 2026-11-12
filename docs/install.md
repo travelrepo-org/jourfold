@@ -74,6 +74,16 @@ Jourfold runs on Android 10 or newer, on phones and tablets. Each release has th
 
 The APK is signed with the project's release key. To check it on a computer, compare the fingerprint `apksigner verify --print-certs` prints with the one in [the mobile app documentation](mobile.md#signed-builds), and the file's SHA-256 with `SHA256SUMS` from the release. Android refuses an APK signed with another key over an installed one, so a build of your own needs the installed app removed first, and with it the trips that are only on the phone.
 
+## iPhone and iPad
+
+Jourfold runs on iOS and iPadOS 15 or newer. It is not in the App Store: each release has the app attached unsigned as `jourfold-<version>-ios-unsigned.ipa`, and you sign it with your own Apple ID when you install it:
+
+1. Install a sideloading tool such as [AltStore](https://altstore.io), [SideStore](https://sidestore.io) or [Sideloadly](https://sideloadly.io) and sign in to it with your Apple ID.
+2. Download the IPA from the [latest release](https://github.com/travelrepo-org/jourfold/releases/latest) and open it with the tool, which signs and installs it.
+3. To update, install the IPA of a newer release with the same tool. Trips and settings stay as long as the app is not deleted.
+
+With a free Apple ID the signature lasts 7 days; after that the app does not start until it is signed again, which AltStore and SideStore do on the device. A free Apple ID can sign at most three such apps per device. To check the download, compare its SHA-256 with `SHA256SUMS` from the release. [The mobile app documentation](mobile.md#iphone-and-ipad) says how to build and install the app on a Mac yourself.
+
 ## What is kept
 
 Uninstalling removes the application only. Your trip folders (by default `Documents/Jourfold`) and settings stay where they are.
@@ -96,11 +106,11 @@ Releases are made by hand in GitHub, and publishing one starts `.github/workflow
 
 1. Make sure `Version` in `Directory.Build.props` on `main` is the version you want, and that the TravelRepo release `v<TravelRepoVersion>` is published.
 2. In GitHub, draft a new release with the tag `v<Version>` (for example `v0.2.0`) on `main` and publish it. Title and notes may stay empty, and ticking **Set as a pre-release** is optional; the workflow makes it one first anyway.
-3. If you leave the title empty, the workflow names the release after its code name, for example `Jourfold 0.1.0 “Nomadic Nightingale”`, and it writes the notes from `docs/releases` below anything you wrote. It checks that the tag matches `Version` and that the TravelRepo tag exists, then builds Jourfold against exactly that TravelRepo tag. It tests, packages x64 and ARM64 for Linux, Windows and macOS, compiles the Windows setups, builds the signed Android APK, writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and attaches everything to the release.
+3. If you leave the title empty, the workflow names the release after its code name, for example `Jourfold 0.1.0 “Nomadic Nightingale”`, and it writes the notes from `docs/releases` below anything you wrote. It checks that the tag matches `Version` and that the TravelRepo tag exists, then builds Jourfold against exactly that TravelRepo tag. It tests, packages x64 and ARM64 for Linux, Windows and macOS, compiles the Windows setups, builds the signed Android APK and, on a Mac runner, the unsigned iPhone and iPad app (`jourfold-<version>-ios-unsigned.ipa`, from `ios.yml`), writes `SHA256SUMS`, puts the repository name into `install.sh` and `install.ps1` in place of `@JOURFOLD_REPOSITORY@`, and attaches everything to the release.
 
 The workflow's first step turns the release into a pre-release, so the one-line installers keep using the previous release until the files are attached. Then the workflow turns it into a full release and marks it as latest. If a check or build fails, the workflow turns the release back into a draft and the run log says why. Fix the problem and publish the draft again. Tags with a suffix (for example `v0.2.0-beta.1`, with the same `Version` in `Directory.Build.props`) stay pre-releases. `releases/latest` skips them, so install them with `--version`. "Run workflow" rebuilds the files of an already published release.
 
-The Android job runs in the `release` environment, which holds the signing key, and waits until a maintainer approves it; the files are attached only after it is done. Because that environment accepts only `v*` tags, "Run workflow" has to be started on the release tag, not on a branch.
+The Android job runs in the `release` environment, which holds the signing key, and waits until a maintainer approves it; the files are attached only after it is done. Because that environment accepts only `v*` tags, "Run workflow" has to be started on the release tag, not on a branch. The iOS job needs no key and no approval: Apple has no key that lets everyone install an app outside the App Store, so the IPA is signed by whoever installs it.
 
 A ruleset lets only organisation admins create, move or delete `v*` tags. The workflow checks out TravelRepo from the repository named in the `TRAVELREPO_REPOSITORY` variable.
 

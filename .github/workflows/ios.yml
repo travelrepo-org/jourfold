@@ -7,16 +7,27 @@ name: iOS
 #   The sample trip is created through Git, so a trip folder with a version shows that libgit2 loads and works.
 # - The app is built for devices without signing. Apple lets only signed apps run on a device; docs/mobile.md says how
 #   to sign and install it with an Apple ID.
+#
+# release.yml calls this workflow for a published release, with the release tag and the TravelRepo tag. Then only the
+# device build runs: the IPA is named after the version (jourfold-<version>-ios-unsigned.ipa), gets build number 999
+# as on Android, and is handed to the release's publish job as the artifact release-ios.
 on:
   push:
     branches: [main]
-    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', '.github/workflows/ios.yml']
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
   pull_request:
-    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', '.github/workflows/ios.yml']
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
   workflow_dispatch:
-concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      tag:
+        description: The release tag to build, for example v0.11.0
+        type: string
+        required: true
+      travelrepo:
+        description: The TravelRepo tag to build against
+        type: string
+        required: true
 permissions:
   contents: read
 env:
@@ -29,21 +40,31 @@ jobs:
   app:
     runs-on: macos-26
     timeout-minutes: 120
+    # Here and not for the whole workflow: when release.yml calls it, the workflow's name is the caller's. A release is
+    # never cancelled by a newer run.
+    concurrency:
+      group: ios-${{ inputs.tag || github.head_ref || github.ref_name }}
+      cancel-in-progress: ${{ !inputs.tag }}
     defaults:
       run:
         working-directory: jourfold
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.tag }}
           path: jourfold
-      # As in CI: the TravelRepo branch with the same name when it exists, otherwise its default branch.
+      # For a release the TravelRepo tag it names; otherwise, as in CI, the TravelRepo branch with the same name when it
+      # exists, else its default branch.
       - id: travelrepo
         working-directory: .
         env:
           REPO: ${{ vars.TRAVELREPO_REPOSITORY }}
           BRANCH: ${{ github.head_ref || github.ref_name }}
+          GIVEN: ${{ inputs.travelrepo }}
         run: |
-          if git ls-remote --exit-code --heads "https://github.com/$REPO.git" "$BRANCH" > /dev/null; then
+          if [ -n "$GIVEN" ]; then
+            echo "ref=$GIVEN" >> "$GITHUB_OUTPUT"
+          elif git ls-remote --exit-code --heads "https://github.com/$REPO.git" "$BRANCH" > /dev/null; then
             echo "ref=$BRANCH" >> "$GITHUB_OUTPUT"
           else
             echo "ref=" >> "$GITHUB_OUTPUT"
@@ -87,14 +108,17 @@ jobs:
           # Both RIDs in one restore, so both builds can skip theirs (see RestoreAllRids in the project).
           if [ -f src/Jourfold.iOS/packages.lock.json ]; then dotnet restore src/Jourfold.iOS -p:RestoreAllRids=true --locked-mode; else dotnet restore src/Jourfold.iOS -p:RestoreAllRids=true; fi
       - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.tag }}
         with:
           name: ios-packages-lock
           path: jourfold/src/Jourfold.iOS/packages.lock.json
       # Debug: the smoke test needs neither trimming nor ahead-of-time code, which make a Release build much slower.
       - name: Build for the simulator
+        if: ${{ !inputs.tag }}
         timeout-minutes: 20
         run: dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 --no-restore -p:IosBuildNumber=${{ github.run_number }}
       - name: Start on an iPhone and an iPad
+        if: ${{ !inputs.tag }}
         timeout-minutes: 15
         run: |
           app="$(find src/Jourfold.iOS/bin/Debug -maxdepth 4 -name '*.app' -path '*iossimulator-arm64*' | head -n 1)"
@@ -120,7 +144,7 @@ jobs:
             xcrun simctl shutdown "$udid"
           done
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && !inputs.tag }}
         with:
           name: ios-screens
           path: ${{ runner.temp }}/screens
@@ -130,20 +154,26 @@ jobs:
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+          RELEASE: ${{ inputs.tag && 'true' || 'false' }}
         run: |
+          # A release gets build number 999, as on Android, so it updates every build of the same version.
+          if [ "$RELEASE" = true ]; then number=999; else number=${{ github.run_number }}; fi
           dotnet publish src/Jourfold.iOS -c Release -r ios-arm64 --no-restore -o "$RUNNER_TEMP/ipa" \
-            -p:IosBuildNumber=${{ github.run_number }} -p:BuildIpa=true -p:EnableCodeSigning=false -bl:"$RUNNER_TEMP/binlog/device.binlog"
+            -p:IosBuildNumber=$number -p:BuildIpa=true -p:EnableCodeSigning=false -bl:"$RUNNER_TEMP/binlog/device.binlog"
           version="$(python3 eng/version.py)"
-          mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/jourfold-$version-ios-${{ github.run_number }}-unsigned.ipa"
+          if [ "$RELEASE" = true ]; then name="jourfold-$version-ios-unsigned.ipa"; else name="jourfold-$version-ios-$number-unsigned.ipa"; fi
+          mkdir -p "$RUNNER_TEMP/out"
+          mv "$(find "$RUNNER_TEMP/ipa" -name '*.ipa' | head -n 1)" "$RUNNER_TEMP/out/$name"
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: ios-device-binlog
           path: ${{ runner.temp }}/binlog
           if-no-files-found: ignore
+      # release.yml collects every artifact named release-*.
       - uses: actions/upload-artifact@v4
         with:
-          name: jourfold-ios-unsigned
-          path: ${{ runner.temp }}/jourfold-*-ios-*-unsigned.ipa
+          name: ${{ inputs.tag && 'release-ios' || 'jourfold-ios-unsigned' }}
+          path: ${{ runner.temp }}/out/*.ipa
           retention-days: 14
           if-no-files-found: error

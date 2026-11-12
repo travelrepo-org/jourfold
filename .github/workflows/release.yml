@@ -1,9 +1,10 @@
 name: Release
 # Runs when a maintainer publishes a GitHub release. The release tag must be v + <Version> from
 # Directory.Build.props, and the TravelRepo release v + <TravelRepoVersion> must already exist; Jourfold is
-# built against exactly that TravelRepo tag. The workflow builds Linux, Windows and macOS packages (x64 and ARM64)
-# and the signed Android APK (android.yml, which waits for approval in the release environment) for the tagged
-# commit and attaches them, SHA256SUMS and the one-line install scripts to the release:
+# built against exactly that TravelRepo tag. The workflow builds Linux, Windows and macOS packages (x64 and ARM64),
+# the signed Android APK (android.yml, which waits for approval in the release environment) and the unsigned iPhone
+# and iPad app (ios.yml, an IPA to sign and install with an Apple ID) for the tagged commit and attaches them,
+# SHA256SUMS and the one-line install scripts to the release:
 #   curl -fsSL https://github.com/<owner>/<repo>/releases/latest/download/install.sh | bash
 #   irm https://github.com/<owner>/<repo>/releases/latest/download/install.ps1 | iex
 # The first step turns the published release into a pre-release, however it was published: the installers only use
@@ -176,8 +177,14 @@ jobs:
       tag: ${{ github.event.release.tag_name || inputs.tag }}
       travelrepo: ${{ needs.version.outputs.travelrepo }}
     secrets: inherit
+  ios:
+    needs: version
+    uses: ./.github/workflows/ios.yml
+    with:
+      tag: ${{ github.event.release.tag_name || inputs.tag }}
+      travelrepo: ${{ needs.version.outputs.travelrepo }}
   publish:
-    needs: [version, package, android]
+    needs: [version, package, android, ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -206,7 +213,7 @@ jobs:
         if: github.event_name == 'release' && !contains(env.TAG, '-')
         run: gh release edit "$TAG" --prerelease=false --latest --repo "$GITHUB_REPOSITORY"
   return-to-draft:
-    needs: [version, package, android, publish]
+    needs: [version, package, android, ios, publish]
     if: failure() && github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:

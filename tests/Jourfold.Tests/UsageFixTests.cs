@@ -173,7 +173,14 @@ public sealed class UsageFixTests : IDisposable
         var (m, interaction, scope) = await Model(); using (scope)
         {
             var place = Entity.Create("place", "Hobbiton"); await m.Workspace!.EditAsync(place);
-            var lockFile = Path.Combine(m.Workspace.Repository.Root, ".git", "index.lock"); await File.WriteAllTextAsync(lockFile, "");
+            // The edit starts a "git status" in the background, which may hold index.lock for a moment and then remove it.
+            // The test's lock is made only while no Git process holds one (CreateNew), so no Git process removes it.
+            var lockFile = Path.Combine(m.Workspace.Repository.Root, ".git", "index.lock");
+            for (var tries = 0; ; tries++)
+            {
+                try { new FileStream(lockFile, FileMode.CreateNew).Dispose(); break; }
+                catch (IOException) when (tries < 200) { await Task.Delay(20); }
+            }
             File.SetLastWriteTimeUtc(lockFile, DateTime.UtcNow.AddMinutes(-5));
             interaction.Answers.Enqueue("lock");
             await m.RunAsync(() => m.Workspace.Git.CreateVersionAsync("Add Hobbiton"));

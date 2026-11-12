@@ -277,16 +277,7 @@ public static class ExpenseViews
     }
 
     /// <summary>The icon of an expense category; categories of the travellers' own share a tag.</summary>
-    public static string CategoryIcon(string category) => category switch
-    {
-        ExpenseCategories.Transport => "route",
-        ExpenseCategories.Accommodation => "bed-double",
-        ExpenseCategories.Food => "utensils",
-        ExpenseCategories.Activity => "ferris-wheel",
-        ExpenseCategories.Souvenirs => "shopping-bag",
-        ExpenseCategories.Other => "circle-dot",
-        _ => "tag"
-    };
+    public static string CategoryIcon(string category) => CostTexts.CategoryIcon(category);
 
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string CategoryName(Localization s, string category) => CostTexts.Category(s, category);
@@ -347,9 +338,7 @@ public static class ExpenseViews
             foreach (var t in currency)
             {
                 var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
-                var bar = new Grid { ColumnDefinitions = new ColumnDefinitions($"{ratio.ToString(System.Globalization.CultureInfo.InvariantCulture)}*,{(1 - ratio).ToString(System.Globalization.CultureInfo.InvariantCulture)}*"), Height = 6, Margin = new Thickness(0, 4, 0, 0) };
-                bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, "Bg.Muted").Col(0, 2));
-                bar.Children.Add(new Border { CornerRadius = new CornerRadius(3) }.Res(Border.BackgroundProperty, "Accent"));
+                var bar = Ui.ShareBar(ratio).Margin(0, 4, 0, 0);
                 var amount = (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency) + " · " + ratio.ToString("P0", System.Globalization.CultureInfo.CurrentCulture);
                 rows.Children.Add(Ui.V(0, Ui.Columns("Auto,*,Auto", Ui.Icon(CategoryIcon(t.Category), 14, "Text.Muted").Margin(0, 0, 8, 0), Ui.Line(CategoryName(s, t.Category)), Ui.Text(amount, "strong")), bar));
             }

@@ -760,7 +760,15 @@ public static class MorePages
         foreach (var group in totals.GroupBy(t => t.Currency, StringComparer.Ordinal).OrderBy(g => g.Key == home ? 0 : 1))
         {
             if (group.Key != home) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedIn"], group.Key), "caption").Margin(16, 8, 16, 2));
-            rows.AddRange(group.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))));
+            // Each with its part of the whole as a bar and in percent, as on the computer.
+            var sum = group.Sum(t => t.Amount);
+            rows.AddRange(group.Select(t =>
+            {
+                var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
+                var amount = (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency) + " · " + ratio.ToString("P0", CultureInfo.CurrentCulture);
+                return (Control)Ui.Columns("Auto,*", Ui.Icon(Jourfold.UI.CostTexts.CategoryIcon(t.Category), 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
+                    Ui.V(4, Ui.Text(Jourfold.UI.CostTexts.Category(str, t.Category)), Ui.Text(amount, "caption"), Ui.ShareBar(ratio)));
+            }));
         }
         return Group(str["ByCategory"], Padded(rows));
     }

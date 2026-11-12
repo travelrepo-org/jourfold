@@ -29,10 +29,9 @@ public static class AppVersion
 
 /// <summary>
 /// Release code names: an alliterative adjective and animal. The animal and the letter come from the major and minor
-/// version, so a feature release and its patch releases share them. A feature release (x.y.0) and pre-releases take
-/// one of the letter's first adjectives; each patch release after 0.11.1 takes another of the letter's adjectives,
-/// in an order of its own per feature release, so 0.12.0, 0.12.1 and 0.12.2 have three different ones. Releases up
-/// to 0.11.1 keep the names they were published with. The words are in CodeNames.json, and
+/// version, so a feature release and its patch releases share them. A feature release (x.y.0) and its pre-releases take
+/// one of the letter's first adjectives; each patch release takes another of the letter's adjectives, in an order of
+/// its own per feature release, so 0.12.0, 0.12.1 and 0.12.2 have three different ones. The words are in CodeNames.json, and
 /// <c>eng/version.py --codename</c> computes the same name for release titles.
 /// </summary>
 public static class CodeNames
@@ -55,8 +54,8 @@ public static class CodeNames
         var adjective = letter.Adjectives[Pick(4, letter.Adjectives.Length)];
         var animal = letter.Animals[Pick(8, letter.Animals.Length)];
         static int Number(string[] p, int i) => p.Length > i && int.TryParse(p[i], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var n) ? n : 0;
-        var (major, minor, patch) = (Number(parts, 0), Number(parts, 1), Number(parts, 2));
-        if (patch > 0 && (major, minor, patch).CompareTo((0, 11, 1)) > 0)
+        var patch = Number(parts, 2);
+        if (patch > 0)
         {
             // The letter's other adjectives in an order of their own for this feature release, one per patch.
             var others = letter.Adjectives.Concat(letter.PatchAdjectives ?? []).Where(a => a != adjective).Distinct()

@@ -47,14 +47,12 @@ public sealed class AboutTests : IDisposable
     [Theory]
     [InlineData("0.1.0", "Nomadic Nightingale")]
     [InlineData("0.2.0", "Uplifted Umbrellabird")]
-    [InlineData("0.2.5", "Uplifted Umbrellabird")]
     [InlineData("0.3.0-beta.1+abc", "Zesty Zebra")]
     [InlineData("1.0.0", "Untamed Urial")]
     [InlineData("0.11.0", "Frosty Ferret")]
-    // Releases up to 0.11.1 keep the names they were published with.
-    [InlineData("0.11.1", "Frosty Ferret")]
-    [InlineData("0.7.1", "Keen Kudu")]
-    public void CodeNamesAreStablePerFeatureRelease(string version, string expected) => Assert.Equal(expected, CodeNames.For(version));
+    [InlineData("0.11.1", "Funky Ferret")]
+    [InlineData("0.7.1", "Knockabout Kudu")]
+    public void CodeNamesAreStable(string version, string expected) => Assert.Equal(expected, CodeNames.For(version));
 
     [Fact]
     public void EachPatchReleaseHasItsOwnAdjective()
@@ -64,8 +62,8 @@ public sealed class AboutTests : IDisposable
             var names = Enumerable.Range(1, 8).Select(patch => CodeNames.For(feature + "." + patch)).ToList();
             var baseName = CodeNames.For(feature + ".0"); var animal = baseName.Split(' ')[1];
             // The animal stays; the adjective starts with its letter and differs from the feature release's.
-            Assert.All(names.Skip(feature == "0.11" ? 1 : 0), n => { Assert.EndsWith(" " + animal, n); Assert.NotEqual(baseName, n); Assert.Equal(animal[0], n[0]); });
-            Assert.Equal(names.Skip(feature == "0.11" ? 1 : 0).Count(), names.Skip(feature == "0.11" ? 1 : 0).Distinct().Count());
+            Assert.All(names, n => { Assert.EndsWith(" " + animal, n); Assert.NotEqual(baseName, n); Assert.Equal(animal[0], n[0]); });
+            Assert.Equal(names.Count, names.Distinct().Count());
             // Pre-releases are named like their release.
             Assert.Equal(CodeNames.For(feature + ".2"), CodeNames.For(feature + ".2-beta.1+abc"));
         }

@@ -40,6 +40,9 @@ public static class MorePages
         _ => MoreView.Build(s, width)
     };
 
+    /// <summary>Pages about the app rather than a trip, which open from the trip list too.</summary>
+    public static bool IsAppPage(string? page) => page is "settings" or "about" or "notices" || page?.StartsWith("license.", StringComparison.Ordinal) == true;
+
     /// <summary>A page with a way back to where it was opened from and a large title.</summary>
     private static Control Frame(MobileSession s, string title, params Control?[] body)
     {
@@ -1019,7 +1022,7 @@ public static class MorePages
             if (string.IsNullOrWhiteSpace(message.Text)) { problem.Text = str["EnterVersionMessage"]; problem.IsVisible = true; return; }
             create.IsEnabled = false;
             try { await s.CreateVersionAsync(message.Text); }
-            catch (DomainException ex) { problem.Text = str.Diagnostic(ex.Code); problem.IsVisible = true; create.IsEnabled = true; }
+            catch (DomainException ex) { problem.Text = s.WhyNoVersion(ex); problem.IsVisible = true; create.IsEnabled = true; }
         };
         var versions = s.History.Take(12).Select(v =>
         {

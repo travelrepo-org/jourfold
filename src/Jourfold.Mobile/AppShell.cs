@@ -254,7 +254,12 @@ public sealed class AppShell : UserControl
         if (Session.TaxiCard is not null) { Session.ShowTaxiCard(null); e.Handled = true; return; }
         if (Session.Viewing.Count > 0) { Session.CloseFile(); e.Handled = true; return; }
         if (Session.Showing != Overlay.None) { if (Session.CanGoBackInDetails) Session.DetailsBack(); else Session.CloseOverlay(); e.Handled = true; return; }
-        if (Session.Workspace is null) { if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; } return; }
+        if (Session.Workspace is null)
+        {
+            if (Session.RemoteTrips is not null) { Session.CloseRemoteTrips(); e.Handled = true; }
+            else if (Session.Page is not null) { Session.GoBack(); e.Handled = true; }
+            return;
+        }
         if (Session.GoBack()) { }
         else if (Session.Tab != MobileTab.Today) Session.ShowTab(MobileTab.Today);
         else Session.Close();
@@ -305,7 +310,13 @@ public sealed class AppShell : UserControl
         // The keyboard goes with the field typed in. Android does not always say so, for example when back leaves the
         // trip while it is up; the page would then end half way up the screen, without the bottom bar, from then on.
         if (keyboard && !TypingAnywhere()) Keyboard(false, 0);
-        if (Session.Workspace is null) { main.Child = TripListView.Build(Session, Breakpoint); Overlays(docked: false); return; }
+        if (Session.Workspace is null)
+        {
+            // The settings open from the trip list too, in the same column as under More.
+            var settings = MorePages.IsAppPage(Session.Page) && Session.RemoteTrips is null ? MorePages.Build(Session, Breakpoint) : null;
+            main.Child = settings is null ? TripListView.Build(Session, Breakpoint) : Breakpoint >= WidthClass.Tablet ? new Border { Child = settings, MaxWidth = 760 } : settings;
+            Overlays(docked: false); return;
+        }
         // Ticking something off, or any change that draws the page again, leaves it where it was scrolled to. The plan
         // keeps its own place per day, and the map has none.
         var here = (Session.Workspace, Session.Tab, Session.Page);

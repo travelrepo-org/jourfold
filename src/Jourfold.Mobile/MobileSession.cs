@@ -140,8 +140,8 @@ public sealed partial class MobileSession : IDisposable
         await SystemCalendars.TripGate.WaitAsync(ct);
         try { await workspace.OpenAsync(ct); }
         finally { SystemCalendars.TripGate.Release(); }
-        if (Identity is ({ } name, { } email)) await workspace.Git.SetIdentityAsync(name, email, ct);
         Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
+        await ApplyIdentityAsync(ct);
         Agenda = TripAgenda.Build(workspace.State.Trip);
         Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
         SelectedDate = Agenda.Find(PhoneToday) is not null ? PhoneToday : Agenda.Days.FirstOrDefault()?.Date ?? PhoneToday;
@@ -241,7 +241,7 @@ public sealed partial class MobileSession : IDisposable
     }
 
     /// <summary>What the back button of a page says: the tab it returns to, More, or plain Back for another page.</summary>
-    public string BackLabel => trail.Count == 0 ? Strings["More"] : trail[^1] switch
+    public string BackLabel => trail.Count == 0 ? Strings[Workspace is null ? "Trips" : "More"] : trail[^1] switch
     {
         (_, "packing") => Strings["Packing"],
         (_, not null) => Strings["Back"],
@@ -257,24 +257,27 @@ public sealed partial class MobileSession : IDisposable
         Settings.Name = string.IsNullOrWhiteSpace(name) ? null : name.Trim();
         Settings.Email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         Settings.Save();
-        if (Workspace is { } workspace && Identity is ({ } n, { } e)) await workspace.Git.SetIdentityAsync(n, e, ct);
+        await ApplyIdentityAsync(ct);
         Changed?.Invoke();
     }
 
     /// <summary>
-    /// The name and email versions made on this phone are saved under: the ones from the settings, or else the GitHub
-    /// account's name and its private address on GitHub. Without any of them the trip keeps the identity it has, as
-    /// the sample trip does. Git refuses every version without an identity, and Android has no Git settings of its own.
+    /// The name and email versions made on this phone are saved under, by <see cref="CommitIdentity.Resolve"/>: the
+    /// person the user is in the open trip, the settings, then the GitHub account. Null when none of them has an email;
+    /// the trip then keeps the identity it has, as the sample trip does.
     /// </summary>
-    public (string Name, string Email)? Identity
+    public (string Name, string Email)? Identity => CommitIdentity.Resolve(Me, Settings.Name, Settings.Email,
+        Settings.GitHubLogin is { Length: > 0 } login ? (login, Settings.GitHubId, Settings.GitHubEmail) : null);
+
+    /// <summary>Saves the open trip's next versions under <see cref="Identity"/>. Android has no Git settings of its own.</summary>
+    private async Task ApplyIdentityAsync(CancellationToken ct)
     {
-        get
-        {
-            var login = Settings.GitHubLogin is { Length: > 0 } known ? known : null;
-            var email = Settings.Email is { Length: > 0 } own ? own : login is not null ? login + "@users.noreply.github.com" : null;
-            return email is null ? null : (Settings.Name is { Length: > 0 } name ? name : login ?? email, email);
-        }
+        if (Workspace is { } workspace && Identity is ({ } name, { } email)) await workspace.Git.SetIdentityAsync(name, email, ct);
     }
+
+    /// <summary>Why the open changes could not become a version, in words; without a name and email, how to give them.</summary>
+    public string WhyNoVersion(Exception exception) =>
+        CommitIdentity.IsMissing(exception) ? Strings["VersionNeedsIdentity"] : IsExpected(exception) ? Strings.Error(exception) : Strings["UnexpectedErrorPhone"];
 
     /// <summary>Reads the versions and whether there are open changes; the page is drawn again only if they differ.</summary>
     public async Task RefreshVersionsAsync(CancellationToken ct = default) => await RefreshVersionsAsync(false, ct);
@@ -342,7 +345,7 @@ public sealed partial class MobileSession : IDisposable
             // The changes stay on the phone, and the sync page and the sync say why they are not in a version. The
             // details, such as what Git answered, go to the log on this device.
             HasChanges = true; LogError(ex);
-            VersionProblem = IsExpected(ex) ? Strings.Error(ex) : Strings["UnexpectedErrorPhone"];
+            VersionProblem = WhyNoVersion(ex);
         }
         finally { saving.Release(); Changed?.Invoke(); }
     }

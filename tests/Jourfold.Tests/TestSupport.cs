@@ -139,9 +139,15 @@ public static class Probe
         All<Button>(w.FindControl<Control>("InspectorHost")!).FirstOrDefault(b => Avalonia.Automation.AutomationProperties.GetName(b) == w.Model.Strings["Details"] || b.Content as string == w.Model.Strings["Details"])?.RaiseEvent(new RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
         Layout();
     }
+    /// <summary>
+    /// Waits until <paramref name="condition"/> holds. While waiting, a condition that looks for something not drawn yet,
+    /// such as a dialog that is still opening (<c>First()</c> or <c>Last()</c> on an empty list), counts as not yet met;
+    /// slow machines such as CI runners reach it later. The last check after the timeout reports the real failure.
+    /// </summary>
     public static async Task Until(Func<bool> condition, int timeoutMs = 4000)
     {
-        for (var waited = 0; waited < timeoutMs && !condition(); waited += 20) { await Task.Delay(20); Layout(); }
+        bool Met() { try { return condition(); } catch (InvalidOperationException) { return false; } }
+        for (var waited = 0; waited < timeoutMs && !Met(); waited += 20) { await Task.Delay(20); Layout(); }
         Assert.True(condition(), "Condition not met in time.");
     }
 }

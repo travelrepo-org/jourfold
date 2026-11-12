@@ -45,7 +45,7 @@ irm https://github.com/travelrepo-org/jourfold/releases/latest/download/install.
 
 The scripts pick the x64 or ARM64 build and verify the download against the release checksums. Run them again to update. [Installing Jourfold](docs/install.md) covers options, uninstalling and how to read the script before running it.
 
-Android 10 or newer: download `jourfold-<version>-android.apk` from the [latest release](https://github.com/travelrepo-org/jourfold/releases/latest) on the phone and open it. [Installing Jourfold](docs/install.md#android) has the details, and [the mobile app documentation](docs/mobile.md) describes what the app does on the road. The iPhone and iPad app builds from the same code on a Mac but is not released yet; [iPhone and iPad](docs/mobile.md#iphone-and-ipad) says how to build and install it.
+Android 10 or newer: download `jourfold-<version>-android.apk` from the [latest release](https://github.com/travelrepo-org/jourfold/releases/latest) on the phone and open it. [Installing Jourfold](docs/install.md#android) has the details, and [the mobile app documentation](docs/mobile.md) describes what the app does on the road. iPhone and iPad (iOS and iPadOS 15 or newer): download `jourfold-<version>-ios-unsigned.ipa` from the same release and install it with your Apple ID through a sideloading tool such as AltStore, SideStore or Sideloadly; [Installing Jourfold](docs/install.md#iphone-and-ipad) has the steps.
 
 ## Try it
 

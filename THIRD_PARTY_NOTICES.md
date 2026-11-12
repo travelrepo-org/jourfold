@@ -20,6 +20,11 @@ Jourfold includes the following open-source software. License files from each pa
 - libgit2 (through TravelRepo.Git.LibGit2, built from source for Android and iOS): GPL-2.0 with the linking exception, https://github.com/libgit2/libgit2. The built-in Git of the phone and tablet app.
 - SkiaSharp and HarfBuzzSharp native assets for Android: MIT, as above.
 
+## iPhone and iPad app
+
+- libgit2 (through TravelRepo.Git.LibGit2, built from source for iOS as `git2.framework`): GPL-2.0 with the linking exception, as above.
+- Avalonia for iOS and the SkiaSharp and HarfBuzzSharp native assets for iOS: MIT, as above.
+
 ## Data and documents
 
 - Noda Time: Apache-2.0, https://github.com/nodatime/nodatime

@@ -1,8 +1,9 @@
 # Mobile app
 
-The phone and tablet app runs on Android 10 and newer. Each release from 0.8.0 on has a signed APK attached;
-[Installing Jourfold](install.md#android) says how to install it. The iPhone and iPad app (iOS and iPadOS 15 and
-newer) is built from the same code but not released yet; see [iPhone and iPad](#iphone-and-ipad).
+The phone and tablet app runs on Android 10 and newer and on iOS and iPadOS 15 and newer, from the same code. Each
+release from 0.8.0 on has a signed APK attached, and from 0.11.0 on an unsigned IPA for iPhone and iPad to sign with an
+Apple ID; [Installing Jourfold](install.md) says how to install them. See [iPhone and iPad](#iphone-and-ipad)
+for building the iOS app.
 
 ## Projects
 
@@ -409,13 +410,15 @@ deleted), and at most three such apps per device.
   build finds no provisioning profile, create an empty iOS app with the same bundle ID in Xcode and run it on the
   device once; Xcode then makes the profile. Trust the developer on the device under General → VPN & Device
   Management.
-- Without a Mac: sideloading tools such as AltStore, SideStore or Sideloadly sign the unsigned IPA from the workflow
-  with the Apple ID and install it. SideStore renews the signature on the device every 7 days.
+- Without a Mac: sideloading tools such as AltStore, SideStore or Sideloadly sign the unsigned IPA with the Apple ID
+  and install it: `jourfold-<version>-ios-unsigned.ipa` from a release, or for changes not released yet the IPA the
+  workflow keeps for each run. SideStore renews the signature on the device every 7 days.
 
-**Not tested on a device yet.** The simulator runs .NET with a just-in-time compiler; a device compiles ahead of time.
-LibGit2Sharp passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so
-the project turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). Sync with GitHub
-on a device is the first thing to check.
+**On a device.** The simulator runs .NET with a just-in-time compiler; a device compiles ahead of time. LibGit2Sharp
+passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so the project
+turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an
+iPhone: signing in with GitHub, cloning a shared trip, Today, Plan and Map, editing and sync work. Not tried on a device
+yet: notifications, the calendar and the camera beyond starting them, and ⌘ keys on an iPad with a hardware keyboard.
 
 ## Screenshots
 

@@ -8,11 +8,25 @@ using TravelRepo.Repository;
 namespace Jourfold.Mobile;
 
 /// <summary>
-/// The device's calendar, where the trips on this device appear as calendars of their own, to read only. Android keeps
-/// them under an account "Jourfold" on the device.
+/// The device's calendar, where the trips on this device appear as calendars of their own (read-only where the system
+/// allows it, see <see cref="IsReadOnly"/>). Android keeps them under an account "Jourfold" on the device; iOS in the
+/// calendars on the device, or in iCloud when the device has none of its own (see <see cref="Online"/>).
 /// </summary>
 public interface ISystemCalendar
 {
+    /// <summary>Whether the system's "Sync now" for the calendar reaches Jourfold, as Android's account does.</summary>
+    bool SyncsFromSettings => false;
+    /// <summary>Whether the calendars are read-only in calendar apps. iOS has no read-only calendars of an app's own.</summary>
+    bool IsReadOnly => false;
+    /// <summary>
+    /// Whether the calendars are kept in an online account, such as iCloud or Google, so the plan also reaches the
+    /// user's other devices and the account's provider; null while that is not known, as before the calendar may be
+    /// used. The settings say so, with a conditional sentence while it is not known.
+    /// </summary>
+    bool? Online => false;
+    /// <summary>The name of the online account the calendars are kept in, such as "iCloud"; null when there is none.</summary>
+    string? AccountName => null;
+
     /// <summary>Whether the app may write to the calendar. With <paramref name="ask"/>, the user is asked first if needed.</summary>
     Task<bool> AllowAsync(bool ask, CancellationToken ct = default);
 

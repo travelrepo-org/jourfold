@@ -52,6 +52,12 @@ public sealed class MapSurface : Control
     public void Redraw() => Refresh();
     /// <summary>Moves the map by screen pixels; positive values move the view down and right, so the content moves up and left.</summary>
     public void Pan(double dx, double dy) { centerX += dx / Scale; centerY = Math.Clamp(centerY + dy / Scale, 0, 1); Refresh(); }
+    /// <summary>
+    /// The farthest the map zooms out. At 1 the whole world is 512 points wide, so a route such as Frankfurt to Tokyo
+    /// still fits the narrow free part of a phone's map or of a tablet's beside its sheet.
+    /// </summary>
+    public const int MinZoom = 1;
+
     public void Fit(IReadOnlyList<(double Lat, double Lon)> points, Size size)
     {
         if (points.Count == 0) { centerX = 0.5; centerY = 0.42; Zoom = 2; Refresh(); return; }
@@ -60,13 +66,13 @@ public sealed class MapSurface : Control
         centerX = (minX + maxX) / 2; centerY = (minY + maxY) / 2;
         var width = Math.Max(200, size.Width - 160); var height = Math.Max(200, size.Height - 160);
         Zoom = 16;
-        while (Zoom > 2 && ((maxX - minX) * Scale > width || (maxY - minY) * Scale > height)) Zoom--;
+        while (Zoom > MinZoom && ((maxX - minX) * Scale > width || (maxY - minY) * Scale > height)) Zoom--;
         if (points.Count == 1) Zoom = 14;
         Refresh();
     }
     public void ZoomAt(int delta, Point screen)
     {
-        var next = Math.Clamp(Zoom + delta, 2, 18); if (next == Zoom) return;
+        var next = Math.Clamp(Zoom + delta, MinZoom, 18); if (next == Zoom) return;
         var wx = centerX + (screen.X - Bounds.Width / 2) / Scale; var wy = centerY + (screen.Y - Bounds.Height / 2) / Scale;
         Zoom = next; centerX = wx - (screen.X - Bounds.Width / 2) / Scale; centerY = wy - (screen.Y - Bounds.Height / 2) / Scale; Refresh();
     }

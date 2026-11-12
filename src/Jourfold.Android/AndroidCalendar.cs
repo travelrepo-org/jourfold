@@ -30,6 +30,9 @@ public sealed class AndroidCalendar(Context context) : ISystemCalendar
     // written changes.
     private const string Format = "2:";
 
+    public bool SyncsFromSettings => true;
+    public bool IsReadOnly => true;
+
     public async Task<bool> AllowAsync(bool ask, CancellationToken ct = default)
     {
         bool Granted() => context.CheckSelfPermission(Manifest.Permission.ReadCalendar) == Permission.Granted && context.CheckSelfPermission(Manifest.Permission.WriteCalendar) == Permission.Granted;

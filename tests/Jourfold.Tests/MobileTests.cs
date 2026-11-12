@@ -1166,6 +1166,59 @@ public sealed class MobileTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task WhereTheSystemShowsNoticesByItselfTheComingOnesAreHandedOverAhead()
+    {
+        Instant At(int day, int hour, int minute) => new LocalDateTime(2027, 5, day, hour, minute).InZoneStrictly(Berlin).ToInstant();
+        var clock = new MovingClock { Now = At(14, 8, 0) }; var notices = new FakeNotices();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), clock, () => Berlin, "en", new MemorySecrets(), Notices: notices));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        await session.SetNoticesAsync(true);
+        // In the morning the departure reminder is still to come: it is handed over with its time, soonest first.
+        var departure = notices.Coming.Single(c => c.Notice.Kind == NoticeKind.Departure && c.Notice.Title.StartsWith("Flight to Tokyo", StringComparison.Ordinal));
+        Assert.Equal(At(14, 10, 20), departure.Notice.At);
+        Assert.Equal(notices.Coming.OrderBy(c => c.Notice.At).Select(c => c.Notice.Key), notices.Coming.Select(c => c.Notice.Key));
+        Assert.DoesNotContain(notices.Shown, n => n.Key == departure.Notice.Key);
+        // Without an ongoing notification to count down, the departure is announced like any other notice once due.
+        clock.Now = At(14, 10, 25);
+        Assert.NotNull(TravelNotices.Live(session.Trip!, session.Me, clock.Now, Berlin, English));
+        await NoticeRunner.RunAsync(session.Host);
+        Assert.Contains(notices.Shown, n => n.Key == departure.Notice.Key);
+        Assert.DoesNotContain(notices.Coming, c => c.Notice.Key == departure.Notice.Key);
+        // Turned off, nothing is left scheduled.
+        await session.SetNoticesAsync(false);
+        Assert.Empty(notices.Coming);
+        session.Dispose();
+    }
+
+    [Fact]
+    public void NavigateOpensTheMapsAppOfThePlatform()
+    {
+        Assert.Equal("geo:35.6812,139.7671?q=35.6812,139.7671(Tokyo%20Station)", Navigation.Link(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi", apple: false).AbsoluteUri);
+        Assert.Equal("https://maps.apple.com/?ll=35.6812,139.7671&q=Tokyo%20Station", Navigation.Link(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi", apple: true).AbsoluteUri);
+        Assert.Equal("https://maps.apple.com/?q=1%20Chome%20Marunouchi", Navigation.Link(null, null, "Tokyo Station", "1 Chome Marunouchi", apple: true).AbsoluteUri);
+    }
+
+    private sealed class MovingClock : IClock { public Instant Now { get; set; } public Instant GetCurrentInstant() => Now; }
+
+    /// <summary>Notifications as iOS has them: no ongoing notification, no kinds, and the coming notices scheduled ahead.</summary>
+    private sealed class FakeNotices : ISystemNotices
+    {
+        public List<TravelNotice> Shown { get; } = [];
+        public IReadOnlyList<(TravelNotice Notice, string TripFolder)> Coming { get; private set; } = [];
+        public Task<bool> AllowAsync(bool ask, CancellationToken ct = default) => Task.FromResult(true);
+        public bool OnTime => true;
+        public bool ShowsLive => false;
+        public bool HasKinds => false;
+        public void AskOnTime() { }
+        public void OpenSettings() { }
+        public void Show(TravelNotice notice, string tripFolder) => Shown.Add(notice);
+        public void ShowLive(LiveNotice? live, string? tripFolder) { }
+        public void WakeAt(Instant? at) { }
+        public void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets) { }
+        public void Schedule(IReadOnlyList<(TravelNotice Notice, string TripFolder)> coming) => Coming = coming;
+    }
+
+    [AvaloniaFact]
     public async Task ATapOrAScrollBesideATextFieldClosesTheKeyboardButANudgeDoesNot()
     {
         var now = new LocalDateTime(2027, 5, 10, 9, 0).InZoneStrictly(Berlin).ToInstant();

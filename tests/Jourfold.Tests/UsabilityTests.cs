@@ -251,7 +251,7 @@ public sealed class UsabilityTests : IDisposable
             Probe.Click(Sheet(w), s["Add"]); Probe.Layout(); Assert.False(task.IsCompleted);
 
             Probe.Tagged<CalendarDatePicker>(Sheet(w), "arrivalDate").SelectedDate = new DateTime(2027, 5, 13); Probe.Layout();
-            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == string.Format(s["TravelTime"], "12 h 15 min"));
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == string.Format(s["TravelTime"], "12\u00a0h\u00a015\u00a0min"));
             Probe.Click(Sheet(w), s["Add"]); await task.WaitAsync(TimeSpan.FromSeconds(5));
             var flight = w.Model.Workspace.State.Trip.Entities.Values.Single(e => e.Title == "Flight to Tokyo");
             Assert.Equal("2027-05-12T13:20:00", flight.Data["time"]!["start"]!["local"]!.ToString()); Assert.Equal("Europe/Berlin", flight.Data["time"]!["start"]!["timezone"]!.ToString());

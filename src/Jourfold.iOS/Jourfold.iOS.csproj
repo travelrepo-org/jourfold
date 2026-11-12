@@ -45,7 +45,13 @@
     <PackageReference Include="Avalonia.iOS" Version="12.1.4"/>
     <!-- The package ships libgit2 for desktops only; the app brings its own as a framework. -->
     <PackageReference Include="LibGit2Sharp.NativeBinaries" Version="2.0.324" ExcludeAssets="native;build;buildTransitive"/>
-    <NativeReference Include="$(Libgit2Ios)/git2.xcframework" Kind="Framework" Condition="Exists('$(Libgit2Ios)/git2.xcframework')"/>
+    <NativeReference Include="$(Libgit2Ios)/git2.xcframework" Kind="Framework"/>
+    <!-- Apple's privacy manifest, which App Store Connect and TestFlight require. -->
+    <BundleResource Include="PrivacyInfo.xcprivacy" LogicalName="PrivacyInfo.xcprivacy"/>
   </ItemGroup>
+  <!-- Without libgit2 the app would build and then close on launch, so the build stops instead. -->
+  <Target Name="RequireLibgit2" BeforeTargets="Build" Condition="!Exists('$(Libgit2Ios)/git2.xcframework')">
+    <Error Text="git2.xcframework is missing in $(Libgit2Ios). Build it with ../travelrepo/eng/build-libgit2-ios.sh (see docs/mobile.md)."/>
+  </Target>
   <ItemGroup><Using Include="Jourfold.UI"/></ItemGroup>
 </Project>

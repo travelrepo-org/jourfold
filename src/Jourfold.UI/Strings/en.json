@@ -1687,6 +1687,7 @@
   "CalendarShow": "Show trips in the calendar app",
   "CalendarHint": "Each trip on this {device} appears as a calendar of its own, to read only. Change plans in Jourfold; the calendar follows.",
   "CalendarHintWritable": "Each trip on this {device} appears as a calendar of its own. Change plans in Jourfold: the calendar follows, and changes made in the calendar app are replaced.",
+  "CalendarHintCloud": "The calendars are kept in iCloud, so the plan also appears on your other Apple devices.",
   "CalendarByKind": "One calendar per kind",
   "CalendarByKindHint": "Show or hide getting around, stays, food and plans one by one.",
   "CalendarSyncHint": "“Sync now” for Jourfold in the system settings only takes newer versions from GitHub. It sends nothing and leaves a trip as it is when both sides changed.",

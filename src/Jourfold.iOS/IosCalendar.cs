@@ -18,6 +18,13 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
     private static readonly EKEventStore Store = new();
     private const string Scheme = "jourfold-entry:";
 
+    /// <summary>One change to the calendars at a time: the event store is not made for use from several threads.</summary>
+    private static readonly SemaphoreSlim Gate = new(1, 1);
+
+    /// <summary>Whether the trips' calendars go to iCloud, because the device keeps no calendars of its own.</summary>
+    public bool InCloud => Allowed() && !Store.Sources.Any(s => s.SourceType == EKSourceType.Local)
+        && Store.Sources.Any(s => s.SourceType == EKSourceType.CalDav && s.Title == "iCloud");
+
     private string StatePath => Path.Combine(dataRoot, "calendars.json");
 
     public async Task<bool> AllowAsync(bool ask, CancellationToken ct = default)
@@ -31,7 +38,7 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
     // From iOS 17 this is full access; write-only access cannot add calendars.
     private static bool Allowed() => EKEventStore.GetAuthorizationStatus(EKEntityType.Event) == EKAuthorizationStatus.Authorized;
 
-    public Task PublishAsync(IReadOnlyList<SystemCalendar> calendars, CancellationToken ct = default) => Task.Run(() =>
+    public Task PublishAsync(IReadOnlyList<SystemCalendar> calendars, CancellationToken ct = default) => Changing(() =>
     {
         var state = Load();
         foreach (var calendar in calendars)
@@ -60,12 +67,30 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
         Save(state);
     }, ct);
 
-    public Task TurnOffAsync(CancellationToken ct = default) => Task.Run(() =>
+    public Task TurnOffAsync(CancellationToken ct = default) => Changing(() =>
     {
         foreach (var kept in Load().Values)
             if (kept.Id is { } id && Store.GetCalendar(id) is { } calendar) Store.RemoveCalendar(calendar, true, out _);
         File.Delete(StatePath);
     }, ct);
+
+    /// <summary>
+    /// Runs a change of the calendars after any other one. When it fails, what it left uncommitted in the store is
+    /// dropped, so the next change starts from what the calendars hold.
+    /// </summary>
+    private static async Task Changing(Action change, CancellationToken ct)
+    {
+        await Gate.WaitAsync(ct);
+        try
+        {
+            await Task.Run(() =>
+            {
+                try { change(); }
+                catch { Store.Reset(); throw; }
+            }, ct);
+        }
+        finally { Gate.Release(); }
+    }
 
     /// <summary>Adds, changes and removes the calendar's entries so they match; unchanged entries are left alone.</summary>
     private static void Write(EKCalendar calendar, IReadOnlyList<SystemCalendarEntry> entries, Kept kept)

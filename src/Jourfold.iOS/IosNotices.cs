@@ -44,11 +44,13 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
     private static void Refresh(BGTask task)
     {
         var cancel = new CancellationTokenSource();
-        task.ExpirationHandler = cancel.Cancel;
+        task.ExpirationHandler = () => { try { cancel.Cancel(); } catch (ObjectDisposedException) { } };
+        // The task is completed whatever happens: one left open gets the app ended and lowers its later background time.
         _ = Task.Run(async () =>
         {
-            if (MobileApp.Host is { } host) await RunAsync(host, ct: cancel.Token);
-            task.SetTaskCompleted(!cancel.IsCancellationRequested);
+            var done = false;
+            try { if (MobileApp.Host is { } host) await RunAsync(host, ct: cancel.Token); done = !cancel.IsCancellationRequested; }
+            finally { task.SetTaskCompleted(done); cancel.Dispose(); }
         });
     }
 

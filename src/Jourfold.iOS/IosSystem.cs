@@ -37,10 +37,18 @@ internal static class IosSystem
     public static Task ShareTextAsync(string title, string text)
     {
         if (Top() is not { } top) return Task.CompletedTask;
-        var share = new UIActivityViewController([new NSString(text)], null);
+        var share = new UIActivityViewController([new SharedText(title, text)], null);
         Anchor(share, top);
         top.PresentViewController(share, true, null);
         return Task.CompletedTask;
+    }
+
+    /// <summary>A shared text with its title, which mail apps take as the subject, as on Android.</summary>
+    private sealed class SharedText(string title, string text) : UIActivityItemSource
+    {
+        public override NSObject GetPlaceholderData(UIActivityViewController activityViewController) => new NSString(text);
+        public override NSObject GetItemForActivity(UIActivityViewController activityViewController, NSString? activityType) => new NSString(text);
+        public override string GetSubjectForActivity(UIActivityViewController activityViewController, NSString? activityType) => title;
     }
 
     /// <summary>

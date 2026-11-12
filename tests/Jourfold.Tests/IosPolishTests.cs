@@ -31,7 +31,7 @@ public sealed class IosPolishTests : IDisposable
     [AvaloniaFact]
     public async Task OnAnIPadKeyboardCommandVPastesInsteadOfTypingV()
     {
-        var before = AppShell.CommandEditing; AppShell.CommandEditing = true;
+        var before = AppShell.AppleKeys; AppShell.AppleKeys = true;
         var session = await Sample();
         var window = new Window { Width = 1024, Height = 768, Content = new AppShell(session) }; window.Show();
         try
@@ -49,7 +49,7 @@ public sealed class IosPolishTests : IDisposable
             window.KeyPress(Key.Z, RawInputModifiers.Meta, PhysicalKey.Z, "z");
             await Probe.Until(() => title.Text == "Wanaka");
         }
-        finally { AppShell.CommandEditing = before; window.Close(); session.Dispose(); }
+        finally { AppShell.AppleKeys = before; window.Close(); session.Dispose(); }
     }
 
     [Fact]

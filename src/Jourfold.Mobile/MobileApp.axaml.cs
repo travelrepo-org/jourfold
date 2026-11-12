@@ -13,6 +13,11 @@ public sealed class MobileApp : Avalonia.Application
     public static MobileHost? Host { get; set; }
     public static MobileSession? Session { get; private set; }
 
+    private static readonly TaskCompletionSource<MobileSession> ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    /// <summary>The session once the app has started, for actions that arrive before, such as a tapped notification.</summary>
+    public static Task<MobileSession> Ready => ready.Task;
+
     public override void Initialize() => AvaloniaXamlLoader.Load(this);
 
     public override void OnFrameworkInitializationCompleted()
@@ -25,5 +30,6 @@ public sealed class MobileApp : Avalonia.Application
         if (ApplicationLifetime is IActivityApplicationLifetime activity) activity.MainViewFactory = Shell;
         else if (ApplicationLifetime is ISingleViewApplicationLifetime single) single.MainView = Shell();
         base.OnFrameworkInitializationCompleted();
+        ready.TrySetResult(session);
     }
 }

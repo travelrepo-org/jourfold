@@ -22,11 +22,14 @@ public sealed class IosSecretStore : ISecretStore
 
     public Task WriteAsync(string key, string value, CancellationToken ct = default)
     {
-        SecKeyChain.Remove(Query(key));
-        var status = SecKeyChain.Add(new SecRecord(SecKind.GenericPassword)
-        {
-            Service = Service, Account = key, ValueData = NSData.FromString(value, NSStringEncoding.UTF8), Accessible = SecAccessible.AfterFirstUnlockThisDeviceOnly,
-        });
+        // Changed in place, so a failure, such as before the first unlock, keeps the old value instead of signing out.
+        var data = NSData.FromString(value, NSStringEncoding.UTF8);
+        var status = SecKeyChain.Update(Query(key), new SecRecord(SecKind.GenericPassword) { ValueData = data });
+        if (status == SecStatusCode.ItemNotFound)
+            status = SecKeyChain.Add(new SecRecord(SecKind.GenericPassword)
+            {
+                Service = Service, Account = key, ValueData = data, Accessible = SecAccessible.AfterFirstUnlockThisDeviceOnly,
+            });
         if (status != SecStatusCode.Success) throw new IOException("The Keychain did not keep the value: " + status);
         return Task.CompletedTask;
     }

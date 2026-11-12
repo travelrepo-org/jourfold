@@ -1687,6 +1687,7 @@
   "CalendarShow": "Reisen in der Kalender-App zeigen",
   "CalendarHint": "Jede Reise auf diesem {device} erscheint als eigener Kalender, nur zum Lesen. Ändern Sie Pläne in Jourfold, der Kalender zieht nach.",
   "CalendarHintWritable": "Jede Reise auf diesem {device} erscheint als eigener Kalender. Ändern Sie Pläne in Jourfold: Der Kalender zieht nach, Änderungen in der Kalender-App werden ersetzt.",
+  "CalendarHintCloud": "Die Kalender liegen in iCloud, der Plan erscheint also auch auf Ihren anderen Apple-Geräten.",
   "CalendarByKind": "Ein Kalender je Art",
   "CalendarByKindHint": "Unterwegs, Unterkünfte, Essen und Programm einzeln ein- und ausblenden.",
   "CalendarSyncHint": "„Jetzt synchronisieren“ für Jourfold in den Systemeinstellungen holt nur neuere Versionen von GitHub. Es sendet nichts und lässt eine Reise unverändert, wenn sich beide Seiten geändert haben.",

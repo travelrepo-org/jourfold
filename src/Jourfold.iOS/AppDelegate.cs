@@ -40,7 +40,10 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // The language the system chose for Jourfold, also when set for this app alone in the Settings app.
         var language = NSBundle.MainBundle.PreferredLocalizations.FirstOrDefault() == "de" ? "de" : "en";
         var device = NSProcessInfo.ProcessInfo.IsiOSApplicationOnMac ? "device" : UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad ? "tablet" : "phone";
-        LibGit2Library.Use(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2"));
+        // The build fails without the framework (RequireLibgit2 in the project). Should it still be missing, the app
+        // starts and says that something went wrong instead of closing before its first picture.
+        try { LibGit2Library.Use(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2")); }
+        catch (DllNotFoundException missing) { WhenReady(session => { session.ShowProblem(missing); return Task.CompletedTask; }); }
         var secrets = new IosSecretStore();
         var notices = new IosNotices(data, language, device);
         // A build can name the GitHub App to sign in with: -p:JourfoldGitHubClientId=... -p:JourfoldGitHubAppSlug=...
@@ -50,7 +53,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: IosSystem.OpenFileAsync,
             GitHubAppSlug: Built("GitHubAppSlug"), Locate: IosLocation.LocateAsync, Device: device, Calendar: new IosCalendar(data), Notices: notices,
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
-            AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString());
+            AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic);
         notices.Start();
         zone = NSTimeZone.SystemTimeZone.Name;
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
@@ -60,15 +63,21 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
 
     /// <summary>
     /// Runs <paramref name="action"/> once the app is ready. After a cold start, such as from a notification or a file
-    /// opened in Jourfold, that takes a moment.
+    /// opened in Jourfold, that takes a moment, however long the device needs.
     /// </summary>
-    internal static void WhenReady(Func<MobileSession, Task> action, int tries = 25) => Avalonia.Threading.Dispatcher.UIThread.Post(async () =>
+    internal static void WhenReady(Func<MobileSession, Task> action)
     {
-        if (MobileApp.Session is { } session) { await action(session); return; }
-        if (tries == 0) return;
-        await Task.Delay(200);
-        WhenReady(action, tries - 1);
-    });
+        _ = Run();
+        async Task Run()
+        {
+            var session = await MobileApp.Ready;
+            Avalonia.Threading.Dispatcher.UIThread.Post(async () => await action(session));
+        }
+    }
+
+    /// <summary>The short tap felt when a long press is reached, as on Android.</summary>
+    private static readonly Lazy<UIImpactFeedbackGenerator> Impact = new(() => new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium));
+    private static void Haptic() => Impact.Value.ImpactOccurred();
 
     private void OnActivated(object? sender, ActivatedEventArgs e)
     {
@@ -87,10 +96,18 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
     {
         if (e.Kind != ActivationKind.Background || MobileApp.Session is not { } session) return;
         var application = UIApplication.SharedApplication; nint task = 0; var ended = 0;
+        // When the time iOS gives runs out, the version stops before the app is suspended, so no Git lock file or
+        // half-written state is left for the next start.
+        var cancel = new CancellationTokenSource();
         void End() { if (Interlocked.Exchange(ref ended, 1) == 0) application.EndBackgroundTask(task); }
-        task = application.BeginBackgroundTask("version", End);
+        task = application.BeginBackgroundTask("version", () => { cancel.Cancel(); End(); });
         _ = Save();
-        async Task Save() { try { await session.AutoSaveAsync(); } finally { End(); } }
+        async Task Save()
+        {
+            try { await session.AutoSaveAsync(cancel.Token); }
+            catch (OperationCanceledException) { }
+            finally { End(); cancel.Dispose(); }
+        }
     }
 
     /// <summary>

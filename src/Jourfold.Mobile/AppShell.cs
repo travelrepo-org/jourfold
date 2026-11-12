@@ -127,16 +127,14 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>
-    /// Whether shortcuts read as on Apple's keyboards, "⌘1" rather than "Ctrl+1": on iPhone and iPad. Headless tests
-    /// keep it off, as their rendering has no font to draw ⌘ with. Either modifier works on every platform.
+    /// Whether the keyboard is Apple's, on iPhone and iPad: shortcuts read "⌘1" rather than "Ctrl+1", and text fields
+    /// take ⌘C, ⌘V and the like. Headless tests keep it off, as their rendering has no font to draw ⌘ with. Either
+    /// modifier switches places on every platform.
     /// </summary>
     public static bool AppleKeys { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
 
     /// <summary>A command shortcut with the given key, as the platform writes it.</summary>
     public static string Shortcut(string key) => AppleKeys ? "⌘" + key : "Ctrl+" + key;
-
-    /// <summary>Whether text fields take ⌘ for copy and paste, as on an iPad with a keyboard. Tests set it.</summary>
-    public static bool CommandEditing { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
 
     /// <summary>
     /// ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z in a text field. Avalonia knows these keys only with Ctrl on iOS, so ⌘V would type a
@@ -144,7 +142,7 @@ public sealed class AppShell : UserControl
     /// </summary>
     private void OnCommandKey(object? sender, Avalonia.Input.KeyEventArgs e)
     {
-        if (!CommandEditing || e.Source is not TextBox box || !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta)) return;
+        if (!AppleKeys || e.Source is not TextBox box || !e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Meta)) return;
         var shift = e.KeyModifiers.HasFlag(Avalonia.Input.KeyModifiers.Shift);
         switch (e.Key)
         {

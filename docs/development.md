@@ -22,7 +22,7 @@ Tests include application undo/redo, exclusive write ownership, external edits, 
 
 Each feature release also has a code name, an alliterative adjective and animal such as "Nomadic Nightingale". It is derived from the major and minor version, so 0.2.0 and 0.2.3 share a name and nobody has to pick one. The words are in `src/Jourfold.Desktop/CodeNames.json`; `python3 eng/version.py --codename [version]` prints the name, and a test keeps the script and the app in agreement. Any change to the word lists renames every version, including released ones, so treat the lists as frozen once a release carries its name. They hold 368 combinations, and names may repeat across distant versions.
 
-To release, set `Version` on `main`, then publish a GitHub release with the tag `v<Version>`, marked as a pre-release. The release workflow checks the tag, builds against the TravelRepo tag `v<TravelRepoVersion>` and attaches the packages; see [installing Jourfold](install.md#for-maintainers).
+To release, set `Version` on `main`, then publish a GitHub release with the tag `v<Version>`; title and notes may stay empty. The release workflow first makes it a pre-release, names it after its code name when it has no title, then checks the tag, builds against the TravelRepo tag `v<TravelRepoVersion>` and attaches the packages; see [installing Jourfold](install.md#for-maintainers).
 
 ## Local state
 

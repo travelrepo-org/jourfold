@@ -2,6 +2,27 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.11.1 “Frosty Ferret” – 2026-11-12
+
+### Highlights
+
+- Phones and tablets save your changes as versions again and send them with the next sync. Before, a trip copied from GitHub kept its changes on the phone, while sync said it was up to date. Changes that waited on the phone are sent now.
+
+### Changes
+
+- Versions are saved under the email the trip has for you ("This is me"), otherwise the one under Settings, otherwise your GitHub account's public email, otherwise GitHub's private address for your account.
+- On phones and tablets, the settings open from the gear at the top of the trip list, too.
+- On phones and tablets, the costs by category show each category's part in percent and as a bar, as on the computer.
+
+### Fixes
+
+- When a change cannot be saved as a version, Sync and versions says why and the sync says so, instead of reporting the trip as synced.
+- On the computer, the mouse wheel over a date, an amount or a closed list such as the currency scrolls the page instead of changing the value.
+- On phones and tablets, a finger between two columns of a date or time wheel no longer scrolls the form behind it.
+- On Android with the back, home and recent buttons, the last button of a form or the details, such as Save or Edit, is no longer half hidden behind them.
+- Hiding the keyboard no longer makes the details jump, and the page no longer stays half its height with no bottom bar after leaving a trip while typing.
+- Opening a trip again right after leaving it, or tapping it twice, no longer says it is open elsewhere.
+
 ## 0.11.0 “Frosty Ferret” – 2026-11-12
 
 ### Highlights

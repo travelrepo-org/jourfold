@@ -1,0 +1,28 @@
+# Release notes for Jourfold 0.11.1. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.11.1
+date: 2026-11-12
+highlights:
+  - icon: save
+    en: Phones and tablets save your changes as versions again and send them with the next sync. Before, a trip copied from GitHub kept its changes on the phone, while sync said it was up to date. Changes that waited on the phone are sent now.
+    de: Handys und Tablets speichern Ihre Änderungen wieder als Versionen und senden sie beim nächsten Synchronisieren. Bisher blieben die Änderungen einer von GitHub geholten Reise auf dem Gerät, obwohl das Synchronisieren meldete, alles sei aktuell. Änderungen, die auf dem Gerät gewartet haben, werden jetzt gesendet.
+changes:
+  - en: Versions are saved under the email the trip has for you ("This is me"), otherwise the one under Settings, otherwise your GitHub account's public email, otherwise GitHub's private address for your account.
+    de: Versionen werden unter der E-Mail gespeichert, die die Reise für Sie kennt („Das bin ich“), sonst unter der aus den Einstellungen, sonst unter der öffentlichen E-Mail Ihres GitHub-Kontos, sonst unter der privaten Adresse, die GitHub für Ihr Konto vergibt.
+  - en: On phones and tablets, the settings open from the gear at the top of the trip list, too.
+    de: Auf Handys und Tablets öffnen sich die Einstellungen auch über das Zahnrad oben in der Reiseliste.
+  - en: On phones and tablets, the costs by category show each category's part in percent and as a bar, as on the computer.
+    de: Auf Handys und Tablets zeigen die Kosten nach Kategorie den Anteil jeder Kategorie in Prozent und als Balken, wie am Computer.
+fixes:
+  - en: When a change cannot be saved as a version, Sync and versions says why and the sync says so, instead of reporting the trip as synced.
+    de: Lässt sich eine Änderung nicht als Version speichern, sagt „Sync und Versionen“ warum, und das Synchronisieren meldet es, statt die Reise als synchronisiert anzuzeigen.
+  - en: On the computer, the mouse wheel over a date, an amount or a closed list such as the currency scrolls the page instead of changing the value.
+    de: Am Computer scrollt das Mausrad über einem Datum, einem Betrag oder einer geschlossenen Liste wie der Währung die Seite, statt den Wert zu ändern.
+  - en: On phones and tablets, a finger between two columns of a date or time wheel no longer scrolls the form behind it.
+    de: Auf Handys und Tablets scrollt ein Finger zwischen zwei Spalten eines Datums- oder Zeitrads nicht mehr das Formular dahinter.
+  - en: On Android with the back, home and recent buttons, the last button of a form or the details, such as Save or Edit, is no longer half hidden behind them.
+    de: Auf Android mit Zurück-, Start- und Übersichtstaste liegt der letzte Button eines Formulars oder der Details, etwa „Speichern“ oder „Bearbeiten“, nicht mehr halb dahinter.
+  - en: Hiding the keyboard no longer makes the details jump, and the page no longer stays half its height with no bottom bar after leaving a trip while typing.
+    de: Das Ausblenden der Tastatur lässt die Details nicht mehr springen, und die Seite bleibt nach dem Verlassen einer Reise während des Tippens nicht mehr halb so hoch ohne untere Leiste.
+  - en: Opening a trip again right after leaving it, or tapping it twice, no longer says it is open elsewhere.
+    de: Eine Reise direkt nach dem Verlassen erneut zu öffnen oder zweimal anzutippen, meldet nicht mehr, sie sei woanders geöffnet.

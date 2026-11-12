@@ -21,9 +21,38 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
     /// <summary>One change to the calendars at a time: the event store is not made for use from several threads.</summary>
     private static readonly SemaphoreSlim Gate = new(1, 1);
 
-    /// <summary>Whether the trips' calendars go to iCloud, because the device keeps no calendars of its own.</summary>
-    public bool InCloud => Allowed() && !Store.Sources.Any(s => s.SourceType == EKSourceType.Local)
-        && Store.Sources.Any(s => s.SourceType == EKSourceType.CalDav && s.Title == "iCloud");
+    /// <summary>The account the calendars go to, from the last look at the store; null until then.</summary>
+    private static (bool? Online, string? Name)? known;
+
+    /// <summary>
+    /// Whether the trips' calendars go to an online account (iCloud, or the account for new events, such as Google),
+    /// because the device keeps no calendars of its own. Unknown until the calendar may be used: iOS lists the
+    /// accounts only then.
+    /// </summary>
+    public bool? Online => Known().Online;
+    public string? AccountName => Known().Name;
+
+    private static (bool? Online, string? Name) Known()
+    {
+        if (!Allowed()) return (null, null);
+        if (known is { } answer) return answer;
+        // The store is read under the gate; a change running now looks again when it ends.
+        if (!Gate.Wait(0)) return (null, null);
+        try { return Look(); }
+        finally { Gate.Release(); }
+    }
+
+    /// <summary>Looks at the account the calendars go to. Called with the gate held.</summary>
+    private static (bool? Online, string? Name) Look()
+    {
+        try
+        {
+            var source = Source();
+            known = source.SourceType == EKSourceType.Local ? (false, null) : (true, source.Title);
+        }
+        catch (IOException) { known = (null, null); }
+        return known.Value;
+    }
 
     private string StatePath => Path.Combine(dataRoot, "calendars.json");
 
@@ -32,6 +61,8 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
         if (Allowed() || !ask || EKEventStore.GetAuthorizationStatus(EKEntityType.Event) != EKAuthorizationStatus.NotDetermined) return Allowed();
         if (OperatingSystem.IsIOSVersionAtLeast(17)) await Store.RequestFullAccessToEventsAsync();
         else await Store.RequestAccessAsync(EKEntityType.Event);
+        // The accounts are listed now; the next look finds them.
+        known = null;
         return Allowed();
     }
 
@@ -87,6 +118,7 @@ public sealed class IosCalendar(string dataRoot) : ISystemCalendar
             {
                 try { change(); }
                 catch { Store.Reset(); throw; }
+                finally { Look(); }
             }, ct);
         }
         finally { Gate.Release(); }

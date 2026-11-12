@@ -20,10 +20,10 @@ public sealed class IosPolishTests : IDisposable
     public void Dispose() => TestFiles.Delete(root);
     private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
 
-    private async Task<MobileSession> Sample(string language = "en")
+    private async Task<MobileSession> Sample(string language = "en", ISystemCalendar? calendar = null)
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, language, new MemorySecrets()));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, language, new MemorySecrets(), Calendar: calendar));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 6, 4)));
         return session;
     }
@@ -86,6 +86,39 @@ public sealed class IosPolishTests : IDisposable
         map.Fit([frankfurt, tokyo], new Size(348, 300));
         foreach (var at in new[] { map.ToScreen(frankfurt), map.ToScreen(tokyo) }) Assert.InRange(at.X, 16, 332);
         window.Close();
+    }
+
+    [AvaloniaFact]
+    public async Task TheCalendarSettingsSayWhenTheTripsGoToAnOnlineAccount()
+    {
+        var calendar = new AccountCalendar();
+        var session = await Sample(calendar: calendar);
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            string Hint() { session.Redraw(); Probe.Layout(); return string.Join("\n", window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text)); }
+            session.OpenPage("settings");
+            // Before the calendar may be used, iOS does not tell where it would go.
+            Assert.Contains("If this phone keeps its calendars online, such as in iCloud, the trips' calendars are kept there too.", Hint());
+            calendar.Answer = (true, "iCloud");
+            Assert.Contains("The calendars are kept in your calendar account iCloud", Hint());
+            calendar.Answer = (true, "Google");
+            Assert.Contains("your calendar account Google", Hint());
+            calendar.Answer = (false, null);
+            Assert.DoesNotContain("calendar account", Hint()); Assert.DoesNotContain("keeps its calendars online", Hint());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    /// <summary>A calendar whose account is set by the test.</summary>
+    private sealed class AccountCalendar : ISystemCalendar
+    {
+        public (bool? Online, string? Name) Answer { get; set; } = (null, null);
+        public bool? Online => Answer.Online;
+        public string? AccountName => Answer.Name;
+        public Task<bool> AllowAsync(bool ask, CancellationToken ct = default) => Task.FromResult(true);
+        public Task PublishAsync(IReadOnlyList<SystemCalendar> calendars, CancellationToken ct = default) => Task.CompletedTask;
+        public Task TurnOffAsync(CancellationToken ct = default) => Task.CompletedTask;
     }
 
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }

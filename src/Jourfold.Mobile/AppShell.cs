@@ -128,8 +128,9 @@ public sealed class AppShell : UserControl
 
     /// <summary>
     /// Whether the keyboard is Apple's, on iPhone and iPad: shortcuts read "⌘1" rather than "Ctrl+1", and text fields
-    /// take ⌘C, ⌘V and the like. Headless tests keep it off, as their rendering has no font to draw ⌘ with. Either
-    /// modifier switches places on every platform.
+    /// take ⌘C, ⌘V and the like. Headless tests keep it off, as their rendering has no font to draw ⌘ with. Both Ctrl
+    /// and ⌘ work for the shortcuts on every platform; this only changes how they are written and which one text
+    /// fields take for editing.
     /// </summary>
     public static bool AppleKeys { get; set; } = OperatingSystem.IsIOS() || OperatingSystem.IsMacCatalyst();
 

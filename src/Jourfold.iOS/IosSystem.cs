@@ -17,7 +17,7 @@ internal static class IosSystem
         .OrderBy(s => s.ActivationState == UISceneActivationState.ForegroundActive ? 0 : 1).FirstOrDefault();
 
     /// <summary>The screen on top, from which the system's sheets are presented.</summary>
-    private static UIViewController? Top()
+    internal static UIViewController? Top()
     {
         var controller = Scene()?.Windows.FirstOrDefault(w => w.IsKeyWindow)?.RootViewController;
         while (controller?.PresentedViewController is { } presented) controller = presented;

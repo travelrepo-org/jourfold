@@ -6,6 +6,7 @@ using Foundation;
 using Jourfold.Application;
 using Jourfold.Mobile;
 using NodaTime;
+using TravelRepo.Git;
 using TravelRepo.Git.LibGit2;
 using UIKit;
 
@@ -40,16 +41,26 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // The language the system chose for Jourfold, also when set for this app alone in the Settings app.
         var language = NSBundle.MainBundle.PreferredLocalizations.FirstOrDefault() == "de" ? "de" : "en";
         var device = NSProcessInfo.ProcessInfo.IsiOSApplicationOnMac ? "device" : UIDevice.CurrentDevice.UserInterfaceIdiom == UIUserInterfaceIdiom.Pad ? "tablet" : "phone";
-        // The build fails without the framework (RequireLibgit2 in the project). Should it still be missing, the app
-        // starts and says that something went wrong instead of closing before its first picture.
-        try { LibGit2Library.Use(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2")); }
-        catch (DllNotFoundException missing) { WhenReady(session => { session.ShowProblem(missing); return Task.CompletedTask; }); }
         var secrets = new IosSecretStore();
+        // The build fails without the framework (RequireLibgit2 in the project). Should it still be missing, the app
+        // starts without Git, says that something went wrong, and each Git action explains itself instead of the app
+        // closing before its first picture. LibGit2Backend is not touched then: its first use already calls libgit2.
+        IGitBackend git;
+        try
+        {
+            LibGit2Library.Use(Path.Combine(NSBundle.MainBundle.PrivateFrameworksPath!, "git2.framework", "git2"));
+            git = new LibGit2Backend(new GitHubCredentialBroker(secrets));
+        }
+        catch (DllNotFoundException missing)
+        {
+            git = new MissingGit();
+            WhenReady(session => { session.ShowProblem(missing); return Task.CompletedTask; });
+        }
         var notices = new IosNotices(data, language, device);
         // A build can name the GitHub App to sign in with: -p:JourfoldGitHubClientId=... -p:JourfoldGitHubAppSlug=...
         string? Built(string key) => typeof(AppDelegate).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyMetadataAttribute), false)
             .OfType<System.Reflection.AssemblyMetadataAttribute>().FirstOrDefault(a => a.Key == key)?.Value;
-        MobileApp.Host = new MobileHost(data, new LibGit2Backend(new GitHubCredentialBroker(secrets)), SystemClock.Instance,
+        MobileApp.Host = new MobileHost(data, git, SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: IosSystem.OpenFileAsync,
             GitHubAppSlug: Built("GitHubAppSlug"), Locate: IosLocation.LocateAsync, Device: device, Calendar: new IosCalendar(data), Notices: notices,
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
@@ -75,9 +86,23 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         }
     }
 
+    /// <summary>Git for a build without libgit2: every command fails with an explanation instead of ending the app.</summary>
+    private sealed class MissingGit : IGitBackend
+    {
+        public Task<GitResult> ExecuteAsync(string directory, IReadOnlyList<string> arguments, string? input = null, CancellationToken cancellationToken = default) =>
+            Task.FromException<GitResult>(new TravelRepo.Core.DomainException("git.library_missing", "This build of Jourfold has no Git library."));
+    }
+
     /// <summary>The short tap felt when a long press is reached, as on Android.</summary>
-    private static readonly Lazy<UIImpactFeedbackGenerator> Impact = new(() => new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium));
-    private static void Haptic() => Impact.Value.ImpactOccurred();
+    private static void Haptic()
+    {
+        // From iOS 17.5 a generator belongs to the view it is felt in.
+        if (OperatingSystem.IsIOSVersionAtLeast(17, 5) || OperatingSystem.IsMacCatalystVersionAtLeast(17, 5))
+        {
+            if (IosSystem.Top()?.View is { } view) UIImpactFeedbackGenerator.GetFeedbackGenerator(UIImpactFeedbackStyle.Medium, view).ImpactOccurred();
+        }
+        else new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium).ImpactOccurred();
+    }
 
     private void OnActivated(object? sender, ActivatedEventArgs e)
     {
@@ -100,7 +125,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // half-written state is left for the next start.
         var cancel = new CancellationTokenSource();
         void End() { if (Interlocked.Exchange(ref ended, 1) == 0) application.EndBackgroundTask(task); }
-        task = application.BeginBackgroundTask("version", () => { cancel.Cancel(); End(); });
+        task = application.BeginBackgroundTask("version", () => { try { cancel.Cancel(); } catch (ObjectDisposedException) { } End(); });
         _ = Save();
         async Task Save()
         {

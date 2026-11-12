@@ -2,6 +2,20 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.11.0 “Frosty Ferret” – 2026-11-12
+
+### Highlights
+
+- Jourfold runs on iPhone and iPad, with the same trips, Today, plan, map, costs and packing lists as on Android, sync with GitHub, reminders and the trips in the calendar. It is not in the App Store. Each release has the app attached, to install with your Apple ID through AltStore, SideStore or Sideloadly.
+
+### Changes
+
+- On phones and tablets, "Show everything" on the map shows a long route whole, such as Frankfurt to Tokyo, and keeps it clear of the map's buttons.
+- The timeline names a day's time zone by the town where its first plan starts, such as Frankfurt am Main, as the list does, instead of the city the zone is named after.
+- Time ranges such as 16:00–18:00 and durations such as 11 h 15 min no longer break across two lines.
+- On an iPad with a keyboard, ⌘C, ⌘X, ⌘V, ⌘A, ⌘Z and ⇧⌘Z work in text fields, and shortcuts are shown with ⌘.
+- On iPhone and iPad, "Navigate" opens Apple Maps, and the calendar settings say whether the trips' calendars are kept in iCloud or another online account.
+
 ## 0.10.0 “Oceanic Osprey” – 2026-11-11
 
 ### Highlights

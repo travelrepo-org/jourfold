@@ -114,7 +114,7 @@ public static class Editors
 
     public static Control Date(MainWindow w, Guid id, string path, string label, string? value)
     {
-        var picker = new CalendarDatePicker { SelectedDate = DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null, HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, PlaceholderText = w.Model.Strings["ChooseDate"] };
+        var picker = new DateField { SelectedDate = DateTime.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) ? d : null, HorizontalAlignment = HorizontalAlignment.Stretch, Tag = path, PlaceholderText = w.Model.Strings["ChooseDate"] };
         AutomationProperties.SetName(picker, label);
         picker.SelectedDateChanged += (_, _) =>
         {

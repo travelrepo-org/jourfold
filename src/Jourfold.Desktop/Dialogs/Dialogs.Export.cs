@@ -47,7 +47,7 @@ public sealed partial class Dialogs
         }
         CalendarDatePicker Date(string name, LocalDate? value, Action<LocalDate?> changed)
         {
-            var picker = new CalendarDatePicker { SelectedDate = value?.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(picker, name);
+            var picker = new DateField { SelectedDate = value?.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(picker, name);
             picker.SelectedDateChanged += (_, _) => { changed(picker.SelectedDate is { } d ? LocalDate.FromDateTime(d) : null); Update(); };
             return picker;
         }

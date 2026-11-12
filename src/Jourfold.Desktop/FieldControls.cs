@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Data;
+using Avalonia.Input;
 using Avalonia.Layout;
 using NodaTime;
 using NodaTime.Text;
@@ -67,9 +68,48 @@ public sealed class SearchChoice : UserControl
     public string? Value => Input.SelectedItem is Choice selected && Text == selected.Label ? selected.Id : choices.FirstOrDefault(c => string.Equals(c.Label, Text, StringComparison.CurrentCultureIgnoreCase) || string.Equals(c.Id, Text, StringComparison.OrdinalIgnoreCase))?.Id;
 }
 
+/// <summary>
+/// The mouse wheel over an amount or a closed choice, such as a currency, scrolls the page. Avalonia's fields change
+/// their value with the wheel while they have the focus, so scrolling on after typing an amount or choosing a currency,
+/// with the pointer still on it, changed the value unnoticed.
+/// </summary>
+public static class WheelScrollsPage
+{
+    private static int installed;
+
+    public static void Install()
+    {
+        if (Interlocked.Exchange(ref installed, 1) == 1) return;
+        // The field's spinner takes the wheel before it reaches the page, so the page is scrolled here instead, by the
+        // step Avalonia's own scrolling uses.
+        InputElement.PointerWheelChangedEvent.AddClassHandler<NumericUpDown>(Scroll, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        // An open list scrolls its own entries.
+        InputElement.PointerWheelChangedEvent.AddClassHandler<ComboBox>((box, e) => { if (!box.IsDropDownOpen) Scroll(box, e); }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+    }
+
+    private static void Scroll(Control field, PointerWheelEventArgs e)
+    {
+        if (e.Handled) return;
+        e.Handled = true;
+        if (Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<ScrollViewer>(field) is not { } page) return;
+        var bottom = Math.Max(0, page.Extent.Height - page.Viewport.Height);
+        page.Offset = new Vector(page.Offset.X, Math.Clamp(page.Offset.Y - e.Delta.Y * 50, 0, bottom));
+    }
+}
+
+/// <summary>
+/// A date field that leaves the mouse wheel to the page. Avalonia's own picker changes the day with the wheel, so
+/// scrolling past a field just changed with the pointer still on it changed the date instead of scrolling the form.
+/// </summary>
+public sealed class DateField : CalendarDatePicker
+{
+    protected override Type StyleKeyOverride => typeof(CalendarDatePicker);
+    protected override void OnPointerWheelChanged(Avalonia.Input.PointerWheelEventArgs e) { }
+}
+
 public sealed class LocalDateTimeEditor : StackPanel
 {
-    public CalendarDatePicker Date { get; } = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
+    public DateField Date { get; } = new() { HorizontalAlignment = HorizontalAlignment.Stretch };
     public TimePicker Time { get; } = new() { ClockIdentifier = "24HourClock", HorizontalAlignment = HorizontalAlignment.Stretch };
     public LocalDateTimeEditor(string value, string label)
     {
@@ -92,7 +132,7 @@ public sealed class FormControl : StackPanel
         Children.Add(new TextBlock { Text = field.Label + (field.Required ? "" : ""), Classes = { "label" } });
         Editor = field.Kind switch
         {
-            "date" => new CalendarDatePicker { SelectedDate = DateTime.TryParseExact(field.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null },
+            "date" => new DateField { SelectedDate = DateTime.TryParseExact(field.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var date) ? date : null },
             "datetime" => new LocalDateTimeEditor(field.Value, field.Label),
             "time" => new TimePicker { ClockIdentifier = "24HourClock", SelectedTime = TimeSpan.TryParse(field.Value, CultureInfo.InvariantCulture, out var time) ? time : null },
             "timezone" => new SearchChoice(FieldOptions.Timezones, field.Value, field.Label),

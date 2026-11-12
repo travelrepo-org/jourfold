@@ -16,7 +16,11 @@ public static class TripListView
         if (s.RemoteTrips is { } remote) return GitHubView.RemoteTrips(s, remote);
         var logo = new Image { Height = 30, HorizontalAlignment = HorizontalAlignment.Left, Stretch = Stretch.Uniform };
         logo.Bind(Image.SourceProperty, logo.GetResourceObservable(Avalonia.Application.Current?.ActualThemeVariant == Avalonia.Styling.ThemeVariant.Dark ? "Brand.Lockup.Dark" : "Brand.Lockup.Light"));
-        var page = Ui.V(14, logo.Margin(20, 16, 20, 4), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
+        // The app's settings, such as the name and email versions are saved under, are here as well as under More in a
+        // trip, where most people would not look before opening one.
+        var settings = Ui.IconButton("settings", s.Strings["Settings"]); settings.Click += (_, _) => s.ShowPage("settings");
+        var top = Ui.Columns("*,Auto", logo.Also(l => l.VerticalAlignment = VerticalAlignment.Center), settings.Also(b => b.VerticalAlignment = VerticalAlignment.Center).Col(1));
+        var page = Ui.V(14, top.Margin(20, 10, 8, 0), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
         // Something shared from another app waits for the trip it belongs to.
         if (s.Incoming is { } shared)
         {

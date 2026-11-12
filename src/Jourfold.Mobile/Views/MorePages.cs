@@ -40,6 +40,9 @@ public static class MorePages
         _ => MoreView.Build(s, width)
     };
 
+    /// <summary>Pages about the app rather than a trip, which open from the trip list too.</summary>
+    public static bool IsAppPage(string? page) => page is "settings" or "about" or "notices" || page?.StartsWith("license.", StringComparison.Ordinal) == true;
+
     /// <summary>A page with a way back to where it was opened from and a large title.</summary>
     private static Control Frame(MobileSession s, string title, params Control?[] body)
     {
@@ -760,7 +763,15 @@ public static class MorePages
         foreach (var group in totals.GroupBy(t => t.Currency, StringComparer.Ordinal).OrderBy(g => g.Key == home ? 0 : 1))
         {
             if (group.Key != home) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedIn"], group.Key), "caption").Margin(16, 8, 16, 2));
-            rows.AddRange(group.Select(t => DetailView.Row("tag", Jourfold.UI.CostTexts.Category(str, t.Category), (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency))));
+            // Each with its part of the whole as a bar and in percent, as on the computer.
+            var sum = group.Sum(t => t.Amount);
+            rows.AddRange(group.Select(t =>
+            {
+                var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
+                var amount = (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency) + " · " + ratio.ToString("P0", CultureInfo.CurrentCulture);
+                return (Control)Ui.Columns("Auto,*", Ui.Icon(Jourfold.UI.CostTexts.CategoryIcon(t.Category), 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
+                    Ui.V(4, Ui.Text(Jourfold.UI.CostTexts.Category(str, t.Category)), Ui.Text(amount, "caption"), Ui.ShareBar(ratio)));
+            }));
         }
         return Group(str["ByCategory"], Padded(rows));
     }
@@ -994,7 +1005,11 @@ public static class MorePages
     private static Control Sync(MobileSession s)
     {
         var trip = s.Trip!; var str = s.Strings;
-        var state = s.HasChanges
+        // Changes that could not become a version say why; they are not sent until they can.
+        var state = s.HasChanges && s.VersionProblem is { } why
+            ? Ui.Columns("Auto,*", Ui.Icon("alert-triangle", 22, "Danger").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"),
+                Ui.Text(why, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); })))
+            : s.HasChanges
             ? Ui.Columns("Auto,*", Ui.Icon("pencil", 22, "Text.Muted").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"), Ui.Text(str["ChangesBecomeVersion"], "caption")))
             : Ui.Columns("Auto,*", Ui.Icon("circle-check", 22, "Success").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["AllSavedOnPhone"], "strong"),
                 s.LastVersion is { } last ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["LastVersionAt"], Formats.Relative(last, str)), "caption") : null));
@@ -1007,7 +1022,7 @@ public static class MorePages
             if (string.IsNullOrWhiteSpace(message.Text)) { problem.Text = str["EnterVersionMessage"]; problem.IsVisible = true; return; }
             create.IsEnabled = false;
             try { await s.CreateVersionAsync(message.Text); }
-            catch (DomainException ex) { problem.Text = str.Diagnostic(ex.Code); problem.IsVisible = true; create.IsEnabled = true; }
+            catch (DomainException ex) { problem.Text = s.WhyNoVersion(ex); problem.IsVisible = true; create.IsEnabled = true; }
         };
         var versions = s.History.Take(12).Select(v =>
         {

@@ -30,6 +30,8 @@ public sealed partial class MobileSession
             var updated = TripPeople.WithIdentity(chosen, GitHubLogin, Settings.Name ?? chosen.Title, Settings.Email);
             if (updated.Data.ToJsonString() != chosen.Data.ToJsonString()) { await workspace.EditAsync(updated, ct); NoteChange(); }
         }
+        // Versions are saved under the address the trip knows for that person, when it knows one.
+        await ApplyIdentityAsync(ct);
         Changed?.Invoke();
         UpdateCalendarSoon();
     }, ct);

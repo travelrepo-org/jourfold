@@ -114,9 +114,11 @@ public sealed partial class MobileSession
             try
             {
                 var account = await provider.AccountAsync(token);
-                GitHubLogin = account?.Login ?? "GitHub"; Settings.GitHubLogin = account?.Login;
+                GitHubLogin = account?.Login ?? "GitHub";
                 if (Settings.Name is null && account?.Name is { Length: > 0 } name) Settings.Name = name;
-                Settings.Save();
+                Remember(account);
+                // A trip open during the sign-in saves its next versions under the account.
+                await ApplyIdentityAsync(token);
             }
             catch (Exception ex) when (GitHubProvider.IsTransient(ex, token)) { }
             // A first sign-in leaves the App without repositories; say so right away instead of after a search.
@@ -136,15 +138,32 @@ public sealed partial class MobileSession
     /// </summary>
     private async Task CheckSignInAsync(GitHubProvider provider, CancellationToken ct)
     {
-        try { if (await provider.IsConnectedAsync(ct) && await provider.AccountAsync(ct) is null) await SignInEndedAsync(); }
+        try
+        {
+            if (!await provider.IsConnectedAsync(ct)) return;
+            if (await provider.AccountAsync(ct) is not { } account) { await SignInEndedAsync(); return; }
+            // Signed in before the phone kept the account's number and email: they come with this check.
+            if (account.Login != Settings.GitHubLogin || account.Id != Settings.GitHubId || account.PublicEmail != Settings.GitHubEmail)
+            {
+                Remember(account);
+                await ApplyIdentityAsync(ct);
+            }
+        }
         catch (Exception ex) when (GitHubProvider.IsTransient(ex, ct) || ex is DomainException) { }
+    }
+
+    /// <summary>Keeps the account's login, number and public email for versions made while offline.</summary>
+    private void Remember(TravelRepo.Providers.ProviderAccount? account)
+    {
+        Settings.GitHubLogin = account?.Login; Settings.GitHubId = account?.Id; Settings.GitHubEmail = account?.PublicEmail;
+        Settings.Save();
     }
 
     /// <summary>GitHub no longer accepts the sign-in: forget it and say why.</summary>
     private async Task SignInEndedAsync()
     {
         await GitHub().SignOutAsync();
-        GitHubLogin = null; Settings.GitHubLogin = null; Settings.Save();
+        GitHubLogin = null; Settings.GitHubLogin = null; Settings.GitHubId = null; Settings.GitHubEmail = null; Settings.Save();
         RemoteTrips = null; NeedsRepositoryAccess = false; SearchProblem = null;
         SignInProblem = Strings["GitHubSignInEnded"]; Changed?.Invoke();
     }
@@ -156,7 +175,7 @@ public sealed partial class MobileSession
     public async Task SignOutAsync(CancellationToken ct = default)
     {
         await GitHub().SignOutAsync(ct);
-        GitHubLogin = null; Settings.GitHubLogin = null; Settings.Save(); RemoteTrips = null; NeedsRepositoryAccess = false; SearchProblem = null; Changed?.Invoke();
+        GitHubLogin = null; Settings.GitHubLogin = null; Settings.GitHubId = null; Settings.GitHubEmail = null; Settings.Save(); RemoteTrips = null; NeedsRepositoryAccess = false; SearchProblem = null; Changed?.Invoke();
     }
 
     private async Task RefreshRemoteAsync(CancellationToken ct)
@@ -189,8 +208,12 @@ public sealed partial class MobileSession
         try
         {
             await SaveChangesAsync(ct);
+            // Changes that are not in a version would not be sent, and the trip would only look synced.
+            if (VersionProblem is { } notSaved) { SyncProblem = notSaved; return; }
             var state = await workspace.Git.SyncAsync(remote, ct);
             PendingMerge = null;
+            // Changes made while the sync ran are not sent yet, and nothing was combined; the next sync takes them.
+            if (state == SyncState.LocalChanges) { SyncProblem = Strings["SyncChangesWaiting"]; return; }
             if (state == SyncState.Diverged)
             {
                 var branch = "refs/remotes/" + remote + "/" + await workspace.Git.CurrentBranchAsync(ct);

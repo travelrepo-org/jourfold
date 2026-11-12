@@ -7,6 +7,18 @@ namespace Jourfold.UI;
 /// <summary>Words for costs shared by the computer, the phone and the tablet: categories and what an upgrade changes.</summary>
 public static class CostTexts
 {
+    /// <summary>The icon of an expense category; categories of the travellers' own share a tag.</summary>
+    public static string CategoryIcon(string category) => category switch
+    {
+        ExpenseCategories.Transport => "route",
+        ExpenseCategories.Accommodation => "bed-double",
+        ExpenseCategories.Food => "utensils",
+        ExpenseCategories.Activity => "ferris-wheel",
+        ExpenseCategories.Souvenirs => "shopping-bag",
+        ExpenseCategories.Other => "circle-dot",
+        _ => "tag"
+    };
+
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string Category(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
 

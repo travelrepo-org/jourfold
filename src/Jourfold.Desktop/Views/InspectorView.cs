@@ -213,7 +213,7 @@ public static class InspectorView
                         var paid = Ui.Button(s["MarkPaymentPaid"], "circle-check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
                         paid.Click += (_, _) => _ = m.MarkPaymentPaidAsync(e.Id);
                         // When it is due, such as a deposit's balance; a reminder comes a week before.
-                        var due = new CalendarDatePicker { SelectedDate = Expenses.DueOf(e)?.ToDateTimeUnspecified(), Width = 170 };
+                        var due = new DateField { SelectedDate = Expenses.DueOf(e)?.ToDateTimeUnspecified(), Width = 170 };
                         AutomationProperties.SetName(due, s["Due"]);
                         var expenseId = e.Id;
                         due.SelectedDateChanged += (_, _) => { var picked = due.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != Expenses.DueOf(m.Trip!.Find(expenseId) ?? e)) _ = m.SetDueAsync(expenseId, picked); };
@@ -224,7 +224,7 @@ public static class InspectorView
                     {
                         // The day it was paid; without one, the day of its plan or charge counts and is shown as the suggestion.
                         var expenseId = e.Id;
-                        var paidOn = new CalendarDatePicker { SelectedDate = e.Data["date"] is null ? null : Expenses.DateOf(trip, e)?.ToDateTimeUnspecified(), Width = 170, PlaceholderText = Expenses.DateOf(trip, e) is { } suggested ? Formats.Date(suggested) : s["OptionalShort"] };
+                        var paidOn = new DateField { SelectedDate = e.Data["date"] is null ? null : Expenses.DateOf(trip, e)?.ToDateTimeUnspecified(), Width = 170, PlaceholderText = Expenses.DateOf(trip, e) is { } suggested ? Formats.Date(suggested) : s["OptionalShort"] };
                         AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
                         paidOn.SelectedDateChanged += (_, _) => { var picked = paidOn.SelectedDate is { } d ? NodaTime.LocalDate.FromDateTime(d) : (NodaTime.LocalDate?)null; if (picked != (m.Trip!.Find(expenseId)?.Data["date"] is null ? null : Expenses.DateOf(m.Trip!, m.Trip!.Find(expenseId)!))) _ = m.SetPaidOnAsync(expenseId, picked); };
                         body.Children.Add(Field(s["PaidOnLabel"], paidOn));

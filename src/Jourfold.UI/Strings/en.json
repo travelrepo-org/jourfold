@@ -1579,6 +1579,8 @@
   "SignOut": "Sign out",
   "SignedInToGitHub": "Signed in to GitHub",
   "SyncLater": "Could not sync. Jourfold tries again after the next change.",
+  "SyncChangesWaiting": "Changes made during the sync are not sent yet. Jourfold sends them with the next sync.",
+  "VersionNeedsIdentity": "Versions need a name and email, and this {device} does not know yours yet. Choose who you are under Travellers, or enter your email under Settings, or sign in to GitHub. Your changes stay on this {device} until then.",
   "SyncNeedsComputer": "You and someone else changed the same thing. Your changes are safe on this {device}. Open the trip on a computer to choose which to keep.",
   "SyncOffline": "No connection. Your changes are safe on this {device} and sync later.",
   "SyncSignInAgain": "GitHub needs you to sign in again.",

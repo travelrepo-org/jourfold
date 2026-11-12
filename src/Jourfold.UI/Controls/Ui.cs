@@ -13,6 +13,17 @@ namespace Jourfold.UI;
 /// </summary>
 public static class Ui
 {
+    /// <summary>A thin bar filled to <paramref name="ratio"/> (0 to 1), such as a category's part of what was spent.</summary>
+    public static Control ShareBar(double ratio, double height = 6)
+    {
+        ratio = double.IsFinite(ratio) ? Math.Clamp(ratio, 0, 1) : 0;
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var bar = new Grid { ColumnDefinitions = new ColumnDefinitions(ratio.ToString(inv) + "*," + (1 - ratio).ToString(inv) + "*"), Height = height };
+        bar.Children.Add(new Border { CornerRadius = new CornerRadius(height / 2) }.Res(Border.BackgroundProperty, "Bg.Muted").Col(0, 2));
+        bar.Children.Add(new Border { CornerRadius = new CornerRadius(height / 2) }.Res(Border.BackgroundProperty, "Accent"));
+        return bar;
+    }
+
     public static T Res<T>(this T control, AvaloniaProperty property, string key) where T : Control
     {
         control.Bind(property, control.GetResourceObservable(key));

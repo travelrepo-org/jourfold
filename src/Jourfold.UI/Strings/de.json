@@ -1579,6 +1579,8 @@
   "SignOut": "Abmelden",
   "SignedInToGitHub": "Bei GitHub angemeldet",
   "SyncLater": "Synchronisieren hat nicht geklappt. Jourfold versucht es nach der nächsten Änderung erneut.",
+  "SyncChangesWaiting": "Änderungen, die während des Synchronisierens entstanden sind, sind noch nicht gesendet. Jourfold sendet sie beim nächsten Synchronisieren.",
+  "VersionNeedsIdentity": "Versionen brauchen einen Namen und eine E-Mail, und dieses {device} kennt Ihre noch nicht. Wählen Sie unter „Reisende“, wer Sie sind, tragen Sie Ihre E-Mail in den Einstellungen ein oder melden Sie sich bei GitHub an. Bis dahin bleiben Ihre Änderungen auf diesem {device}.",
   "SyncNeedsComputer": "Sie und jemand anderes haben dasselbe geändert. Ihre Änderungen sind auf diesem {device} sicher. Öffnen Sie die Reise am Computer, um zu wählen, was bleiben soll.",
   "SyncOffline": "Keine Verbindung. Ihre Änderungen sind auf diesem {device} sicher und werden später synchronisiert.",
   "SyncSignInAgain": "GitHub möchte, dass Sie sich erneut anmelden.",

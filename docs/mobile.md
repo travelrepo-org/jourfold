@@ -155,9 +155,15 @@ exposes a copy in the app's `shared` folder, replaced by the next file.
 Every change is saved to the trip folder right away. Once the trip has been quiet for two minutes, or when the app
 goes to the background or the trip is closed, the open changes become a version on their own. Changes left over
 when Android stopped the app become a version soon after the trip opens again. Sync and versions also
-lets the user create a version with their own description and shows the recent ones. The name and email under
-Settings are used for versions made on the phone; they are kept in `settings.json` in the app's private folder,
-never in a trip. The phone app does not use Git words such as commit or branch.
+lets the user create a version with their own description and shows the recent ones. The phone app does not use
+Git words such as commit or branch.
+
+Versions are saved under a name and email that everyone who can open the trip sees (`CommitIdentity` in
+`Jourfold.Application`). The email is the first of: the one the trip has for the person the user is ("This is me"),
+the one under Settings, the one the GitHub account shows publicly, and GitHub's private address for commits
+(`ID+login@users.noreply.github.com`). Without any of them, versions wait on the phone, and Sync and versions says
+how to give a name and email instead of reporting the trip as synced. Settings open from the trip list (the gear at
+the top) and under More; they are kept in `settings.json` in the app's private folder, never in a trip.
 
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and
 TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source notices.

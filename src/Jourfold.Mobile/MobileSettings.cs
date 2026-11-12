@@ -16,6 +16,10 @@ public sealed class MobileSettings : Jourfold.Application.IValueStore
     public string? GitHubClientId { get; set; }
     /// <summary>The GitHub account of the last sign-in, shown while offline. The token itself is not kept here.</summary>
     public string? GitHubLogin { get; set; }
+    /// <summary>GitHub's number for that account, for its private address for commits.</summary>
+    public long? GitHubId { get; set; }
+    /// <summary>The email that account shows publicly, if any.</summary>
+    public string? GitHubEmail { get; set; }
     /// <summary>When each trip folder last synced, by folder name.</summary>
     public Dictionary<string, DateTimeOffset> LastSync { get; set; } = [];
     /// <summary>The second time zone shown next to the times of each trip, by trip folder name; chosen by the user.</summary>

@@ -19,8 +19,8 @@ public sealed partial class Dialogs
     {
         var s = S; var step = 0;
         var title = new TextBox { PlaceholderText = s["TripTitleExample"], FontSize = 16, MinHeight = 42, Tag = "title" }; AutomationProperties.SetName(title, s["TripTitle"]);
-        var start = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "start" }; AutomationProperties.SetName(start, s["Start"]);
-        var end = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "end" }; AutomationProperties.SetName(end, s["End"]);
+        var start = new DateField { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "start" }; AutomationProperties.SetName(start, s["Start"]);
+        var end = new DateField { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"], Tag = "end" }; AutomationProperties.SetName(end, s["End"]);
         start.SelectedDateChanged += (_, _) => { if (start.SelectedDate is { } d && (end.SelectedDate is null || end.SelectedDate < d)) end.SelectedDate = d.AddDays(3); };
         var timezone = new SearchChoice(FieldOptions.Timezones, defaults.Timezone, s["Timezone"]);
         var language = new SearchChoice(FieldOptions.Languages, defaults.Language, s["Language"]);
@@ -127,7 +127,7 @@ public sealed partial class Dialogs
         var s = S; var kind = QuickKinds.Any(k => k.Kind == request.Kind) ? request.Kind : request.Kind == "budget" ? "budget" : "activity";
         var trip = request.Trip;
         var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title", Text = request.Title ?? "" }; AutomationProperties.SetName(title, s["Title"]);
-        var date = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
+        var date = new DateField { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
         var hasTime = new CheckBox { Content = s["AtATime"], IsChecked = true };
         var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
         var length = new NumericUpDown { Tag = "length", Value = (decimal)(request.Length?.TotalMinutes ?? 60), Minimum = 5, Increment = 15, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(length, s["DurationMinutes"]);
@@ -137,7 +137,7 @@ public sealed partial class Dialogs
         var place = PlaceBox(trip, s["Place"]); var from = PlaceBox(trip, s["From"]); var to = PlaceBox(trip, s["To"]);
         // Transport: departure and arrival in local time at each end, as on a ticket. The timezones follow the chosen
         // places (when they have one) until the person picks a timezone, and the arrival date follows the departure date.
-        var arrivalDate = new CalendarDatePicker { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch, Tag = "arrivalDate" }; AutomationProperties.SetName(arrivalDate, s["ArrivalDate"]);
+        var arrivalDate = new DateField { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch, Tag = "arrivalDate" }; AutomationProperties.SetName(arrivalDate, s["ArrivalDate"]);
         var arrivalTime = new TimePicker { Tag = "arrivalTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).PlusHours(2).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(arrivalTime, s["ArrivalTime"]);
         var departureZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["DepartureTimezone"]) { Tag = "departureZone" };
         var arrivalZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["ArrivalTimezone"]) { Tag = "arrivalZone" };
@@ -204,8 +204,8 @@ public sealed partial class Dialogs
         var categoryHost = new ContentControl();
         // An expense: the day it was paid, or when one still to pay is due; what the card charged in the trip's currency;
         // what it belongs to; a receipt. A budget: what it applies to.
-        var paidOn = new CalendarDatePicker { SelectedDate = (request.Today ?? LocalDate.FromDateTime(DateTime.Today)).ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
-        var due = new CalendarDatePicker { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"] }; AutomationProperties.SetName(due, s["Due"]);
+        var paidOn = new DateField { SelectedDate = (request.Today ?? LocalDate.FromDateTime(DateTime.Today)).ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(paidOn, s["PaidOnLabel"]);
+        var due = new DateField { HorizontalAlignment = HorizontalAlignment.Stretch, PlaceholderText = s["OptionalShort"] }; AutomationProperties.SetName(due, s["Due"]);
         var tripCurrency = request.TripCurrency ?? request.Currency;
         var charged = new TextBox { PlaceholderText = 0m.ToString("N" + Expenses.MinorDigits(tripCurrency), CultureInfo.CurrentCulture), HorizontalContentAlignment = HorizontalAlignment.Right, Tag = "charged" };
         AutomationProperties.SetName(charged, string.Format(s["ChargedIn"], tripCurrency));

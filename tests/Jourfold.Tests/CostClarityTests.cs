@@ -55,6 +55,39 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PaidPaymentsAreMarkedGreenWhenExactAndYellowWhenEstimated()
+    {
+        var session = await Phone();
+        try
+        {
+            var trip = session.Trip!;
+            Entity Expense(Func<Entity, bool> where) => trip.Entities.Values.First(e => e.Type == "expense" && where(e));
+            string? Currency(Entity e) => TripSummaries.Money(e.Data["amount"])?.Currency;
+            // Paid in yen and nothing charged: only estimated in euros.
+            var uncharged = Expense(e => Currency(e) == "JPY" && !Expenses.IsPlanned(e) && Expenses.ChargeOf(e) is null);
+            Assert.True(CostTexts.NeedsCharge(uncharged, "EUR"));
+            // Charged, still to pay, or in the trip's currency: no mark.
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Expenses.ChargeOf(e) is not null), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "JPY" && Expenses.IsPlanned(e)), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "EUR"), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(uncharged, "JPY"));
+
+            // The Costs page marks every paid payment: yellow while estimated, green once exact, with words for the
+            // tooltip and screen readers; payments still to pay have no mark.
+            session.ShowTab(MobileTab.More); session.OpenPage("costs");
+            var names = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<Jourfold.UI.Icon>()
+                .Where(i => i.Kind == "credit-card").Select(Avalonia.Automation.AutomationProperties.GetName).ToArray();
+            var paid = trip.Entities.Values.Where(e => e.Type == "expense" && !Expenses.IsPlanned(e)).ToArray();
+            Assert.Equal(paid.Length, names.Length);
+            Assert.Equal(paid.Count(e => CostTexts.NeedsCharge(e, "EUR")), names.Count(n => n!.StartsWith("No charged amount in EUR yet", StringComparison.Ordinal)));
+            Assert.Contains(names, n => n!.StartsWith("Exact: the card charged EUR", StringComparison.Ordinal));
+            Assert.Contains("Exact: paid in EUR, the trip currency.", names);
+            Assert.Null(CostTexts.ChargeMark(session.Strings, Expense(e => Expenses.IsPlanned(e)), "EUR"));
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
     {
         var session = await Phone();

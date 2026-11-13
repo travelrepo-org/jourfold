@@ -805,7 +805,7 @@ public static class MorePages
         {
             var split = Expenses.Split(trip, e);
             var money = split.Amount;
-            var lines = Ui.V(2, Ui.Columns("*,Auto", Ui.Text(e.Title, "strong"), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")));
+            var lines = Ui.V(2, Ui.Columns("*,Auto", Ui.Text(e.Title, "strong"), Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, e, s.TripCurrencyCode, 16), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong"))));
             if (Expenses.ChargeOf(e) is { } charge) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), "caption"));
             else if (Jourfold.UI.CostTexts.Estimate(str, e, s.TripCurrencyCode, s.EstimateRates) is { } estimate) lines.Children.Add(Ui.Text(estimate, "caption"));
             if (split.Payers.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidBy"], string.Join(", ", split.Payers.Select(p => trip.Find(p)?.Title))), "caption"));
@@ -902,7 +902,7 @@ public static class MorePages
         var summary = Ui.Columns("40,*,Auto",
             date.Also(c => c.VerticalAlignment = VerticalAlignment.Center),
             Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption")).Margin(12, 0, 8, 0),
-            Ui.V(4, money is null ? null : Ui.Text(Formats.Money(money.Amount, money.Currency), "strong").Also(t => t.HorizontalAlignment = HorizontalAlignment.Right),
+            Ui.V(4, money is null ? null : Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, expense, s.TripCurrencyCode, 16), Ui.Text(Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right),
                 estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, Expenses.Split(trip, expense))?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
         return Unfolding(s, expense.Id, summary, () =>
         {

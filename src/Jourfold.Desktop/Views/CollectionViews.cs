@@ -103,7 +103,8 @@ public static class CollectionViews
                     Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),
                     ExpenseViews.Status(s, Expenses.Split(trip, e), trip)?.Margin(8, 0),
                     payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
-                    Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
+                    // Paid in another currency without a charged amount: marked, since it is only estimated in the trip's.
+                    Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(s, e, m.TripCurrencyCode), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right));
                 list.Children.Add(Row(w, e, grid));
             }
         }

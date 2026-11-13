@@ -38,6 +38,33 @@ public static class CostTexts
     public static bool RatesOfEarlierDay(ExchangeRates rates, DateTimeOffset fetched) =>
         NodaTime.Instant.FromDateTimeOffset(fetched).InZone(NodaTime.DateTimeZoneProviders.Tzdb["Europe/Berlin"]).Date > NodaTime.LocalDate.FromDateOnly(rates.Date);
 
+    /// <summary>
+    /// Whether a paid expense is in another currency than the trip's and has no charged amount, so what it comes to in
+    /// the trip's currency is only estimated. Payments still to pay are not counted: nothing can be charged yet.
+    /// </summary>
+    public static bool NeedsCharge(Entity expense, string tripCurrency) =>
+        expense.Type == "expense" && !Expenses.IsPlanned(expense) && Expenses.ChargeOf(expense) is null
+        && TripSummaries.Money(expense.Data["amount"]) is { Amount: not 0 } money && money.Currency != tripCurrency;
+
+    /// <summary>
+    /// A card symbol next to the amount of a paid expense: green when what it comes to in the trip's currency is exact,
+    /// because it was paid in that currency or what the card charged is known, yellow when it is only estimated. Its
+    /// tooltip and its name for screen readers say which, so the colour is not the only sign. Null for payments still
+    /// to pay and expenses without an amount.
+    /// </summary>
+    public static Avalonia.Controls.Control? ChargeMark(Localization s, Entity expense, string tripCurrency, double size = 14)
+    {
+        if (expense.Type != "expense" || Expenses.IsPlanned(expense) || TripSummaries.Money(expense.Data["amount"]) is not { Amount: not 0 } money) return null;
+        var estimated = NeedsCharge(expense, tripCurrency);
+        var text = estimated ? string.Format(CultureInfo.CurrentCulture, s["NotChargedYet"], tripCurrency)
+            : Expenses.ChargeOf(expense) is { } charge ? string.Format(CultureInfo.CurrentCulture, s["ExactCharged"], Formats.Money(charge.Value, charge.Currency))
+            : string.Format(CultureInfo.CurrentCulture, s["ExactInTripCurrency"], money.Currency);
+        var mark = Ui.Icon("credit-card", size, estimated ? "Warning" : "Success");
+        mark.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        Avalonia.Controls.ToolTip.SetTip(mark, text); Avalonia.Automation.AutomationProperties.SetName(mark, text);
+        return mark;
+    }
+
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string Category(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
 

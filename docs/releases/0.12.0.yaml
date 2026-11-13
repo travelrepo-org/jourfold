@@ -1,0 +1,27 @@
+# Release notes for Jourfold 0.12.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.12.0
+date: 2026-11-13
+highlights:
+  - icon: user-check
+    en: The first time a trip opens on a device, it asks who you are in it. Pick yourself, add yourself or say you are not part of it. When the trip has no email for you yet, it asks for one, so your versions carry your name on every computer, phone and tablet.
+    de: Wenn eine Reise zum ersten Mal auf einem Gerät geöffnet wird, fragt sie, wer Sie darin sind. Wählen Sie sich aus, fügen Sie sich hinzu oder sagen Sie, dass Sie nicht dabei sind. Kennt die Reise noch keine E-Mail von Ihnen, fragt sie danach, damit Ihre Versionen auf jedem Computer, Handy und Tablet Ihren Namen tragen.
+  - icon: wallet
+    en: A payment in another currency shows what it comes to in the trip currency, what the card charged or an estimate marked ≈ with the day of the rates. On phones and tablets you can now choose the trip currency under More → Trip details.
+    de: Eine Zahlung in einer anderen Währung zeigt, was sie in der Reisewährung ausmacht, was die Karte abgebucht hat oder eine mit ≈ gekennzeichnete Schätzung mit dem Tag der Kurse. Auf Handys und Tablets lässt sich die Reisewährung jetzt unter Mehr → Reisedetails wählen.
+changes:
+  - en: The email offered for you comes from the settings, on a computer from your Git settings, or from your GitHub account, with GitHub's private address as an option. When you have no email in the settings yet, a check box keeps it there for other trips.
+    de: Die E-Mail, die Ihnen angeboten wird, stammt aus den Einstellungen, am Computer aus Ihren Git-Einstellungen oder aus Ihrem GitHub-Konto, mit der privaten GitHub-Adresse zur Wahl. Steht in den Einstellungen noch keine E-Mail, behält ein Häkchen sie dort für andere Reisen.
+  - en: On the computer, versions are saved under the email the trip has for you, otherwise the one under Settings → You, the one in your Git settings, your GitHub account's public email or GitHub's private address for your account, as on phones and tablets.
+    de: Am Computer werden Versionen unter der E-Mail gespeichert, die die Reise für Sie kennt, sonst unter der aus Einstellungen → Sie, der aus Ihren Git-Einstellungen, der öffentlichen E-Mail Ihres GitHub-Kontos oder der privaten GitHub-Adresse Ihres Kontos, wie auf Handys und Tablets.
+  - en: When you change the trip currency on a phone or tablet, budgets in the old currency stay as they are, and Jourfold offers to convert them, listing each with its old and new amount. More shows the trip currency next to the dates.
+    de: Wenn Sie die Reisewährung auf einem Handy oder Tablet ändern, bleiben Budgets in der alten Währung, wie sie sind, und Jourfold bietet an, sie umzurechnen, jedes mit altem und neuem Betrag. Mehr zeigt die Reisewährung neben den Daten.
+  - en: The currency converter says whose rates of which day it uses and when it last checked for new ones, and why the newest rates can be of an earlier day, as on a weekend. It converts into the trip currency.
+    de: Der Währungsrechner sagt, wessen Kurse von welchem Tag er nutzt und wann er zuletzt nach neuen gesehen hat, und warum die neuesten Kurse von einem früheren Tag sein können, etwa am Wochenende. Er rechnet in die Reisewährung um.
+  - en: On phones and tablets, the converter offers the trip's currencies and the phone's, not always the euro. A currency chosen under Other stays to tap again, and holding it removes it from the list.
+    de: Auf Handys und Tablets bietet der Währungsrechner die Währungen der Reise und des Geräts an, nicht immer den Euro. Eine unter „Andere“ gewählte Währung bleibt zum erneuten Antippen stehen, und langes Drücken entfernt sie aus der Liste.
+  - en: Every patch release has a code name of its own. The animal stays with the feature release and the adjective changes, so 0.11.1 is now Funky Ferret.
+    de: Jedes Patch-Release hat einen eigenen Codenamen. Das Tier bleibt beim Feature-Release, das Adjektiv wechselt, und 0.11.1 heißt jetzt Funky Ferret.
+fixes:
+  - en: On the computer, a version that fails for want of a name and email says so and offers "Who are you in this trip?" to fix it, and "Add myself" no longer saves an address made up from your name on the person.
+    de: Am Computer sagt eine Version, die an fehlendem Namen und fehlender E-Mail scheitert, das auch und bietet „Wer sind Sie in dieser Reise?“ zur Behebung an, und „Mich hinzufügen“ speichert keine aus Ihrem Namen erfundene Adresse mehr an der Person.

@@ -2,6 +2,26 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.12.0 “Gallant Gnu” – 2026-11-13
+
+### Highlights
+
+- The first time a trip opens on a device, it asks who you are in it. Pick yourself, add yourself or say you are not part of it. When the trip has no email for you yet, it asks for one, so your versions carry your name on every computer, phone and tablet.
+- A payment in another currency shows what it comes to in the trip currency, what the card charged or an estimate marked ≈ with the day of the rates. On phones and tablets you can now choose the trip currency under More → Trip details.
+
+### Changes
+
+- The email offered for you comes from the settings, on a computer from your Git settings, or from your GitHub account, with GitHub's private address as an option. When you have no email in the settings yet, a check box keeps it there for other trips.
+- On the computer, versions are saved under the email the trip has for you, otherwise the one under Settings → You, the one in your Git settings, your GitHub account's public email or GitHub's private address for your account, as on phones and tablets.
+- When you change the trip currency on a phone or tablet, budgets in the old currency stay as they are, and Jourfold offers to convert them, listing each with its old and new amount. More shows the trip currency next to the dates.
+- The currency converter says whose rates of which day it uses and when it last checked for new ones, and why the newest rates can be of an earlier day, as on a weekend. It converts into the trip currency.
+- On phones and tablets, the converter offers the trip's currencies and the phone's, not always the euro. A currency chosen under Other stays to tap again, and holding it removes it from the list.
+- Every patch release has a code name of its own. The animal stays with the feature release and the adjective changes, so 0.11.1 is now Funky Ferret.
+
+### Fixes
+
+- On the computer, a version that fails for want of a name and email says so and offers "Who are you in this trip?" to fix it, and "Add myself" no longer saves an address made up from your name on the person.
+
 ## 0.11.1 “Funky Ferret” – 2026-11-12
 
 ### Highlights

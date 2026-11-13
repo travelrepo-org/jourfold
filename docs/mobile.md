@@ -180,7 +180,7 @@ ask and show no such setting.
 
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too) with its code name,
 Jourfold's and TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source
-notices. The About row under Settings shows the version and code name too ("0.12.0 · Gallant Gnu"); `CodeNames` lives
+notices. The About row under Settings shows the version and code name too ("0.13.0 · Scenic Seal"); `CodeNames` lives
 in `Jourfold.UI` for both apps.
 
 Today counts down to the trip ("The trip starts tomorrow. Time to pack!" the day before), has a word on the first and

@@ -210,6 +210,27 @@ public sealed partial class Dialogs
         var charged = new TextBox { PlaceholderText = 0m.ToString("N" + Expenses.MinorDigits(tripCurrency), CultureInfo.CurrentCulture), HorizontalContentAlignment = HorizontalAlignment.Right, Tag = "charged" };
         AutomationProperties.SetName(charged, string.Format(s["ChargedIn"], tripCurrency));
         var chargedRow = Ui.V(4, Ui.Columns("*,Auto", charged, Ui.Text(tripCurrency, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center).Margin(8, 0, 0, 0)), Ui.Text(s["ChargedHintShort"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        // Or paid with cash bought before: the rate it cost, filled in from the last cash or the reference rate, which the
+        // calculator can replace with the rate of the user's own withdrawal.
+        var cash = false; string? cashSource = null; var cashForm = CostTexts.CashRateForm.For(request.Currency, tripCurrency, null);
+        var cashRate = new TextBox { Width = 110, HorizontalContentAlignment = HorizontalAlignment.Right }; AutomationProperties.SetName(cashRate, s["CashRateLabel"]);
+        var cashLeft = Ui.Text("", "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center); var cashRight = Ui.Text("", "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
+        var cashNote = Ui.Text("", "caption").Also(t => t.TextWrapping = TextWrapping.Wrap);
+        var cashHost = new ContentControl();
+        void RenderCash()
+        {
+            var paidIn = currency.Value ?? request.Currency;
+            var offer = CostTexts.OfferCashRate(trip, paidIn, tripCurrency, Main?.Model.EstimateRates);
+            cashForm = CostTexts.CashRateForm.For(paidIn, tripCurrency, offer?.Rate);
+            if (string.IsNullOrWhiteSpace(cashRate.Text) && offer is { } o) { cashRate.Text = cashForm.Shown(o.Rate).ToString("0.####", CultureInfo.CurrentCulture); cashSource = cashRate.Text; cashNote.Text = string.Format(s["RateTaken"], o.Source(s, paidIn)); }
+            else if (cashRate.Text != cashSource) cashNote.Text = s["CashRateHint"];
+            cashLeft.Text = "1 " + cashForm.Left + " ="; cashRight.Text = cashForm.Right;
+            var calculator = ExpenseViews.CalculatorButton(s, paidIn, tripCurrency, Main?.Model.EstimateRates, rate => { cashRate.Text = cashForm.Shown(rate).ToString("0.####", CultureInfo.CurrentCulture); cashNote.Text = s["CashRateHint"]; });
+            Ui.Detach(cashRate); Ui.Detach(cashLeft); Ui.Detach(cashRight); Ui.Detach(cashNote);
+            cashHost.Content = Ui.V(4, Ui.H(6, cashLeft, cashRate, cashRight, calculator), cashNote);
+        }
+        var paidCard = Ui.Choice(s["PaidWithCard"], "credit-card", true, "chip"); var paidCash = Ui.Choice(s["PaidWithCash"], "banknote", false, "chip");
+        var paidWith = Ui.H(6, paidCard, paidCash); AutomationProperties.SetName(paidWith, s["PaidWith"]);
         var belongsChoices = trip.Entities.Values.Where(e => e.Type == "booking" || e.Type == "schedule_item" && e.Data["kind"]?.ToString() != "group")
             .OrderBy(e => e.Type == "booking" ? 0 : 1).ThenBy(e => e.Title, StringComparer.CurrentCulture)
             .Select(e => new Choice(e.Id.ToString(), e.Title + " · " + s[e.Type == "booking" ? "booking" : "schedule_item"])).ToArray();
@@ -226,6 +247,8 @@ public sealed partial class Dialogs
         var budgetFilters = BudgetFilters.None; var filtersHost = new ContentControl();
         void RenderFilters() => filtersHost.Content = ExpenseViews.BudgetFiltersEditor(s, trip, budgetFilters, changed => { budgetFilters = changed; RenderFilters(); });
         Action? refreshSave = null, relayout = null;
+        paidCard.Click += (_, _) => { cash = false; paidCard.IsSelected = true; paidCash.IsSelected = false; relayout?.Invoke(); };
+        paidCash.Click += (_, _) => { cash = true; paidCard.IsSelected = false; paidCash.IsSelected = true; relayout?.Invoke(); };
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
@@ -284,7 +307,7 @@ public sealed partial class Dialogs
 
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
         // survives; each one is detached from its old row before it is placed again.
-        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost, categoryHost, planned, paidOn, due, chargedRow, belongsTo, receipt, filtersHost];
+        Control[] editors = [title, date, hasTime, time, length, unscheduled, modes, place, from, to, nights, amount, currency, body, reference, people, arrivalDate, arrivalTime, departureZone, arrivalZone, travelTime, zone, zoneLine, splitHost, categoryHost, planned, paidOn, due, chargedRow, paidWith, cashHost, belongsTo, receipt, filtersHost];
         Control Row(string label, Control editor) => Ui.V(6, Ui.Text(label, "label"), editor);
         Control Side(string heading, Control day, Control clock, Control zone) => Ui.V(6, Ui.Text(heading, "label"), day, clock, zone);
         Control TransportWhenRow() => Ui.V(10, Ui.Columns("*,Auto", hasTime, unscheduled.Margin(12, 0, 0, 0)),
@@ -314,7 +337,12 @@ public sealed partial class Dialogs
             if (kind is "booking") { fields.Children.Add(Row(s["BookingNumber"], reference)); fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0)))); }
             if (kind is "expense" or "budget") fields.Children.Add(Row(s["Amount"], Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0))));
             // What the card booked belongs right under the amount on the bill, when that is in another currency.
-            if (kind == "expense" && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency) fields.Children.Add(Row(string.Format(s["ChargedIn"], tripCurrency), chargedRow));
+            if (kind == "expense" && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency)
+            {
+                fields.Children.Add(Row(s["PaidWith"], paidWith));
+                if (cash) { RenderCash(); fields.Children.Add(Row(s["CashRateLabel"], cashHost)); }
+                else fields.Children.Add(Row(string.Format(s["ChargedIn"], tripCurrency), chargedRow));
+            }
             if (kind == "budget") { RenderFilters(); fields.Children.Add(Row(s["BudgetScope"], filtersHost)); }
             if (kind == "task") fields.Children.Add(Row(s["Due"], date));
             if (kind == "note") fields.Children.Add(Row(s["Body"], body));
@@ -356,7 +384,8 @@ public sealed partial class Dialogs
                 if (!SplitValid()) { RenderSplit(); error.Text = s["SplitMustAddUp"]; error.IsVisible = true; return; }
                 splitDraft = Typed();
                 if (!SplitValid()) { RenderSplit(); error.Text = s["SplitMustAddUp"]; error.IsVisible = true; return; }
-                if (!string.IsNullOrWhiteSpace(charged.Text) && ExchangeRates.Amount(charged.Text) is not { } _) { error.Text = s["ChargedNotANumber"]; error.IsVisible = true; charged.Focus(); return; }
+                if (!cash && !string.IsNullOrWhiteSpace(charged.Text) && ExchangeRates.Amount(charged.Text) is not { } _) { error.Text = s["ChargedNotANumber"]; error.IsVisible = true; charged.Focus(); return; }
+                if (cash && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency && cashForm.Parse(cashRate.Text) is null) { error.Text = s["CashRateMissing"]; error.IsVisible = true; cashRate.Focus(); return; }
             }
             var scheduled = kind is "activity" or "food" or "sightseeing" or "transport";
             var idea = scheduled && unscheduled.IsChecked == true;
@@ -389,7 +418,8 @@ public sealed partial class Dialogs
                 Planned = kind == "expense" && planned.IsChecked == true,
                 PaidOn = kind == "expense" && planned.IsChecked != true && paidOn.SelectedDate is { } paid ? LocalDate.FromDateTime(paid) : null,
                 Due = kind == "expense" && planned.IsChecked == true && due.SelectedDate is { } dueDay ? LocalDate.FromDateTime(dueDay) : null,
-                Charged = kind == "expense" && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency ? ExchangeRates.Amount(charged.Text) : null,
+                Charged = kind == "expense" && !cash && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency ? ExchangeRates.Amount(charged.Text) : null,
+                CashRate = kind == "expense" && cash && planned.IsChecked != true && (currency.Value ?? request.Currency) != tripCurrency ? cashForm.Parse(cashRate.Text) : null,
                 ChargedCurrency = tripCurrency,
                 Files = kind == "expense" ? files.ToArray() : [],
                 BudgetFilters = kind == "budget" ? budgetFilters : null

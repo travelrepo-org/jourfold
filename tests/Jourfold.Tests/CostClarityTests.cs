@@ -55,6 +55,33 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PaymentsInAnotherCurrencyWithoutAChargedAmountAreMarked()
+    {
+        var session = await Phone();
+        try
+        {
+            var trip = session.Trip!;
+            Entity Expense(Func<Entity, bool> where) => trip.Entities.Values.First(e => e.Type == "expense" && where(e));
+            string? Currency(Entity e) => TripSummaries.Money(e.Data["amount"])?.Currency;
+            // Paid in yen and nothing charged: only estimated in euros.
+            var uncharged = Expense(e => Currency(e) == "JPY" && !Expenses.IsPlanned(e) && Expenses.ChargeOf(e) is null);
+            Assert.True(CostTexts.NeedsCharge(uncharged, "EUR"));
+            // Charged, still to pay, or in the trip's currency: no mark.
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Expenses.ChargeOf(e) is not null), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "JPY" && Expenses.IsPlanned(e)), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "EUR"), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(uncharged, "JPY"));
+
+            // The Costs page marks it, with words for the tooltip and screen readers.
+            session.ShowTab(MobileTab.More); session.OpenPage("costs");
+            var marks = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<Control>()
+                .Select(Avalonia.Automation.AutomationProperties.GetName).Where(n => n?.StartsWith("No charged amount in EUR yet", StringComparison.Ordinal) == true).Count();
+            Assert.Equal(trip.Entities.Values.Count(e => CostTexts.NeedsCharge(e, "EUR")), marks);
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
     {
         var session = await Phone();

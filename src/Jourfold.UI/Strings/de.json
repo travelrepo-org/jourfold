@@ -716,6 +716,7 @@
   "WhoOwesWhomHintIn": "Aus dem, was noch nicht zurückgezahlt ist, in der Reisewährung {0}: genau mit dem, was die Karten abgebucht haben, sonst geschätzt.",
   "EstimatedWithRates": "≈ geschätzt mit den Referenzkursen der Europäischen Zentralbank vom {0}, weil kein abgebuchter Betrag eingetragen ist. Diese ändern sich von Tag zu Tag; tragen Sie ein, was die Karte abgebucht hat, damit es genau ist.",
   "EstimateAtRates": "≈ {0} zum Kurs vom {1}",
+  "NotChargedYet": "Noch kein abgebuchter Betrag in {0}, daher nur geschätzt. Tragen Sie ein, was die Karte abgebucht hat, damit es genau ist.",
   "NotConvertedHint": "Für einige Ausgaben gibt es weder einen in {0} abgebuchten Betrag noch einen Wechselkurs, deshalb bleiben sie in ihrer Währung.",
   "Charged": "Abgebucht",
   "ChargedIn": "Abgebuchter Betrag in {0}",

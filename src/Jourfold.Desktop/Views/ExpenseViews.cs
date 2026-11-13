@@ -392,7 +392,7 @@ public static class ExpenseViews
             : CostTexts.Estimate(s, expense, m.TripCurrencyCode, m.EstimateRates) is { } estimate ? " · " + estimate : "");
         var title = new Button { Content = Ui.Line(expense.Title, "strong"), Padding = new Thickness(0) }.Classed("link");
         AutomationProperties.SetName(title, expense.Title); title.Click += (_, _) => m.Follow(expense);
-        var lines = Ui.V(3, Ui.Columns("*,Auto,Auto", title, Status(s, split, trip)?.Margin(8, 0), Ui.Text(amount, "strong")));
+        var lines = Ui.V(3, Ui.Columns("*,Auto,Auto,Auto", title, Status(s, split, trip)?.Margin(8, 0), CostTexts.ChargeMark(s, expense, m.TripCurrencyCode)?.Margin(0, 0, 6, 0), Ui.Text(amount, "strong")));
         var payers = split.Payers.Select(p => Name(trip, p)).ToArray();
         if (payers.Length > 0) lines.Children.Add(Ui.Line(string.Format(s["PaidBy"], string.Join(", ", payers)), "caption"));
         if (money is not null && split.Shares.Count > 0) lines.Children.Add(Ui.Line(string.Format(s["SharedBy"], string.Join(", ", split.Shares.Select(x => Name(trip, x.Person) + " " + Formats.Money(x.Amount, money.Currency)))), "caption"));

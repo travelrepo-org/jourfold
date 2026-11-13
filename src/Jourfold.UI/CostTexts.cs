@@ -38,6 +38,28 @@ public static class CostTexts
     public static bool RatesOfEarlierDay(ExchangeRates rates, DateTimeOffset fetched) =>
         NodaTime.Instant.FromDateTimeOffset(fetched).InZone(NodaTime.DateTimeZoneProviders.Tzdb["Europe/Berlin"]).Date > NodaTime.LocalDate.FromDateOnly(rates.Date);
 
+    /// <summary>
+    /// Whether a paid expense is in another currency than the trip's and has no charged amount, so what it comes to in
+    /// the trip's currency is only estimated. Payments still to pay are not counted: nothing can be charged yet.
+    /// </summary>
+    public static bool NeedsCharge(Entity expense, string tripCurrency) =>
+        expense.Type == "expense" && !Expenses.IsPlanned(expense) && Expenses.ChargeOf(expense) is null
+        && TripSummaries.Money(expense.Data["amount"]) is { Amount: not 0 } money && money.Currency != tripCurrency;
+
+    /// <summary>
+    /// A card symbol next to the amount of such an expense, saying in its tooltip and to screen readers that what the
+    /// card charged is missing. Null for every other expense.
+    /// </summary>
+    public static Avalonia.Controls.Control? ChargeMark(Localization s, Entity expense, string tripCurrency, double size = 14)
+    {
+        if (!NeedsCharge(expense, tripCurrency)) return null;
+        var text = string.Format(CultureInfo.CurrentCulture, s["NotChargedYet"], tripCurrency);
+        var mark = Ui.Icon("credit-card", size, "Warning");
+        mark.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
+        Avalonia.Controls.ToolTip.SetTip(mark, text); Avalonia.Automation.AutomationProperties.SetName(mark, text);
+        return mark;
+    }
+
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string Category(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
 

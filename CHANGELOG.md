@@ -2,6 +2,27 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.13.0 “Scenic Seal” – 2026-11-13
+
+### Highlights
+
+- Paid with cash? Choose Cash instead of Card and enter the rate the cash cost, as on the cash machine's receipt, such as 1 EUR = 160.5 JPY. Jourfold offers the rate of your last cash in that currency, and the calculator works it out from a withdrawal: what you received and what your account was charged, fees included. Cash then counts exactly in totals, budgets and who owes whom.
+- Every paid payment in another currency shows at a glance whether it is exact in the trip currency: a green card or bank note when it is, a yellow card while it is only estimated and what the card charged is still missing. The tooltip says which, so colour is not the only sign.
+- Today has a word for the first and the last day of the trip, says "The trip starts tomorrow. Time to pack!" the day before, and after the trip shows it in numbers: days, plans, places, what it cost and per person and day, with Pay back… while something is still open.
+
+### Changes
+
+- The currency converter has Check the fees: enter what a withdrawal or exchange gave you and what it cost, and it shows the rate and how far it is from the reference rate.
+- A filled-in cash rate says where it comes from, the last cash payment in that currency or the reference rate of a day, until you enter your own. Add expense on the computer offers Card or Cash as well.
+- The trip total shows what the trip costs per person and day, paid and still to pay together, once every amount can be counted in the trip currency.
+- Copies of Jourfold from GitHub releases tell you about a newer version above the trips, with View release, Skip this version and Stop checking for updates. They ask GitHub once a day, sending only the app's name and version; turn it off in the notice or under Settings. Nothing is downloaded or installed, and copies from an app store never ask.
+- On phones and tablets, Settings and About show the version with its code name, as on the computer.
+- AI assistants can record a payment made with cash, at the rate on the receipt or from a withdrawal's two amounts.
+
+### Fixes
+
+- The day before a trip, Today no longer says "The trip starts in 1 days."
+
 ## 0.12.0 “Gallant Gnu” – 2026-11-13
 
 ### Highlights

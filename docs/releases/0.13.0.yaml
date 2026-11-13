@@ -1,0 +1,30 @@
+# Release notes for Jourfold 0.13.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.13.0
+date: 2026-11-13
+highlights:
+  - icon: banknote
+    en: "Paid with cash? Choose Cash instead of Card and enter the rate the cash cost, as on the cash machine's receipt, such as 1 EUR = 160.5 JPY. Jourfold offers the rate of your last cash in that currency, and the calculator works it out from a withdrawal: what you received and what your account was charged, fees included. Cash then counts exactly in totals, budgets and who owes whom."
+    de: "Bar bezahlt? Wählen Sie Bargeld statt Karte und geben Sie den Kurs ein, den das Bargeld gekostet hat, wie auf dem Beleg des Geldautomaten, etwa 1 EUR = 160,5 JPY. Jourfold bietet den Kurs Ihres letzten Bargelds in dieser Währung an, und der Rechner ermittelt ihn aus einer Abhebung: was Sie erhalten haben und was Ihrem Konto abgebucht wurde, mit Gebühren. Bargeld zählt dann genau in Summen, Budgets und bei der Frage, wer wem etwas schuldet."
+  - icon: credit-card
+    en: "Every paid payment in another currency shows at a glance whether it is exact in the trip currency: a green card or bank note when it is, a yellow card while it is only estimated and what the card charged is still missing. The tooltip says which, so colour is not the only sign."
+    de: "Jede bezahlte Zahlung in einer anderen Währung zeigt auf einen Blick, ob sie in der Reisewährung genau ist: eine grüne Karte oder ein grüner Geldschein, wenn ja, eine gelbe Karte, solange sie nur geschätzt ist und die Abbuchung der Karte noch fehlt. Der Tooltip sagt, was gilt, damit die Farbe nicht das einzige Zeichen ist."
+  - icon: party-popper
+    en: "Today has a word for the first and the last day of the trip, says \"The trip starts tomorrow. Time to pack!\" the day before, and after the trip shows it in numbers: days, plans, places, what it cost and per person and day, with Pay back… while something is still open."
+    de: "Heute hat ein Wort für den ersten und den letzten Tag der Reise, sagt am Tag davor „Morgen geht es los. Zeit zum Packen!“ und zeigt nach der Reise die Reise in Zahlen: Tage, Pläne, Orte, was sie gekostet hat und pro Person und Tag, mit Zurückzahlen …, solange noch etwas offen ist."
+changes:
+  - en: "The currency converter has Check the fees: enter what a withdrawal or exchange gave you and what it cost, and it shows the rate and how far it is from the reference rate."
+    de: "Der Währungsrechner hat „Gebühren prüfen“: Geben Sie ein, was eine Abhebung oder ein Umtausch ergeben und was er gekostet hat, und er zeigt den Kurs und wie weit er vom Referenzkurs abweicht."
+  - en: "A filled-in cash rate says where it comes from, the last cash payment in that currency or the reference rate of a day, until you enter your own. Add expense on the computer offers Card or Cash as well."
+    de: "Ein vorausgefüllter Bargeldkurs sagt, woher er stammt, vom letzten Barkauf in dieser Währung oder vom Referenzkurs eines Tages, bis Sie einen eigenen eingeben. „Ausgabe hinzufügen“ am Computer bietet ebenfalls Karte oder Bargeld an."
+  - en: "The trip total shows what the trip costs per person and day, paid and still to pay together, once every amount can be counted in the trip currency."
+    de: "Die Gesamtsumme der Reise zeigt, was die Reise pro Person und Tag kostet, bezahlt und noch zu zahlen zusammen, sobald jeder Betrag in der Reisewährung gezählt werden kann."
+  - en: "Copies of Jourfold from GitHub releases tell you about a newer version above the trips, with View release, Skip this version and Stop checking for updates. They ask GitHub once a day, sending only the app's name and version; turn it off in the notice or under Settings. Nothing is downloaded or installed, and copies from an app store never ask."
+    de: "Jourfold aus GitHub-Releases weist über den Reisen auf eine neuere Version hin, mit „Release ansehen“, „Diese Version überspringen“ und „Nicht mehr nach Updates suchen“. Dafür fragt es einmal am Tag bei GitHub nach und sendet nur Name und Version der App; ausschalten lässt sich das im Hinweis oder in den Einstellungen. Es wird nichts heruntergeladen oder installiert, und Versionen aus einem App Store fragen nie."
+  - en: "On phones and tablets, Settings and About show the version with its code name, as on the computer."
+    de: "Auf Handys und Tablets zeigen Einstellungen und Über Jourfold die Version mit ihrem Codenamen, wie am Computer."
+  - en: "AI assistants can record a payment made with cash, at the rate on the receipt or from a withdrawal's two amounts."
+    de: "KI-Assistenten können eine Barzahlung erfassen, zum Kurs auf dem Beleg oder aus den beiden Beträgen einer Abhebung."
+fixes:
+  - en: "The day before a trip, Today no longer says \"The trip starts in 1 days.\""
+    de: "Am Tag vor einer Reise sagt Heute nicht mehr „Die Reise beginnt in 1 Tagen.“"

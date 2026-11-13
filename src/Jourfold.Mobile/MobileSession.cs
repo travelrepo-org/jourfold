@@ -12,7 +12,7 @@ public sealed record TripCard(string Path, TripSnapshot Trip, TravelRepository R
 public enum MobileTab { Today, Plan, Map, More }
 
 /// <summary>What is open over the page: an item's details, Quick Add, the editor for an item, a place, or what another app shared.</summary>
-public enum Overlay { None, Details, QuickAdd, Editor, Place, Share }
+public enum Overlay { None, Details, QuickAdd, Editor, Place, Share, Welcome }
 
 /// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
 public sealed record Question(string Text, string Action, Func<Task> Run);
@@ -151,8 +151,9 @@ public sealed partial class MobileSession : IDisposable
         // Costs written by older versions are brought into the current shape once the travellers agree.
         CostUpgradeLater = false;
         if (!CostUpgradePlan.IsEmpty) OfferCostUpgrade();
-        // Something shared before a trip was chosen goes into this one.
+        // Something shared before a trip was chosen goes into this one; otherwise the trip asks who the user is, once.
         if (Incoming is not null) Showing = Overlay.Share;
+        else if (WelcomeDue) ShowWelcome();
         Changed?.Invoke();
         // Others may have changed the trip since it was last open here.
         if (GitHubLogin is not null && Remote is not null) _ = SyncAsync(quiet: true, CancellationToken.None);

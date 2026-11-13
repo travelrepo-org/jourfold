@@ -47,10 +47,27 @@ public sealed class AboutTests : IDisposable
     [Theory]
     [InlineData("0.1.0", "Nomadic Nightingale")]
     [InlineData("0.2.0", "Uplifted Umbrellabird")]
-    [InlineData("0.2.5", "Uplifted Umbrellabird")]
     [InlineData("0.3.0-beta.1+abc", "Zesty Zebra")]
     [InlineData("1.0.0", "Untamed Urial")]
-    public void CodeNamesAreStablePerFeatureRelease(string version, string expected) => Assert.Equal(expected, CodeNames.For(version));
+    [InlineData("0.11.0", "Frosty Ferret")]
+    [InlineData("0.11.1", "Funky Ferret")]
+    [InlineData("0.7.1", "Knockabout Kudu")]
+    public void CodeNamesAreStable(string version, string expected) => Assert.Equal(expected, CodeNames.For(version));
+
+    [Fact]
+    public void EachPatchReleaseHasItsOwnAdjective()
+    {
+        foreach (var feature in new[] { "0.11", "0.12", "1.3" })
+        {
+            var names = Enumerable.Range(1, 8).Select(patch => CodeNames.For(feature + "." + patch)).ToList();
+            var baseName = CodeNames.For(feature + ".0"); var animal = baseName.Split(' ')[1];
+            // The animal stays; the adjective starts with its letter and differs from the feature release's.
+            Assert.All(names, n => { Assert.EndsWith(" " + animal, n); Assert.NotEqual(baseName, n); Assert.Equal(animal[0], n[0]); });
+            Assert.Equal(names.Count, names.Distinct().Count());
+            // Pre-releases are named like their release.
+            Assert.Equal(CodeNames.For(feature + ".2"), CodeNames.For(feature + ".2-beta.1+abc"));
+        }
+    }
 
     [Fact]
     public void ReleaseScriptComputesTheSameCodeNames()
@@ -58,7 +75,7 @@ public sealed class AboutTests : IDisposable
         var repository = new DirectoryInfo(AppContext.BaseDirectory);
         while (repository is not null && !File.Exists(Path.Combine(repository.FullName, "eng", "version.py"))) repository = repository.Parent;
         Assert.NotNull(repository);
-        foreach (var version in new[] { "0.1.0", "0.4.2", "1.7.0-rc.1", "12.3.0", AppVersion.Version })
+        foreach (var version in new[] { "0.1.0", "0.4.2", "0.11.1", "0.11.2", "0.12.3", "1.7.0-rc.1", "1.7.4-rc.1", "12.3.0", "12.3.17", AppVersion.Version })
         {
             var info = new System.Diagnostics.ProcessStartInfo(OperatingSystem.IsWindows() ? "python" : "python3") { RedirectStandardOutput = true, WorkingDirectory = repository.FullName };
             info.ArgumentList.Add("eng/version.py"); info.ArgumentList.Add("--codename"); info.ArgumentList.Add(version);

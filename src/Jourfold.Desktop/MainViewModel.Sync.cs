@@ -235,6 +235,7 @@ public partial class MainViewModel
         }
         catch (Exception ex) when (ex is DomainException or HttpRequestException or OperationCanceledException) { }
         OnPropertyChanged(nameof(GitHubLogin));
+        await ApplyIdentityAsync();
     }
 
     /// <summary>Downloads the account picture, or returns <c>null</c> when there is none or the network fails.</summary>

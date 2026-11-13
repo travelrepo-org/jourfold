@@ -33,13 +33,22 @@ def read(name='Version', props=ROOT / 'Directory.Build.props', version=True):
 
 
 def codename(version):
-    """Same rule as CodeNames.For in the app: an alliterative adjective and animal derived from major.minor."""
+    """Same rule as CodeNames.For in the app: an alliterative adjective and animal. The letter and the animal come from
+    major.minor; each patch release takes another of the letter's adjectives, one per patch."""
     words = json.loads((ROOT / 'src' / 'Jourfold.Desktop' / 'CodeNames.json').read_text(encoding='utf-8'))
-    key = '.'.join(version.split('+')[0].split('-')[0].split('.')[:2])
-    digest = hashlib.sha256(('jourfold:' + key).encode('utf-8')).digest()
+    parts = version.split('+')[0].split('-')[0].split('.')
+    feature = '.'.join(parts[:2])
+    digest = hashlib.sha256(('jourfold:' + feature).encode('utf-8')).digest()
     pick = lambda offset, count: int.from_bytes(digest[offset:offset + 4], 'big') % count
     letter = words[sorted(words)[pick(0, len(words))]]
-    return letter['adjectives'][pick(4, len(letter['adjectives']))] + ' ' + letter['animals'][pick(8, len(letter['animals']))]
+    adjective = letter['adjectives'][pick(4, len(letter['adjectives']))]
+    animal = letter['animals'][pick(8, len(letter['animals']))]
+    patch = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 0
+    if patch > 0:
+        others = list(dict.fromkeys(a for a in letter['adjectives'] + letter.get('patchAdjectives', []) if a != adjective))
+        others.sort(key=lambda a: hashlib.sha256(f'jourfold:{feature}:{a}'.encode('utf-8')).hexdigest().upper())
+        adjective = others[(patch - 1) % len(others)]
+    return adjective + ' ' + animal
 
 
 def check_tag(tag):

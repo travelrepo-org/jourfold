@@ -2,7 +2,7 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
-## 0.11.1 “Frosty Ferret” – 2026-11-12
+## 0.11.1 “Funky Ferret” – 2026-11-12
 
 ### Highlights
 
@@ -111,7 +111,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 - A click on a check box, a person's chip, "Who brings it?" or Copy inside a row no longer also opens the row's details.
 - Zooming far into the map on a day with a long flight no longer makes Jourfold stop responding.
 
-## 0.7.1 “Keen Kudu” – 2026-10-26
+## 0.7.1 “Knockabout Kudu” – 2026-10-26
 
 ### Highlights
 
@@ -209,7 +209,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 - Files in the trip folder that are not part of the trip no longer count as unsaved changes.
 - Deleting a place keeps the stays that used it.
 
-## 0.3.1 “Zesty Zebra” – 2026-10-04
+## 0.3.1 “Zappy Zebra” – 2026-10-04
 
 ### Fixes
 
@@ -239,7 +239,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 - Place coordinates are saved as a pair, and coordinates pasted from a map fill both fields.
 - Map tiles and search follow the OpenStreetMap usage policies.
 
-## 0.1.1 “Nomadic Nightingale” – 2026-10-04
+## 0.1.1 “Noble Nightingale” – 2026-10-04
 
 ### Changes
 

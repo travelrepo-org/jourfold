@@ -35,6 +35,8 @@ public static class TestBuilder
         Environment.SetEnvironmentVariable("JOURFOLD_DATA_HOME", Path.Combine(Path.GetTempPath(), "jourfold-headless-" + Guid.NewGuid()));
         // Headless rendering has no system fonts to fall back on for ⌘, so the tests read shortcuts as Ctrl everywhere.
         Shortcuts.Mac = false;
+        // Nobody answers "Who are you in this trip?" in a test that does not ask for it.
+        MainViewModel.WelcomeOnOpen = false;
         return AppBuilder.Configure<App>().UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false });
     }
 }

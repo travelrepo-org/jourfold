@@ -410,9 +410,9 @@ public sealed class AppShell : UserControl
         var want = docked ? Overlay.None : Session.Showing;
         var item = Session.OverlayItem is { } id ? Session.Trip?.Find(id) : null;
         // A new place has no item yet; everything else needs one that still exists.
-        if (want is not (Overlay.None or Overlay.QuickAdd or Overlay.Share) && item is null && !(want == Overlay.Place && Session.OverlayItem is null)) want = Overlay.None;
+        if (want is not (Overlay.None or Overlay.QuickAdd or Overlay.Share or Overlay.Welcome) && item is null && !(want == Overlay.Place && Session.OverlayItem is null)) want = Overlay.None;
         if (want == Overlay.Share && Session.Incoming is null) want = Overlay.None;
-        var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor or Overlay.Place or Overlay.Share;
+        var keep = sheet is not null && sheetFor == (want, Session.OverlayItem) && want is Overlay.QuickAdd or Overlay.Editor or Overlay.Place or Overlay.Share or Overlay.Welcome;
         if (!keep)
         {
             // Details open at the glance detent: time, place, reference and Navigate. Dragging up shows more.
@@ -426,6 +426,7 @@ public sealed class AppShell : UserControl
                     ? new Sheet(form.Header, form.View, [0.94], 0, side, Session.Strings[want == Overlay.Editor ? "Edit" : "QuickAdd"]) : null,
                 Overlay.Place => new PlaceView(Session, item) is var place ? new Sheet(place.Header, place.View, [0.94], 0, side, item?.Title ?? Session.Strings["AddPlace"]) : null,
                 Overlay.Share => new ShareView(Session, Session.Incoming!) is var share ? new Sheet(share.Header, share.View, [0.94], 0, side, Session.Strings["SharedWithJourfold"]) : null,
+                Overlay.Welcome => new TripWelcomeView(Session) is var welcome ? new Sheet(welcome.Header, welcome.View, [0.94], 0, side, Session.Strings["WhoAmITitle"]) : null,
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);

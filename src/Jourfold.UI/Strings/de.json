@@ -1976,5 +1976,14 @@
   "BudgetLimitedHint": "Wird für sich gezeigt und gehört nicht zum Budget der Reise. Alle gewählten Einschränkungen gelten zusammen, etwa das Essen einer Person.",
   "OpenItems": "Offene Posten",
   "AddBudgetLong": "Budget hinzufügen",
-  "PaymentsDue": "Fällige Zahlungen"
+  "PaymentsDue": "Fällige Zahlungen",
+  "UpdateAvailable": "{0} ist verfügbar",
+  "UpdateInstalled": "Installiert: {0}",
+  "UpdateView": "Release ansehen",
+  "UpdateSkip": "Diese Version überspringen",
+  "UpdateStop": "Nicht mehr nach Updates suchen",
+  "UpdateStopped": "Jourfold sucht nicht mehr nach neuen Versionen. Sie können das in den Einstellungen wieder einschalten.",
+  "UpdateChecks": "Nach neuen Versionen suchen",
+  "Updates": "Updates",
+  "UpdateChecksHint": "Einmal am Tag beim Start fragt Jourfold bei GitHub nach dem neuesten Release und sagt Bescheid, wenn es ein neueres gibt. Gesendet werden nur Name und Version der App, nichts aus Ihren Reisen. Es wird nichts heruntergeladen oder installiert."
 }

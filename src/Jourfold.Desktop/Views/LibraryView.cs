@@ -53,7 +53,27 @@ public static class LibraryView
             body.Children.Add(grid);
         }
         var scroll = new ScrollViewer { Content = new Border { Child = body, HorizontalAlignment = HorizontalAlignment.Center } };
-        return new DockPanel { Children = { top.Also(t => DockPanel.SetDock(t, Dock.Top)), scroll } };
+        var dock = new DockPanel { Children = { top.Also(t => DockPanel.SetDock(t, Dock.Top)) } };
+        if (m.UpdateOffer is { } release) dock.Children.Add(UpdateNotice(w, release).Also(n => DockPanel.SetDock(n, Dock.Top)));
+        dock.Children.Add(scroll);
+        return dock;
+    }
+
+    /// <summary>
+    /// A newer Jourfold on GitHub, above the trips: a link to its release page, skipping just this version, or no
+    /// longer looking at all. The words say what it is, not only the color.
+    /// </summary>
+    public static Control UpdateNotice(MainWindow w, AppRelease release)
+    {
+        var m = w.Model; var s = m.Strings;
+        var view = Ui.Button(s["UpdateView"], "external-link", "compact"); view.Click += (_, _) => w.Dialogs.Open(release.Page.AbsoluteUri); ToolTip.SetTip(view, release.Page.AbsoluteUri);
+        var skip = Ui.Button(s["UpdateSkip"], null, "compact", "ghost"); skip.Click += (_, _) => m.SkipUpdate(release);
+        var stop = Ui.Button(s["UpdateStop"], null, "compact", "ghost"); stop.Click += (_, _) => { m.SetUpdateChecks(false); w.Dialogs.Toast(s["UpdateStopped"]); };
+        var text = Ui.V(2, Ui.Text(string.Format(s["UpdateAvailable"], release.Title), "strong"), Ui.Text(string.Format(s["UpdateInstalled"], AppVersion.Version), "caption"));
+        var notice = new Border { Padding = new Thickness(28, 10), BorderThickness = new Thickness(0, 0, 0, 1), Child = Ui.Columns("Auto,*,Auto", Ui.Icon("sparkles", 18, "Info").Also(i => i.VerticalAlignment = VerticalAlignment.Center), text.Margin(12, 0), Ui.H(6, view, skip, stop).Also(h => h.VerticalAlignment = VerticalAlignment.Center)) }
+            .Res(Border.BackgroundProperty, "Info.Soft").Res(Border.BorderBrushProperty, "Line");
+        AutomationProperties.SetName(notice, string.Format(s["UpdateAvailable"], release.Title));
+        return notice;
     }
 
     private static MenuFlyout OpenMenu(MainViewModel m)

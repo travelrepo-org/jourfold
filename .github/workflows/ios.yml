@@ -154,6 +154,8 @@ jobs:
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+          # Files on GitHub releases tell about newer releases; see Directory.Build.props.
+          JourfoldDistribution: github
           RELEASE: ${{ inputs.tag && 'true' || 'false' }}
         run: |
           # A release gets build number 999, as on Android, so it updates every build of the same version.

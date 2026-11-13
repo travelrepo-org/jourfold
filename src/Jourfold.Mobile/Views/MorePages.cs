@@ -1242,15 +1242,27 @@ public static class MorePages
             Ui.V(8, Ui.Text(str["Weather"], "overline").Margin(20, 0), Ui.Card(new ToggleSwitch { IsChecked = s.WeatherOn, OnContent = str["WeatherTurnOn"], OffContent = str["WeatherTurnOn"] }
                 .Also(t => { AutomationProperties.SetName(t, str["WeatherTurnOn"]); t.IsCheckedChanged += async (_, _) => await s.SetWeatherAsync(t.IsChecked == true); }), 14).Margin(16, 0)),
             Calendar(s),
+            Updates(s),
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),
                 Info("folder", str["StorageUsed"], Formats.Bytes(size)),
                 about]));
     }
 
+    /// <summary>Whether the app looks for new versions; only in the APK and IPA from GitHub, which stores do not update.</summary>
+    private static Control? Updates(MobileSession s)
+    {
+        if (!s.Updates.Available) return null;
+        var str = s.Strings;
+        var toggle = new ToggleSwitch { IsChecked = s.Updates.On, OnContent = str["UpdateChecks"], OffContent = str["UpdateChecks"] };
+        AutomationProperties.SetName(toggle, str["UpdateChecks"]);
+        toggle.IsCheckedChanged += (_, _) => s.SetUpdateChecks(toggle.IsChecked == true);
+        return Ui.V(8, Ui.Text(str["Updates"], "overline").Margin(20, 0),
+            Ui.Card(Ui.V(8, toggle, Ui.Text(str["UpdateChecksHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), 14).Margin(16, 0));
+    }
+
     /// <summary>The installed app's version, such as a preview's; the assembly's where the platform does not say.</summary>
-    private static string AppVersion(MobileSession s) => s.Host.AppVersion ?? typeof(MorePages).Assembly.GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
-        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion.Split('+')[0] ?? "";
+    private static string AppVersion(MobileSession s) => s.AppVersion;
 
     /// <summary>
     /// About Jourfold, as on the desktop: versions, the licenses of Jourfold and TravelRepo, where the source is, and the

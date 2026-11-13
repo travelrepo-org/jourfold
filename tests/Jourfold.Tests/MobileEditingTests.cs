@@ -146,6 +146,35 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APaymentWithCashTakesTheRateItCostInsteadOfACharge()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var rail = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Rail passes");
+            session.ShowEditor(rail.Id);
+            // Cash instead of a card: the rate is asked for, as on the cash machine's receipt, and no charged amount.
+            Tap(window, "Cash");
+            Assert.DoesNotContain(Probe.All<TextBox>(Form(window)), t => AutomationProperties.GetName(t) == "Amount charged in EUR");
+            Probe.All<TextBox>(Form(window)).First(t => AutomationProperties.GetName(t)?.StartsWith("Rate of the cash", StringComparison.Ordinal) == true).Text = "160";
+            Tap(window, "Save");
+            await Probe.Until(() => Expenses.IsCash(session.Trip!.Find(rail.Id)!));
+            var paid = session.Trip!.Find(rail.Id)!;
+            Assert.Equal(625.00m, Expenses.ChargeOf(paid)!.Value);
+            Assert.Equal("Cash · 1 EUR = 160 JPY", Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(Jourfold.Mobile.Views.MorePages.ExpenseFacts(session, paid))
+                .OfType<TextBlock>().Select(t => t.Text).First(t => t?.StartsWith("Cash", StringComparison.Ordinal) == true));
+
+            // By card again, the cash rate goes.
+            session.ShowEditor(rail.Id);
+            Tap(window, "Card");
+            Tap(window, "Save");
+            await Probe.Until(() => !Expenses.IsCash(session.Trip!.Find(rail.Id)!));
+            Assert.Null(Expenses.ChargeOf(session.Trip!.Find(rail.Id)!));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task APlanIsForChosenPeopleAndAStepForItsGroup()
     {
         var (session, window) = await OpenAsync();

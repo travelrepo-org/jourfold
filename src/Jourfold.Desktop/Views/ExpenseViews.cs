@@ -246,6 +246,51 @@ public static class ExpenseViews
     }
 
     /// <summary>
+    /// How a payment in another currency than the trip's was paid: by card, with what the card charged as on the
+    /// statement, or with cash bought before, with the rate the cash cost, offered from the last cash in that currency
+    /// or the reference rate. Either makes what it comes to in the trip's currency exact. Null for a payment in the
+    /// trip's currency without a charge in another one.
+    /// </summary>
+    public static Control? PaidWith(MainWindow w, Entity expense)
+    {
+        var m = w.Model; var s = m.Strings; var home = m.TripCurrencyCode; var trip = m.Trip!;
+        if (TripSummaries.Money(expense.Data["amount"]) is not { Amount: not 0 } money || money.Currency == home) return Charged(w, expense);
+        var cash = Expenses.IsCash(expense) || m.CashPending.Contains(expense.Id);
+        var card = Ui.Choice(s["PaidWithCard"], "credit-card", !cash, "chip"); card.Click += (_, _) => _ = m.PayWithCardAsync(expense.Id);
+        var bank = Ui.Choice(s["PaidWithCash"], "banknote", cash, "chip"); bank.Click += (_, _) => _ = m.PayWithCashAsync(expense.Id);
+        var choice = Ui.H(6, card, bank); AutomationProperties.SetName(choice, s["PaidWith"]);
+        if (!cash)
+        {
+            // Until the charged amount is entered, what it comes to in the trip's currency with the rates.
+            var estimate = Expenses.ChargeOf(expense) is null ? CostTexts.Estimate(s, expense, home, m.EstimateRates) : null;
+            return Ui.V(8, choice, Charged(w, expense), estimate is null ? null : Ui.Text(estimate, "caption"));
+        }
+        var charge = Expenses.ChargeOf(expense);
+        var suggested = CostTexts.SuggestedCashRate(trip, money.Currency, home, m.EstimateRates);
+        var form = CostTexts.CashRateForm.For(money.Currency, home, charge?.Rate ?? suggested);
+        var box = new TextBox
+        {
+            Text = charge is { } c ? form.Shown(c.Rate).ToString("0.####", System.Globalization.CultureInfo.CurrentCulture) : "",
+            Width = 110,
+            HorizontalContentAlignment = HorizontalAlignment.Right,
+            PlaceholderText = suggested is { } offer ? form.Shown(offer).ToString("0.####", System.Globalization.CultureInfo.CurrentCulture) : ""
+        };
+        AutomationProperties.SetName(box, s["CashRateLabel"] + ": 1 " + form.Left + " = … " + form.Right);
+        var original = box.Text ?? "";
+        async Task Commit()
+        {
+            if ((box.Text ?? "").Trim() == original.Trim()) return;
+            if (await m.SetCashRateAsync(expense.Id, box.Text, form)) { box.Classes.Remove("invalid"); original = box.Text ?? ""; } else box.Classes.Add("invalid");
+        }
+        box.LostFocus += async (_, _) => await Commit();
+        box.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await Commit(); } if (e.Key == Key.Escape) { box.Text = original; e.Handled = true; } };
+        var row = Ui.H(6, Ui.Text("1 " + form.Left + " =", "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), box, Ui.Text(form.Right, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center),
+            charge is { } known ? Ui.Text("= " + Formats.Money(known.Value, known.Currency), "strong").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(8, 0, 0, 0); }) : null);
+        var state = charge is null ? Ui.Text(s["CashRateMissing"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap).Res(TextBlock.ForegroundProperty, "Warning") : null;
+        return Ui.V(8, choice, Ui.Text(s["CashRateLabel"], "caption"), row, state, Ui.Text(s["CashRateHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+    }
+
+    /// <summary>
     /// What the trip cost so far in its currency: exact where amounts are in it or were charged in it, otherwise
     /// estimated with reference rates when allowed, what is still to pay, and what is still in another currency. The
     /// currency can be chosen here for everyone. Null without expenses.
@@ -388,7 +433,7 @@ public static class ExpenseViews
         var split = Expenses.Split(trip, expense);
         var money = split.Amount;
         var planned = Expenses.IsPlanned(expense);
-        var amount = money is null ? "" : Formats.Money(money.Amount, money.Currency) + (Expenses.ChargeOf(expense) is { } charge ? " · " + string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency))
+        var amount = money is null ? "" : Formats.Money(money.Amount, money.Currency) + (CostTexts.ChargedText(s, expense) is { } charged ? " · " + charged
             : CostTexts.Estimate(s, expense, m.TripCurrencyCode, m.EstimateRates) is { } estimate ? " · " + estimate : "");
         var title = new Button { Content = Ui.Line(expense.Title, "strong"), Padding = new Thickness(0) }.Classed("link");
         AutomationProperties.SetName(title, expense.Title); title.Click += (_, _) => m.Follow(expense);

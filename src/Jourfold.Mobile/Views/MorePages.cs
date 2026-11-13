@@ -806,7 +806,7 @@ public static class MorePages
             var split = Expenses.Split(trip, e);
             var money = split.Amount;
             var lines = Ui.V(2, Ui.Columns("*,Auto", Ui.Text(e.Title, "strong"), Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, e, s.TripCurrencyCode, 16), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong"))));
-            if (Expenses.ChargeOf(e) is { } charge) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), "caption"));
+            if (Jourfold.UI.CostTexts.ChargedText(str, e) is { } charged) lines.Children.Add(Ui.Text(charged, "caption"));
             else if (Jourfold.UI.CostTexts.Estimate(str, e, s.TripCurrencyCode, s.EstimateRates) is { } estimate) lines.Children.Add(Ui.Text(estimate, "caption"));
             if (split.Payers.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidBy"], string.Join(", ", split.Payers.Select(p => trip.Find(p)?.Title))), "caption"));
             if (money is not null && split.Shares.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["SharedBy"], string.Join(", ", split.Shares.Select(x => trip.Find(x.Person)?.Title + " " + Formats.Money(x.Amount, money.Currency)))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
@@ -936,7 +936,9 @@ public static class MorePages
         if (expense.Data["body"]?.ToString() is { Length: > 0 } notes) body.Children.Add(DetailView.Row("sticky-note", notes, null, s));
         var category = ExpenseCategories.Of(trip, expense);
         body.Children.Add(DetailView.Row("tag", ExpenseCategories.IsStandard(category) ? str["expcat." + category] : category, str["Category"]));
-        if (Expenses.ChargeOf(expense) is { } charge)
+        if (Expenses.ChargeOf(expense) is { } paidCash && paidCash.Source == Expenses.Cash && money is not null)
+            body.Children.Add(DetailView.Row("banknote", Formats.Money(paidCash.Value, paidCash.Currency), str["PaidWithCash"] + " · " + Jourfold.UI.CostTexts.CashRateForm.For(money.Currency, paidCash.Currency, paidCash.Rate).Text(paidCash.Rate)));
+        else if (Expenses.ChargeOf(expense) is { } charge)
             body.Children.Add(DetailView.Row("wallet", Formats.Money(charge.Value, charge.Currency), str["Charged"] + (money is null ? "" : " · " + string.Format(CultureInfo.CurrentCulture, str["ChargedRate"], money.Currency, charge.Rate.ToString("0.####", CultureInfo.CurrentCulture), charge.Currency))));
         // Without what the card charged, what it comes to in the trip's currency with the rates, marked as an estimate.
         else if (Jourfold.UI.CostTexts.Estimate(str, expense, s.TripCurrencyCode, s.EstimateRates) is { } estimate)

@@ -97,7 +97,7 @@ public static class CollectionViews
                 var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
                 var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
                 var category = ExpenseCategories.Of(trip, e);
-                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(t => !string.IsNullOrEmpty(t)));
+                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Jourfold.UI.CostTexts.ChargedText(s, e) }.Where(t => !string.IsNullOrEmpty(t)));
                 var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                     Ui.Tile(ExpenseViews.CategoryIcon(category), "Food", 34).Margin(0, 0, 12, 0),
                     Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),

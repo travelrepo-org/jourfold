@@ -83,6 +83,10 @@ public sealed class QuickAddView
     private string? chargedBefore;
     // The currency of a charge already entered, which can differ from the trip's (entered earlier or elsewhere); it is kept.
     private string? chargedCurrency;
+    // Paid with cash bought before instead of a card: then the rate the cash cost is asked for, not what was charged.
+    private bool cash, cashBefore;
+    private readonly TextBox cashRate = new() { Width = 110, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Right };
+    private string? cashRateBefore;
     // When a payment still to pay is due.
     private readonly DatePicker dueDate = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private LocalDate? dueBefore;
@@ -137,6 +141,7 @@ public sealed class QuickAddView
         AutomationProperties.SetName(paidOn, str["PaidOnLabel"]);
         // What the card charged opens the number pad like the amount, with the decimal separator and sign.
         Avalonia.Input.TextInput.TextInputOptions.SetContentType(charged, Avalonia.Input.TextInput.TextInputContentType.Number);
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(cashRate, Avalonia.Input.TextInput.TextInputContentType.Number);
         newCategory.PlaceholderText = str["NewCategory"]; AutomationProperties.SetName(newCategory, str["NewCategory"]);
         newCategory.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; TakeNewCategory(); } };
         // The amount decides what an amount split has to add up to.
@@ -213,7 +218,12 @@ public sealed class QuickAddView
             foreach (var part in (item.Data["split"]?["parts"] as System.Text.Json.Nodes.JsonArray ?? []).OfType<System.Text.Json.Nodes.JsonObject>())
                 if (Guid.TryParse(part["person"]?.ToString(), out var who) && ExchangeRates.Amount(part["value"]?.ToString()) is { } value) SplitBox(who).Text = ValueText(value);
             if (item.Data["date"] is not null && (paidOnBefore = Expenses.DateOf(trip, item)) is { } paidDay) paidOn.SelectedDate = new DateTimeOffset(paidDay.ToDateTimeUnspecified(), TimeSpan.Zero);
-            if (Expenses.ChargeOf(item) is { } charge) { charged.Text = chargedBefore = charge.Value.ToString(CultureInfo.CurrentCulture); chargedCurrency = charge.Currency; }
+            if (Expenses.ChargeOf(item) is { } charge && charge.Source == Expenses.Cash)
+            {
+                cash = cashBefore = true; chargedCurrency = charge.Currency;
+                cashRate.Text = cashRateBefore = CashForm().Shown(charge.Rate).ToString("0.####", CultureInfo.CurrentCulture);
+            }
+            else if (Expenses.ChargeOf(item) is { } card) { charged.Text = chargedBefore = card.Value.ToString(CultureInfo.CurrentCulture); chargedCurrency = card.Currency; }
             if ((dueBefore = Expenses.DueOf(item)) is { } dueDay) dueDate.SelectedDate = new DateTimeOffset(dueDay.ToDateTimeUnspecified(), TimeSpan.Zero);
             estimated.IsChecked = item.Data["estimated"] is System.Text.Json.Nodes.JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
             related = relatedBefore = (item.Data["related"] as System.Text.Json.Nodes.JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? id : (Guid?)null).FirstOrDefault(id => id is not null);
@@ -316,7 +326,7 @@ public sealed class QuickAddView
         if (form.Children.Count == 0) { if (editing is null) form.Children.Add(kinds); form.Children.Add(title); form.Children.Add(rest); }
         rest.Children.Clear();
         // The fields keep what was typed between draws; they leave the layout of the last draw first.
-        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged, dueDate, paidOn, newCategory, splitState }.Concat(splitBoxes.Values).Concat(details.Values.Select(d => d.Box)))
+        foreach (var field in new Control[] { start, end, place, from, idea, body, amount, arrival, checkOut, windowFrom, windowUntil, latestOut, reference, provider, cancelDay, cancelTime, estimated, otherCurrency, charged, cashRate, dueDate, paidOn, newCategory, splitState }.Concat(splitBoxes.Values).Concat(details.Values.Select(d => d.Box)))
             switch (field.Parent)
             {
                 case Panel panel: panel.Children.Remove(field); break;
@@ -386,9 +396,23 @@ public sealed class QuickAddView
             // What the card booked in the trip's currency (or the one of a charge already entered), next to the amount on the bill.
             if (Currency() != ChargeCurrency())
             {
-                var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
-                AutomationProperties.SetName(charged, label);
-                rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+                // By card, with what was charged, or with cash bought before, with the rate it cost.
+                var card = Chip(str["PaidWithCard"], "credit-card", !cash, "chip"); card.Click += (_, _) => { cash = false; Render(); };
+                var bank = Chip(str["PaidWithCash"], "banknote", cash, "chip"); bank.Click += (_, _) => { cash = true; OfferCashRate(); Render(); };
+                rest.Children.Add(Field(str["PaidWith"], Ui.Flow(8, card, bank)));
+                if (cash)
+                {
+                    var form = CashForm();
+                    AutomationProperties.SetName(cashRate, str["CashRateLabel"] + ": 1 " + form.Left + " = … " + form.Right);
+                    var row = Ui.H(6, Ui.Text("1 " + form.Left + " =").Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center), cashRate, Ui.Text(form.Right).Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center));
+                    rest.Children.Add(Field(str["CashRateLabel"], Ui.V(4, row, Ui.Text(str["CashRateHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+                }
+                else
+                {
+                    var label = string.Format(CultureInfo.CurrentCulture, str["ChargedIn"], ChargeCurrency());
+                    AutomationProperties.SetName(charged, label);
+                    rest.Children.Add(Field(label, Ui.V(4, charged, Ui.Text(str["ChargedHintShort"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+                }
             }
             rest.Children.Add(estimated);
             // A payment still to pay can be due on a day; the phone reminds three days before.
@@ -479,6 +503,17 @@ public sealed class QuickAddView
 
     /// <summary>The currency typed or chosen, as a three-letter code.</summary>
     private string ChargeCurrency() => chargedCurrency ?? s.TripCurrencyCode;
+
+    /// <summary>How the cash rate is shown: one unit of the stronger currency first, as on a cash machine's receipt.</summary>
+    private Jourfold.UI.CostTexts.CashRateForm CashForm() =>
+        Jourfold.UI.CostTexts.CashRateForm.For(Currency(), ChargeCurrency(), Jourfold.UI.CostTexts.SuggestedCashRate(s.Trip!, Currency(), ChargeCurrency(), s.EstimateRates));
+
+    /// <summary>Fills in the rate of the last cash in this currency, or the reference rate, when none is typed yet.</summary>
+    private void OfferCashRate()
+    {
+        if (!string.IsNullOrWhiteSpace(cashRate.Text) || Jourfold.UI.CostTexts.SuggestedCashRate(s.Trip!, Currency(), ChargeCurrency(), s.EstimateRates) is not { } rate) return;
+        cashRate.Text = CashForm().Shown(rate).ToString("0.####", CultureInfo.CurrentCulture);
+    }
     private string Currency() => otherCurrency.Text?.Trim().ToUpperInvariant() is { Length: > 0 } typed ? typed : currency;
 
     /// <summary>A booking: provider, number, status, price, free cancellation, travellers and the plans it is for.</summary>
@@ -927,7 +962,15 @@ public sealed class QuickAddView
             // The day it was paid, for a paid one; a payment still to pay gets it when it is marked as paid.
             var paidDay = estimated.IsChecked != true && paidOn.SelectedDate is { } chosenDay ? LocalDate.FromDateTime(chosenDay.Date) : (LocalDate?)null;
             if (paidDay != paidOnBefore) item = Expenses.WithDate(item, paidDay);
-            if (Changed(charged.Text, chargedBefore) && Currency() != ChargeCurrency())
+            if (cash && Currency() != ChargeCurrency() && TripSummaries.Money(item.Data["amount"]) is { Amount: not 0 })
+            {
+                // The rate the cash cost; a corrected amount keeps it, and the amount in the trip's currency follows.
+                var rate = CashForm().Parse(cashRate.Text);
+                if (rate is { } cost && (!cashBefore || Changed(cashRate.Text, cashRateBefore)))
+                    item = Expenses.WithCash(item, ChargeCurrency(), cost, Expenses.ChargeOf(item)?.Date ?? Expenses.DayOf(trip, item) ?? s.PhoneToday);
+            }
+            else if (cashBefore && !cash) item = Expenses.WithoutCharge(item);
+            if (!cash && Changed(charged.Text, chargedBefore) && Currency() != ChargeCurrency())
             {
                 if (string.IsNullOrWhiteSpace(charged.Text)) item = Expenses.WithoutCharge(item);
                 else if (ExchangeRates.Amount(charged.Text) is { } booked && TripSummaries.Money(item.Data["amount"]) is { Amount: not 0 })

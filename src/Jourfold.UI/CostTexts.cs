@@ -47,6 +47,44 @@ public static class CostTexts
         && TripSummaries.Money(expense.Data["amount"]) is { Amount: not 0 } money && money.Currency != tripCurrency;
 
     /// <summary>
+    /// What an expense comes to in another currency because of what was paid: "charged EUR 46.36" for a card, "cash,
+    /// counted as EUR 15.00" for cash bought before. Null when neither was entered.
+    /// </summary>
+    public static string? ChargedText(Localization s, Entity expense) => Expenses.ChargeOf(expense) is not { } charge ? null
+        : string.Format(CultureInfo.CurrentCulture, s[charge.Source == Expenses.Cash ? "CashShort" : "ChargedShort"], Formats.Money(charge.Value, charge.Currency));
+
+    /// <summary>
+    /// How a cash rate is shown and typed: one unit of the stronger currency first, so the number is above one, as on
+    /// a cash machine's receipt: "1 EUR = 160.5 JPY" for yen, "1 GBP = 1.17 EUR" for pounds.
+    /// </summary>
+    /// <param name="Cash">The currency the cash was in, the expense's.</param>
+    /// <param name="Trip">The currency it is counted in.</param>
+    /// <param name="TripFirst">Whether the trip's currency is the stronger one and comes first.</param>
+    public sealed record CashRateForm(string Cash, string Trip, bool TripFirst)
+    {
+        /// <summary>
+        /// The form for <paramref name="rate"/>, the units of the trip's currency one unit of cash cost. Without a rate
+        /// the trip's currency comes first, as travellers count: how much of the local money one of theirs buys.
+        /// </summary>
+        public static CashRateForm For(string cash, string trip, decimal? rate) => new(cash, trip, rate is not { } r || r < 1);
+        public string Left => TripFirst ? Trip : Cash;
+        public string Right => TripFirst ? Cash : Trip;
+        /// <summary>The number shown for a stored rate.</summary>
+        public decimal Shown(decimal rate) => Math.Round(TripFirst ? 1 / rate : rate, 4, MidpointRounding.AwayFromZero);
+        /// <summary>The stored rate for a typed number ("160,5" works), or null when it is none above zero.</summary>
+        public decimal? Parse(string? text) => ExchangeRates.Amount(text) is { } value && value > 0 ? TripFirst ? 1 / value : value : null;
+        /// <summary>"1 EUR = 160.5 JPY".</summary>
+        public string Text(decimal rate) => "1 " + Left + " = " + Shown(rate).ToString("0.####", CultureInfo.CurrentCulture) + " " + Right;
+    }
+
+    /// <summary>
+    /// The rate to offer for cash in <paramref name="cash"/>: the one the last cash payment in that currency cost,
+    /// which usually comes from the same withdrawal, otherwise the reference rate.
+    /// </summary>
+    public static decimal? SuggestedCashRate(TripSnapshot trip, string cash, string tripCurrency, ExchangeRates? rates) =>
+        Expenses.LastCashRate(trip, cash, tripCurrency) ?? rates?.Convert(1m, cash, tripCurrency);
+
+    /// <summary>
     /// A card symbol next to the amount of a paid expense: green when what it comes to in the trip's currency is exact,
     /// because it was paid in that currency or what the card charged is known, yellow when it is only estimated. Its
     /// tooltip and its name for screen readers say which, so the colour is not the only sign. Null for payments still
@@ -56,10 +94,14 @@ public static class CostTexts
     {
         if (expense.Type != "expense" || Expenses.IsPlanned(expense) || TripSummaries.Money(expense.Data["amount"]) is not { Amount: not 0 } money) return null;
         var estimated = NeedsCharge(expense, tripCurrency);
+        var charge = Expenses.ChargeOf(expense);
+        var cash = charge?.Source == Expenses.Cash;
         var text = estimated ? string.Format(CultureInfo.CurrentCulture, s["NotChargedYet"], tripCurrency)
-            : Expenses.ChargeOf(expense) is { } charge ? string.Format(CultureInfo.CurrentCulture, s["ExactCharged"], Formats.Money(charge.Value, charge.Currency))
+            : cash ? string.Format(CultureInfo.CurrentCulture, s["ExactCash"], Formats.Money(charge!.Value, charge.Currency), CashRateForm.For(money.Currency, charge.Currency, charge.Rate).Text(charge.Rate))
+            : charge is not null ? string.Format(CultureInfo.CurrentCulture, s["ExactCharged"], Formats.Money(charge.Value, charge.Currency))
             : string.Format(CultureInfo.CurrentCulture, s["ExactInTripCurrency"], money.Currency);
-        var mark = Ui.Icon("credit-card", size, estimated ? "Warning" : "Success");
+        // Cash shows a bank note, so it is told apart from a card charge at a glance.
+        var mark = Ui.Icon(cash ? "banknote" : "credit-card", size, estimated ? "Warning" : "Success");
         mark.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center;
         Avalonia.Controls.ToolTip.SetTip(mark, text); Avalonia.Automation.AutomationProperties.SetName(mark, text);
         return mark;

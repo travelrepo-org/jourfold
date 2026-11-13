@@ -295,7 +295,9 @@ usual spelling and the phone number below.
   its details and the booking's, what the card charged, or what it comes to with the reference rates, marked ≈ with
   their day. Paid payments carry a card symbol next to their amount on the Costs page and in a booking's
   payments: green when exact in the trip currency (paid in it, or charged), yellow while estimated; screen readers
-  say which. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  say which. In the expense form, **Paid with** chooses **Card** (what was charged) or **Cash** bought before (the
+  rate it cost, "1 EUR = 160.5 JPY", offered from the last cash in that currency or the reference rate); cash counts
+  exactly at that rate and shows a green bank note. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
   are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
   the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold

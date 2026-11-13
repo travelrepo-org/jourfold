@@ -19,6 +19,25 @@ public static class CostTexts
         _ => "tag"
     };
 
+    /// <summary>
+    /// What an expense in another currency comes to in the trip's, estimated with reference rates because no charged
+    /// amount was entered: "≈ €60.85 at the rates of 8 Nov 2026". Null when it is in the trip's currency, when what the
+    /// card charged is known (shown as such), or when there are no rates to estimate with.
+    /// </summary>
+    public static string? Estimate(Localization s, Entity expense, string tripCurrency, ExchangeRates? rates)
+    {
+        if (rates is null || TripSummaries.Money(expense.Data["amount"]) is not { } money) return null;
+        var (amount, currency, how) = Expenses.Convert(expense, money.Amount, money.Currency, tripCurrency, rates);
+        return how == Conversion.Reference ? string.Format(CultureInfo.CurrentCulture, s["EstimateAtRates"], Formats.Money(amount, currency), Formats.Date(NodaTime.LocalDate.FromDateOnly(rates.Date))) : null;
+    }
+
+    /// <summary>
+    /// Whether the newest rates are of an earlier day than the one they were fetched on, as on a weekend or before the
+    /// European Central Bank publishes the day's rates around 16:00 in Frankfurt. The converter then says why.
+    /// </summary>
+    public static bool RatesOfEarlierDay(ExchangeRates rates, DateTimeOffset fetched) =>
+        NodaTime.Instant.FromDateTimeOffset(fetched).InZone(NodaTime.DateTimeZoneProviders.Tzdb["Europe/Berlin"]).Date > NodaTime.LocalDate.FromDateOnly(rates.Date);
+
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string Category(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
 

@@ -16,6 +16,27 @@ public sealed partial class MobileSession
     /// <summary>The currency the travellers count in, from the trip; until it is chosen, the one the costs suggest or EUR.</summary>
     public string TripCurrencyCode => Trip is { } trip ? TripCurrency.Of(trip) ?? "EUR" : "EUR";
 
+    /// <summary>
+    /// Sets the trip's currency for everyone. Budgets in another currency stay as they are; when the rates allow, the
+    /// phone then offers to convert them, listing each, as the computer does.
+    /// </summary>
+    public Task SetTripCurrencyAsync(string code, CancellationToken ct = default) => ChangeAsync(async () =>
+    {
+        if (Workspace is not { } workspace || ExchangeRates.Code(code) is not { } currency || TripCurrency.Stored(workspace.State.Trip) == currency) return;
+        await workspace.EditAsync(TripCurrency.With(workspace.State.Trip.Manifest, currency), ct); NoteChange();
+        if (Budgets.ConvertTo(workspace.State.Trip, currency, EstimateRates) is { Count: > 0 } converted && EstimateRates is { } rates)
+        {
+            var lines = converted.Select(c => "• " + c.Budget.Title + ": " + Formats.Money(c.Before.Amount, c.Before.Currency) + " → ≈ " + Formats.Money(c.After.Amount, c.After.Currency));
+            Confirm(Strings["ConvertBudgetsTitle"], Strings["ConvertBudgets"], async () =>
+            {
+                // Converted with the rates of the moment the user says yes, should the trip have changed meanwhile.
+                if (Workspace is not { } now || Budgets.ConvertTo(now.State.Trip, currency, EstimateRates) is not { Count: > 0 } latest) return;
+                await now.ApplyAsync(latest.Select(c => new EntityEdit(c.Budget.Id, c.Budget)).ToArray(), ct); NoteChange();
+            }, string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["ConvertBudgetsBody"], currency, Formats.Date(LocalDate.FromDateOnly(rates.Date))) + "\n\n" + string.Join("\n", lines), Strings["KeepBudgets"]);
+        }
+        Changed?.Invoke();
+    }, ct);
+
     /// <summary>Reference rates for estimates where no charged amount was entered, only when fetching them is allowed.</summary>
     public ExchangeRates? EstimateRates => RatesOn ? Rates : null;
 

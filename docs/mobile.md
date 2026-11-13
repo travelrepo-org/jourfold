@@ -268,9 +268,11 @@ usual spelling and the phone number below.
 - **Currency converter** (More): works offline with the European Central Bank's reference rates of the last sync.
   Fetching asks once; afterwards the rates come with every sync and when the converter opens, and nothing about the
   trip is sent. Rates fetched in the last 12 hours count as new, because the bank publishes on working days only, and
-  a failed attempt waits 30 minutes, so an offline phone does not keep trying. At the top of the converter it says
-  when the rates were fetched; a tap there fetches them again now, at most once a minute, and keeps the last rates
-  when that fails.
+  a failed attempt waits 30 minutes, so an offline phone does not keep trying. Below the converter it says whose
+  rates of which day they are, then when the phone last checked for new ones; a tap there checks again now, at most
+  once a minute, and keeps the last rates when that fails. When the newest rates are of an earlier day than the
+  check, as on a weekend, it says that the bank publishes on working days around 16:00 Frankfurt time. The trip's
+  currencies come first, and other currencies chosen lately stay among them (the last four, kept on the phone).
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
   still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
   category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was
@@ -279,9 +281,11 @@ usual spelling and the phone number below.
   function: whose open items, which to settle now, and what that comes to. Budgets are added and changed there, with
   what they apply to. Payments due within two weeks show on Today. Amounts and split parts open the number pad
   (with both decimal comma and point). Choosing a chip below the title closes the keyboard, so it does not cover
-  the rest of the form; editing opens without the keyboard. Not on the phone yet, as
-  possible later additions: changing the trip currency (and converting budgets with it) and exporting costs as PDF or
-  CSV, which the computer does.
+  the rest of the form; editing opens without the keyboard. A payment in another currency than the trip's shows, in
+  its details and the booking's, what the card charged, or what it comes to with the reference rates, marked ≈ with
+  their day. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
+  the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold
   needs no camera permission); the photo is turned upright, made at most 1600 pixels on the longer side and attached
   to the expense, which the user paid unless the form says otherwise. There is no text recognition (ML Kit would

@@ -72,8 +72,8 @@ public sealed class FreshnessTests : IDisposable
         try
         {
             session.ShowTab(MobileTab.More); session.ShowPage("converter"); Probe.Layout();
-            Button Fresh() => Probe.All<Button>(window).Single(b => AutomationProperties.GetName(b)?.StartsWith("Fetch the exchange rates again, fetched ", StringComparison.Ordinal) == true);
-            Assert.Contains(", ", AutomationProperties.GetName(Fresh())!["Fetch the exchange rates again, fetched ".Length..]);
+            Button Fresh() => Probe.All<Button>(window).Single(b => AutomationProperties.GetName(b)?.StartsWith("Fetch the exchange rates again, checked for new rates ", StringComparison.Ordinal) == true);
+            Assert.Contains(", ", AutomationProperties.GetName(Fresh())!["Fetch the exchange rates again, checked for new rates ".Length..]);
 
             Fresh().RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
             await Probe.Until(() => handler.Asked == 2 && !session.FetchingRates);

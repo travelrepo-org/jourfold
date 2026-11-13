@@ -511,9 +511,13 @@ public sealed class AppShell : UserControl
 
     private Control Question(Question question)
     {
-        var no = Ui.Button(Session.Strings["Cancel"], null, "ghost"); no.Click += async (_, _) => await Session.AnswerAsync(false);
+        var no = Ui.Button(question.Decline ?? Session.Strings["Cancel"], null, "ghost"); no.Click += async (_, _) => await Session.AnswerAsync(false);
         var yes = Ui.Button(question.Action, null, "primary"); yes.Click += async (_, _) => await Session.AnswerAsync(true);
-        var card = Ui.Card(Ui.V(16, Ui.Text(question.Text, "title"), Ui.Columns("*,Auto,Auto", null, no.Col(1), yes.Col(2).Margin(8, 0, 0, 0))), 20)
+        var detail = question.Detail is { } more ? Ui.Text(more).Also(t => t.TextWrapping = TextWrapping.Wrap) : null;
+        // Long answers go below each other instead of being cut off.
+        var buttons = question.Decline is null ? Ui.Columns("*,Auto,Auto", null, no.Col(1), yes.Col(2).Margin(8, 0, 0, 0))
+            : (Control)Ui.V(8, yes.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch), no.Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch));
+        var card = Ui.Card(Ui.V(16, Ui.Text(question.Text, "title").Also(t => t.TextWrapping = TextWrapping.Wrap), detail, buttons), 20)
             .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
         return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }

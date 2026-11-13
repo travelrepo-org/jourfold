@@ -388,7 +388,8 @@ public static class ExpenseViews
         var split = Expenses.Split(trip, expense);
         var money = split.Amount;
         var planned = Expenses.IsPlanned(expense);
-        var amount = money is null ? "" : Formats.Money(money.Amount, money.Currency) + (Expenses.ChargeOf(expense) is { } charge ? " · " + string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : "");
+        var amount = money is null ? "" : Formats.Money(money.Amount, money.Currency) + (Expenses.ChargeOf(expense) is { } charge ? " · " + string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency))
+            : CostTexts.Estimate(s, expense, m.TripCurrencyCode, m.EstimateRates) is { } estimate ? " · " + estimate : "");
         var title = new Button { Content = Ui.Line(expense.Title, "strong"), Padding = new Thickness(0) }.Classed("link");
         AutomationProperties.SetName(title, expense.Title); title.Click += (_, _) => m.Follow(expense);
         var lines = Ui.V(3, Ui.Columns("*,Auto,Auto", title, Status(s, split, trip)?.Margin(8, 0), Ui.Text(amount, "strong")));

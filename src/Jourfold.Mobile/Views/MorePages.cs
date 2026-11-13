@@ -492,14 +492,15 @@ public static class MorePages
         Control Chips(string key, string chosen)
         {
             var flow = Ui.Flow(6);
-            foreach (var code in currencies.Append(chosen).Distinct())
+            // The trip's currencies, then other ones chosen lately, so one picked under Other stays.
+            foreach (var code in currencies.Concat(s.RecentCurrencies.Where(rates.Currencies.Contains)).Append(chosen).Distinct())
             {
                 var chip = Ui.Choice(code, null, code == chosen, "chip"); var c = code;
-                chip.Click += (_, _) => { s.Drafts[key] = c; s.Redraw(); };
+                chip.Click += (_, _) => s.ChooseConverterCurrency(key, c);
                 flow.Children.Add(chip);
             }
             var other = new AutoCompleteBox { ItemsSource = rates.Currencies.ToArray(), PlaceholderText = str["OtherCurrency"], MinimumPrefixLength = 1, Width = 110, FilterMode = AutoCompleteFilterMode.StartsWith };
-            other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) { s.Drafts[key] = c; s.Redraw(); } };
+            other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) s.ChooseConverterCurrency(key, c); };
             flow.Children.Add(other);
             return flow;
         }
@@ -509,9 +510,12 @@ public static class MorePages
         swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.Redraw(); };
         Show();
         return Frame(s, str["Converter"],
-            Ui.Card(Ui.V(12, Ui.Columns("*,Auto", Ui.Text(from, "overline").Also(t => t.VerticalAlignment = VerticalAlignment.Center), Fetched()), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
+            Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
                 Ui.Text(to, "overline"), result, Chips("converter.to", to)), 16).Margin(16, 0),
-            Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString(Formats.DayPattern("d MMM yyyy", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap).Margin(20, 0));
+            // Whose rates of which day first, then when the phone last looked for newer ones, and why they may be older.
+            Ui.V(4, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString(Formats.DayPattern("ddd d MMM yyyy", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap),
+                s.RatesFetched is { } at && Jourfold.UI.CostTexts.RatesOfEarlierDay(rates, at) ? Ui.Text(str["RatesPublishedHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap) : null,
+                Fetched()?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left)).Margin(20, 0));
     }
 
     private static Control Task(MobileSession s, Entity task, LocalDate? due, bool late)
@@ -793,6 +797,7 @@ public static class MorePages
             var money = split.Amount;
             var lines = Ui.V(2, Ui.Columns("*,Auto", Ui.Text(e.Title, "strong"), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")));
             if (Expenses.ChargeOf(e) is { } charge) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency)), "caption"));
+            else if (Jourfold.UI.CostTexts.Estimate(str, e, s.TripCurrencyCode, s.EstimateRates) is { } estimate) lines.Children.Add(Ui.Text(estimate, "caption"));
             if (split.Payers.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["PaidBy"], string.Join(", ", split.Payers.Select(p => trip.Find(p)?.Title))), "caption"));
             if (money is not null && split.Shares.Count > 0) lines.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["SharedBy"], string.Join(", ", split.Shares.Select(x => trip.Find(x.Person)?.Title + " " + Formats.Money(x.Amount, money.Currency)))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
             if (SplitPill(str, split) is { } pill) lines.Children.Add(pill.Also(p => p.HorizontalAlignment = HorizontalAlignment.Left));
@@ -923,6 +928,9 @@ public static class MorePages
         body.Children.Add(DetailView.Row("tag", ExpenseCategories.IsStandard(category) ? str["expcat." + category] : category, str["Category"]));
         if (Expenses.ChargeOf(expense) is { } charge)
             body.Children.Add(DetailView.Row("wallet", Formats.Money(charge.Value, charge.Currency), str["Charged"] + (money is null ? "" : " · " + string.Format(CultureInfo.CurrentCulture, str["ChargedRate"], money.Currency, charge.Rate.ToString("0.####", CultureInfo.CurrentCulture), charge.Currency))));
+        // Without what the card charged, what it comes to in the trip's currency with the rates, marked as an estimate.
+        else if (Jourfold.UI.CostTexts.Estimate(str, expense, s.TripCurrencyCode, s.EstimateRates) is { } estimate)
+            body.Children.Add(DetailView.Row("wallet", estimate, string.Format(CultureInfo.CurrentCulture, str["InCurrency"], s.TripCurrencyCode)));
         // Everyone's part, and a box per debt to mark it as paid back, large enough to tap.
         var split = Expenses.Split(trip, expense);
         if (split.Shares.Count > 0 && money is not null)
@@ -1163,7 +1171,31 @@ public static class MorePages
             catch (DomainException ex) { problem.Text = ex.Message; problem.IsVisible = true; }
         };
         return Frame(s, str["TripDetails"],
-            Ui.Card(Ui.V(12, Ui.Field(str["Title"], title), Ui.Field(str["TripStart"], Clearable(start)), Ui.Field(str["TripEnd"], Clearable(end)), hint, problem, save), 14).Margin(16, 0));
+            Ui.Card(Ui.V(12, Ui.Field(str["Title"], title), Ui.Field(str["TripStart"], Clearable(start)), Ui.Field(str["TripEnd"], Clearable(end)), hint, problem, save), 14).Margin(16, 0),
+            TripCurrencyCard(s));
+    }
+
+    /// <summary>
+    /// The trip's currency, for everyone: the trip's own and the costs' currencies to tap, and any other by its code.
+    /// It changes at once, as on the computer; budgets in the old currency are offered to be converted.
+    /// </summary>
+    private static Control TripCurrencyCard(MobileSession s)
+    {
+        var str = s.Strings; var current = s.TripCurrencyCode;
+        var chips = Ui.Flow(8);
+        foreach (var code in s.TripCurrencies().Prepend(current).Distinct())
+        {
+            var chip = Ui.Choice(code, null, code == current, "chip").Also(c => c.MinHeight = 44); var chosen = code;
+            chip.Click += async (_, _) => await s.SetTripCurrencyAsync(chosen);
+            chips.Children.Add(chip);
+        }
+        var other = new TextBox { MaxLength = 3, Width = 96, PlaceholderText = str["OtherCurrencyHint"] }; AutomationProperties.SetName(other, str["OtherCurrency"]);
+        async Task Take() { if (ExchangeRates.Code(other.Text) is { } code && code != s.TripCurrencyCode) await s.SetTripCurrencyAsync(code); }
+        other.KeyDown += async (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) { e.Handled = true; await Take(); } };
+        other.LostFocus += async (_, _) => await Take();
+        chips.Children.Add(other);
+        return Ui.V(8, Ui.Text(str["TripCurrency"], "overline").Margin(20, 0),
+            Ui.Card(Ui.V(10, Ui.Text(str["TripCurrencyHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), chips), 14).Margin(16, 0));
     }
 
     private static Control Settings(MobileSession s)

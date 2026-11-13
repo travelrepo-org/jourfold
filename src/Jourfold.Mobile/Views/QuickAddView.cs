@@ -87,6 +87,9 @@ public sealed class QuickAddView
     private bool cash, cashBefore;
     private readonly TextBox cashRate = new() { Width = 110, HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Right };
     private string? cashRateBefore;
+    // The rate filled in for the user and where it came from, said until they change it; and the calculator below it.
+    private string? cashOffered, cashOfferSource;
+    private bool calculating;
     // When a payment still to pay is due.
     private readonly DatePicker dueDate = new() { HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private LocalDate? dueBefore;
@@ -404,8 +407,19 @@ public sealed class QuickAddView
                 {
                     var form = CashForm();
                     AutomationProperties.SetName(cashRate, str["CashRateLabel"] + ": 1 " + form.Left + " = … " + form.Right);
-                    var row = Ui.H(6, Ui.Text("1 " + form.Left + " =").Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center), cashRate, Ui.Text(form.Right).Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center));
-                    rest.Children.Add(Field(str["CashRateLabel"], Ui.V(4, row, Ui.Text(str["CashRateHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))));
+                    // The calculator opens below the rate, so the form stays short until it is needed.
+                    var calculator = Ui.IconButton("calculator", str["RateCalculator"]).Also(b => { if (calculating) b.Classes.Add("selected"); });
+                    calculator.Click += (_, _) => { calculating = !calculating; Render(); };
+                    var row = Ui.H(6, Ui.Text("1 " + form.Left + " =").Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center), cashRate, Ui.Text(form.Right).Also(t => t.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center), calculator);
+                    var note = cashOffered is not null && cashRate.Text == cashOffered && cashOfferSource is { } source ? string.Format(CultureInfo.CurrentCulture, str["RateTaken"], source) : str["CashRateHint"];
+                    var parts = Ui.V(8, row, Ui.Text(note, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+                    if (calculating)
+                        parts.Children.Add(Ui.Card(Jourfold.UI.RateCalculator.Build(str, Currency(), ChargeCurrency(), s.EstimateRates, rate =>
+                        {
+                            cashRate.Text = CashForm().Shown(rate).ToString("0.####", CultureInfo.CurrentCulture);
+                            calculating = false; Render();
+                        }), 12));
+                    rest.Children.Add(Field(str["CashRateLabel"], parts));
                 }
                 else
                 {
@@ -511,8 +525,9 @@ public sealed class QuickAddView
     /// <summary>Fills in the rate of the last cash in this currency, or the reference rate, when none is typed yet.</summary>
     private void OfferCashRate()
     {
-        if (!string.IsNullOrWhiteSpace(cashRate.Text) || Jourfold.UI.CostTexts.SuggestedCashRate(s.Trip!, Currency(), ChargeCurrency(), s.EstimateRates) is not { } rate) return;
-        cashRate.Text = CashForm().Shown(rate).ToString("0.####", CultureInfo.CurrentCulture);
+        if (!string.IsNullOrWhiteSpace(cashRate.Text) || Jourfold.UI.CostTexts.OfferCashRate(s.Trip!, Currency(), ChargeCurrency(), s.EstimateRates, editing?.Id) is not { } offer) return;
+        cashRate.Text = cashOffered = CashForm().Shown(offer.Rate).ToString("0.####", CultureInfo.CurrentCulture);
+        cashOfferSource = offer.Source(s.Strings, Currency());
     }
     private string Currency() => otherCurrency.Text?.Trim().ToUpperInvariant() is { Length: > 0 } typed ? typed : currency;
 

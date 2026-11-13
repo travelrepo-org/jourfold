@@ -121,6 +121,65 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheCalculatorWorksOutTheRateOfAWithdrawalAndItsFees()
+    {
+        var session = await Phone();
+        try
+        {
+            var s = session.Strings;
+            // 600 NZD for 318.40 EUR with fees; the reference rate says 1 EUR = 1.9 NZD.
+            var rates = new ExchangeRates(new DateOnly(2027, 5, 14), new Dictionary<string, decimal> { ["NZD"] = 1.9m });
+            var rate = CostTexts.WithdrawalRate(600m, 318.40m)!.Value;
+            Assert.Equal("1 EUR = 1.8844 NZD", CostTexts.CashRateForm.For("NZD", "EUR", rate).Text(rate));
+            Assert.Equal(0.8m, CostTexts.Markup(rate, 1m / 1.9m));
+            Assert.Equal("0.8 % more than the reference rate of " + Formats.Date(new LocalDate(2027, 5, 14)), CostTexts.MarkupText(s, rate, rates, "NZD", "EUR"));
+            Assert.Null(CostTexts.WithdrawalRate(600m, null)); Assert.Null(CostTexts.WithdrawalRate(0m, 10m));
+            // A rate is read with its decimals, not like an amount where "1.884" could be a thousand and more.
+            var nzd = CostTexts.CashRateForm.For("NZD", "EUR", rate);
+            Assert.Equal(Math.Round(1m / 1.8844m, 10), Math.Round(nzd.Parse("1.8844")!.Value, 10));
+            Assert.Null(nzd.Parse("none")); Assert.Null(nzd.Parse("0"));
+            foreach (var (typed, read) in new[] { ("160,5", 160.5m), ("160.5", 160.5m), ("1.8844", 1.8844m), ("1,8844", 1.8844m), ("1,234.5", 1234.5m), ("1.234,5", 1234.5m), ("25,000", 25000m), ("1.884", 1.884m), ("160", 160m) })
+                Assert.Equal(read, CostTexts.ReadRate(typed));
+
+            // The calculator itself: typed amounts, the rate, the fees, and the rate handed over.
+            decimal? used = null;
+            var calculator = RateCalculator.Build(s, "NZD", "EUR", rates, r => used = r);
+            var window = new Window { Content = calculator }; window.Show();
+            try
+            {
+                Probe.All<TextBox>(calculator).Single(t => Avalonia.Automation.AutomationProperties.GetName(t) == "Cash received (NZD)").Text = "600";
+                Probe.All<TextBox>(calculator).Single(t => Avalonia.Automation.AutomationProperties.GetName(t) == "Charged to the account, fees included (EUR)").Text = "318,40";
+                Probe.Layout();
+                Assert.Contains("1 EUR = 1.8844 NZD", Texts(calculator));
+                Probe.Click(calculator, "Use this rate");
+                Assert.Equal(rate, used);
+            }
+            finally { window.Close(); }
+
+            // Offered: the last cash payment's rate, otherwise the reference rate, saying which.
+            var trip = session.Trip!;
+            var offer = CostTexts.OfferCashRate(trip, "JPY", "EUR", Friday)!;
+            Assert.Equal(("Reference rate of " + Formats.Date(new LocalDate(2027, 5, 14))), offer.Source(s, "JPY"));
+            var tea = trip.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(tea.Id, Expenses.WithCash(tea, "EUR", 1m / 158m, new LocalDate(2027, 5, 15)))]);
+            var last = CostTexts.OfferCashRate(session.Trip!, "JPY", "EUR", Friday)!;
+            Assert.Equal(("Rate of the last cash payment in JPY", Math.Round(1m / 158m, 8)), (last.Source(s, "JPY"), Math.Round(last.Rate, 8)));
+            // Editing that payment itself, its own rate is not offered back.
+            Assert.NotNull(CostTexts.OfferCashRate(session.Trip!, "JPY", "EUR", Friday, tea.Id)!.ReferenceDay);
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public void ADraftPaidWithCashIsAddedAtItsRate()
+    {
+        var trip = new TripSnapshot(TripCurrency.With(Entity.CreateTrip("Wanaka", "en", "Pacific/Auckland"), "EUR"), new Dictionary<Guid, Entity>());
+        var (main, _) = Jourfold.Application.QuickAdd.Build(new Jourfold.Application.QuickAddDraft("expense", "Market") { Amount = 60m, Currency = "NZD", ChargedCurrency = "EUR", CashRate = 318.40m / 600m, PaidOn = new LocalDate(2027, 5, 14) }, trip);
+        Assert.True(Expenses.IsCash(main));
+        Assert.Equal(31.84m, Expenses.ChargeOf(main)!.Value);
+    }
+
+    [AvaloniaFact]
     public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
     {
         var session = await Phone();

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -284,10 +285,31 @@ public static class ExpenseViews
         }
         box.LostFocus += async (_, _) => await Commit();
         box.KeyDown += async (_, e) => { if (e.Key == Key.Enter) { e.Handled = true; await Commit(); } if (e.Key == Key.Escape) { box.Text = original; e.Handled = true; } };
-        var row = Ui.H(6, Ui.Text("1 " + form.Left + " =", "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), box, Ui.Text(form.Right, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center),
+        // The rate of the user's own withdrawal, worked out from what they received and what their account was charged.
+        var calculator = CalculatorButton(s, money.Currency, home, m.EstimateRates, rate =>
+        {
+            box.Text = form.Shown(rate).ToString("0.####", System.Globalization.CultureInfo.CurrentCulture);
+            _ = Commit();
+        });
+        var row = Ui.H(6, Ui.Text("1 " + form.Left + " =", "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), box, Ui.Text(form.Right, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center), calculator,
             charge is { } known ? Ui.Text("= " + Formats.Money(known.Value, known.Currency), "strong").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(8, 0, 0, 0); }) : null);
         var state = charge is null ? Ui.Text(s["CashRateMissing"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap).Res(TextBlock.ForegroundProperty, "Warning") : null;
-        return Ui.V(8, choice, Ui.Text(s["CashRateLabel"], "caption"), row, state, Ui.Text(s["CashRateHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+        // A rate filled in from the last cash or the reference rates says so, until the user enters their own.
+        var offered = CostTexts.OfferCashRate(trip, money.Currency, home, m.EstimateRates, expense.Id);
+        var taken = charge is { } c2 && offered is { } o && Math.Round(o.Rate, 8) == Math.Round(c2.Rate, 8)
+            ? Ui.Text(string.Format(s["RateTaken"], o.Source(s, money.Currency)), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null;
+        return Ui.V(8, choice, Ui.Text(s["CashRateLabel"], "caption"), row, state, taken ?? Ui.Text(s["CashRateHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
+    }
+
+    /// <summary>A calculator button that opens <see cref="RateCalculator"/> in a flyout and hands over the rate it works out.</summary>
+    public static Button CalculatorButton(Localization s, string cash, string account, ExchangeRates? rates, Action<decimal> use)
+    {
+        var button = Ui.IconButton("calculator", s["RateCalculator"]);
+        var flyout = new Flyout { Placement = PlacementMode.BottomEdgeAlignedLeft };
+        flyout.Content = new Border { Padding = new Thickness(14), Child = RateCalculator.Build(s, cash, account, rates, rate => { flyout.Hide(); use(rate); }) };
+        FlyoutBase.SetAttachedFlyout(button, flyout);
+        button.Click += (_, _) => FlyoutBase.ShowAttachedFlyout(button);
+        return button;
     }
 
     /// <summary>

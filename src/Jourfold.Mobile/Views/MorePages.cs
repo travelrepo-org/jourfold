@@ -518,10 +518,16 @@ public static class MorePages
         Control? Fetched() => s.RatesFetched is { } fetched ? Lines.Fetched(s, Instant.FromDateTimeOffset(fetched), str["RatesFetched"], str["RefreshRates"], () => s.RefreshRatesAsync(), str["RatesRefreshFailed"]) : null;
         var swap = Ui.Button(str["SwapCurrencies"], "refresh-cw", "ghost");
         swap.Click += (_, _) => { s.Drafts["converter.from"] = to; s.Drafts["converter.to"] = from; s.Redraw(); };
+        // What an exchange really cost, from what was received and what the account was charged, against the reference rate.
+        var checking = s.Drafts.ContainsKey("converter.fees");
+        var feesToggle = Ui.Button(str["CheckFees"], "calculator", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        feesToggle.Click += (_, _) => { if (!s.Drafts.Remove("converter.fees")) s.Drafts["converter.fees"] = "open"; s.Redraw(); };
+        var fees = checking ? Ui.Card(Jourfold.UI.RateCalculator.Build(str, from, to, rates), 16).Margin(16, 0) : null;
         Show();
         return Frame(s, str["Converter"],
             Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),
                 Ui.Text(to, "overline"), result, Chips("converter.to", to)), 16).Margin(16, 0),
+            feesToggle.Margin(12, 0), fees,
             // Whose rates of which day first, then when the phone last looked for newer ones, and why they may be older.
             Ui.V(4, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RatesFrom"], rates.Date.ToString(Formats.DayPattern("ddd d MMM yyyy", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap),
                 s.RatesFetched is { } at && Jourfold.UI.CostTexts.RatesOfEarlierDay(rates, at) ? Ui.Text(str["RatesPublishedHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap) : null,

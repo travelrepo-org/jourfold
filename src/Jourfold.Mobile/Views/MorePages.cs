@@ -522,7 +522,7 @@ public static class MorePages
         var checking = s.Drafts.ContainsKey("converter.fees");
         var feesToggle = Ui.Button(str["CheckFees"], "calculator", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         feesToggle.Click += (_, _) => { if (!s.Drafts.Remove("converter.fees")) s.Drafts["converter.fees"] = "open"; s.Redraw(); };
-        var fees = checking ? Ui.Card(Jourfold.UI.RateCalculator.Build(str, from, to, rates), 16).Margin(16, 0) : null;
+        var fees = checking ? Ui.Card(Jourfold.UI.RateCalculator.Build(str, from, to, rates, titled: false), 16).Margin(16, 0) : null;
         Show();
         return Frame(s, str["Converter"],
             Ui.Card(Ui.V(12, Ui.Text(from, "overline"), amount, Chips("converter.from", from), swap.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left),

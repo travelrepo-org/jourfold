@@ -19,7 +19,8 @@ public static class RateCalculator
     /// <param name="account">The currency the account was charged in, the trip's.</param>
     /// <param name="rates">Reference rates to compare with, if any.</param>
     /// <param name="use">Takes the rate (units of <paramref name="account"/> per unit of <paramref name="cash"/>); without it the calculator only checks the fees.</param>
-    public static Control Build(Localization s, string cash, string account, ExchangeRates? rates, Action<decimal>? use = null)
+    /// <param name="titled">Whether it names itself; off where a button or header above it already does.</param>
+    public static Control Build(Localization s, string cash, string account, ExchangeRates? rates, Action<decimal>? use = null, bool titled = true)
     {
         TextBox Box(string name) => new TextBox { Width = 120, HorizontalContentAlignment = HorizontalAlignment.Right }.Also(b =>
         {
@@ -42,7 +43,7 @@ public static class RateCalculator
         if (take is not null) take.Click += (_, _) => { if (Current() is { } r) use!(r); };
         Control Line(string label, TextBox box, string code) => Ui.V(4, Ui.Text(label, "caption"), Ui.H(6, box, Ui.Text(code, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center)));
         Show();
-        return Ui.V(10, Ui.Text(use is null ? s["CheckFees"] : s["RateCalculator"], "strong"),
+        return Ui.V(10, titled ? Ui.Text(use is null ? s["CheckFees"] : s["RateCalculator"], "strong") : null,
             use is null ? Ui.Text(s["CheckFeesHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null,
             Line(s["CashReceived"], received, cash), Line(s["AccountDebited"], debited, account),
             Ui.V(2, rate, markup), take).Also(v => v.MinWidth = 260);

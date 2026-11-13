@@ -188,7 +188,7 @@ public static class CollectionViews
         var fresh = m.RatesFetched is { } fetched ? FreshnessButton.Build(w, NodaTime.Instant.FromDateTimeOffset(fetched), s["RatesFetched"], s["RefreshRates"], m.RefreshRatesAsync, s["RatesRefreshFailed"]) : null;
         // What an exchange really cost: what was received and what the account was charged, against the reference rate.
         var fees = new Expander { Header = Ui.H(6, Ui.Icon("calculator", 14, "Text.Muted"), Ui.Text(s["CheckFees"])), HorizontalAlignment = HorizontalAlignment.Stretch };
-        fees.Expanding += (_, _) => fees.Content = RateCalculator.Build(s, from.Value ?? m.TripCurrencyCode, to.Value ?? m.TripCurrencyCode, rates);
+        fees.Expanding += (_, _) => fees.Content = RateCalculator.Build(s, from.Value ?? m.TripCurrencyCode, to.Value ?? m.TripCurrencyCode, rates, titled: false);
         return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
             Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result), fees,
             Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap),

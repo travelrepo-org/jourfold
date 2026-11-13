@@ -38,6 +38,22 @@ public static class CostTexts
     public static bool RatesOfEarlierDay(ExchangeRates rates, DateTimeOffset fetched) =>
         NodaTime.Instant.FromDateTimeOffset(fetched).InZone(NodaTime.DateTimeZoneProviders.Tzdb["Europe/Berlin"]).Date > NodaTime.LocalDate.FromDateOnly(rates.Date);
 
+    /// <summary>
+    /// What the trip costs per traveller and day, paid and still to pay together, in the trip's currency:
+    /// "≈ EUR 74.20 per person and day". Null without dates, travellers or costs, and while some costs cannot be
+    /// converted to the trip's currency yet: leaving them out would make the trip look cheaper than it is.
+    /// </summary>
+    public static string? PerPersonAndDay(Localization s, TripSnapshot trip, string tripCurrency, ConvertedTotal paid, ConvertedTotal planned)
+    {
+        if (paid.NotConverted.Count > 0 || planned.NotConverted.Count > 0) return null;
+        if (TripQueries.EffectiveDates(trip) is not ({ } start, { } end)) return null;
+        var days = NodaTime.Period.DaysBetween(start, end) + 1; var people = TripPeople.Travelers(trip).Count;
+        var sum = paid.Total + planned.Total;
+        if (days <= 0 || people == 0 || sum <= 0) return null;
+        var each = Math.Round(sum / people / days, Expenses.MinorDigits(tripCurrency), MidpointRounding.AwayFromZero);
+        return string.Format(CultureInfo.CurrentCulture, s["PerPersonAndDay"], (paid.Estimated + planned.Estimated > 0 ? "≈ " : "") + Formats.Money(each, tripCurrency));
+    }
+
     /// <summary>The name of a category: standard ones translated, the travellers' own as they typed them.</summary>
     public static string Category(Localization s, string category) => ExpenseCategories.IsStandard(category) ? s["expcat." + category] : category;
 

@@ -55,6 +55,7 @@ public static class TodayView
             ?? lines.FirstOrDefault(l => !l.IsIdea && l.Status != "cancelled" && l.IsTimed && l.Start > now);
         page.Children.Add(Ui.V(2, Ui.Text(Lines.DayTitle(today, s) + " · " + string.Format(CultureInfo.CurrentCulture, s.Strings["DayN"], day.Number), "h2"),
             Views.Lines.ClockLine(s, TimeText.PhoneHeading(phone, s.Strings), phone), Lines.DayWeather(s, today)).Margin(16, 0));
+        if (Greeting(s, day) is { } greeting) page.Children.Add(greeting);
         if (WeatherPrompt(s) is { } prompt) page.Children.Add(prompt);
         if (PaymentsDue(s) is { } due) page.Children.Add(due);
         var next = current is null ? null : NextCard(s, current, now, phone);
@@ -133,7 +134,8 @@ public static class TodayView
     {
         var first = s.Agenda.Days.FirstOrDefault()?.Date; var last = s.Agenda.Days.LastOrDefault()?.Date;
         var before = first is { } f && today < f;
-        var text = before ? string.Format(CultureInfo.CurrentCulture, s.Strings["TripStartsIn"], Period.DaysBetween(today, first!.Value))
+        var daysLeft = before ? Period.DaysBetween(today, first!.Value) : 0;
+        var text = before ? daysLeft == 1 ? s.Strings["TripStartsTomorrow"] : string.Format(CultureInfo.CurrentCulture, s.Strings["TripStartsIn"], daysLeft)
             : last is not null ? s.Strings["TripIsOver"] : s.Strings["NoDatesYet"];
         var plan = Ui.Button(s.Strings["OpenPlan"], "list", "soft"); plan.Click += (_, _) => s.ShowTab(MobileTab.Plan);
         var page = Ui.V(16, Ui.Text(text, "h2").Margin(16, 8, 16, 0));
@@ -154,8 +156,44 @@ public static class TodayView
                 page.Children.Add(list.Margin(16, 0));
             }
         }
+        else if (last is not null && Recap(s) is { } recap) page.Children.Add(recap.Margin(16, 0));
         page.Children.Add(plan.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left).Margin(16, 0, 16, 24));
         return page;
+    }
+
+    /// <summary>
+    /// After the trip, the trip in numbers: its days, plans and places, what it cost and per person and day. When
+    /// someone still owes someone, paying back is one tap away.
+    /// </summary>
+    private static Control? Recap(MobileSession s)
+    {
+        var trip = s.Trip!; var str = s.Strings; var home = s.TripCurrencyCode;
+        var plans = trip.Entities.Values.Count(e => e.Type == "schedule_item" && e.Data["status"]?.ToString() is not ("cancelled" or "idea"));
+        var places = trip.Entities.Values.Count(e => e.Type == "place");
+        var numbers = string.Format(CultureInfo.CurrentCulture, str["RecapNumbers"], s.Agenda.Days.Count, plans, places);
+        var expenses = trip.Entities.Values.Where(e => e.Type == "expense" && !Expenses.IsIdea(trip, e)).ToArray();
+        var paid = Expenses.Total(expenses, home, s.EstimateRates); var planned = Expenses.Total(expenses, home, s.EstimateRates, planned: true);
+        var body = Ui.V(6, Ui.H(8, Ui.Icon("party-popper", 18, "Accent"), Ui.Text(str["RecapTitle"], "strong")), Ui.Text(numbers).Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        if (paid.Total + planned.Total > 0)
+            body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["RecapCost"], (paid.Estimated + planned.Estimated > 0 ? "≈ " : "") + Formats.Money(paid.Total + planned.Total, home)), "caption"));
+        if (Jourfold.UI.CostTexts.PerPersonAndDay(str, trip, home, paid, planned) is { } daily) body.Children.Add(Ui.Text(daily, "caption"));
+        // What is still open between the travellers is best settled while everyone remembers.
+        if (Expenses.Open(trip).Count > 0)
+        {
+            var pay = Ui.Button(str["PayBack"], "wallet", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            pay.Click += (_, _) => s.ShowPay();
+            body.Children.Add(Ui.Text(str["RecapStillOpen"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+            body.Children.Add(pay);
+        }
+        return Ui.Card(body, 14);
+    }
+
+    /// <summary>A word for the first and the last day of the trip; other days have none.</summary>
+    private static Control? Greeting(MobileSession s, AgendaDay day)
+    {
+        var (icon, key) = day.Number == 1 ? ("party-popper", "FirstDayGreeting") : day.Date == s.Agenda.Days[^1].Date && s.Agenda.Days.Count > 1 ? ("sunset", "LastDayGreeting") : (null, null);
+        if (icon is null || key is null) return null;
+        return Ui.H(8, Ui.Icon(icon, 16, "Accent"), Ui.Text(s.Strings[key], "strong").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)).Margin(16, 0);
     }
 
     /// <summary>

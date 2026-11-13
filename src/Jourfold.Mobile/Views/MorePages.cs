@@ -682,6 +682,9 @@ public static class MorePages
         string Sum(ConvertedTotal t) => string.Join(" + ", new[] { t.Total != 0 || t.NotConverted.Count == 0 ? (t.Estimated > 0 ? "≈ " : "") + Formats.Money(t.Total, home) : null }
             .Concat(t.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))).OfType<string>());
         var body = Ui.V(6, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["InCurrency"], home), "overline"), Ui.Text((paid.Estimated > 0 ? "≈ " : "") + Formats.Money(paid.Total, home), "h2"));
+        // What the trip comes to per traveller and day, to compare with other trips or a daily budget.
+        if (Jourfold.UI.CostTexts.PerPersonAndDay(str, trip, home, paid, planned) is { } daily)
+            body.Children.Add(Ui.H(6, Ui.Icon("users", 14, "Text.Muted"), Ui.Text(daily, "caption").Also(t => AutomationProperties.SetHelpText(t, str["PerPersonAndDayHint"]))));
         // Paid, but not in the trip's currency yet: listed apart, as on the computer.
         if (paid.NotConverted.Count > 0)
             body.Children.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedYet"], string.Join(" + ", paid.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency)))), "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
@@ -1221,7 +1224,7 @@ public static class MorePages
         catch (UnauthorizedAccessException) { }
         Control Info(string icon, string title, string value) => Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(title), Ui.Text(value, "caption"))
             .Also(g => { g.MinHeight = 52; g.Margin = new Thickness(16, 4); });
-        var about = new Button { Content = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("info", 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(str["About"]), Ui.Text(AppVersion(s), "caption").Margin(0, 0, 8, 0), Ui.Icon("chevron-right", 18, "Text.Subtle")).Also(g => g.MinHeight = 44) }.Classed("row");
+        var about = new Button { Content = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("info", 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(str["About"]), Ui.Text(AppVersion(s) + " · " + CodeNames.For(AppVersion(s)), "caption").Margin(0, 0, 8, 0), Ui.Icon("chevron-right", 18, "Text.Subtle")).Also(g => g.MinHeight = 44) }.Classed("row");
         AutomationProperties.SetName(about, str["About"]);
         about.Click += (_, _) => s.OpenPage("about");
         return Frame(s, str["Settings"],
@@ -1250,7 +1253,7 @@ public static class MorePages
         var str = s.Strings;
         var mark = new Image { Width = 56, Height = 56, VerticalAlignment = VerticalAlignment.Center };
         mark.Bind(Image.SourceProperty, mark.GetResourceObservable("Brand.Mark"));
-        var header = Ui.Columns("Auto,*", mark, Ui.V(2, Ui.Text("Jourfold", "h2"), Ui.Text(string.Format(CultureInfo.CurrentCulture, str["AboutVersion"], AppVersion(s)), "muted").Copies(s), Ui.Text(str["WelcomeTitle"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))
+        var header = Ui.Columns("Auto,*", mark, Ui.V(2, Ui.Text("Jourfold", "h2"), Ui.Text(string.Format(CultureInfo.CurrentCulture, str["AboutVersion"], AppVersion(s)) + " " + string.Format(CultureInfo.CurrentCulture, str["QuotedName"], CodeNames.For(AppVersion(s))), "muted").Copies(s), Ui.Text(str["WelcomeTitle"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap))
             .Also(v => { v.Margin = new Thickness(16, 0, 0, 0); v.VerticalAlignment = VerticalAlignment.Center; })).Margin(20, 0);
         Button Link(string key, Uri uri)
         {

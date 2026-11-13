@@ -187,7 +187,9 @@ public static class CollectionViews
         var fresh = m.RatesFetched is { } fetched ? FreshnessButton.Build(w, NodaTime.Instant.FromDateTimeOffset(fetched), s["RatesFetched"], s["RefreshRates"], m.RefreshRatesAsync, s["RatesRefreshFailed"]) : null;
         return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
             Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result),
-            Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), fresh?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left))), 18);
+            Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap),
+                m.RatesFetched is { } at && CostTexts.RatesOfEarlierDay(rates, at) ? Ui.Text(s["RatesPublishedHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null,
+                fresh?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left))), 18);
     }
 
     private static Control Tasks(MainWindow w)

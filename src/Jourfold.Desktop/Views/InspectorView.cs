@@ -205,7 +205,12 @@ public static class InspectorView
                 if (e.Type == "expense")
                 {
                     // What the card booked belongs right under the amount on the bill.
-                    if (ExpenseViews.Charged(w, e) is { } charged) body.Children.Add(Field(s["Charged"], charged));
+                    if (ExpenseViews.Charged(w, e) is { } charged)
+                    {
+                        // Until the charged amount is entered, what it comes to in the trip's currency with the rates.
+                        var estimate = Expenses.ChargeOf(e) is null ? CostTexts.Estimate(s, e, m.TripCurrencyCode, m.EstimateRates) : null;
+                        body.Children.Add(Field(s["Charged"], estimate is null ? charged : Ui.V(4, charged, Ui.Text(estimate, "caption"))));
+                    }
                     var planned = e.Data["estimated"] is JsonValue v && v.TryGetValue<bool>(out var est) && est;
                     body.Children.Add(Editors.Toggle(w, e.Id, "estimated", s["StillToPay"], planned));
                     if (planned)

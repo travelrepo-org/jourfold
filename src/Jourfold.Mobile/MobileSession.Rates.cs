@@ -55,11 +55,39 @@ public sealed partial class MobileSession
         finally { FetchingRates = false; Changed?.Invoke(); }
     }
 
-    /// <summary>The currencies to offer first: the trip's, the euro and the phone's region's.</summary>
+    /// <summary>
+    /// Other currencies chosen in the converter lately, newest first, so one picked under Other stays to tap after
+    /// switching to another. Kept on this device only.
+    /// </summary>
+    public IReadOnlyList<string> RecentCurrencies => (Settings.Values.GetValueOrDefault("converter.recent") ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Chooses a currency on one side of the converter; one the trip does not offer is kept among the recent ones.</summary>
+    public void ChooseConverterCurrency(string side, string code)
+    {
+        Drafts[side] = code;
+        if (!TripCurrencies().Contains(code))
+        {
+            Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code).Prepend(code).Take(4));
+            Settings.Save();
+        }
+        Redraw();
+    }
+
+    /// <summary>Takes a currency off the recent ones, from a long press on its chip.</summary>
+    public void ForgetConverterCurrency(string code)
+    {
+        Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code));
+        Settings.Save(); Redraw();
+    }
+
+    /// <summary>
+    /// The currencies to offer first: the trip's own, the ones its costs are in, and the phone's region's. No currency
+    /// is offered just because the rates are quoted against it.
+    /// </summary>
     public IReadOnlyList<string> TripCurrencies()
     {
         var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
-        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency) : []).Append("EUR").Append(region)
+        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).Prepend(TripCurrencyCode) : []).Append(region)
             .Where(c => c.Length == 3).Distinct().ToArray();
     }
 }

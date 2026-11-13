@@ -15,7 +15,9 @@ public enum MobileTab { Today, Plan, Map, More }
 public enum Overlay { None, Details, QuickAdd, Editor, Place, Share, Welcome }
 
 /// <summary>A question that needs a yes before something is changed, such as deleting an item.</summary>
-public sealed record Question(string Text, string Action, Func<Task> Run);
+/// <param name="Detail">What answering means, below the question.</param>
+/// <param name="Decline">The words of the button that says no, Cancel when null.</param>
+public sealed record Question(string Text, string Action, Func<Task> Run, string? Detail = null, string? Decline = null);
 
 /// <summary>One entry of a long-press menu. It gets the window, for the clipboard and for handing links to other apps.</summary>
 public sealed record MenuAction(string Label, string Icon, Func<Avalonia.Controls.TopLevel?, Task> Run, bool Danger = false);
@@ -496,7 +498,7 @@ public sealed partial class MobileSession : IDisposable
         Menu = null; Changed?.Invoke();
         await action.Run(top);
     }
-    public void Confirm(string text, string action, Func<Task> run) { Asking = new(text, action, run); Changed?.Invoke(); }
+    public void Confirm(string text, string action, Func<Task> run, string? detail = null, string? decline = null) { Asking = new(text, action, run, detail, decline); Changed?.Invoke(); }
     public async Task AnswerAsync(bool yes)
     {
         var question = Asking; Asking = null; Changed?.Invoke();

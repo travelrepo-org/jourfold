@@ -107,7 +107,13 @@ public static class DetailView
         }
         var costs = Linked(trip, item, "expense").Concat(booking is null ? [] : Linked(trip, booking, "expense")).DistinctBy(e => e.Id).ToArray();
         foreach (var cost in costs)
-            if (TripSummaries.Money(cost.Data["amount"]) is { } money) page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), cost.Title, s));
+            if (TripSummaries.Money(cost.Data["amount"]) is { } money)
+            {
+                // In another currency, also what it comes to in the trip's: charged, or estimated with the rates.
+                var inTrip = Expenses.ChargeOf(cost) is { } charge ? string.Format(System.Globalization.CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency))
+                    : Jourfold.UI.CostTexts.Estimate(str, cost, s.TripCurrencyCode, s.EstimateRates);
+                page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), inTrip is null ? cost.Title : cost.Title + " · " + inTrip, s));
+            }
         var files = TripReferences.From(item).Concat(booking is null ? [] : TripReferences.From(booking)).Select(r => trip.Find(r.Target)).OfType<Entity>().Where(e => e.Type == "document").DistinctBy(e => e.Id).ToArray();
         if (files.Length > 0) page.Children.Add(Section(str["Files"], Ui.V(0, files.Select(f => FileRow(s, f)).ToArray())));
         if (item.Type is "schedule_item" or "booking") page.Children.Add(AttachButton(s, item));

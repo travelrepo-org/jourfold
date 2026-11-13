@@ -20,7 +20,9 @@ public static class TripListView
         // trip, where most people would not look before opening one.
         var settings = Ui.IconButton("settings", s.Strings["Settings"]); settings.Click += (_, _) => s.ShowPage("settings");
         var top = Ui.Columns("*,Auto", logo.Also(l => l.VerticalAlignment = VerticalAlignment.Center), settings.Also(b => b.VerticalAlignment = VerticalAlignment.Center).Col(1));
-        var page = Ui.V(14, top.Margin(20, 10, 8, 0), Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
+        var page = Ui.V(14, top.Margin(20, 10, 8, 0));
+        if (UpdateNotice(s) is { } update) page.Children.Add(update.Margin(16, 0));
+        page.Children.Add(Ui.Text(s.Strings["Trips"], "h1").Margin(20, 0));
         // Something shared from another app waits for the trip it belongs to.
         if (s.Incoming is { } shared)
         {
@@ -54,6 +56,30 @@ public static class TripListView
         // On wide screens the list keeps a readable width in the middle.
         if (width >= WidthClass.Tablet) page.MaxWidth = 1100;
         return Ui.Scroll(page);
+    }
+
+    /// <summary>
+    /// A newer Jourfold on GitHub: its release page, skipping just this version, or no longer looking. After the last,
+    /// the card says once where to turn it back on.
+    /// </summary>
+    private static Control? UpdateNotice(MobileSession s)
+    {
+        var str = s.Strings;
+        Button Plain(string text, Action click) { var b = Ui.Button(text, null, "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left); b.Click += (_, _) => click(); return b; }
+        if (s.UpdatesJustStopped)
+            return Ui.Card(Ui.V(6, Ui.Text(str["UpdateStopped"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap), Plain(str["Close"], s.DismissUpdatesStopped)), 14);
+        if (s.UpdateOffer is not { } release) return null;
+        var view = Ui.Button(str["UpdateView"], "external-link", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+        view.Click += async (_, _) => { if (TopLevel.GetTopLevel(view)?.Launcher is { } launcher) await launcher.LaunchUriAsync(release.Page); };
+        var card = Ui.Card(Ui.V(8,
+            Ui.Columns("Auto,*", Ui.Icon("sparkles", 20, "Info").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
+                Ui.V(2, Ui.Text(string.Format(CultureInfo.CurrentCulture, str["UpdateAvailable"], release.Title), "strong").Also(t => t.TextWrapping = TextWrapping.Wrap),
+                    Ui.Text(string.Format(CultureInfo.CurrentCulture, str["UpdateInstalled"], s.AppVersion), "caption"))),
+            view,
+            Ui.V(0, Plain(str["UpdateSkip"], () => s.SkipUpdate(release)), Plain(str["UpdateStop"], () => s.SetUpdateChecks(false, fromNotice: true)))), 14)
+            .Also(c => c.BorderThickness = new Thickness(1)).Res(Border.BorderBrushProperty, "Info");
+        AutomationProperties.SetName(card, string.Format(CultureInfo.CurrentCulture, str["UpdateAvailable"], release.Title));
+        return card;
     }
 
     /// <summary>Before the first trip: the mark on a generated cover and what the app is for, like the desktop's welcome.</summary>

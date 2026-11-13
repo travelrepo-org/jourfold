@@ -26,5 +26,9 @@
     <!-- That App's name in its GitHub address (github.com/apps/<slug>), for the page where people choose the
          repositories it may use. Signing in alone gives the App no repository. -->
     <AssemblyMetadata Include="GitHubAppSlug" Value="$(JourfoldGitHubAppSlug)" Condition="'$(JourfoldGitHubAppSlug)' != ''" />
+    <!-- Where this build is handed out: github for the files on GitHub releases (the release workflows set it), which
+         then tell about newer releases; a store's own name, such as fdroid or play, for builds a store updates. Builds
+         without it never look for new versions. -->
+    <AssemblyMetadata Include="Distribution" Value="$(JourfoldDistribution)" Condition="'$(JourfoldDistribution)' != ''" />
   </ItemGroup>
 </Project>

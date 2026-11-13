@@ -213,6 +213,7 @@ public sealed class AppShell : UserControl
                 else Dispatcher.UIThread.Post(Catch, DispatcherPriority.Background);
             };
         if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
+        _ = Session.CheckForUpdatesAsync();
     }
 
     /// <summary>Leaves room for the on-screen keyboard, or takes it back.</summary>

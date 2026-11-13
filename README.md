@@ -17,7 +17,7 @@ A travel planner for Windows, macOS and Linux and for Android phones and tablets
 - **Export** the plan as a PDF with an overview map and the attached confirmations, a printable web page, text or a calendar file, for everyone or one person and the days you choose. Packing lists go out as a PDF, text or CSV, also as one file per person.
 - **Plan with an AI assistant.** Assistants that support MCP, including local ones, can read and change a trip through Jourfold. Their changes are checked like your own and appear in the open trip within seconds. See [connecting a local AI assistant](docs/ai-assistants.md).
 
-No account is needed and nothing leaves your computer unless you share a trip or turn on online maps or weather. Weather requests contain only coordinates rounded to about a kilometre. There are no analytics.
+No account is needed and nothing leaves your computer unless you share a trip or turn on online maps or weather. Weather requests contain only coordinates rounded to about a kilometre. Copies from GitHub releases ask GitHub once a day whether there is a newer release, sending only the app version; you can turn that off in the notice or in Settings. There are no analytics.
 
 | Library | Dark theme |
 | --- | --- |

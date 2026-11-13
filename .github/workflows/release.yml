@@ -154,6 +154,8 @@ jobs:
         env:
           JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
           JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+          # Files on GitHub releases tell about newer releases; see Directory.Build.props.
+          JourfoldDistribution: github
       - if: runner.os == 'Windows'
         shell: pwsh
         run: |

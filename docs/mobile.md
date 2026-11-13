@@ -172,6 +172,12 @@ private address as an option, and saves it with the GitHub login on that person.
 check box (on by default) keeps it there for other trips. The sample trip never asks. Settings open from the trip list (the gear at
 the top) and under More; they are kept in `settings.json` in the app's private folder, never in a trip.
 
+The APK and IPA from GitHub releases ask GitHub once a day at start for the latest release, with only the app's name
+and version, and show a card above the trips when there is a newer one: "View release" opens its page, "Skip this
+version" stays quiet until the next one, and "Stop checking for updates" turns it off and says where to turn it back
+on (Settings → Updates). Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
+ask and show no such setting.
+
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and
 TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source notices.
 

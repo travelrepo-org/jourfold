@@ -172,8 +172,15 @@ private address as an option, and saves it with the GitHub login on that person.
 check box (on by default) keeps it there for other trips. The sample trip never asks. Settings open from the trip list (the gear at
 the top) and under More; they are kept in `settings.json` in the app's private folder, never in a trip.
 
-Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and
-TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source notices.
+Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too) with its code name,
+Jourfold's and TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source
+notices. The About row under Settings shows the version and code name too ("0.12.0 · Gallant Gnu"); `CodeNames` lives
+in `Jourfold.UI` for both apps.
+
+Today counts down to the trip ("The trip starts tomorrow. Time to pack!" the day before), has a word on the first and
+the last day, and after the trip shows it in numbers: days, plans, places, what it cost and per person and day, with
+**Pay back…** while something is still open between the travellers. The Costs page shows what the trip comes to per
+person and day, paid and still to pay together, once everything can be counted in the trip currency.
 
 Removing a trip from the phone deletes its folder. A trip that is only on the phone is gone after that; the question
 before says so.

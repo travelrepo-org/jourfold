@@ -336,6 +336,9 @@ public static class ExpenseViews
             Ui.Text((total.Estimated > 0 ? "≈ " : "") + Formats.Money(total.Total, home), "h1"),
             IconLine(Ui.Icon("circle-check", 13, "Success"), Ui.Text(string.Format(s["ExactlyCharged"], Formats.Money(total.Exact, home)), "caption")));
         if (total.Estimated > 0) body.Children.Add(IconLine(Ui.Icon("clock", 13, "Warning"), Ui.Text(string.Format(s["EstimatedAmountRates"], Formats.Money(total.Estimated, home), m.RatesDay), "caption")));
+        // What the trip comes to per traveller and day, to compare with other trips or a daily budget.
+        if (CostTexts.PerPersonAndDay(s, trip, home, total, planned) is { } daily)
+            body.Children.Add(IconLine(Ui.Icon("users", 13, "Text.Muted"), Ui.Text(daily, "caption").Also(t => ToolTip.SetTip(t, s["PerPersonAndDayHint"]))));
         if (Sum(planned) is { Length: > 0 } toPay) body.Children.Add(IconLine(Ui.Icon("calendar-clock", 13, "Text.Muted"), Ui.Text(string.Format(s["StillToPayAmount"], toPay), "caption")));
         if (ideas.Length > 0 && Sum(Expenses.Total(ideas, home, m.EstimateRates, planned: true)) is { Length: > 0 } maybe) body.Children.Add(IconLine(Ui.Icon("lightbulb", 13, "Text.Muted"), Ui.Text(string.Format(s["IdeasNotCounted"], maybe), "caption")));
         if (total.NotConverted.Count > 0) body.Children.Add(Notice("info", "Text.Subtle", string.Format(s["NotConvertedYet"], string.Join(" + ", total.NotConverted.Select(x => Formats.Money(x.Amount, x.Currency))))));

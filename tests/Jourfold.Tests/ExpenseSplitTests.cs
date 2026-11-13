@@ -180,8 +180,8 @@ public sealed class ExpenseSplitTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData("en", "Amount charged in EUR", "as charged", "In EUR")]
-    [InlineData("de", "Abgebuchter Betrag in EUR", "wie abgebucht", "In EUR")]
+    [InlineData("en", "Amount charged in EUR", "exact: paid in it, charged or in cash", "In EUR")]
+    [InlineData("de", "Abgebuchter Betrag in EUR", "genau: darin bezahlt, abgebucht oder bar verrechnet", "In EUR")]
     public async Task TheChargedAmountIsEnteredInTheDetailsAndTotalledInEuros(string language, string field, string exact, string chip)
     {
         var w = await Window(language, "Light"); var m = w.Model;

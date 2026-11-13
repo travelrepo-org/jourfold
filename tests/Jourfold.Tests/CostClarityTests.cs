@@ -55,6 +55,131 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task PaidPaymentsAreMarkedGreenWhenExactAndYellowWhenEstimated()
+    {
+        var session = await Phone();
+        try
+        {
+            var trip = session.Trip!;
+            Entity Expense(Func<Entity, bool> where) => trip.Entities.Values.First(e => e.Type == "expense" && where(e));
+            string? Currency(Entity e) => TripSummaries.Money(e.Data["amount"])?.Currency;
+            // Paid in yen and nothing charged: only estimated in euros.
+            var uncharged = Expense(e => Currency(e) == "JPY" && !Expenses.IsPlanned(e) && Expenses.ChargeOf(e) is null);
+            Assert.True(CostTexts.NeedsCharge(uncharged, "EUR"));
+            // Charged, still to pay, or in the trip's currency: no mark.
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Expenses.ChargeOf(e) is not null), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "JPY" && Expenses.IsPlanned(e)), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "EUR"), "EUR"));
+            Assert.False(CostTexts.NeedsCharge(uncharged, "JPY"));
+
+            // The Costs page marks every paid payment: yellow while estimated, green once exact, with words for the
+            // tooltip and screen readers; payments still to pay have no mark.
+            session.ShowTab(MobileTab.More); session.OpenPage("costs");
+            var names = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<Jourfold.UI.Icon>()
+                .Where(i => i.Kind == "credit-card").Select(Avalonia.Automation.AutomationProperties.GetName).ToArray();
+            var paid = trip.Entities.Values.Where(e => e.Type == "expense" && !Expenses.IsPlanned(e)).ToArray();
+            Assert.Equal(paid.Length, names.Length);
+            Assert.Equal(paid.Count(e => CostTexts.NeedsCharge(e, "EUR")), names.Count(n => n!.StartsWith("No charged amount in EUR yet", StringComparison.Ordinal)));
+            Assert.Contains(names, n => n!.StartsWith("Exact: the card charged EUR", StringComparison.Ordinal));
+            Assert.Contains("Exact: paid in EUR, the trip currency.", names);
+            Assert.Null(CostTexts.ChargeMark(session.Strings, Expense(e => Expenses.IsPlanned(e)), "EUR"));
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task CashCountsAtTheRateItCostOnTheComputer()
+    {
+        Directory.CreateDirectory(root);
+        using var store = new Jourfold.Infrastructure.LocalStore(Path.Combine(root, "local"));
+        using var m = new Jourfold.Desktop.MainViewModel(store, new GitCliBackend(), new Jourfold.Infrastructure.OsSecretStore(), new TestInteraction());
+        var path = Path.Combine(root, "computer");
+        await Jourfold.Application.SampleTrip.CreateAsync(path, new GitCliBackend(), new LocalDate(2027, 5, 14), "Alex", "alex@example.invalid", Path.Combine(root, "recovery"));
+        await m.OpenAsync(path);
+        var tea = m.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+        // Without rates nothing can be offered, so the rate is asked for first.
+        await m.PayWithCashAsync(tea.Id);
+        Assert.Contains(tea.Id, m.CashPending); Assert.False(Expenses.IsCash(m.Trip!.Find(tea.Id)!));
+        // Typed as on the cash machine's receipt: 1 EUR = 160.5 JPY.
+        var form = CostTexts.CashRateForm.For("JPY", "EUR", 1m / 160m);
+        Assert.Equal(("EUR", "JPY"), (form.Left, form.Right));
+        Assert.False(await m.SetCashRateAsync(tea.Id, "none", form));
+        Assert.True(await m.SetCashRateAsync(tea.Id, "160,5", form));
+        var paid = m.Trip!.Find(tea.Id)!;
+        Assert.True(Expenses.IsCash(paid)); Assert.Empty(m.CashPending);
+        Assert.Equal(Math.Round(4400m / 160.5m, 2), Expenses.ChargeOf(paid)!.Value);
+        Assert.Equal("1 EUR = 160.5 JPY", form.Text(Expenses.ChargeOf(paid)!.Rate));
+        // Exact now: a green bank note, and the next cash in yen is offered the same rate.
+        var mark = Assert.IsType<Jourfold.UI.Icon>(CostTexts.ChargeMark(m.Strings, paid, "EUR"));
+        Assert.Equal("banknote", mark.Kind);
+        Assert.StartsWith("Exact: paid in cash, counted as", Avalonia.Automation.AutomationProperties.GetName(mark));
+        Assert.Equal(Expenses.ChargeOf(paid)!.Rate, CostTexts.SuggestedCashRate(m.Trip!, "JPY", "EUR", null));
+        Assert.Equal("cash, counted as " + Formats.Money(Math.Round(4400m / 160.5m, 2), "EUR"), CostTexts.ChargedText(m.Strings, paid));
+        // Paid by card after all: the cash rate goes.
+        await m.PayWithCardAsync(tea.Id);
+        Assert.False(Expenses.IsCash(m.Trip!.Find(tea.Id)!)); Assert.Null(Expenses.ChargeOf(m.Trip!.Find(tea.Id)!));
+    }
+
+    [AvaloniaFact]
+    public async Task TheCalculatorWorksOutTheRateOfAWithdrawalAndItsFees()
+    {
+        var session = await Phone();
+        try
+        {
+            var s = session.Strings;
+            // 600 NZD for 318.40 EUR with fees; the reference rate says 1 EUR = 1.9 NZD.
+            var rates = new ExchangeRates(new DateOnly(2027, 5, 14), new Dictionary<string, decimal> { ["NZD"] = 1.9m });
+            var rate = CostTexts.WithdrawalRate(600m, 318.40m)!.Value;
+            Assert.Equal("1 EUR = 1.8844 NZD", CostTexts.CashRateForm.For("NZD", "EUR", rate).Text(rate));
+            Assert.Equal(0.8m, CostTexts.Markup(rate, 1m / 1.9m));
+            Assert.Equal("0.8 % more than the reference rate of " + Formats.Date(new LocalDate(2027, 5, 14)), CostTexts.MarkupText(s, rate, rates, "NZD", "EUR"));
+            Assert.Null(CostTexts.WithdrawalRate(600m, null)); Assert.Null(CostTexts.WithdrawalRate(0m, 10m));
+            // A rate is read with its decimals, not like an amount where "1.884" could be a thousand and more.
+            var nzd = CostTexts.CashRateForm.For("NZD", "EUR", rate);
+            Assert.Equal(Math.Round(1m / 1.8844m, 10), Math.Round(nzd.Parse("1.8844")!.Value, 10));
+            Assert.Null(nzd.Parse("none")); Assert.Null(nzd.Parse("0"));
+            foreach (var (typed, read) in new[] { ("160,5", 160.5m), ("160.5", 160.5m), ("1.8844", 1.8844m), ("1,8844", 1.8844m), ("1,234.5", 1234.5m), ("1.234,5", 1234.5m), ("25,000", 25000m), ("1.884", 1.884m), ("160", 160m) })
+                Assert.Equal(read, CostTexts.ReadRate(typed));
+
+            // The calculator itself: typed amounts, the rate, the fees, and the rate handed over.
+            decimal? used = null;
+            var calculator = RateCalculator.Build(s, "NZD", "EUR", rates, r => used = r);
+            var window = new Window { Content = calculator }; window.Show();
+            try
+            {
+                Probe.All<TextBox>(calculator).Single(t => Avalonia.Automation.AutomationProperties.GetName(t) == "Cash received (NZD)").Text = "600";
+                Probe.All<TextBox>(calculator).Single(t => Avalonia.Automation.AutomationProperties.GetName(t) == "Charged to the account, fees included (EUR)").Text = "318,40";
+                Probe.Layout();
+                Assert.Contains("1 EUR = 1.8844 NZD", Texts(calculator));
+                Probe.Click(calculator, "Use this rate");
+                Assert.Equal(rate, used);
+            }
+            finally { window.Close(); }
+
+            // Offered: the last cash payment's rate, otherwise the reference rate, saying which.
+            var trip = session.Trip!;
+            var offer = CostTexts.OfferCashRate(trip, "JPY", "EUR", Friday)!;
+            Assert.Equal(("Reference rate of " + Formats.Date(new LocalDate(2027, 5, 14))), offer.Source(s, "JPY"));
+            var tea = trip.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(tea.Id, Expenses.WithCash(tea, "EUR", 1m / 158m, new LocalDate(2027, 5, 15)))]);
+            var last = CostTexts.OfferCashRate(session.Trip!, "JPY", "EUR", Friday)!;
+            Assert.Equal(("Rate of the last cash payment in JPY", Math.Round(1m / 158m, 8)), (last.Source(s, "JPY"), Math.Round(last.Rate, 8)));
+            // Editing that payment itself, its own rate is not offered back.
+            Assert.NotNull(CostTexts.OfferCashRate(session.Trip!, "JPY", "EUR", Friday, tea.Id)!.ReferenceDay);
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public void ADraftPaidWithCashIsAddedAtItsRate()
+    {
+        var trip = new TripSnapshot(TripCurrency.With(Entity.CreateTrip("Wanaka", "en", "Pacific/Auckland"), "EUR"), new Dictionary<Guid, Entity>());
+        var (main, _) = Jourfold.Application.QuickAdd.Build(new Jourfold.Application.QuickAddDraft("expense", "Market") { Amount = 60m, Currency = "NZD", ChargedCurrency = "EUR", CashRate = 318.40m / 600m, PaidOn = new LocalDate(2027, 5, 14) }, trip);
+        Assert.True(Expenses.IsCash(main));
+        Assert.Equal(31.84m, Expenses.ChargeOf(main)!.Value);
+    }
+
+    [AvaloniaFact]
     public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
     {
         var session = await Phone();

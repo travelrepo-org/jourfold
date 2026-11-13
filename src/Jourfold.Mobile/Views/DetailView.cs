@@ -110,7 +110,7 @@ public static class DetailView
             if (TripSummaries.Money(cost.Data["amount"]) is { } money)
             {
                 // In another currency, also what it comes to in the trip's: charged, or estimated with the rates.
-                var inTrip = Expenses.ChargeOf(cost) is { } charge ? string.Format(System.Globalization.CultureInfo.CurrentCulture, str["ChargedShort"], Formats.Money(charge.Value, charge.Currency))
+                var inTrip = Jourfold.UI.CostTexts.ChargedText(str, cost) is { } charged ? charged
                     : Jourfold.UI.CostTexts.Estimate(str, cost, s.TripCurrencyCode, s.EstimateRates);
                 page.Children.Add(Row("wallet", Formats.Money(money.Amount, money.Currency), inTrip is null ? cost.Title : cost.Title + " · " + inTrip, s));
             }

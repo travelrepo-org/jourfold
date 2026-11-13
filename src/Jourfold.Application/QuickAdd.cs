@@ -50,6 +50,11 @@ public sealed record QuickAddDraft(string Kind, string Title)
     /// <summary>For an expense in another currency, what the card charged, in <see cref="ChargedCurrency"/>.</summary>
     public decimal? Charged { get; init; }
     public string? ChargedCurrency { get; init; }
+    /// <summary>
+    /// For an expense paid with cash bought before, the rate it cost: units of <see cref="ChargedCurrency"/> per unit
+    /// of the expense's currency. Takes the place of <see cref="Charged"/>.
+    /// </summary>
+    public decimal? CashRate { get; init; }
     /// <summary>Files to attach once it is created, such as a receipt.</summary>
     public IReadOnlyList<string> Files { get; init; } = [];
     /// <summary>For a budget, what it is limited to; null for the whole trip.</summary>
@@ -173,7 +178,9 @@ public static class QuickAdd
                     if (draft.Category is { Length: > 0 } category) main = ExpenseCategories.With(trip, main, category);
                     if (draft.Planned && draft.Due is { } dueDay) main = Expenses.WithDue(main, dueDay);
                     if (!draft.Planned && draft.PaidOn is { } paidOn) main = Expenses.WithDate(main, paidOn);
-                    if (draft.Charged is { } charged && charged != 0 && draft.ChargedCurrency is { } chargedIn && chargedIn != draft.Currency && (draft.Amount ?? 0) != 0)
+                    if (draft.CashRate is > 0 && draft.ChargedCurrency is { } cashIn && cashIn != draft.Currency && (draft.Amount ?? 0) != 0)
+                        main = Expenses.WithCash(main, cashIn, draft.CashRate.Value, draft.PaidOn ?? Expenses.DayOf(trip, main) ?? draft.Date ?? NodaTime.SystemClock.Instance.GetCurrentInstant().InUtc().Date);
+                    else if (draft.Charged is { } charged && charged != 0 && draft.ChargedCurrency is { } chargedIn && chargedIn != draft.Currency && (draft.Amount ?? 0) != 0)
                         main = Expenses.WithCharge(main, charged, chargedIn, draft.PaidOn ?? Expenses.DayOf(trip, main));
                 }
                 else if (draft.BudgetFilters is { IsWholeTrip: false } filters) main = Budgets.WithFilters(trip, main, filters);

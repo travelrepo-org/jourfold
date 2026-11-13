@@ -122,9 +122,43 @@ public partial class MainViewModel
         return true;
     }
 
-    /// <summary>Changes the day of an amount charged, keeping the amount.</summary>
+    /// <summary>Changes the day of an amount charged, keeping the amount; for cash, the day of its rate.</summary>
     public Task SetChargeDayAsync(Guid expenseId, LocalDate day) => EditExpenseAsync(expenseId, (_, e) =>
-        Expenses.ChargeOf(e) is { } charge ? Expenses.WithCharge(e, charge.Value, charge.Currency, day, charge.Source ?? "card") : e);
+        Expenses.ChargeOf(e) is not { } charge ? e
+        : charge.Source == Expenses.Cash ? Expenses.WithCash(e, charge.Currency, charge.Rate, day)
+        : Expenses.WithCharge(e, charge.Value, charge.Currency, day, charge.Source ?? "card"));
+
+    /// <summary>Payments switched to cash whose rate is still to be typed, because none could be offered.</summary>
+    public HashSet<Guid> CashPending { get; } = [];
+
+    /// <summary>
+    /// Records that a payment in another currency was paid with cash bought before, at the rate of the last cash in
+    /// that currency or the reference rate; without either, the rate is asked for first.
+    /// </summary>
+    public async Task PayWithCashAsync(Guid expenseId)
+    {
+        if (Workspace?.State.Trip is not { } trip || trip.Find(expenseId) is not { Type: "expense" } expense || Expenses.IsCash(expense) || TripSummaries.Money(expense.Data["amount"]) is not { Amount: not 0 } money) return;
+        if (Jourfold.UI.CostTexts.SuggestedCashRate(trip, money.Currency, TripCurrencyCode, EstimateRates) is { } rate)
+            await EditExpenseAsync(expenseId, (t, e) => Expenses.WithCash(e, TripCurrencyCode, rate, Expenses.DayOf(t, e) ?? Today));
+        else { CashPending.Add(expenseId); ContentChanged?.Invoke(this, EventArgs.Empty); }
+    }
+
+    /// <summary>Back to paying by card: the cash rate goes, and what the card charged can be entered.</summary>
+    public async Task PayWithCardAsync(Guid expenseId)
+    {
+        var pending = CashPending.Remove(expenseId);
+        if (Workspace?.State.Trip?.Find(expenseId) is { } expense && Expenses.IsCash(expense)) await EditExpenseAsync(expenseId, (_, e) => Expenses.WithoutCharge(e));
+        else if (pending) ContentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Records the rate cash cost, as typed in <paramref name="form"/> ("160,5" works). Text that is no rate changes nothing.</summary>
+    public async Task<bool> SetCashRateAsync(Guid expenseId, string? text, Jourfold.UI.CostTexts.CashRateForm form)
+    {
+        if (form.Parse(text) is not { } rate) return false;
+        CashPending.Remove(expenseId);
+        await EditExpenseAsync(expenseId, (t, e) => Expenses.WithCash(e, form.Trip, rate, Expenses.ChargeOf(e)?.Date ?? Expenses.DayOf(t, e) ?? Today));
+        return true;
+    }
 
     /// <summary>
     /// Adds a payment for a booking: the add-expense form opens with the booking's title, paid by the local user,

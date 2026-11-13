@@ -112,10 +112,10 @@ public sealed class MobileNavigationTests : IDisposable
         try
         {
             session.ShowTab(MobileTab.More); session.ShowPage("settings"); Probe.Layout();
-            Assert.True(Shows(window, "1.2.3-preview.4"));
+            Assert.True(Shows(window, "1.2.3-preview.4 · " + Jourfold.UI.CodeNames.For("1.2.3-preview.4")));
             Probe.Click(window, "About Jourfold"); Probe.Layout();
             Assert.Equal("about", session.Page);
-            Assert.True(Shows(window, "Version 1.2.3-preview.4"));
+            Assert.True(Shows(window, "Version 1.2.3-preview.4 “" + Jourfold.UI.CodeNames.For("1.2.3-preview.4") + "”"));
             Probe.Click(window, "Read license"); Probe.Layout();
             Assert.Equal("license.jourfold", session.Page);
             Assert.Contains(Probe.All<SelectableTextBlock>(window), t => t.Text?.Contains("GNU GENERAL PUBLIC LICENSE", StringComparison.Ordinal) == true);

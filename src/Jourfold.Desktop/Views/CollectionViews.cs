@@ -97,13 +97,14 @@ public static class CollectionViews
                 var payers = PeopleNames(trip, e.Data["paid_by"]).ToArray();
                 var related = (e.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
                 var category = ExpenseCategories.Of(trip, e);
-                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Expenses.ChargeOf(e) is { } charge ? string.Format(s["ChargedShort"], Formats.Money(charge.Value, charge.Currency)) : null }.Where(t => !string.IsNullOrEmpty(t)));
+                var detail = string.Join(" · ", new[] { ExpenseViews.CategoryName(s, category), related ?? (payers.Length > 0 ? string.Format(s["PaidBy"], string.Join(", ", payers)) : null), Jourfold.UI.CostTexts.ChargedText(s, e) }.Where(t => !string.IsNullOrEmpty(t)));
                 var grid = Ui.Columns("Auto,*,Auto,Auto,140",
                     Ui.Tile(ExpenseViews.CategoryIcon(category), "Food", 34).Margin(0, 0, 12, 0),
                     Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),
                     ExpenseViews.Status(s, Expenses.Split(trip, e), trip)?.Margin(8, 0),
                     payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
-                    Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; }));
+                    // Paid in another currency without a charged amount: marked, since it is only estimated in the trip's.
+                    Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(s, e, m.TripCurrencyCode), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right));
                 list.Children.Add(Row(w, e, grid));
             }
         }
@@ -185,8 +186,11 @@ public static class CollectionViews
         // The rates' own date is the European Central Bank's; when they were fetched is a different thing, as rates
         // fetched on a Sunday are Friday's.
         var fresh = m.RatesFetched is { } fetched ? FreshnessButton.Build(w, NodaTime.Instant.FromDateTimeOffset(fetched), s["RatesFetched"], s["RefreshRates"], m.RefreshRatesAsync, s["RatesRefreshFailed"]) : null;
+        // What an exchange really cost: what was received and what the account was charged, against the reference rate.
+        var fees = new Expander { Header = Ui.H(6, Ui.Icon("calculator", 14, "Text.Muted"), Ui.Text(s["CheckFees"])), HorizontalAlignment = HorizontalAlignment.Stretch };
+        fees.Expanding += (_, _) => fees.Content = RateCalculator.Build(s, from.Value ?? m.TripCurrencyCode, to.Value ?? m.TripCurrencyCode, rates, titled: false);
         return Ui.Card(Ui.V(12, Ui.Text(s["Converter"], "h3"),
-            Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result),
+            Ui.Flow(10, amount, from, swap, to, Ui.Text("=", "h2").Margin(6, 0), result), fees,
             Ui.V(2, Ui.Text(string.Format(s["RatesFrom"], Formats.LongDay(NodaTime.LocalDate.FromDateOnly(rates.Date))), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap),
                 m.RatesFetched is { } at && CostTexts.RatesOfEarlierDay(rates, at) ? Ui.Text(s["RatesPublishedHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null,
                 fresh?.Also(b => b.HorizontalAlignment = HorizontalAlignment.Left))), 18);

@@ -178,8 +178,15 @@ version" stays quiet until the next one, and "Stop checking for updates" turns i
 on (Settings → Updates). Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
 ask and show no such setting.
 
-Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too), Jourfold's and
-TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source notices.
+Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too) with its code name,
+Jourfold's and TravelRepo's licenses to read in the app, links to the website and the source code, and the open-source
+notices. The About row under Settings shows the version and code name too ("0.12.0 · Gallant Gnu"); `CodeNames` lives
+in `Jourfold.UI` for both apps.
+
+Today counts down to the trip ("The trip starts tomorrow. Time to pack!" the day before), has a word on the first and
+the last day, and after the trip shows it in numbers: days, plans, places, what it cost and per person and day, with
+**Pay back…** while something is still open between the travellers. The Costs page shows what the trip comes to per
+person and day, paid and still to pay together, once everything can be counted in the trip currency.
 
 Removing a trip from the phone deletes its folder. A trip that is only on the phone is gone after that; the question
 before says so.
@@ -299,7 +306,13 @@ usual spelling and the phone number below.
   (with both decimal comma and point). Choosing a chip below the title closes the keyboard, so it does not cover
   the rest of the form; editing opens without the keyboard. A payment in another currency than the trip's shows, in
   its details and the booking's, what the card charged, or what it comes to with the reference rates, marked ≈ with
-  their day. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  their day. Paid payments carry a card symbol next to their amount on the Costs page and in a booking's
+  payments: green when exact in the trip currency (paid in it, or charged), yellow while estimated; screen readers
+  say which. In the expense form, **Paid with** chooses **Card** (what was charged) or **Cash** bought before (the
+  rate it cost, "1 EUR = 160.5 JPY", offered from the last cash in that currency or the reference rate, saying which);
+  the calculator next to it opens below and works the rate out from what was received and what the account was
+  charged, fees included (`RateCalculator` in `Jourfold.UI`, shared with the computer). Cash counts exactly at that
+  rate and shows a green bank note. The converter page has the same calculator under **Check the fees**. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
   are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
   the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold

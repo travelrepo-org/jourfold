@@ -55,7 +55,7 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task PaymentsInAnotherCurrencyWithoutAChargedAmountAreMarked()
+    public async Task PaidPaymentsAreMarkedGreenWhenExactAndYellowWhenEstimated()
     {
         var session = await Phone();
         try
@@ -72,11 +72,17 @@ public sealed class CostClarityTests : IDisposable
             Assert.False(CostTexts.NeedsCharge(Expense(e => Currency(e) == "EUR"), "EUR"));
             Assert.False(CostTexts.NeedsCharge(uncharged, "JPY"));
 
-            // The Costs page marks it, with words for the tooltip and screen readers.
+            // The Costs page marks every paid payment: yellow while estimated, green once exact, with words for the
+            // tooltip and screen readers; payments still to pay have no mark.
             session.ShowTab(MobileTab.More); session.OpenPage("costs");
-            var marks = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<Control>()
-                .Select(Avalonia.Automation.AutomationProperties.GetName).Where(n => n?.StartsWith("No charged amount in EUR yet", StringComparison.Ordinal) == true).Count();
-            Assert.Equal(trip.Entities.Values.Count(e => CostTexts.NeedsCharge(e, "EUR")), marks);
+            var names = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<Jourfold.UI.Icon>()
+                .Where(i => i.Kind == "credit-card").Select(Avalonia.Automation.AutomationProperties.GetName).ToArray();
+            var paid = trip.Entities.Values.Where(e => e.Type == "expense" && !Expenses.IsPlanned(e)).ToArray();
+            Assert.Equal(paid.Length, names.Length);
+            Assert.Equal(paid.Count(e => CostTexts.NeedsCharge(e, "EUR")), names.Count(n => n!.StartsWith("No charged amount in EUR yet", StringComparison.Ordinal)));
+            Assert.Contains(names, n => n!.StartsWith("Exact: the card charged EUR", StringComparison.Ordinal));
+            Assert.Contains("Exact: paid in EUR, the trip currency.", names);
+            Assert.Null(CostTexts.ChargeMark(session.Strings, Expense(e => Expenses.IsPlanned(e)), "EUR"));
         }
         finally { session.Dispose(); }
     }

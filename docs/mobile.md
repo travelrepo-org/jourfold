@@ -293,8 +293,9 @@ usual spelling and the phone number below.
   (with both decimal comma and point). Choosing a chip below the title closes the keyboard, so it does not cover
   the rest of the form; editing opens without the keyboard. A payment in another currency than the trip's shows, in
   its details and the booking's, what the card charged, or what it comes to with the reference rates, marked ≈ with
-  their day. A paid payment in another currency without a charged amount carries a card symbol next to its amount
-  on the Costs page and in a booking's payments; holding it on a screen reader says why. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  their day. Paid payments carry a card symbol next to their amount on the Costs page and in a booking's
+  payments: green when exact in the trip currency (paid in it, or charged), yellow while estimated; screen readers
+  say which. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
   are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
   the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold

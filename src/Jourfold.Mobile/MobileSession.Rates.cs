@@ -73,11 +73,21 @@ public sealed partial class MobileSession
         Redraw();
     }
 
-    /// <summary>The currencies to offer first: the trip's, the euro and the phone's region's.</summary>
+    /// <summary>Takes a currency off the recent ones, from a long press on its chip.</summary>
+    public void ForgetConverterCurrency(string code)
+    {
+        Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code));
+        Settings.Save(); Redraw();
+    }
+
+    /// <summary>
+    /// The currencies to offer first: the trip's own, the ones its costs are in, and the phone's region's. No currency
+    /// is offered just because the rates are quoted against it.
+    /// </summary>
     public IReadOnlyList<string> TripCurrencies()
     {
         var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
-        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).Prepend(TripCurrencyCode) : []).Append("EUR").Append(region)
+        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).Prepend(TripCurrencyCode) : []).Append(region)
             .Where(c => c.Length == 3).Distinct().ToArray();
     }
 }

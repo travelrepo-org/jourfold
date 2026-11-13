@@ -271,8 +271,11 @@ usual spelling and the phone number below.
   a failed attempt waits 30 minutes, so an offline phone does not keep trying. Below the converter it says whose
   rates of which day they are, then when the phone last checked for new ones; a tap there checks again now, at most
   once a minute, and keeps the last rates when that fails. When the newest rates are of an earlier day than the
-  check, as on a weekend, it says that the bank publishes on working days around 16:00 Frankfurt time. The trip's
-  currencies come first, and other currencies chosen lately stay among them (the last four, kept on the phone).
+  check, as on a weekend, it says that the bank publishes on working days around 16:00 Frankfurt time. It converts
+  into the trip currency, from the first other currency the trip suggests. The chips are the trip currency, the
+  currencies of its costs and the phone region's, then other currencies chosen lately (the last four, kept on the
+  phone); a long press on one of those removes it from the list. No currency is offered only because the bank quotes
+  its rates against the euro.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
   still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
   category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was

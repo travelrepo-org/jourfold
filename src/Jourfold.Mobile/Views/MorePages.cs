@@ -478,7 +478,10 @@ public static class MorePages
         if (s.Rates is not { } rates) return Frame(s, str["Converter"], Ui.Text(s.FetchingRates ? str["RatesLoading"] : str["RatesNone"], "muted").Margin(20, 0));
         var currencies = s.TripCurrencies().Where(c => rates.Currencies.Contains(c)).ToArray();
         string Pick(string key, string fallback) => s.Drafts.GetValueOrDefault(key) is { Length: 3 } c && rates.Currencies.Contains(c) ? c : fallback;
-        var from = Pick("converter.from", currencies.FirstOrDefault(c => c != "EUR") ?? "USD"); var to = Pick("converter.to", "EUR");
+        // Into the trip's currency, from the first other one the trip or the phone suggests.
+        var home = rates.Currencies.Contains(s.TripCurrencyCode) ? s.TripCurrencyCode : "EUR";
+        var to = Pick("converter.to", home);
+        var from = Pick("converter.from", currencies.FirstOrDefault(c => c != to) ?? (to == "USD" ? "EUR" : "USD"));
         var amount = Draft(s, "converter.amount", new TextBox { Text = s.Drafts.GetValueOrDefault("converter.amount") ?? "100", FontSize = 28 });
         Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         AutomationProperties.SetName(amount, str["Amount"]);
@@ -493,10 +496,17 @@ public static class MorePages
         {
             var flow = Ui.Flow(6);
             // The trip's currencies, then other ones chosen lately, so one picked under Other stays.
-            foreach (var code in currencies.Concat(s.RecentCurrencies.Where(rates.Currencies.Contains)).Append(chosen).Distinct())
+            var recent = s.RecentCurrencies.Where(c => rates.Currencies.Contains(c) && !currencies.Contains(c)).ToArray();
+            foreach (var code in currencies.Concat(recent).Append(chosen).Distinct())
             {
                 var chip = Ui.Choice(code, null, code == chosen, "chip"); var c = code;
                 chip.Click += (_, _) => s.ChooseConverterCurrency(key, c);
+                // One chosen lately can be taken off the list again; the trip's own stay.
+                if (recent.Contains(code))
+                {
+                    AutomationProperties.SetHelpText(chip, str["RemoveFromListHint"]);
+                    Menus.OnHold(chip, () => s.ShowMenu(new ActionMenu(c, null, [new MenuAction(str["RemoveFromList"], "x", _ => { s.ForgetConverterCurrency(c); return System.Threading.Tasks.Task.CompletedTask; })])));
+                }
                 flow.Children.Add(chip);
             }
             var other = new AutoCompleteBox { ItemsSource = rates.Currencies.ToArray(), PlaceholderText = str["OtherCurrency"], MinimumPrefixLength = 1, Width = 110, FilterMode = AutoCompleteFilterMode.StartsWith };

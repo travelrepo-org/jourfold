@@ -55,6 +55,25 @@ public sealed class CostClarityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
+    {
+        var session = await Phone();
+        try
+        {
+            await session.SetTripCurrencyAsync("USD"); session.CloseOverlay();
+            // The trip's currency first, then its costs' currencies and the phone's region's; the euro only as one of them.
+            var expected = TripSummaries.Costs(session.Trip!).Select(c => c.Currency).Prepend("USD").Append(System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol).Distinct();
+            Assert.Equal(expected, session.TripCurrencies());
+            // Into the trip's currency, from the first other one.
+            session.ShowTab(MobileTab.More); session.ShowPage("converter");
+            var overlines = MorePages.Build(session, WidthClass.Phone).GetLogicalDescendants().OfType<TextBlock>().Where(t => t.Classes.Contains("overline")).Select(t => t.Text).ToArray();
+            Assert.Equal(["USD"], overlines.Where(t => t == "USD"));
+            Assert.Equal("USD", overlines[1]);
+        }
+        finally { session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task ThePhoneSetsTheTripsCurrencyAndOffersToConvertTheBudgets()
     {
         var session = await Phone();
@@ -90,6 +109,9 @@ public sealed class CostClarityTests : IDisposable
             session.ChooseConverterCurrency("converter.from", "CHF");
             session.ChooseConverterCurrency("converter.from", "JPY");
             Assert.Equal(["CHF"], session.RecentCurrencies);
+            // A long press takes it off again.
+            session.ForgetConverterCurrency("CHF"); Assert.Empty(session.RecentCurrencies);
+            session.ChooseConverterCurrency("converter.from", "CHF"); session.ChooseConverterCurrency("converter.from", "JPY");
             var page = MorePages.Build(session, WidthClass.Phone);
             Assert.Contains(page.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Select(b => b.Content as string)
                 .Concat(page.GetLogicalDescendants().OfType<Button>().Select(b => Avalonia.Automation.AutomationProperties.GetName(b))), n => n == "CHF");

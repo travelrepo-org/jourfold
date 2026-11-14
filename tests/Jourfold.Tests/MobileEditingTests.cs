@@ -219,6 +219,38 @@ public sealed class MobileEditingTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    // The sheet glides to a new height.
+    private static async Task Settle() { for (var i = 0; i < 20; i++) { await Task.Delay(20); Probe.Layout(); } }
+
+    [AvaloniaFact]
+    public async Task AFormComesBackWholeAfterTheAppWasLeftAndATapBesideItKeepsIt()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("expense");
+            Field<TextBox>(window, "Title").Text = "Ramen";
+            var sheet = Form(window);
+            var panel = sheet.GetVisualChildren().OfType<Border>().Last();
+            await Settle(); var full = panel.Bounds.Height;
+            // As when the app is left while typing: the keyboard was open, and Android hides it without telling the app.
+            typeof(Sheet).GetField("keyboard", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.SetValue(sheet, 500d);
+            sheet.Show(0); await Settle();
+            Assert.True(panel.Bounds.Height < full - 300, "the sheet leaves room for the keyboard");
+            // Leaving the app gives the form its full height back.
+            ((AppShell)window.Content!).Left(); await Settle();
+            Assert.Equal(full, panel.Bounds.Height, 0.5);
+
+            // A tap beside the form, on the dimmed page, keeps it and what was typed.
+            var scrim = sheet.GetVisualChildren().OfType<Border>().First();
+            scrim.RaiseEvent(new PointerPressedEventArgs(scrim, new Pointer(0, PointerType.Touch, true), window, default, 0, new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.LeftButtonPressed), KeyModifiers.None));
+            Probe.Layout();
+            Assert.Equal(Overlay.QuickAdd, session.Showing);
+            Assert.Equal("Ramen", Field<TextBox>(window, "Title").Text);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [AvaloniaFact]
     public async Task TheRateOfTheLastCashIsOfferedAndTheCalculatorWorksOutTheWithdrawal()
     {

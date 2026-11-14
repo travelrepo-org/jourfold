@@ -40,11 +40,15 @@ public sealed class Sheet : Grid
     /// Part of the page instead of over it, like the map's list: no dimmed background, the page stays usable around
     /// it, and dragging it down stops at the lowest detent instead of closing it.
     /// </param>
-    public Sheet(Control header, Control content, double[] detents, int start, bool side, string label, bool docked = false)
+    /// <param name="form">
+    /// A form, such as a new expense: a tap outside does not close it, so typed input is not lost by a stray tap.
+    /// Dragging it down, the close button and the back gesture still close it.
+    /// </param>
+    public Sheet(Control header, Control content, double[] detents, int start, bool side, string label, bool docked = false, bool form = false)
     {
         this.detents = detents; this.side = side; this.docked = docked; detent = Math.Clamp(start, 0, detents.Length - 1);
         scrim = new Border { Background = new SolidColorBrush(Colors.Black, side ? 0.18 : 0.32), IsVisible = !docked };
-        scrim.PointerPressed += (_, e) => { Close(); e.Handled = true; };
+        scrim.PointerPressed += (_, e) => { if (!form) Close(); e.Handled = true; };
         scroll = new ScrollViewer { Content = content, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         // The whole header takes the drag, not only the handle, so it needs a background to be hit everywhere.
         top = new Border { Child = side ? header : Ui.V(0, Handle(), header), Background = Brushes.Transparent };
@@ -127,6 +131,17 @@ public sealed class Sheet : Grid
         var glide = panel.Transitions; panel.Transitions = null;
         Place();
         if (glide is not null) Avalonia.Threading.Dispatcher.UIThread.Post(() => { if (dragFrom is null) panel.Transitions ??= glide; }, Avalonia.Threading.DispatcherPriority.Render);
+    }
+
+    /// <summary>
+    /// The keyboard went away without saying so, as when the app is left with the keyboard open: Android hides it, but
+    /// the app is no longer told. The sheet takes its full height again instead of staying above a keyboard that is
+    /// gone, which left the page and its dimmed background showing below.
+    /// </summary>
+    public void KeyboardHidden()
+    {
+        if (keyboard == 0) return;
+        keyboard = 0; Place();
     }
 
     /// <summary>

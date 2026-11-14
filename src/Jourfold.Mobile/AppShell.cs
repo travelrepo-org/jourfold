@@ -202,6 +202,7 @@ public sealed class AppShell : UserControl
         }
         top.BackRequested += OnBack;
         Dispatcher.UIThread.UnhandledException += OnUnhandled;
+        if (Avalonia.Application.Current?.TryGetFeature<Avalonia.Controls.ApplicationLifetimes.IActivatableLifetime>() is { } lifetime) lifetime.Deactivated += OnDeactivated;
         // Pages end above the on-screen keyboard and scroll the field being typed in into view. Sheets keep clear of
         // the keyboard themselves.
         if (top.InputPane is { } pane)
@@ -214,6 +215,22 @@ public sealed class AppShell : UserControl
             };
         if (Session.Trips.Count == 0 && Session.Workspace is null) { _ = Session.LoadTripsAsync(); _ = Session.LoadGitHubAsync(); }
         _ = Session.CheckForUpdatesAsync();
+    }
+
+    private void OnDeactivated(object? sender, Avalonia.Controls.ApplicationLifetimes.ActivatedEventArgs e)
+    {
+        if (e.Kind == Avalonia.Controls.ApplicationLifetimes.ActivationKind.Background) Left();
+    }
+
+    /// <summary>
+    /// The app went to the background. The system hides the keyboard then without telling the app, so the page and the
+    /// sheet stop leaving room for it; otherwise a form came back squeezed into the top half above the dimmed page,
+    /// where a tap closed it.
+    /// </summary>
+    public void Left()
+    {
+        if (keyboard) Keyboard(false, 0);
+        sheet?.KeyboardHidden();
     }
 
     /// <summary>Leaves room for the on-screen keyboard, or takes it back.</summary>
@@ -231,6 +248,7 @@ public sealed class AppShell : UserControl
     {
         if (TopLevel.GetTopLevel(this) is { } top) top.BackRequested -= OnBack;
         Dispatcher.UIThread.UnhandledException -= OnUnhandled;
+        if (Avalonia.Application.Current?.TryGetFeature<Avalonia.Controls.ApplicationLifetimes.IActivatableLifetime>() is { } lifetime) lifetime.Deactivated -= OnDeactivated;
         base.OnDetachedFromVisualTree(e);
     }
 
@@ -424,10 +442,10 @@ public sealed class AppShell : UserControl
             {
                 Overlay.Details => new Sheet(DetailView.Header(Session, item!, Session.CloseOverlay), DetailView.Body(Session, item!), [0.4, 0.62, 0.94], detent, side, item!.Title),
                 Overlay.QuickAdd or Overlay.Editor => new QuickAddView(Session, want == Overlay.Editor ? item : null) is var form
-                    ? new Sheet(form.Header, form.View, [0.94], 0, side, Session.Strings[want == Overlay.Editor ? "Edit" : "QuickAdd"]) : null,
-                Overlay.Place => new PlaceView(Session, item) is var place ? new Sheet(place.Header, place.View, [0.94], 0, side, item?.Title ?? Session.Strings["AddPlace"]) : null,
-                Overlay.Share => new ShareView(Session, Session.Incoming!) is var share ? new Sheet(share.Header, share.View, [0.94], 0, side, Session.Strings["SharedWithJourfold"]) : null,
-                Overlay.Welcome => new TripWelcomeView(Session) is var welcome ? new Sheet(welcome.Header, welcome.View, [0.94], 0, side, Session.Strings["WhoAmITitle"]) : null,
+                    ? new Sheet(form.Header, form.View, [0.94], 0, side, Session.Strings[want == Overlay.Editor ? "Edit" : "QuickAdd"], form: true) : null,
+                Overlay.Place => new PlaceView(Session, item) is var place ? new Sheet(place.Header, place.View, [0.94], 0, side, item?.Title ?? Session.Strings["AddPlace"], form: true) : null,
+                Overlay.Share => new ShareView(Session, Session.Incoming!) is var share ? new Sheet(share.Header, share.View, [0.94], 0, side, Session.Strings["SharedWithJourfold"], form: true) : null,
+                Overlay.Welcome => new TripWelcomeView(Session) is var welcome ? new Sheet(welcome.Header, welcome.View, [0.94], 0, side, Session.Strings["WhoAmITitle"], form: true) : null,
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);

@@ -91,15 +91,18 @@ public sealed class TabletLayoutTests : IDisposable
             await Probe.Until(() => session.SelectedDate > days[shown / 2].Date);
             var reached = session.SelectedDate;
             // Back again, and no further than the first days: the first day in the middle that the strip can reach.
-            Swipe(300, 800); Swipe(300, 800); await Task.Delay(600); Probe.Layout();
+            // How far a swipe carries depends on the speed measured, so it swipes until nothing moves any more.
+            async Task Settle() { for (var i = 0; i < 40; i++) { await Task.Delay(25); Probe.Layout(); } }
+            for (var i = 0; i < 8 && session.SelectedDate != days[shown / 2].Date; i++) { Swipe(300, 800); await Settle(); }
+            Swipe(300, 800); await Settle();
             Assert.Equal(days[shown / 2].Date, session.SelectedDate);
             Assert.True(reached > session.SelectedDate);
             // A short drag goes nowhere.
-            Swipe(500, 470); await Task.Delay(600); Probe.Layout();
+            Swipe(500, 470); await Settle();
             Assert.Equal(days[shown / 2].Date, session.SelectedDate);
             // The arrow glides by the days shown.
-            Probe.Click(window, "Later days"); await Task.Delay(600); Probe.Layout();
-            Assert.Equal(days[shown / 2 + shown].Date, session.SelectedDate);
+            Probe.Click(window, "Later days");
+            await Probe.Until(() => session.SelectedDate == days[shown / 2 + shown].Date);
         }
         finally { window.Close(); session.Dispose(); }
     }

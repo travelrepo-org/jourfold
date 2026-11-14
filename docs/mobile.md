@@ -208,7 +208,8 @@ tries again after the next change.
 
 ## On the road without a computer
 
-Phone and tablet edit everything needed while travelling: a journey's arrival in its own zone, carrier, number,
+Phone and tablet edit everything needed while travelling: a journey's departure and arrival, each in its own zone
+("Local time at departure" offers the zone it has, the starting place's, the trip's and the phone's), carrier, number,
 terminals, gate and seat; a stay's first night, nights, check-in and check-out hours, rooms and access; booking
 numbers (a booking is added when there is none); tasks with a due day. When a sync finds that both sides changed the
 same thing, the sync waits and Sync → "Choose what applies" lists each change with this device's and GitHub's

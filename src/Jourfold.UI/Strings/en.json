@@ -1985,5 +1985,6 @@
   "UpdateChecks": "Check for new versions",
   "Updates": "Updates",
   "UpdateChecksHint": "Once a day at start, Jourfold asks GitHub for the latest release and tells you when there is a newer one. Only the app's name and version are sent, nothing from your trips. Nothing is downloaded or installed.",
-  "RemoveCurrency": "Remove {0} from the list"
+  "RemoveCurrency": "Remove {0} from the list",
+  "DepartureZone": "Local time at departure"
 }

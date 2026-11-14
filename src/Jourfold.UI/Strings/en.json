@@ -734,7 +734,7 @@
   "RateTaken": "Filled in: {0}. The calculator works out the rate of your own withdrawal.",
   "RateCalculator": "Work out the rate from the withdrawal",
   "CheckFees": "Check the fees",
-  "CheckFeesHint": "What you received and what your account was charged for it show what the exchange really cost.",
+  "CheckFeesHint": "What you received in {0} and what your account was charged for it in {1}, fees included, show what the exchange really cost. The currencies are the ones chosen above.",
   "CashReceived": "Cash received",
   "AccountDebited": "Charged to the account, fees included",
   "UseRate": "Use this rate",

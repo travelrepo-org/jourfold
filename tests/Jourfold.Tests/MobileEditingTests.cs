@@ -1,10 +1,13 @@
 using System.Text.Json.Nodes;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.VisualTree;
 using Jourfold.Mobile;
 using Jourfold.Mobile.Controls;
+using Jourfold.UI;
 using NodaTime;
 using TravelRepo.Core;
 using TravelRepo.Git;
@@ -51,7 +54,7 @@ public sealed class MobileEditingTests : IDisposable
             Field<TextBox>(window, "Booking number").Text = "CW-204";
             Tap(window, "Confirmed");
             Field<TextBox>(window, "Amount").Text = "48,50";
-            Field<TextBox>(window, "Other").Text = "usd";
+            Field<AutoCompleteBox>(window, "Other").Text = "usd";
             Tap(window, "Link a plan");
             await PickAsync(session, "Senso-ji and Asakusa");
             Tap(window, "Add");
@@ -170,6 +173,43 @@ public sealed class MobileEditingTests : IDisposable
             Tap(window, "Save");
             await Probe.Until(() => !Expenses.IsCash(session.Trip!.Find(rail.Id)!));
             Assert.Null(Expenses.ChargeOf(session.Trip!.Find(rail.Id)!));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AnotherCurrencyIsSuggestedWhileTypingAndTakenWithEnter()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var rail = session.Trip!.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Rail passes");
+            session.ShowEditor(rail.Id);
+            AutoCompleteBox Other() => Probe.All<AutoCompleteBox>(Form(window)).Single(b => AutomationProperties.GetName(b) == "Other");
+            bool Chosen(string code) => Probe.All<ChoiceButton>(Form(window)).Any(c => c.IsSelected && Probe.All<TextBlock>(c).Any(t => t.Text == code));
+
+            // Typing suggests codes, as on the converter.
+            Other().GetVisualDescendants().OfType<TextBox>().First().Focus(); Probe.Layout();
+            window.KeyTextInput("CH"); Probe.Layout();
+            await Probe.Until(() => Other().IsDropDownOpen);
+            Assert.Contains("CHF", (IEnumerable<string>)Other().ItemsSource!);
+
+            // Enter takes a typed code: it becomes a chosen chip and the field empties.
+            Other().Text = "thb"; Probe.Layout();
+            Other().RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
+            await Probe.Until(() => Chosen("THB"));
+            Assert.Equal("", Other().Text ?? "");
+            // What the card charged is asked in the trip currency for a payment in baht.
+            Assert.Contains(Probe.All<TextBox>(Form(window)), t => AutomationProperties.GetName(t) == "Amount charged in EUR");
+            Assert.Contains("THB", session.RecentCurrencies);
+
+            // Choosing from the list does the same.
+            Other().SelectedItem = "CHF";
+            await Probe.Until(() => Chosen("CHF"));
+            Assert.True(Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "THB")), "the baht stays to tap again");
+
+            Tap(window, "Save");
+            await Probe.Until(() => TripSummaries.Money(session.Trip!.Find(rail.Id)!.Data["amount"])?.Currency == "CHF");
         }
         finally { window.Close(); session.Dispose(); }
     }

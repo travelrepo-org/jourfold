@@ -299,7 +299,8 @@ usual spelling and the phone number below.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
   still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
   category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was
-  paid, what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
+  paid, its currency (chips as on the converter, including the ones chosen lately there; **Other** suggests codes while
+  typing and takes one with Enter), what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
   shares or percent; only a split that adds up can be saved), a category or a new one. **Pay back…** is the pay
   function: whose open items, which to settle now, and what that comes to. Budgets are added and changed there, with
   what they apply to. Payments due within two weeks show on Today. Amounts and split parts open the number pad
@@ -312,7 +313,7 @@ usual spelling and the phone number below.
   rate it cost, "1 EUR = 160.5 JPY", offered from the last cash in that currency or the reference rate, saying which);
   the calculator next to it opens below and works the rate out from what was received and what the account was
   charged, fees included (`RateCalculator` in `Jourfold.UI`, shared with the computer). Cash counts exactly at that
-  rate and shows a green bank note. The converter page has the same calculator under **Check the fees**. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  rate and shows a green bank note. The converter page has the same calculator under **Check the fees**, with the currencies chosen above, as its hint says. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
   are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
   the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold

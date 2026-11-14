@@ -65,12 +65,16 @@ public sealed partial class MobileSession
     public void ChooseConverterCurrency(string side, string code)
     {
         Drafts[side] = code;
-        if (!TripCurrencies().Contains(code))
-        {
-            Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code).Prepend(code).Take(4));
-            Settings.Save();
-        }
+        RememberCurrency(code);
         Redraw();
+    }
+
+    /// <summary>Keeps a currency the trip does not offer among the recent ones, for the converter and the expense form.</summary>
+    public void RememberCurrency(string code)
+    {
+        if (TripCurrencies().Contains(code)) return;
+        Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code).Prepend(code).Take(4));
+        Settings.Save();
     }
 
     /// <summary>Takes a currency off the recent ones, from a long press on its chip.</summary>

@@ -213,9 +213,9 @@ public sealed class MobileInputTests : IDisposable
             Assert.NotSame(grid, Grid());
             Assert.Equal(opening + 200, Grid().Offset.Y, 1);
 
-            // Other days open at their first plan again.
+            // All days share the grid, so another day keeps the same hours in view.
             session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
-            Assert.NotEqual(opening + 200, Grid().Offset.Y, 1);
+            Assert.Equal(opening + 200, Grid().Offset.Y, 1);
         }
         finally { window.Close(); session.Dispose(); }
     }

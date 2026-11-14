@@ -1,0 +1,16 @@
+# Release notes for Jourfold 0.13.1. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.13.1
+date: 2026-11-14
+highlights:
+  - icon: coins
+    en: "On phones and tablets, the currencies to tap keep one order in the expense form and the converter: the trip's, the local one where you are, those of your costs, then the ones you added yourself, which have an x to remove them. Where you are comes from the phone's time zone, so no location is needed."
+    de: "Auf Handys und Tablets stehen die Währungen zum Antippen im Ausgabenformular und im Währungsrechner in derselben Reihenfolge: die der Reise, die örtliche, wo Sie gerade sind, die Ihrer Ausgaben, dann die selbst hinzugefügten, die sich mit einem x entfernen lassen. Wo Sie sind, ergibt sich aus der Zeitzone des Geräts, ein Standort wird nicht gebraucht."
+changes:
+  - en: "Check the fees in the currency converter says which currencies it uses: the ones chosen above."
+    de: "„Gebühren prüfen“ im Währungsrechner sagt, welche Währungen es verwendet: die oben gewählten."
+  - en: "A currency you added yourself that moves up because the trip has costs in it comes back with its x when those costs are gone."
+    de: "Eine selbst hinzugefügte Währung, die nach vorne rückt, weil die Reise Ausgaben darin hat, kommt mit ihrem x zurück, wenn diese Ausgaben wieder weg sind."
+fixes:
+  - en: "On phones and tablets, the field for another currency in the expense form suggests codes while you type, and choosing one or pressing Enter takes it at once. Before, the typed code only counted when saving."
+    de: "Auf Handys und Tablets schlägt das Feld für eine andere Währung im Ausgabenformular beim Tippen Codes vor, und Auswählen oder Enter übernimmt sie sofort. Bisher zählte der getippte Code erst beim Speichern."

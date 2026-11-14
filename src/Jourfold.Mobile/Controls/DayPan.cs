@@ -29,6 +29,9 @@ public sealed class DayPan
         DayWidth = dayWidth; Count = count; this.viewport = viewport;
     }
 
+    /// <summary>How far a drag must go before its speed carries the days on.</summary>
+    public const double MinFlick = 40;
+
     public double DayWidth { get; }
     public int Count { get; }
     public double Offset => offset;
@@ -114,7 +117,8 @@ public sealed class DayPan
         {
             if (sideways != true) { start = null; return; }
             sideways = null; start = null; e.Handled = true; e.Pointer.Capture(null);
-            Release(speed, fromDay);
+            // A short slip, such as while tapping, is no flick, however quick.
+            Release(Math.Abs(offset - from) < MinFlick ? 0 : speed, fromDay);
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         area.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (sideways == true) { sideways = null; start = null; Release(0, fromDay); } }, RoutingStrategies.Bubble, handledEventsToo: true);
     }

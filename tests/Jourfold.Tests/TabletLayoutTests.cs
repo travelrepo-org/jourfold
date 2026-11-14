@@ -97,8 +97,10 @@ public sealed class TabletLayoutTests : IDisposable
             Swipe(300, 800); await Settle();
             Assert.Equal(days[shown / 2].Date, session.SelectedDate);
             Assert.True(reached > session.SelectedDate);
-            // A short drag goes nowhere.
+            // A short drag goes nowhere, also a quick one.
             Swipe(500, 470); await Settle();
+            window.MouseDown(new Point(500, 600), MouseButton.Left); window.MouseMove(new Point(485, 601)); window.MouseMove(new Point(468, 601)); window.MouseUp(new Point(468, 601), MouseButton.Left);
+            await Settle();
             Assert.Equal(days[shown / 2].Date, session.SelectedDate);
             // The arrow glides by the days shown.
             Probe.Click(window, "Later days");

@@ -209,9 +209,24 @@ public sealed class CostClarityTests : IDisposable
             await session.SaveDetailsAsync(edits);
             var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
             Assert.Equal(new[] { "EUR", "NZD", "CNY", region }.Distinct(), session.TripCurrencies());
-            // One chosen under Other comes after them and stays there.
+            // One chosen under Other comes after them, with an x.
             session.RememberCurrency("THB");
-            Assert.Equal(["THB"], session.RecentCurrencies);
+            Assert.Equal(["THB"], session.RecentShown);
+            // A payment in baht moves it up among the trip's currencies, without an x.
+            var market = session.Trip!.Entities.Values.First(e => e.Type == "expense").Copy();
+            market.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "300", ["currency"] = "THB" };
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(market.Id, market)]);
+            Assert.Contains("THB", session.TripCurrencies()); Assert.Empty(session.RecentShown);
+            // Four more chosen meanwhile do not push it out, since it was not shown.
+            foreach (var code in new[] { "CHF", "GBP", "SEK", "DKK" }) session.RememberCurrency(code);
+            Assert.Contains("THB", session.RecentCurrencies);
+            // Without the payment it is back with its x.
+            market.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "10", ["currency"] = "NZD" };
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(market.Id, market)]);
+            Assert.DoesNotContain("THB", session.TripCurrencies()); Assert.Contains("THB", session.RecentShown);
+            // The x takes it off.
+            session.ForgetConverterCurrency("THB");
+            Assert.DoesNotContain("THB", session.RecentShown);
         }
         finally { session.Dispose(); }
     }

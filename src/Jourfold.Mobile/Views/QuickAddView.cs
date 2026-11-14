@@ -517,19 +517,21 @@ public sealed class QuickAddView
     private Control Money()
     {
         var currencies = Ui.Flow(8);
-        var recent = s.RecentCurrencies.Where(c => !s.TripCurrencies().Contains(c)).ToArray();
+        var recent = s.RecentShown;
         // A fixed order, so choosing a chip only moves the mark: the trip's currencies, the recent ones, and the
         // expense's own at the end when it is neither.
         foreach (var c in s.TripCurrencies().Concat(recent).Append(currency).Distinct())
         {
             var chip = Chip(c, null, c == currency, "chip"); var chosen = c;
             chip.Click += (_, _) => ChooseCurrency(chosen);
-            if (recent.Contains(c) && c != currency)
+            // One added by hand has an x to take it off again; the trip's own stay.
+            if (recent.Contains(c))
             {
-                AutomationProperties.SetHelpText(chip, s.Strings["RemoveFromListHint"]);
-                Menus.OnHold(chip, () => s.ShowMenu(new ActionMenu(chosen, null, [new MenuAction(s.Strings["RemoveFromList"], "x", _ => { s.ForgetConverterCurrency(chosen); Render(); return System.Threading.Tasks.Task.CompletedTask; })])));
+                void Forget() { s.ForgetConverterCurrency(chosen); Render(); }
+                Menus.OnHold(chip, () => s.ShowMenu(new ActionMenu(chosen, null, [new MenuAction(s.Strings["RemoveFromList"], "x", _ => { Forget(); return System.Threading.Tasks.Task.CompletedTask; })])));
+                currencies.Children.Add(Lines.Removable(chip, string.Format(CultureInfo.CurrentCulture, s.Strings["RemoveCurrency"], chosen), Forget));
             }
-            currencies.Children.Add(chip);
+            else currencies.Children.Add(chip);
         }
         currencies.Children.Add(otherCurrency);
         return Ui.V(8, amount, currencies);

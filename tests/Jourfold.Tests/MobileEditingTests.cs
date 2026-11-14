@@ -208,6 +208,11 @@ public sealed class MobileEditingTests : IDisposable
             await Probe.Until(() => Chosen("CHF"));
             Assert.True(Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "THB")), "the baht stays to tap again");
 
+            // A currency added by hand has an x that takes it off the list.
+            Probe.Click(Form(window), "Remove THB from the list"); Probe.Layout();
+            await Probe.Until(() => !Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "THB")));
+            Assert.DoesNotContain("THB", session.RecentCurrencies);
+
             Tap(window, "Save");
             await Probe.Until(() => TripSummaries.Money(session.Trip!.Find(rail.Id)!.Data["amount"])?.Currency == "CHF");
         }

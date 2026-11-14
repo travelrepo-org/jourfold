@@ -295,7 +295,9 @@ usual spelling and the phone number below.
   into the trip currency, from the first other currency the trip suggests. The chips are, always in this order, the trip
   currency, the local one where the phone is (from the phone's time zone, which phones set from the network when
   travelling, so no location is needed), the currencies of its costs and the phone region's, then other currencies
-  chosen lately (the last four, kept on the phone); a long press on one of those removes it from the list. The
+  chosen lately (the last four, kept on the phone), each with an x that removes it from the list (a long press does
+  too). One that moves up because the trip now has costs in it loses its x there, keeps its place in the list and
+  comes back with it when those costs are gone. The
   expense form offers the same chips in the same order; choosing one only moves the mark. No currency is offered only because the bank quotes
   its rates against the euro.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments

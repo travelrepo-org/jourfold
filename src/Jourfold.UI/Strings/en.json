@@ -1661,7 +1661,6 @@
   "RatesFromShort": "Rates of {0}",
   "RatesFetched": "checked for new rates {0}",
   "RatesPublishedHint": "The European Central Bank publishes new rates on working days around 16:00 Frankfurt time, so these are the newest.",
-  "RemoveFromListHint": "Hold to remove it from the list",
   "RefreshRates": "Fetch the exchange rates again",
   "RatesRefreshFailed": "The exchange rates could not be fetched. The converter keeps the last ones.",
   "PackingOpen": "{0} left to pack",
@@ -1985,5 +1984,6 @@
   "UpdateStopped": "Jourfold no longer checks for new versions. You can turn it back on in Settings.",
   "UpdateChecks": "Check for new versions",
   "Updates": "Updates",
-  "UpdateChecksHint": "Once a day at start, Jourfold asks GitHub for the latest release and tells you when there is a newer one. Only the app's name and version are sent, nothing from your trips. Nothing is downloaded or installed."
+  "UpdateChecksHint": "Once a day at start, Jourfold asks GitHub for the latest release and tells you when there is a newer one. Only the app's name and version are sent, nothing from your trips. Nothing is downloaded or installed.",
+  "RemoveCurrency": "Remove {0} from the list"
 }

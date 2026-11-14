@@ -16,6 +16,20 @@ public enum LineState { Normal, Past, Expanded }
 /// <summary>Pieces shared by Today and Plan: the trip header, item lines, status chips and groups.</summary>
 public static class Lines
 {
+    /// <summary>
+    /// A chip the user added, such as a currency chosen under Other, with an x inside it that takes it off the list
+    /// again. The x is a button of its own, so screen readers and the keyboard reach it as well.
+    /// </summary>
+    public static Control Removable(Button chip, string removeName, Action remove)
+    {
+        chip.Padding = new Thickness(12, 6, 34, 6);
+        var x = Ui.IconButton("x", removeName);
+        x.Content = Ui.Icon("x", 14); x.Padding = new Thickness(6); x.MinWidth = 0; x.Width = 30; x.Height = 30; x.CornerRadius = new CornerRadius(999);
+        x.HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right; x.VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center; x.Margin = new Thickness(0, 0, 3, 0);
+        x.Click += (_, e) => { e.Handled = true; remove(); };
+        return new Panel { Children = { chip, x } };
+    }
+
     /// <summary>The compact trip header: cover, name, dates and travellers. Trip switching is the back button, not a menu.</summary>
     public static Control TripHeader(MobileSession s)
     {

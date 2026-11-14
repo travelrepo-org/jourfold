@@ -70,14 +70,27 @@ public sealed partial class MobileSession
     }
 
     /// <summary>Keeps a currency the trip does not offer among the recent ones, for the converter and the expense form.</summary>
+    /// <remarks>
+    /// Four are shown. One the trip now has costs in moves up among the trip's currencies and is kept without counting
+    /// against the four, so it comes back with its x when those costs are gone; at most eight are kept in all.
+    /// </remarks>
     public void RememberCurrency(string code)
     {
-        if (TripCurrencies().Contains(code)) return;
-        Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code).Prepend(code).Take(4));
+        var offered = TripCurrencies();
+        if (offered.Contains(code)) return;
+        var visible = 0;
+        var kept = RecentCurrencies.Where(c => c != code).Prepend(code).Where(c => offered.Contains(c) || visible++ < 4).Take(8);
+        Settings.Values["converter.recent"] = string.Join(',', kept);
         Settings.Save();
     }
 
-    /// <summary>Takes a currency off the recent ones, from a long press on its chip.</summary>
+    /// <summary>
+    /// The recent currencies shown as chips, with an x: those the trip does not offer anyway. Usually four; one that
+    /// comes back because its costs are gone joins them until the next choice trims the list again.
+    /// </summary>
+    public IReadOnlyList<string> RecentShown => RecentCurrencies.Where(c => !TripCurrencies().Contains(c)).ToArray();
+
+    /// <summary>Takes a currency off the recent ones, from the x on its chip or a long press.</summary>
     public void ForgetConverterCurrency(string code)
     {
         Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code));

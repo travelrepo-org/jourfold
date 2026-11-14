@@ -496,18 +496,18 @@ public static class MorePages
         {
             var flow = Ui.Flow(6);
             // The trip's currencies, then other ones chosen lately, so one picked under Other stays.
-            var recent = s.RecentCurrencies.Where(c => rates.Currencies.Contains(c) && !currencies.Contains(c)).ToArray();
+            var recent = s.RecentShown.Where(rates.Currencies.Contains).Where(c => !currencies.Contains(c)).ToArray();
             foreach (var code in currencies.Concat(recent).Append(chosen).Distinct())
             {
                 var chip = Ui.Choice(code, null, code == chosen, "chip"); var c = code;
                 chip.Click += (_, _) => s.ChooseConverterCurrency(key, c);
-                // One chosen lately can be taken off the list again; the trip's own stay.
+                // One added by hand has an x to take it off the list again; the trip's own stay.
                 if (recent.Contains(code))
                 {
-                    AutomationProperties.SetHelpText(chip, str["RemoveFromListHint"]);
                     Menus.OnHold(chip, () => s.ShowMenu(new ActionMenu(c, null, [new MenuAction(str["RemoveFromList"], "x", _ => { s.ForgetConverterCurrency(c); return System.Threading.Tasks.Task.CompletedTask; })])));
+                    flow.Children.Add(Lines.Removable(chip, string.Format(CultureInfo.CurrentCulture, str["RemoveCurrency"], c), () => s.ForgetConverterCurrency(c)));
                 }
-                flow.Children.Add(chip);
+                else flow.Children.Add(chip);
             }
             var other = new AutoCompleteBox { ItemsSource = rates.Currencies.ToArray(), PlaceholderText = str["OtherCurrency"], MinimumPrefixLength = 1, Width = 110, FilterMode = AutoCompleteFilterMode.StartsWith };
             other.SelectionChanged += (_, _) => { if (other.SelectedItem is string c && c.Length == 3) s.ChooseConverterCurrency(key, c); };

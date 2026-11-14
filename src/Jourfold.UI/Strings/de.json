@@ -1661,7 +1661,6 @@
   "RatesFromShort": "Kurse vom {0}",
   "RatesFetched": "zuletzt nach neuen Kursen gesehen {0}",
   "RatesPublishedHint": "Die Europäische Zentralbank veröffentlicht neue Kurse an Werktagen gegen 16 Uhr Frankfurter Zeit; das sind die neuesten.",
-  "RemoveFromListHint": "Gedrückt halten, um sie aus der Liste zu entfernen",
   "RefreshRates": "Wechselkurse neu abrufen",
   "RatesRefreshFailed": "Die Wechselkurse konnten nicht abgerufen werden. Der Umrechner nutzt die letzten.",
   "PackingOpen": "Noch {0} einpacken",
@@ -1985,5 +1984,6 @@
   "UpdateStopped": "Jourfold sucht nicht mehr nach neuen Versionen. Sie können das in den Einstellungen wieder einschalten.",
   "UpdateChecks": "Nach neuen Versionen suchen",
   "Updates": "Updates",
-  "UpdateChecksHint": "Einmal am Tag beim Start fragt Jourfold bei GitHub nach dem neuesten Release und sagt Bescheid, wenn es ein neueres gibt. Gesendet werden nur Name und Version der App, nichts aus Ihren Reisen. Es wird nichts heruntergeladen oder installiert."
+  "UpdateChecksHint": "Einmal am Tag beim Start fragt Jourfold bei GitHub nach dem neuesten Release und sagt Bescheid, wenn es ein neueres gibt. Gesendet werden nur Name und Version der App, nichts aus Ihren Reisen. Es wird nichts heruntergeladen oder installiert.",
+  "RemoveCurrency": "{0} aus der Liste entfernen"
 }

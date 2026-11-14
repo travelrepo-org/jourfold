@@ -14,3 +14,5 @@ changes:
 fixes:
   - en: "On phones and tablets, the field for another currency in the expense form suggests codes while you type, and choosing one or pressing Enter takes it at once. Before, the typed code only counted when saving."
     de: "Auf Handys und Tablets schlägt das Feld für eine andere Währung im Ausgabenformular beim Tippen Codes vor, und Auswählen oder Enter übernimmt sie sofort. Bisher zählte der getippte Code erst beim Speichern."
+  - en: "On phones and tablets, a journey's departure time can be read in another zone, as the ticket prints it: Local time at departure offers the zone it has, the starting place's, the trip's and the phone's. Before, it was always the plan's or the trip's zone."
+    de: "Auf Handys und Tablets lässt sich die Abfahrtszeit einer Fahrt in einer anderen Zone lesen, wie sie auf dem Ticket steht: „Ortszeit bei Abfahrt“ bietet die Zone der Fahrt, die des Startorts, die der Reise und die des Geräts an. Bisher galt immer die Zone des Plans oder der Reise."

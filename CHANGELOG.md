@@ -16,6 +16,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 ### Fixes
 
 - On phones and tablets, the field for another currency in the expense form suggests codes while you type, and choosing one or pressing Enter takes it at once. Before, the typed code only counted when saving.
+- On phones and tablets, a journey's departure time can be read in another zone, as the ticket prints it: Local time at departure offers the zone it has, the starting place's, the trip's and the phone's. Before, it was always the plan's or the trip's zone.
 
 ## 0.13.0 “Scenic Seal” – 2026-11-13
 

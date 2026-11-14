@@ -2,6 +2,23 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.13.1 “Smug Seal” – 2026-11-14
+
+### Highlights
+
+- On phones and tablets, the currencies to tap keep one order in the expense form and the converter: the trip's, the local one where you are, those of your costs, then the ones you added yourself, which have an x to remove them. Where you are comes from the phone's time zone, so no location is needed.
+
+### Changes
+
+- Check the fees in the currency converter says which currencies it uses: the ones chosen above.
+- A currency you added yourself that moves up because the trip has costs in it comes back with its x when those costs are gone.
+
+### Fixes
+
+- On phones and tablets, the field for another currency in the expense form suggests codes while you type, and choosing one or pressing Enter takes it at once. Before, the typed code only counted when saving.
+- On phones and tablets, a journey's departure time can be read in another zone, as the ticket prints it: Local time at departure offers the zone it has, the starting place's, the trip's and the phone's. Before, it was always the plan's or the trip's zone.
+- On phones and tablets, a form such as a new expense no longer closes after switching to another app and back. It came back squeezed into the top half above the dimmed page, and a tap there closed it like the x. Now it comes back whole, and a tap beside a form no longer closes it.
+
 ## 0.13.0 “Scenic Seal” – 2026-11-13
 
 ### Highlights

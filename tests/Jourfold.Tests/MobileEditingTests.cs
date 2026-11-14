@@ -220,6 +220,41 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AJourneysDepartureTimeIsReadInTheZoneChosenForIt()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var train = session.Trip!.Entities.Values.Single(e => e.Type == "schedule_item" && e.Title == "Shinkansen to Kyoto");
+            var before = (System.Text.Json.Nodes.JsonObject)train.Data["time"]!["start"]!;
+            Assert.Equal("Asia/Tokyo", before["timezone"]!.ToString());
+            session.ShowEditor(train.Id);
+            ChoiceButton Zone(string place) => Probe.All<ChoiceButton>(Form(window)).First(c => Probe.All<TextBlock>(c).Any(t => t.Text == place));
+            // The departure has zone chips of its own, above the arrival's; the one it has is chosen.
+            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "Local time at departure");
+            Assert.True(Zone("Tokyo").IsSelected);
+            // Read in Berlin time instead: the same clock time, now Berlin's.
+            Zone("Berlin").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout();
+            Assert.True(Zone("Berlin").IsSelected);
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(train.Id)!.Data["time"]?["start"]?["timezone"]?.ToString() == "Europe/Berlin");
+            Assert.Equal(before["local"]!.ToString(), session.Trip!.Find(train.Id)!.Data["time"]!["start"]!["local"]!.ToString());
+
+            // A new journey departs in the zone chosen for it.
+            session.ShowQuickAdd("transport");
+            Field<TextBox>(window, "Title").Text = "Night bus";
+            Probe.All<TimePicker>(Form(window)).First().SelectedTime = new TimeSpan(22, 0, 0);
+            Zone("Berlin").RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent)); Probe.Layout();
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Night bus"));
+            var bus = session.Trip!.Entities.Values.Single(e => e.Title == "Night bus");
+            Assert.Equal("Europe/Berlin", bus.Data["time"]?["start"]?["timezone"]?.ToString());
+            Assert.EndsWith("T22:00:00", bus.Data["time"]?["start"]?["local"]?.ToString());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheRateOfTheLastCashIsOfferedAndTheCalculatorWorksOutTheWithdrawal()
     {
         var (session, window) = await OpenAsync();

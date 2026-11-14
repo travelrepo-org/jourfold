@@ -50,6 +50,8 @@ public sealed class QuickAddView
     private readonly TimePicker arrival = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private int arrivalDays;
     private string? arrivalZone;
+    // The zone a journey's departure time is read in, as the ticket prints it: Frankfurt time for a flight from there.
+    private string? departureZone;
     // A stay's nights and hours.
     private int nights = 1;
     private readonly TimePicker checkOut = Clock(), windowFrom = Clock(), windowUntil = Clock(), latestOut = Clock();
@@ -211,6 +213,7 @@ public sealed class QuickAddView
             && NodaTime.Text.LocalDatePattern.Iso.Parse(due) is { Success: true } parsed) day = parsed.Value;
         day = entry?.Day ?? day;
         var zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(entry?.Zone ?? "") ?? ScheduleQueries.TripZone(s.Trip!);
+        if (entry?.Zone is { } entryZone && DateTimeZoneProviders.Tzdb.GetZoneOrNull(entryZone) is not null) departureZone = entryZone;
         if (entry is { IsTimed: true, Start: { } a }) { start.SelectedTime = a.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); if (entry.End is { } b) end.SelectedTime = b.InZone(zone).TimeOfDay.ToTimeOnly().ToTimeSpan(); }
         idea.IsChecked = item.Data["status"]?.ToString() == "idea";
         if (item.Type == "schedule_item")
@@ -377,7 +380,7 @@ public sealed class QuickAddView
         if (Scheduled) rest.Children.Add(Field(Stay ? str["FirstNight"] : str["DayLabel"], Days()));
         if (Scheduled)
         {
-            rest.Children.Add(Field(Stay ? str["CheckIn"] : Journey ? str["DepartureTime"] : str["StartTime"], Optional(start)));
+            rest.Children.Add(Field(Stay ? str["CheckIn"] : Journey ? str["DepartureTime"] : str["StartTime"], Journey ? DepartureControls() : Optional(start)));
             if (Stay)
             {
                 rest.Children.Add(Field(str["Nights"], Stepper(nights, 1, 60, n => nights = n)));
@@ -825,6 +828,36 @@ public sealed class QuickAddView
         return Ui.H(4, less, shown, more);
     }
 
+    /// <summary>The departure time and the zone it is read in, as tickets print it.</summary>
+    private Control DepartureControls()
+    {
+        var zones = Ui.Flow(6);
+        foreach (var zone in DepartureZones())
+        {
+            var chip = Chip(TimeText.Place(DateTimeZoneProviders.Tzdb[zone]), null, zone == (departureZone ?? DepartureZones().First()), "chip"); var chosen = zone;
+            chip.Click += (_, _) => { departureZone = chosen; Render(); };
+            zones.Children.Add(chip);
+        }
+        return Ui.V(8, Optional(start), Ui.Text(s.Strings["DepartureZone"], "caption"), zones);
+    }
+
+    /// <summary>
+    /// The zones a departure is likely in: the one it has, the starting place's, then the trip's zones, most used
+    /// first, and the phone's.
+    /// </summary>
+    private IReadOnlyList<string> DepartureZones()
+    {
+        var trip = s.Trip!;
+        var origin = Choice(from.Text) is { Id: { } id } ? trip.Find(id)?.Data["timezone"]?.ToString() : null;
+        return new[] { departureZone, origin, ScheduleQueries.TripZone(trip).Id }.OfType<string>().Concat(UsedZones()).Append(s.PhoneZone.Id)
+            .Where(z => DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().Take(6).ToArray();
+    }
+
+    /// <summary>The zones the trip's plans start and end in, most used first.</summary>
+    private IEnumerable<string> UsedZones() => s.Trip!.Entities.Values.Where(e => e.Type == "schedule_item")
+        .SelectMany(e => new[] { e.Data["time"]?["start"]?["timezone"]?.ToString(), e.Data["time"]?["end"]?["timezone"]?.ToString() })
+        .OfType<string>().GroupBy(z => z).OrderByDescending(g => g.Count()).Select(g => g.Key);
+
     /// <summary>The arrival time, the day it falls on and the zone it is read in, as tickets print it.</summary>
     private Control ArrivalControls()
     {
@@ -854,10 +887,7 @@ public sealed class QuickAddView
     {
         var trip = s.Trip!;
         var to = Choice(place.Text) is { Id: { } id } ? trip.Find(id)?.Data["timezone"]?.ToString() : null;
-        var used = trip.Entities.Values.Where(e => e.Type == "schedule_item")
-            .SelectMany(e => new[] { e.Data["time"]?["start"]?["timezone"]?.ToString(), e.Data["time"]?["end"]?["timezone"]?.ToString() })
-            .OfType<string>().GroupBy(z => z).OrderByDescending(g => g.Count()).Select(g => g.Key);
-        return new[] { to, arrivalZone, ScheduleQueries.TripZone(trip).Id }.OfType<string>().Concat(used).Append(s.PhoneZone.Id)
+        return new[] { to, arrivalZone, ScheduleQueries.TripZone(trip).Id }.OfType<string>().Concat(UsedZones()).Append(s.PhoneZone.Id)
             .Where(z => DateTimeZoneProviders.Tzdb.GetZoneOrNull(z) is not null).Distinct().Take(6).ToArray();
     }
 
@@ -894,6 +924,7 @@ public sealed class QuickAddView
             LocalTime? endTime = Journey || Stay ? null : Time(end);
             Duration? length = startTime is { } a && endTime is { } b ? (b > a ? b - a : b - a + Period.FromDays(1)).ToDuration() : null;
             var arrivalZoneId = arrivalZone ?? (Journey ? ArrivalZones().First() : null);
+            var departureZoneId = Journey ? departureZone ?? DepartureZones().First() : null;
             var placeChoice = Choice(place.Text); var fromChoice = Choice(from.Text);
             decimal? money = null;
             if (kind == "expense" && !SplitValid()) throw new DomainException("mobile.amount", s.Strings["SplitMustAddUp"]);
@@ -908,7 +939,7 @@ public sealed class QuickAddView
             if (editing is not null)
             {
                 // A stay's day and hours are its nights; they are saved with the details below.
-                await s.SaveEditAsync(editing.Id, title.Text!, body.Text, Scheduled && !Stay || kind == "task" ? day : null, Scheduled && !Stay ? startTime : null, length, null, task: kind == "task");
+                await s.SaveEditAsync(editing.Id, title.Text!, body.Text, Scheduled && !Stay || kind == "task" ? day : null, Scheduled && !Stay ? startTime : null, length, null, task: kind == "task", zone: departureZoneId);
                 // Only places the form changed are written, so an inherited place stays inherited.
                 if (editing.Type == "schedule_item" && Changed(place.Text, placeBefore)) await s.AssignPlaceAsync(editing.Id, journey ? PlaceSlot.To : PlaceSlot.Place, placeChoice);
                 if (journey && Changed(from.Text, fromBefore)) await s.AssignPlaceAsync(editing.Id, PlaceSlot.From, fromChoice);
@@ -934,6 +965,7 @@ public sealed class QuickAddView
                 ArrivalDate = Journey && Time(arrival) is not null && day is { } d0 ? d0.PlusDays(arrivalDays) : null,
                 ArrivalTime = Journey ? Time(arrival) : null,
                 ArrivalTimezone = Journey ? arrivalZoneId : null,
+                Timezone = departureZoneId,
             };
             var added = await s.AddAsync(draft, idea: kind == "idea" || (Scheduled && idea.IsChecked == true), into);
             if (kind is "booking" or "expense" or "budget") await SaveOtherAsync(added, money, created: true);

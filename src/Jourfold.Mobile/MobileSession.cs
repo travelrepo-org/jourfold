@@ -681,7 +681,8 @@ public sealed partial class MobileSession : IDisposable
     /// <summary>Saves the editor: title and notes, and the day and time when they changed.</summary>
     /// <param name="amount">For an expense, the new amount in its currency.</param>
     /// <param name="task">For a task, <paramref name="day"/> is when it is due; null clears it.</param>
-    public Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default) => ChangeAsync(async () =>
+    /// <param name="zone">The zone <paramref name="start"/> is read in, such as a journey's departure zone; the plan's own when null.</param>
+    public Task SaveEditAsync(Guid id, string title, string? body, LocalDate? day, LocalTime? start, Duration? length, decimal? amount = null, bool task = false, CancellationToken ct = default, string? zone = null) => ChangeAsync(async () =>
     {
         var workspace = Workspace ?? throw new InvalidOperationException("No trip is open.");
         var entry = Entry(id);
@@ -701,10 +702,10 @@ public sealed partial class MobileSession : IDisposable
         }, ct);
         if (!task && day is { } d && start is { } t)
         {
-            var zone = entry?.Zone ?? ScheduleQueries.TripZone(workspace.State.Trip).Id;
+            var startZone = zone ?? entry?.Zone ?? ScheduleQueries.TripZone(workspace.State.Trip).Id;
             var previous = entry is { Start: { } a, End: { } b } && b > a ? b - a : Duration.FromHours(1);
             NoteChange();
-            await workspace.ScheduleAsync(id, new ZonedTime(d.At(t).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), zone), length ?? previous, ct);
+            await workspace.ScheduleAsync(id, new ZonedTime(d.At(t).ToString("yyyy-MM-dd'T'HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture), startZone), length ?? previous, ct);
         }
         Showing = Overlay.Details; Changed?.Invoke();
     }, ct);

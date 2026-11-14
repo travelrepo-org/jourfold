@@ -511,14 +511,16 @@ public sealed class QuickAddView
     private bool PeopleChanged => peopleChoice != peopleChoiceBefore || !people.SetEquals(peopleBefore);
 
     /// <summary>
-    /// The amount, the currencies as chips (the expense's, the trip's, the phone's and those chosen lately, shared with
-    /// the converter) and a field for any other code.
+    /// The amount, the currencies as chips (the trip's, the local one, the costs', the phone region's and those chosen
+    /// lately, shared with the converter, in the converter's order) and a field for any other code.
     /// </summary>
     private Control Money()
     {
         var currencies = Ui.Flow(8);
         var recent = s.RecentCurrencies.Where(c => !s.TripCurrencies().Contains(c)).ToArray();
-        foreach (var c in s.TripCurrencies().Prepend(currency).Concat(recent).Distinct())
+        // A fixed order, so choosing a chip only moves the mark: the trip's currencies, the recent ones, and the
+        // expense's own at the end when it is neither.
+        foreach (var c in s.TripCurrencies().Concat(recent).Append(currency).Distinct())
         {
             var chip = Chip(c, null, c == currency, "chip"); var chosen = c;
             chip.Click += (_, _) => ChooseCurrency(chosen);

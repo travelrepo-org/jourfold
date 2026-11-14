@@ -292,9 +292,11 @@ usual spelling and the phone number below.
   rates of which day they are, then when the phone last checked for new ones; a tap there checks again now, at most
   once a minute, and keeps the last rates when that fails. When the newest rates are of an earlier day than the
   check, as on a weekend, it says that the bank publishes on working days around 16:00 Frankfurt time. It converts
-  into the trip currency, from the first other currency the trip suggests. The chips are the trip currency, the
-  currencies of its costs and the phone region's, then other currencies chosen lately (the last four, kept on the
-  phone); a long press on one of those removes it from the list. No currency is offered only because the bank quotes
+  into the trip currency, from the first other currency the trip suggests. The chips are, always in this order, the trip
+  currency, the local one where the phone is (from the phone's time zone, which phones set from the network when
+  travelling, so no location is needed), the currencies of its costs and the phone region's, then other currencies
+  chosen lately (the last four, kept on the phone); a long press on one of those removes it from the list. The
+  expense form offers the same chips in the same order; choosing one only moves the mark. No currency is offered only because the bank quotes
   its rates against the euro.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
   still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,

@@ -179,6 +179,43 @@ public sealed class CostClarityTests : IDisposable
         Assert.Equal(31.84m, Expenses.ChargeOf(main)!.Value);
     }
 
+    [Theory]
+    [InlineData("Pacific/Auckland", "NZD")]
+    [InlineData("Asia/Shanghai", "CNY")]
+    [InlineData("Europe/Berlin", "EUR")]
+    [InlineData("Asia/Tokyo", "JPY")]
+    [InlineData("America/New_York", "USD")]
+    [InlineData("Asia/Calcutta", "INR")]
+    [InlineData("Etc/UTC", null)]
+    public void TheLocalCurrencyComesFromThePhonesTimeZone(string zone, string? expected) =>
+        Assert.Equal(expected, Jourfold.UI.CurrencyCodes.OfZone(DateTimeZoneProviders.Tzdb[zone]));
+
+    [AvaloniaFact]
+    public async Task TheCurrenciesKeepOneOrderTripLocalCostsRegionThenRecent()
+    {
+        // A trip from Germany to New Zealand with a layover in China, on a phone in Auckland.
+        var folder = Path.Combine(root, "nz"); Directory.CreateDirectory(folder); Friday.Save(Path.Combine(folder, "rates.json"));
+        var session = new MobileSession(new MobileHost(folder, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 40)), () => DateTimeZoneProviders.Tzdb["Pacific/Auckland"], "en", new MemorySecrets()));
+        try
+        {
+            await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+            await session.SetTripCurrencyAsync("EUR"); session.CloseOverlay();
+            var trip = session.Trip!;
+            var edits = trip.Entities.Values.Where(e => e.Type == "expense").Select((e, i) =>
+            {
+                var copy = e.Copy(); copy.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "10", ["currency"] = i % 2 == 0 ? "CNY" : "NZD" };
+                return new TravelRepo.Repository.EntityEdit(copy.Id, copy);
+            }).ToArray();
+            await session.SaveDetailsAsync(edits);
+            var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
+            Assert.Equal(new[] { "EUR", "NZD", "CNY", region }.Distinct(), session.TripCurrencies());
+            // One chosen under Other comes after them and stays there.
+            session.RememberCurrency("THB");
+            Assert.Equal(["THB"], session.RecentCurrencies);
+        }
+        finally { session.Dispose(); }
+    }
+
     [AvaloniaFact]
     public async Task TheConverterConvertsIntoTheTripsCurrencyAndOffersNoCurrencyForTheRatesAlone()
     {
@@ -186,8 +223,9 @@ public sealed class CostClarityTests : IDisposable
         try
         {
             await session.SetTripCurrencyAsync("USD"); session.CloseOverlay();
-            // The trip's currency first, then its costs' currencies and the phone's region's; the euro only as one of them.
-            var expected = TripSummaries.Costs(session.Trip!).Select(c => c.Currency).Prepend("USD").Append(System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol).Distinct();
+            // The trip's currency first, then the local one where the phone is (yen in Tokyo), its costs' currencies and
+            // the phone's region's; the euro only as one of them.
+            var expected = TripSummaries.Costs(session.Trip!).Select(c => c.Currency).Prepend("JPY").Prepend("USD").Append(System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol).Distinct();
             Assert.Equal(expected, session.TripCurrencies());
             // Into the trip's currency, from the first other one.
             session.ShowTab(MobileTab.More); session.ShowPage("converter");

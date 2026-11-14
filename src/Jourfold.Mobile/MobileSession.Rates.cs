@@ -85,13 +85,18 @@ public sealed partial class MobileSession
     }
 
     /// <summary>
-    /// The currencies to offer first: the trip's own, the ones its costs are in, and the phone's region's. No currency
-    /// is offered just because the rates are quoted against it.
+    /// The currencies to offer first, always in this order so chips do not move when one is chosen: the trip's own,
+    /// the local one where the phone is (from its time zone), the ones the trip's costs are in, and the phone region's.
+    /// No currency is offered just because the rates are quoted against it.
     /// </summary>
     public IReadOnlyList<string> TripCurrencies()
     {
         var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
-        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).Prepend(TripCurrencyCode) : []).Append(region)
-            .Where(c => c.Length == 3).Distinct().ToArray();
+        var first = Trip is null ? [] : new[] { TripCurrencyCode };
+        var costs = Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency) : [];
+        return first.Append(LocalCurrency ?? "").Concat(costs).Append(region).Where(c => c.Length == 3).Distinct().ToArray();
     }
+
+    /// <summary>The money where the phone is now, from the phone's time zone; null in a zone of no single country.</summary>
+    public string? LocalCurrency => Jourfold.UI.CurrencyCodes.OfZone(PhoneZone);
 }

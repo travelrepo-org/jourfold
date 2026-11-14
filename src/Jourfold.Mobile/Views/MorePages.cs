@@ -1204,7 +1204,7 @@ public static class MorePages
     {
         var str = s.Strings; var current = s.TripCurrencyCode;
         var chips = Ui.Flow(8);
-        foreach (var code in s.TripCurrencies().Prepend(current).Distinct())
+        foreach (var code in s.TripCurrencies().Append(current).Distinct())
         {
             var chip = Ui.Choice(code, null, code == current, "chip").Also(c => c.MinHeight = 44); var chosen = code;
             chip.Click += async (_, _) => await s.SetTripCurrencyAsync(chosen);

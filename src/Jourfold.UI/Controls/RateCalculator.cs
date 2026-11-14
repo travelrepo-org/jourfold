@@ -44,7 +44,7 @@ public static class RateCalculator
         Control Line(string label, TextBox box, string code) => Ui.V(4, Ui.Text(label, "caption"), Ui.H(6, box, Ui.Text(code, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center)));
         Show();
         return Ui.V(10, titled ? Ui.Text(use is null ? s["CheckFees"] : s["RateCalculator"], "strong") : null,
-            use is null ? Ui.Text(s["CheckFeesHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null,
+            use is null ? Ui.Text(string.Format(CultureInfo.CurrentCulture, s["CheckFeesHint"], cash, account), "caption").Also(t => t.TextWrapping = TextWrapping.Wrap) : null,
             Line(s["CashReceived"], received, cash), Line(s["AccountDebited"], debited, account),
             Ui.V(2, rate, markup), take).Also(v => v.MinWidth = 260);
     }

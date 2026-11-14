@@ -65,15 +65,32 @@ public sealed partial class MobileSession
     public void ChooseConverterCurrency(string side, string code)
     {
         Drafts[side] = code;
-        if (!TripCurrencies().Contains(code))
-        {
-            Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code).Prepend(code).Take(4));
-            Settings.Save();
-        }
+        RememberCurrency(code);
         Redraw();
     }
 
-    /// <summary>Takes a currency off the recent ones, from a long press on its chip.</summary>
+    /// <summary>Keeps a currency the trip does not offer among the recent ones, for the converter and the expense form.</summary>
+    /// <remarks>
+    /// Four are shown. One the trip now has costs in moves up among the trip's currencies and is kept without counting
+    /// against the four, so it comes back with its x when those costs are gone; at most eight are kept in all.
+    /// </remarks>
+    public void RememberCurrency(string code)
+    {
+        var offered = TripCurrencies();
+        if (offered.Contains(code)) return;
+        var visible = 0;
+        var kept = RecentCurrencies.Where(c => c != code).Prepend(code).Where(c => offered.Contains(c) || visible++ < 4).Take(8);
+        Settings.Values["converter.recent"] = string.Join(',', kept);
+        Settings.Save();
+    }
+
+    /// <summary>
+    /// The recent currencies shown as chips, with an x: those the trip does not offer anyway. Usually four; one that
+    /// comes back because its costs are gone joins them until the next choice trims the list again.
+    /// </summary>
+    public IReadOnlyList<string> RecentShown => RecentCurrencies.Where(c => !TripCurrencies().Contains(c)).ToArray();
+
+    /// <summary>Takes a currency off the recent ones, from the x on its chip or a long press.</summary>
     public void ForgetConverterCurrency(string code)
     {
         Settings.Values["converter.recent"] = string.Join(',', RecentCurrencies.Where(c => c != code));
@@ -81,13 +98,18 @@ public sealed partial class MobileSession
     }
 
     /// <summary>
-    /// The currencies to offer first: the trip's own, the ones its costs are in, and the phone's region's. No currency
-    /// is offered just because the rates are quoted against it.
+    /// The currencies to offer first, always in this order so chips do not move when one is chosen: the trip's own,
+    /// the local one where the phone is (from its time zone), the ones the trip's costs are in, and the phone region's.
+    /// No currency is offered just because the rates are quoted against it.
     /// </summary>
     public IReadOnlyList<string> TripCurrencies()
     {
         var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
-        return (Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency).Prepend(TripCurrencyCode) : []).Append(region)
-            .Where(c => c.Length == 3).Distinct().ToArray();
+        var first = Trip is null ? [] : new[] { TripCurrencyCode };
+        var costs = Trip is { } trip ? TravelRepo.Core.TripSummaries.Costs(trip).Select(c => c.Currency) : [];
+        return first.Append(LocalCurrency ?? "").Concat(costs).Append(region).Where(c => c.Length == 3).Distinct().ToArray();
     }
+
+    /// <summary>The money where the phone is now, from the phone's time zone; null in a zone of no single country.</summary>
+    public string? LocalCurrency => Jourfold.UI.CurrencyCodes.OfZone(PhoneZone);
 }

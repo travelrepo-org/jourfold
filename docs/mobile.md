@@ -292,14 +292,19 @@ usual spelling and the phone number below.
   rates of which day they are, then when the phone last checked for new ones; a tap there checks again now, at most
   once a minute, and keeps the last rates when that fails. When the newest rates are of an earlier day than the
   check, as on a weekend, it says that the bank publishes on working days around 16:00 Frankfurt time. It converts
-  into the trip currency, from the first other currency the trip suggests. The chips are the trip currency, the
-  currencies of its costs and the phone region's, then other currencies chosen lately (the last four, kept on the
-  phone); a long press on one of those removes it from the list. No currency is offered only because the bank quotes
+  into the trip currency, from the first other currency the trip suggests. The chips are, always in this order, the trip
+  currency, the local one where the phone is (from the phone's time zone, which phones set from the network when
+  travelling, so no location is needed), the currencies of its costs and the phone region's, then other currencies
+  chosen lately (the last four, kept on the phone), each with an x that removes it from the list (a long press does
+  too). One that moves up because the trip now has costs in it loses its x there, keeps its place in the list and
+  comes back with it when those costs are gone. The
+  expense form offers the same chips in the same order; choosing one only moves the mark. No currency is offered only because the bank quotes
   its rates against the euro.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
   still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
   category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was
-  paid, what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
+  paid, its currency (chips as on the converter, including the ones chosen lately there; **Other** suggests codes while
+  typing and takes one with Enter), what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
   shares or percent; only a split that adds up can be saved), a category or a new one. **Pay back…** is the pay
   function: whose open items, which to settle now, and what that comes to. Budgets are added and changed there, with
   what they apply to. Payments due within two weeks show on Today. Amounts and split parts open the number pad
@@ -312,7 +317,7 @@ usual spelling and the phone number below.
   rate it cost, "1 EUR = 160.5 JPY", offered from the last cash in that currency or the reference rate, saying which);
   the calculator next to it opens below and works the rate out from what was received and what the account was
   charged, fees included (`RateCalculator` in `Jourfold.UI`, shared with the computer). Cash counts exactly at that
-  rate and shows a green bank note. The converter page has the same calculator under **Check the fees**. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
+  rate and shows a green bank note. The converter page has the same calculator under **Check the fees**, with the currencies chosen above, as its hint says. The trip currency is shown on More and changed under More → Trip details; budgets in the old currency
   are then offered to be converted, each listed with its old and new amount, and stay as they are otherwise. Not on
   the phone yet, as a possible later addition: exporting costs as PDF or CSV, which the computer does.
 - **Expenses with a receipt**: Quick Add → Expense → "Photograph the receipt" uses the phone's camera app (Jourfold

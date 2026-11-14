@@ -109,7 +109,8 @@ public sealed class QuickAddView
     private BudgetFilters budgetFilters = BudgetFilters.None, budgetFiltersBefore = BudgetFilters.None;
     private Button? addButton;
     // A currency not offered as a chip, such as the one of a country just arrived in.
-    private readonly TextBox otherCurrency = new() { MaxLength = 3, Width = 96, HorizontalAlignment = HorizontalAlignment.Left };
+    // Typing suggests codes as on the converter; choosing one, or Enter after a code, makes it the expense's currency.
+    private readonly AutoCompleteBox otherCurrency = new() { MaxLength = 3, Width = 110, HorizontalAlignment = HorizontalAlignment.Left, MinimumPrefixLength = 1, FilterMode = AutoCompleteFilterMode.StartsWith };
     private readonly TextBlock problem = Ui.Text("", "caption").Also(t => { t.IsVisible = false; t.Res(TextBlock.ForegroundProperty, "Danger"); });
     private readonly StackPanel form = Ui.V(14);
     // The kinds and the title stay in place while the rest of the form is drawn again, so the title keeps the focus
@@ -153,6 +154,15 @@ public sealed class QuickAddView
         provider.PlaceholderText = str["ProviderHint"]; AutomationProperties.SetName(provider, str["Provider"]);
         reference.PlaceholderText = str["BookingNumberHint"]; AutomationProperties.SetName(reference, str["BookingNumber"]);
         otherCurrency.PlaceholderText = str["OtherCurrencyHint"]; AutomationProperties.SetName(otherCurrency, str["OtherCurrency"]);
+        otherCurrency.ItemsSource = Jourfold.UI.CurrencyCodes.Known(s.Rates);
+        otherCurrency.SelectionChanged += (_, _) => { if (otherCurrency.SelectedItem is string code) ChooseCurrency(code); };
+        // Enter takes a typed code even when no rates know it; the list may not be open.
+        otherCurrency.AddHandler(Avalonia.Input.InputElement.KeyDownEvent, (_, e) =>
+        {
+            if (e.Key != Avalonia.Input.Key.Enter || Jourfold.UI.CurrencyCodes.Read(otherCurrency.Text) is not { } code) return;
+            e.Handled = true; ChooseCurrency(code);
+        }, Avalonia.Interactivity.RoutingStrategies.Tunnel);
+        otherCurrency.LostFocus += (_, _) => { if (Jourfold.UI.CurrencyCodes.Read(otherCurrency.Text) is { } code && code != currency) ChooseCurrency(code); };
         AutomationProperties.SetName(cancelDay, str["FreeCancellationUntil"]); AutomationProperties.SetName(cancelTime, str["FreeCancellationUntil"]);
         if (item is null)
         {
@@ -500,19 +510,39 @@ public sealed class QuickAddView
 
     private bool PeopleChanged => peopleChoice != peopleChoiceBefore || !people.SetEquals(peopleBefore);
 
-    /// <summary>The amount, the trip's currencies as chips and a field for any other code.</summary>
+    /// <summary>
+    /// The amount, the currencies as chips (the trip's, the local one, the costs', the phone region's and those chosen
+    /// lately, shared with the converter, in the converter's order) and a field for any other code.
+    /// </summary>
     private Control Money()
     {
         var currencies = Ui.Flow(8);
-        var offered = TripSummaries.Costs(s.Trip!).Select(t => t.Currency).Prepend(currency).Append("EUR").Distinct().ToArray();
-        foreach (var c in offered)
+        var recent = s.RecentShown;
+        // A fixed order, so choosing a chip only moves the mark: the trip's currencies, the recent ones, and the
+        // expense's own at the end when it is neither.
+        foreach (var c in s.TripCurrencies().Concat(recent).Append(currency).Distinct())
         {
-            var chip = Chip(c, null, c == currency && string.IsNullOrWhiteSpace(otherCurrency.Text), "chip"); var chosen = c;
-            chip.Click += (_, _) => { currency = chosen; otherCurrency.Text = ""; Render(); };
-            currencies.Children.Add(chip);
+            var chip = Chip(c, null, c == currency, "chip"); var chosen = c;
+            chip.Click += (_, _) => ChooseCurrency(chosen);
+            // One added by hand has an x to take it off again; the trip's own stay.
+            if (recent.Contains(c))
+            {
+                void Forget() { s.ForgetConverterCurrency(chosen); Render(); }
+                Menus.OnHold(chip, () => s.ShowMenu(new ActionMenu(chosen, null, [new MenuAction(s.Strings["RemoveFromList"], "x", _ => { Forget(); return System.Threading.Tasks.Task.CompletedTask; })])));
+                currencies.Children.Add(Lines.Removable(chip, string.Format(CultureInfo.CurrentCulture, s.Strings["RemoveCurrency"], chosen), Forget));
+            }
+            else currencies.Children.Add(chip);
         }
         currencies.Children.Add(otherCurrency);
         return Ui.V(8, amount, currencies);
+    }
+
+    /// <summary>Makes <paramref name="code"/> the expense's currency; one the trip does not offer joins the recent ones.</summary>
+    private void ChooseCurrency(string code)
+    {
+        currency = code; otherCurrency.Text = ""; otherCurrency.SelectedItem = null;
+        s.RememberCurrency(code);
+        Render();
     }
 
     /// <summary>The currency typed or chosen, as a three-letter code.</summary>
@@ -529,7 +559,7 @@ public sealed class QuickAddView
         cashRate.Text = cashOffered = CashForm().Shown(offer.Rate).ToString("0.####", CultureInfo.CurrentCulture);
         cashOfferSource = offer.Source(s.Strings, Currency());
     }
-    private string Currency() => otherCurrency.Text?.Trim().ToUpperInvariant() is { Length: > 0 } typed ? typed : currency;
+    private string Currency() => Jourfold.UI.CurrencyCodes.Read(otherCurrency.Text) ?? currency;
 
     /// <summary>A booking: provider, number, status, price, free cancellation, travellers and the plans it is for.</summary>
     private void BookingFields()

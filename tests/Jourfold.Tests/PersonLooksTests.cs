@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json.Nodes;
 using Jourfold.UI;
 using TravelRepo.Core;
+using Avalonia;
 using Xunit;
 
 namespace Jourfold.Tests;
@@ -9,9 +10,10 @@ namespace Jourfold.Tests;
 /// <summary>People's circles: a colour of their own within a trip, letters that tell them apart, never the warning colour.</summary>
 public sealed class PersonLooksTests
 {
+    /// <summary>A trip with these people, who joined in this order (their IDs sort the same way).</summary>
     private static TripSnapshot Trip(params string[] names)
     {
-        var people = names.Select(n => Entity.Create("person", n)).ToArray();
+        var people = names.Select((n, i) => Entity.Create("person", n).Also(p => p.Data["id"] = new Guid($"0197a000-0000-7000-8000-{i + 1:D12}").ToString())).ToArray();
         return new TripSnapshot(Entity.CreateTrip("Trip", "en", "Europe/Berlin"), people.ToDictionary(p => p.Id));
     }
 
@@ -51,7 +53,7 @@ public sealed class PersonLooksTests
         var trip = Trip(Enumerable.Range(1, 15).Select(i => "Person " + i).ToArray());
         Assert.Equal(15, PersonLooks.For(trip).Values.Select(l => l.Color).Distinct().Count());
         var before = PersonLooks.For(trip).ToDictionary(p => p.Key, p => p.Value.Color);
-        var newcomer = Entity.Create("person", "Zoe");
+        var newcomer = Entity.Create("person", "Zoe"); newcomer.Data["id"] = new Guid("0197a000-0000-7000-8000-000000000099").ToString();
         var grown = trip with { Entities = trip.Entities.Values.Append(newcomer).ToDictionary(e => e.Id) };
         foreach (var (id, colour) in before) Assert.Equal(colour, PersonLooks.Of(grown, id).Color);
     }

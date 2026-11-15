@@ -83,7 +83,7 @@ public static class PlanView
     }
 
     /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>
-    internal const double PhoneDayShare = 0.8;
+    internal const double PhoneDayShare = 0.7;
 
     /// <summary>
     /// One day on the time grid for the phone, drawn as the tablet's timetable: the date strip above it, all-day plans

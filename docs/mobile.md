@@ -96,16 +96,18 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
 - From 1200 dp: a sidebar as on the desktop, with the trip, the places with their names, the trip's pages (bookings,
   tasks, costs, places, files, travellers) and where the trip is kept, which folds into the rail with the button in the bottom left corner, the same place
   in both; Plan starts as
-  the timetable, with as many days as fit (three to seven), each in its own local time and a line at the current
+  the timetable, with as many days as fit (three, five or seven, so the chosen day is in the middle), each in its own local time and a line at the current
   time. It reads like the desktop's timetable: all-day plans in a strip above the grid, stays as bars over their
   nights in a band below it, check-in and check-out as thin markers instead of blocks (a dashed line at a fixed
   hour, a soft band with "Check-in 15:00–19:00" for the check-in hours when the arrival has no fixed hour, "Check-out
   by 11:00" for the latest departure), and plans as tinted blocks with icon, time and title, dashed for ideas and
-  parts of the day. The markers lie behind the plans. A sideways swipe, like the arrows, moves to the days before
-  or after.
+  parts of the day. The markers lie behind the plans. All the trip's days lie on one strip (a trip of more than 61
+  days shows 61 around the chosen day) that glides sideways with the finger, with momentum, and comes to rest with a
+  day in the middle; that day becomes the chosen one. The arrows glide by the days shown; the time column stays.
 - Where the timetable of several days does not fit, the switch offers the same grid for one day, under the date
-  strip; a sideways swipe changes the day as in the list. The grids always run from midnight to midnight, so a night
-  flight or an early start is reachable; they open at the first plan of the days shown (a journey from the day before
+  strip: the day in the middle with a part of the day before and after at the edges, on the same gliding strip, so
+  a look at the next day does not change the day yet. The date strip follows the day that comes to rest in the middle. The grids always run from midnight to midnight, so a night
+  flight or an early start is reachable; they open at the first plan of the days in view (a journey from the day before
   counts from midnight), on today at the hour before now, and otherwise at eight. The list stays the first choice, and the choice is kept apart from the larger screens', so a foldable
   can show the list closed and the timetable open.
 

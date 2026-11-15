@@ -57,7 +57,7 @@ public static class PlanView
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
         var key = Offers(width, height) ? "plan.mode" : "plan.day";
-        if (day is not null && DayTimetable(s, width, height)) return OneDay(s, day, strip, Modes(s, key, timetable: true));
+        if (day is not null && DayTimetable(s, width, height)) return OneDay(s, day, strip, Modes(s, key, timetable: true), pixels);
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
         var page = Ui.V(6, Lines.TripHeader(s), Modes(s, key, timetable: false).Margin(16, 0, 16, 4), strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
@@ -82,18 +82,25 @@ public static class PlanView
         return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
     }
 
+    /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>
+    internal const double PhoneDayShare = 0.7;
+
     /// <summary>
     /// One day on the time grid for the phone, drawn as the tablet's timetable: the date strip above it, all-day plans
-    /// over the grid and the night below it. Swipe sideways to change day, as in the list.
+    /// over the grid and the night below it. The day is in the middle with a part of the day before and after at the
+    /// edges; the days glide sideways with the finger and the nearest comes to rest in the middle.
     /// </summary>
-    private static Control OneDay(MobileSession s, AgendaDay day, Border strip, Control modes)
+    /// <param name="width">The width the page gets, for how wide the day is.</param>
+    private static Control OneDay(MobileSession s, AgendaDay day, Border strip, Control modes, double width)
     {
         shown = (s.Workspace?.Repository.Root, day.Date); offset = 0;
-        var (header, allDay, grid, nights) = TimetableView.Parts(s, [day]);
-        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
-        // The swipe is read on a frame that stays put while the day moves inside it.
-        var area = new Border { Child = body, ClipToBounds = true, Background = Brushes.Transparent };
-        Swipeable(s, area, strip, body);
+        var all = s.Agenda.Days;
+        var window = TimetableView.Window(all, Math.Max(0, all.ToList().FindIndex(d => d.Date == day.Date)));
+        var area = new Border { ClipToBounds = true, Background = Brushes.Transparent };
+        // The date strip and the pull for the next day follow the day in the middle, so the plan is drawn again then.
+        var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window, index => { if (window.Days[index].Date != day.Date) s.ShowDate(window.Days[index].Date); });
+        var (header, allDay, grid, nights) = TimetableView.Parts(s, window.Days, pan);
+        area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
         strip.Padding = new Thickness(0, 4, 0, 2);
         return new Grid
         {

@@ -360,6 +360,11 @@ public sealed partial class MobileSession : IDisposable
     public string? VersionProblem { get; private set; }
 
     public void ShowDate(LocalDate date) { SelectedDate = date; SelectedItem = null; Changed?.Invoke(); }
+    /// <summary>
+    /// Follows the day the timetable glided to, without drawing the plan again: the strip of days is already there, and
+    /// switching to the list or coming back opens at this day.
+    /// </summary>
+    public void FollowDate(LocalDate date) => SelectedDate = date;
     public void Select(Guid? item) { SelectedItem = SelectedItem == item ? null : item; Changed?.Invoke(); }
     public void ToggleGroup(Guid group) { if (!expanded.Remove(group)) expanded.Add(group); Changed?.Invoke(); }
 

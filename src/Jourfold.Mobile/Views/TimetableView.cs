@@ -16,9 +16,9 @@ namespace Jourfold.Mobile.Views;
 /// larger targets for touch: all-day plans in a strip above the grid, stays as bars over their nights in a band below it,
 /// check-in and check-out as thin markers behind the plans that take no room (a line at a fixed hour, a soft band for
 /// the check-in hours), plans as tinted blocks with their kind's icon, time and title, dashed when only an idea or a
-/// part of the day. As many days as fit, never a fixed number; each day keeps its
-/// own local time. A tap opens the details in their column; a long press opens the item's menu. A sideways swipe
-/// moves to the days before or after, as the arrows do.
+/// part of the day. As many days as fit, never a fixed number, with the chosen day in the middle; each day keeps its
+/// own local time. A tap opens the details in their column; a long press opens the item's menu. The days glide
+/// sideways with the finger and come to rest with a day in the middle; the arrows glide by the days shown.
 /// </summary>
 public static class TimetableView
 {
@@ -27,34 +27,82 @@ public static class TimetableView
     private static (string? Trip, LocalDate First, int Count) placeOf;
     private static double kept;
 
-    /// <summary>How many days fit into <paramref name="width"/> pixels, from three to seven.</summary>
-    public static int Columns(double width) => Math.Clamp((int)((width - Gutter - 32) / MinColumn), 3, 7);
+    /// <summary>How many days fit into <paramref name="width"/> pixels, from three to seven, an odd number so one is in the middle.</summary>
+    public static int Columns(double width) { var n = Math.Clamp((int)((width - Gutter - 32) / MinColumn), 3, 7); return n % 2 == 0 ? n - 1 : n; }
+
+    /// <summary>How many days the strip holds at most; a longer trip shows this many around the chosen day.</summary>
+    internal const int MostDays = 61;
+
+    /// <summary>
+    /// The days on the strip: all of them, or for a long trip <see cref="MostDays"/> around <paramref name="chosen"/>,
+    /// with the index of the first.
+    /// </summary>
+    internal static (int First, AgendaDay[] Days) Window(IReadOnlyList<AgendaDay> days, int chosen)
+    {
+        if (days.Count <= MostDays) return (0, days.ToArray());
+        var first = Math.Clamp(chosen - MostDays / 2, 0, days.Count - MostDays);
+        return (first, days.Skip(first).Take(MostDays).ToArray());
+    }
+
+    /// <summary>
+    /// The strip of days for <paramref name="days"/> (see <see cref="Window"/>) on <paramref name="area"/>: a day in the
+    /// middle at first, gliding with the finger, and the chosen day following the one that comes to rest in the middle.
+    /// Near the end of a long trip's window the plan is drawn again around the new day.
+    /// </summary>
+    /// <param name="width">The width of the whole timetable, the time column included.</param>
+    /// <param name="share">How much of the days' width one day takes: one of the columns on the tablet, most of it on the phone.</param>
+    internal static Controls.DayPan Pan(MobileSession s, Control area, double width, double share, (int First, AgendaDay[] Days) window, Action<int>? settled = null)
+    {
+        var lanes = Math.Max(1, width - Gutter);
+        var pan = new Controls.DayPan(lanes * share, window.Days.Length, () => area.Bounds.Width > Gutter ? area.Bounds.Width - Gutter : lanes);
+        var chosen = Math.Max(0, Array.FindIndex(window.Days, d => d.Date == s.SelectedDate));
+        pan.Jump(pan.OffsetOf(chosen));
+        // The first layout gives the real width; until the user moves the days, the chosen day stays in the middle.
+        var moved = false;
+        area.SizeChanged += (_, _) => { if (!moved) pan.Jump(pan.OffsetOf(chosen)); };
+        pan.Settled += day =>
+        {
+            moved = true;
+            var date = window.Days[day].Date;
+            var all = s.Agenda.Days.Count;
+            var nearEdge = window.Days.Length < all && (day < 5 && window.First > 0 || day > window.Days.Length - 6 && window.First + window.Days.Length < all);
+            if (nearEdge) s.ShowDate(date); else s.FollowDate(date);
+            settled?.Invoke(day);
+        };
+        pan.Follow(area);
+        return pan;
+    }
 
     /// <param name="leading">Shown at the start of the top row, such as the trip; the switch to the list goes in <paramref name="trailing"/>.</param>
     public static Control Build(MobileSession s, double width, Control? leading = null, Control? trailing = null)
     {
-        var days = s.Agenda.Days;
-        if (days.Count == 0) return Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8);
-        var count = Math.Min(Columns(width), days.Count);
-        var first = Math.Clamp(days.ToList().FindIndex(d => d.Date == s.SelectedDate), 0, Math.Max(0, days.Count - count));
-        var shown = days.Skip(first).Take(count).ToArray();
-        var (header, allDay, scroll, nights) = Parts(s, shown);
-
-        // The arrows and a sideways swipe both move by the days shown.
-        bool Can(int direction) => direction < 0 ? first > 0 : first + count < days.Count;
-        void Step(int direction) => s.ShowDate(days[Math.Clamp(first + direction * count, 0, days.Count - count)].Date);
-        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]); earlier.IsEnabled = Can(-1);
-        earlier.Click += (_, _) => Step(-1);
-        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]); later.IsEnabled = Can(1);
-        later.Click += (_, _) => Step(1);
-        var range = Ui.Text(Formats.DateRange(shown[0].Date, shown[^1].Date), "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
+        var all = s.Agenda.Days;
+        if (all.Count == 0) return Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8);
+        var visible = Math.Min(Columns(width), all.Count);
+        var window = Window(all, Math.Max(0, all.ToList().FindIndex(d => d.Date == s.SelectedDate)));
+        // The days glide sideways inside a frame that stays put, with a day in the middle once they come to rest.
+        var area = new Border { ClipToBounds = true, Background = Brushes.Transparent };
+        var range = Ui.Text("", "strong").Also(t => t.VerticalAlignment = VerticalAlignment.Center);
+        var earlier = Ui.IconButton("chevron-left", s.Strings["EarlierDays"]);
+        var later = Ui.IconButton("chevron-right", s.Strings["LaterDays"]);
+        Controls.DayPan? pan = null;
+        void Show()
+        {
+            var (first, last) = pan!.Visible;
+            range.Text = Formats.DateRange(window.Days[first].Date, window.Days[last].Date);
+            earlier.IsEnabled = window.First + first > 0; later.IsEnabled = window.First + last < all.Count - 1;
+        }
+        pan = Pan(s, area, width, 1.0 / visible, window, _ => Show());
+        var (header, allDay, scroll, nights) = Parts(s, window.Days, pan);
+        // The arrows glide by the days shown, as a swipe does.
+        earlier.Click += (_, _) => pan.GlideTo(pan.Middle - visible);
+        later.Click += (_, _) => pan.GlideTo(pan.Middle + visible);
+        area.SizeChanged += (_, _) => Show();
+        Show();
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         // One row for the trip, the days shown and the switch, so the grid gets the height.
         layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
-        // The days move with the finger inside a frame that stays put, as the phone's day does.
-        var body = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), scroll.Row(2), nights.Row(3) } };
-        var area = new Border { Child = body, ClipToBounds = true, Background = Brushes.Transparent };
-        PlanView.Swipeable(area, null, body, Can, Step);
+        area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), scroll.Row(2), nights.Row(3) } };
         layout.Children.Add(area.Row(1));
         return layout;
     }
@@ -65,24 +113,34 @@ public static class TimetableView
     /// above, so its head only names the zone when it is not the trip's, and the grid opens at its first plan, or at the
     /// hour before now on today.
     /// </summary>
-    internal static (Control Header, Control AllDay, ScrollViewer Grid, Control Nights) Parts(MobileSession s, AgendaDay[] shown)
+    /// <param name="pan">
+    /// The strip the days glide on, when there are more of them than fit: each part's days move with it while the time
+    /// column stays. Without it the days share the width.
+    /// </param>
+    internal static (Control Header, Control AllDay, ScrollViewer Grid, Control Nights) Parts(MobileSession s, AgendaDay[] shown, Controls.DayPan? pan = null)
     {
         var count = shown.Length;
+        // The days' columns: as wide as each part's room allows, or the pan's width each.
+        var spec = pan is null ? string.Join(',', Enumerable.Repeat("*", count)) : string.Join(',', Enumerable.Repeat(pan.DayWidth.ToString(CultureInfo.InvariantCulture), count));
+        Control Days(Control days) => pan is null ? days : pan.Layer(days);
+        Grid Frame(Control days) => new Grid { ColumnDefinitions = new ColumnDefinitions(Gutter.ToString(CultureInfo.InvariantCulture) + ",*"), Children = { Days(days).Col(1) } };
         var columns = shown.Select(day => (Day: day, Zone: Zone(s, day), Lines: InGrid(day))).ToArray();
 
         // The whole day, midnight to midnight, so a night flight or an early start is always reachable; the grid opens
         // at the first plan instead (see below).
         const int from = 0, to = 24;
 
-        var spec = Gutter.ToString(CultureInfo.InvariantCulture) + "," + string.Join(',', Enumerable.Repeat("*", count));
-        var header = new Grid { ColumnDefinitions = new ColumnDefinitions(spec) };
-        var grid = new Grid { ColumnDefinitions = new ColumnDefinitions(spec), Height = Top + (to - from) * HourHeight + 16 };
+        var heads = new Grid { ColumnDefinitions = new ColumnDefinitions(spec) };
+        var header = Frame(heads);
+        var height = Top + (to - from) * HourHeight + 16;
+        var lanes = new Grid { ColumnDefinitions = new ColumnDefinitions(spec), Height = height };
+        var grid = Frame(lanes); grid.Height = height;
         var axis = new Canvas();
         for (var hour = from; hour <= to; hour++)
         {
             var y = Top + (hour - from) * HourHeight;
             axis.Children.Add(Ui.Text(hour.ToString("00", CultureInfo.InvariantCulture) + ":00", "small", "muted").Also(t => { Canvas.SetTop(t, y - 8); Canvas.SetLeft(t, 8); }));
-            grid.Children.Add(new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, y, 0, 0) }.Res(Border.BackgroundProperty, "Line").Also(b => Grid.SetColumnSpan(b, count + 1)));
+            grid.Children.Insert(0, new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, y, 0, 0), IsHitTestVisible = false }.Res(Border.BackgroundProperty, "Line").Also(b => Grid.SetColumnSpan(b, 2)));
         }
         grid.Children.Add(axis);
         var tripZone = ScheduleQueries.TripZone(s.Trip!);
@@ -96,9 +154,9 @@ public static class TimetableView
             var date = Ui.Text(day.Date.ToString(Formats.DayPattern("d MMM", culture), culture), "strong");
             if (today) { weekday.Res(TextBlock.ForegroundProperty, "Accent"); date.Res(TextBlock.ForegroundProperty, "Accent"); }
             var place = zone.Id == tripZone.Id ? null : Ui.Text(TimeText.Place(zone, s.Trip, lines), "small", "muted");
-            if ((count == 1 ? (Control?)place?.Margin(10, 0, 4, 4) : Ui.V(0, weekday, date, place).Margin(10, 0, 4, 6)) is { } head) header.Children.Add(head.Col(i + 1));
+            if ((count == 1 ? (Control?)place?.Margin(10, 0, 4, 4) : Ui.V(0, weekday, date, place).Margin(10, 0, 4, 6)) is { } head) heads.Children.Add(head.Col(i));
             var lane = new Canvas { ClipToBounds = true };
-            grid.Children.Add(new Border { BorderThickness = new Thickness(1, 0, 0, 0), Child = lane }.Res(Border.BorderBrushProperty, "Line").Col(i + 1));
+            lanes.Children.Add(new Border { BorderThickness = new Thickness(1, 0, 0, 0), Child = lane }.Res(Border.BorderBrushProperty, "Line").Col(i));
             Markers(s, lane, day, zone, from);
             Place(s, lane, day, zone, lines, from);
             if (today) lane.Children.Add(Now(s, zone, from));
@@ -107,16 +165,18 @@ public static class TimetableView
         var scroll = new ScrollViewer { Content = grid, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         // It opens an hour before now on today, otherwise at the first plan of the days shown (a journey from the day
         // before counts from midnight), or at eight without any.
-        var opens = columns.Any(c => c.Day.Date == s.PhoneToday) ? s.Now.InZone(columns.First(c => c.Day.Date == s.PhoneToday).Zone).TimeOfDay.Hour - 1
-            : columns.SelectMany(c => c.Lines.Select(l => l.Role == AgendaRole.Continued ? 0 : l.Start!.Value.InZone(c.Zone).TimeOfDay.Hour)).DefaultIfEmpty(8).Min();
+        // On the strip only the days in view at first count, not the whole trip's.
+        var seen = pan is null ? columns : columns[pan.Visible.First..(pan.Visible.Last + 1)];
+        var opens = seen.Any(c => c.Day.Date == s.PhoneToday) ? s.Now.InZone(seen.First(c => c.Day.Date == s.PhoneToday).Zone).TimeOfDay.Hour - 1
+            : seen.SelectMany(c => c.Lines.Select(l => l.Role == AgendaRole.Continued ? 0 : l.Start!.Value.InZone(c.Zone).TimeOfDay.Hour)).DefaultIfEmpty(8).Min();
         var opening = Math.Max(0, (opens - from) * HourHeight);
         // Drawn again for the same days, such as after a tap on a plan, the grid stays where it was scrolled to.
-        var at = (s.Workspace?.Repository.Root, shown[0].Date, count);
+        var at = (s.Workspace?.Repository.Root, pan is null ? shown[0].Date : default, pan is null ? count : -1);
         var target = at == placeOf ? kept : opening;
         placeOf = at; var placed = false;
         scroll.ScrollChanged += (_, _) => { if (placed) kept = scroll.Offset.Y; };
         Controls.ScrollPlace.Set(scroll, () => { if (target > 0) scroll.Offset = new Vector(0, target); kept = scroll.Offset.Y; placed = true; });
-        return (header, Band(s.Strings["AllDay"], AllDay(s, shown), count, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), count, top: false));
+        return (header, Band(s.Strings["AllDay"], AllDay(s, shown), spec, Days, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), spec, Days, top: false));
     }
 
     /// <summary>The zone where the day's own first line starts; a journey continuing from the day before does not count.</summary>
@@ -299,20 +359,23 @@ public static class TimetableView
     }
 
     /// <summary>A band above or below the grid with its name in the time column and bars over the days, in rows where they overlap.</summary>
-    private static Control Band(string name, IReadOnlyList<(Control Bar, int From, int To)> bars, int count, bool top)
+    /// <param name="spec">The days' columns.</param>
+    /// <param name="days">Places the days' part, such as on the strip that glides.</param>
+    private static Control Band(string name, IReadOnlyList<(Control Bar, int From, int To)> bars, string spec, Func<Control, Control> days, bool top)
     {
-        var band = new Grid { ColumnDefinitions = new ColumnDefinitions(Gutter.ToString(CultureInfo.InvariantCulture) + "," + string.Join(',', Enumerable.Repeat("*", count))) };
-        if (bars.Count == 0) return band;
+        if (bars.Count == 0) return new Grid();
+        var lanes = new Grid { ColumnDefinitions = new ColumnDefinitions(spec) };
         var rows = new List<int>();
         foreach (var (bar, from, to) in bars.OrderBy(b => b.From))
         {
             var row = rows.FindIndex(end => end < from); if (row < 0) { rows.Add(to); row = rows.Count - 1; } else rows[row] = to;
-            while (band.RowDefinitions.Count <= row) band.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-            bar.Margin = new Thickness(4, 3, 4, 3); Grid.SetColumn(bar, from + 1); Grid.SetColumnSpan(bar, to - from + 1); Grid.SetRow(bar, row);
-            band.Children.Add(bar);
+            while (lanes.RowDefinitions.Count <= row) lanes.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            bar.Margin = new Thickness(4, 3, 4, 3); Grid.SetColumn(bar, from); Grid.SetColumnSpan(bar, to - from + 1); Grid.SetRow(bar, row);
+            lanes.Children.Add(bar);
         }
+        var band = new Grid { ColumnDefinitions = new ColumnDefinitions(Gutter.ToString(CultureInfo.InvariantCulture) + ",*"), Children = { days(lanes).Col(1) } };
         // The name fits the time column in one line, also a long one such as "Ganztägig".
-        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.FontSize = 10.5; t.TextWrapping = TextWrapping.NoWrap; t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 5, 0); Grid.SetRowSpan(t, band.RowDefinitions.Count); }));
+        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.FontSize = 10.5; t.TextWrapping = TextWrapping.NoWrap; t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 5, 0); }));
         return new Border { Child = band, Padding = new Thickness(0, 4), BorderThickness = top ? new Thickness(0, 1, 0, 1) : new Thickness(0, 1, 0, 0) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface");
     }
 

@@ -66,7 +66,7 @@ public sealed class TabletLayoutTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task ASwipeOnTheTimetableMovesByTheDaysShown()
+    public async Task TheTimetablesDaysGlideWithTheFingerAndRestWithADayInTheMiddle()
     {
         var (session, window) = await OpenAsync(900, 900);
         try
@@ -75,6 +75,9 @@ public sealed class TabletLayoutTests : IDisposable
             var days = session.Agenda.Days; session.ShowDate(days[0].Date); Probe.Layout();
             var shown = Mobile.Views.TimetableView.Columns(900 - 88);
             Assert.True(days.Count > shown);
+            Assert.True(shown % 2 == 1, "an odd number of days, so one is in the middle");
+            // All the trip's days are on the strip, also those out of view.
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == days[^1].Date.ToString("d MMM", System.Globalization.CultureInfo.GetCultureInfo("en")));
 
             void Swipe(double from, double to)
             {
@@ -83,15 +86,25 @@ public sealed class TabletLayoutTests : IDisposable
                 for (var step = 1; step <= 10; step++) window.MouseMove(new Point(from + (to - from) * step / 10, y + 2));
                 window.MouseUp(new Point(to, y + 2), MouseButton.Left);
             }
+            // A long drag carries the days on; the one that comes to rest in the middle is the chosen day.
             Swipe(800, 300);
-            await Probe.Until(() => session.SelectedDate == days[shown].Date);
-            // Back again, and no further than the first day.
-            Swipe(300, 800); await Probe.Until(() => session.SelectedDate == days[0].Date);
-            Swipe(300, 800); Probe.Layout(); await Task.Delay(300); Probe.Layout();
-            Assert.Equal(days[0].Date, session.SelectedDate);
-            // A short drag goes nowhere.
-            Swipe(500, 470); await Task.Delay(300); Probe.Layout();
-            Assert.Equal(days[0].Date, session.SelectedDate);
+            await Probe.Until(() => session.SelectedDate > days[shown / 2].Date);
+            var reached = session.SelectedDate;
+            // Back again, and no further than the first days: the first day in the middle that the strip can reach.
+            // How far a swipe carries depends on the speed measured, so it swipes until nothing moves any more.
+            async Task Settle() { for (var i = 0; i < 40; i++) { await Task.Delay(25); Probe.Layout(); } }
+            for (var i = 0; i < 8 && session.SelectedDate != days[shown / 2].Date; i++) { Swipe(300, 800); await Settle(); }
+            Swipe(300, 800); await Settle();
+            Assert.Equal(days[shown / 2].Date, session.SelectedDate);
+            Assert.True(reached > session.SelectedDate);
+            // A short drag goes nowhere, also a quick one.
+            Swipe(500, 470); await Settle();
+            window.MouseDown(new Point(500, 600), MouseButton.Left); window.MouseMove(new Point(485, 601)); window.MouseMove(new Point(468, 601)); window.MouseUp(new Point(468, 601), MouseButton.Left);
+            await Settle();
+            Assert.Equal(days[shown / 2].Date, session.SelectedDate);
+            // The arrow glides by the days shown.
+            Probe.Click(window, "Later days");
+            await Probe.Until(() => session.SelectedDate == days[shown / 2 + shown].Date);
         }
         finally { window.Close(); session.Dispose(); }
     }

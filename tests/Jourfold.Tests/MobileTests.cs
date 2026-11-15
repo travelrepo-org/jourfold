@@ -318,7 +318,9 @@ public sealed class MobileTests : IDisposable
             Assert.False(PlanView.DayTimetable(session, WidthClass.Tablet));
             Probe.Click(window, "Monday 17 May");
             Assert.Equal(new LocalDate(2027, 5, 17), session.SelectedDate);
-            Assert.DoesNotContain("Senso-ji and Asakusa, 11:00 – 13:00", Names());
+            // Monday is in the middle now, with a part of the days before and after at the edges.
+            Assert.Contains(Names(), n => n?.StartsWith("Train to Nikko", StringComparison.Ordinal) == true);
+            Assert.Contains("Senso-ji and Asakusa, 11:00 – 13:00", Names());
         }
         finally { window.Close(); session.Dispose(); }
     }

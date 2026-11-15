@@ -67,7 +67,17 @@ jobs:
       - run: dotnet build Jourfold.sln -c Release --no-restore
       - run: dotnet format Jourfold.sln --verify-no-changes --no-restore
       # A test that hangs, for example on a system dialog nobody can answer, fails and is named instead of blocking.
-      - run: dotnet test Jourfold.sln -c Release --no-build --logger trx --blame-hang-timeout 20m
+      # On macOS the test host now and then hangs before the first test; eng/run-tests.py stops a run that gives no
+      # result within 20 minutes (a normal one takes 3 to 12) and starts it once more. Each test is listed as it ends,
+      # and the test platform's own log goes to the vstest-diag artifact, so a hang shows where it stopped.
+      - run: python eng/run-tests.py --minutes 20 -- dotnet test Jourfold.sln -c Release --no-build --logger trx --logger "console;verbosity=normal" --blame-hang-timeout 10m --diag "${{ runner.temp }}/vstest/diag.txt"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vstest-diag-${{ matrix.rid }}
+          path: ${{ runner.temp }}/vstest
+          if-no-files-found: ignore
+          retention-days: 5
       - run: python eng/verify.py
       - run: python eng/package.py --rid ${{ matrix.rid }}
       # On macOS the real install script installs the package, and the installed, signed app has to start.

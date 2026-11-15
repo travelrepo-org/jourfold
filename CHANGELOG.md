@@ -2,6 +2,19 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.14.0 “Mellow Marmot” – 2026-11-15
+
+### Highlights
+
+- On tablets and phones, the timetable's days glide sideways with your finger and come to rest with a day in the middle. On tablets you see the days around it, on phones a part of the day before and after at the edges, so a look at the next day does not change the day yet.
+- On phones and tablets, every payment in the cost list shows who paid and for whom: the payer's circle with coins, or a clock while it is still to pay, an arrow, and the people it is for, or Everyone. A missing payer or a split without people shows as a circle with a question mark.
+
+### Changes
+
+- Everyone in a trip has a colour of their own, the same on the computer, phones and tablets. Up to fifteen people all differ, a new person changes nobody else's colour, renaming keeps it, and two people with the same name differ in colour and letters.
+- Yellow and amber are kept for warnings and things that need attention; no person, kind or category uses them.
+- On tablets the timetable shows three, five or seven days, so one is always in the middle, and the arrows glide by the days shown.
+
 ## 0.13.1 “Smug Seal” – 2026-11-14
 
 ### Highlights

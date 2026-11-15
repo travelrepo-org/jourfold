@@ -20,6 +20,35 @@ This writes the fourteen images below, at 1440 × 900 pixels except the document
 
 Open the images and check text, clipping, theme and selection before committing them. Do not edit or retouch captures.
 
+## Before and after in pull requests
+
+Pull requests that change the interface show it before and after (see `AGENTS.md`). Capture both from the same synthetic data and state:
+
+1. Check out the base in a second worktree beside the change, with its own TravelRepo checkout beside it:
+   ```sh
+   git worktree add ../before/jourfold origin/main
+   git -C ../travelrepo worktree add ../before/travelrepo origin/main
+   ```
+2. Render the same views in both:
+   - **Desktop:** run the capture command above in each worktree, with `--all` and, when it matters, `--lang de`, into a scratch directory.
+   - **Phone and tablet:** use the Android emulator (or a device) with the sample trip, or a headless capture of `AppShell` at 412 × 915 (phone) or 1280 × 800 (tablet), as in the mobile tests. Use the same steps and the same scroll position before and after.
+3. Put the pairs on the `pr-screenshots` branch, under a folder named after the change's branch. Keep that branch out of `main`, so `main` stays free of review images:
+   ```sh
+   # The branch exists once the first images are pushed; before that, start it without history.
+   if git fetch origin pr-screenshots; then git worktree add ../pr-screenshots -B pr-screenshots origin/pr-screenshots
+   else git worktree add --detach ../pr-screenshots && git -C ../pr-screenshots checkout --orphan pr-screenshots && git -C ../pr-screenshots rm -rfq .; fi
+   mkdir -p ../pr-screenshots/<branch> && cp costs-before.png costs-after.png ../pr-screenshots/<branch>/
+   git -C ../pr-screenshots add . && git -C ../pr-screenshots commit -m "<branch>: before and after" && git -C ../pr-screenshots push origin pr-screenshots
+   ```
+4. Show them side by side in the pull request description:
+   ```markdown
+   | Before | After |
+   |---|---|
+   | ![Costs before](https://raw.githubusercontent.com/travelrepo-org/jourfold/pr-screenshots/<branch>/costs-before.png) | ![Costs after](https://raw.githubusercontent.com/travelrepo-org/jourfold/pr-screenshots/<branch>/costs-after.png) |
+   ```
+
+Check both images for clipped content and for anything private before pushing. Images on `pr-screenshots` stay public in the repository's history.
+
 ## Captures
 
 The timetable with the Inbox and the inspector, in light and dark themes. Stays are the band of nights at the bottom:

@@ -224,14 +224,19 @@ public static class CostTexts
     /// accents, in its title, category, who paid or shares it, what it belongs to (and that plan's or booking's place),
     /// or its amount. "alex" finds both a payment at "Alex's Pizza" and every payment Alex paid or shares.
     /// </summary>
-    public static bool Matches(Localization s, TripSnapshot trip, Entity expense, string? query)
+    public static bool Matches(Localization s, TripSnapshot trip, Entity expense, string? query) =>
+        Matches(SearchTexts(s, trip, expense, Expenses.Split(trip, expense)), query);
+
+    /// <summary>
+    /// What a search over payments looks in for one payment: its name, notes, category in both forms, the people who
+    /// paid and share it, what it belongs to with that plan's place, and the amount. Worked out once per payment, so
+    /// typing only compares text.
+    /// </summary>
+    public static string[] SearchTexts(Localization s, TripSnapshot trip, Entity expense, ExpenseSplit split)
     {
-        var words = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (words.Length == 0) return true;
         var texts = new List<string?> { expense.Title, expense.Data["notes"]?.ToString(), expense.Data["body"]?.ToString() };
         var category = ExpenseCategories.Of(trip, expense);
         texts.Add(category); texts.Add(Category(s, category));
-        var split = Expenses.Split(trip, expense);
         texts.AddRange(split.Payers.Concat(split.People).Distinct().Select(p => trip.Find(p)?.Title));
         foreach (var id in (expense.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var x) ? x : (Guid?)null).OfType<Guid>())
         {
@@ -241,9 +246,16 @@ public static class CostTexts
             foreach (var plan in plans) { texts.Add(plan.Title); texts.Add(ScheduleQueries.PrimaryPlace(trip, plan)?.Title); }
         }
         if (TripSummaries.Money(expense.Data["amount"]) is { } money) { texts.Add(Formats.Money(money.Amount, money.Currency)); texts.Add(money.Value); }
+        return texts.OfType<string>().Where(t => t.Length > 0).ToArray();
+    }
+
+    /// <summary>Whether every word of <paramref name="query"/> is in one of the texts, ignoring case and accents.</summary>
+    public static bool Matches(IReadOnlyList<string> texts, string? query)
+    {
+        var words = (query ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (words.Length == 0) return true;
         var compare = CultureInfo.CurrentCulture.CompareInfo;
-        var found = texts.OfType<string>().Where(t => t.Length > 0).ToArray();
-        return words.All(word => found.Any(t => compare.IndexOf(t, word, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0));
+        return words.All(word => texts.Any(t => compare.IndexOf(t, word, CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0));
     }
 
     /// <summary>

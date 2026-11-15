@@ -159,7 +159,7 @@ public static class LibraryView
                 if (Covers.CoverImage(data.Repository, data.Trip) is { } image) { cover.Children.Clear(); cover.Children.Add(new Image { Source = image, Stretch = Stretch.UniformToFill, Height = 136 }); }
                 if (SampleTrip.IsSample(data.Trip)) cover.Children.Add(Ui.Pill(s["SampleTrip"], "sparkles", "Bg.Surface", "Text").Margin(12));
                 var people = data.Trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
-                if (people.Length > 0) cover.Children.Add(Ui.AvatarStack(people, 26).Also(a => { a.HorizontalAlignment = HorizontalAlignment.Right; a.VerticalAlignment = VerticalAlignment.Bottom; a.Margin = new Thickness(12); }));
+                if (people.Length > 0) cover.Children.Add(Ui.AvatarStack(data.Trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).Select(p => Jourfold.UI.PersonLooks.Of(data.Trip, p)), 26).Also(a => { a.HorizontalAlignment = HorizontalAlignment.Right; a.VerticalAlignment = VerticalAlignment.Bottom; a.Margin = new Thickness(12); }));
             });
         }, TaskScheduler.Default);
         return button;

@@ -122,7 +122,7 @@ public sealed partial class Dialogs(Window owner, Func<Localization> strings) : 
         var chosen = selected.ToHashSet(); var list = Ui.V(2);
         foreach (var choice in choices.OrderBy(c => c.Label, StringComparer.CurrentCulture))
         {
-            var check = new CheckBox { Content = Ui.H(10, Ui.Avatar(choice.Label, 24), Ui.Text(choice.Label)), IsChecked = chosen.Contains(choice.Id), Margin = new Thickness(4, 2) };
+            var check = new CheckBox { Content = Ui.H(10, (Guid.TryParse(choice.Id, out var personId) && Main?.Model.Trip?.Find(personId) is { Type: "person" } person ? Ui.Avatar(Jourfold.UI.PersonLooks.Of(Main.Model.Trip!, person), 24) : Ui.Avatar(choice.Label, 24)), Ui.Text(choice.Label)), IsChecked = chosen.Contains(choice.Id), Margin = new Thickness(4, 2) };
             AutomationProperties.SetName(check, choice.Label);
             check.IsCheckedChanged += (_, _) => { if (check.IsChecked == true) chosen.Add(choice.Id); else chosen.Remove(choice.Id); };
             list.Children.Add(check);

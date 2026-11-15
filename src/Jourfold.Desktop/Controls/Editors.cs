@@ -241,7 +241,7 @@ public static class Editors
         foreach (var refId in values)
         {
             if (trip.Find(refId) is not { } target) continue;
-            Control avatar = target.Type == "person" ? Ui.Avatar(target.Title, 20) : Ui.Icon(Visuals.For(trip, target).Icon, 13);
+            Control avatar = target.Type == "person" ? Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, target), 20) : Ui.Icon(Visuals.For(trip, target).Icon, 13);
             var remove = Ui.IconButton("x", string.Format(m.Strings["RemoveNamed"], target.Title), "small"); remove.Padding = new Thickness(2); remove.MinWidth = 20; remove.MinHeight = 20;
             remove.Click += (_, _) => _ = save is not null ? save(values.Where(v => v != refId).ToArray()) : m.UpdateAsync(id, e => { var next = new JsonArray(values.Where(v => v != refId).Select(v => (JsonNode?)JsonValue.Create(v.ToString())).ToArray()); if (write is not null) write(e, next); else EditorModel.Set(e, path, next); });
             var open = new Button { Content = Ui.Line(target.Title), Padding = new Thickness(4, 0), MinHeight = 0, FontWeight = FontWeight.Medium }.Classed("ghost"); open.Click += (_, _) => m.Follow(target);

@@ -43,6 +43,7 @@ public static class CollectionViews
         return new Button { Content = content }.Classed("row").Named(e.Title).Bind(w, e);
     }
     private static string Names(TripSnapshot trip, JsonNode? ids) => string.Join(", ", (ids as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>());
+    private static IEnumerable<Jourfold.UI.PersonLook> PeopleLooks(TripSnapshot trip, JsonNode? ids) => (ids as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>().Select(p => Jourfold.UI.PersonLooks.Of(trip, p));
     private static IEnumerable<string> PeopleNames(TripSnapshot trip, JsonNode? ids) => (ids as JsonArray ?? []).Select(n => Guid.TryParse(n?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>();
 
     private static Control Bookings(MainWindow w)
@@ -67,7 +68,7 @@ public static class CollectionViews
             var grid = Ui.Columns("Auto,*,Auto,Auto,Auto,120,Auto",
                 Ui.Tile(icon, kind, 38).Margin(0, 0, 14, 0),
                 Ui.V(2, Ui.Line(b.Title, "title"), Ui.Line(string.Join(" · ", new[] { b.Data["provider"]?["name"]?.ToString(), when, items.Length > 1 ? string.Format(s["ItemsCount"], items.Length) : items.FirstOrDefault()?.Title }.Where(x => !string.IsNullOrEmpty(x))), "caption")),
-                refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(travelers, 24).Margin(8, 0) : null,
+                refPill?.Margin(12, 0), travelers.Length > 0 ? Ui.AvatarStack(PeopleLooks(trip, b.Data["travelers"]), 24).Margin(8, 0) : null,
                 ExpenseViews.BookingPill(s, trip, payments, b)?.Margin(8, 0),
                 Ui.Text(price, "strong").Also(t => { t.HorizontalAlignment = HorizontalAlignment.Right; t.TextAlignment = TextAlignment.Right; }),
                 Ui.Pill(s[status], si, sb, sf).Margin(14, 0, 0, 0));
@@ -102,7 +103,7 @@ public static class CollectionViews
                     Ui.Tile(ExpenseViews.CategoryIcon(category), "Food", 34).Margin(0, 0, 12, 0),
                     Ui.V(2, Ui.Line(e.Title, "title"), Ui.Line(detail, "caption")),
                     ExpenseViews.Status(s, Expenses.Split(trip, e), trip)?.Margin(8, 0),
-                    payers.Length > 0 ? Ui.AvatarStack(payers, 22).Margin(8, 0) : null,
+                    payers.Length > 0 ? Ui.AvatarStack(PeopleLooks(trip, e.Data["paid_by"]), 22).Margin(8, 0) : null,
                     // Paid in another currency without a charged amount: marked, since it is only estimated in the trip's.
                     Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(s, e, m.TripCurrencyCode), Ui.Text(money is null ? "" : Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right));
                 list.Children.Add(Row(w, e, grid));
@@ -223,7 +224,7 @@ public static class CollectionViews
                 var assignees = PeopleNames(trip, t.Data["assigned_to"]).ToArray();
                 var related = (t.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id)?.Title : null).OfType<string>().FirstOrDefault();
                 var name = Ui.Line(t.Title, "title"); if (done) { name.TextDecorations = TextDecorations.Strikethrough; name.Classes.Add("muted"); }
-                var grid = Ui.Columns("Auto,*,Auto,Auto", check, Ui.V(1, name, related is null ? null : Ui.Line(related, "caption")).Margin(8, 0), dueText?.Margin(8, 0), assignees.Length > 0 ? Ui.AvatarStack(assignees, 22) : null);
+                var grid = Ui.Columns("Auto,*,Auto,Auto", check, Ui.V(1, name, related is null ? null : Ui.Line(related, "caption")).Margin(8, 0), dueText?.Margin(8, 0), assignees.Length > 0 ? Ui.AvatarStack(PeopleLooks(trip, t.Data["assigned_to"]), 22) : null);
                 list.Children.Add(Row(w, t, grid));
             }
             return Ui.V(8, Ui.Text(title, "h3"), Ui.Card(list.Children.Count > 0 ? list : Ui.Text(s["NothingHere"], "caption").Margin(12), 6));
@@ -295,7 +296,7 @@ public static class CollectionViews
             var roles = (person.Data["roles"] as JsonArray ?? []).Select(r => s.Optional(r?.ToString() ?? "")).ToArray();
             var items = trip.Entities.Values.Count(e => e.Type == "schedule_item" && ScheduleQueries.Participants(trip, e).Any(p => p.Id == person.Id));
             var github = (person.Data["identities"]?["github"] as JsonArray ?? []).Select(g => g?["username"]?.ToString()).FirstOrDefault(x => x is not null);
-            var body = Ui.V(10, Ui.Columns("Auto,*", Ui.Avatar(person.Title, 52), Ui.V(3, Ui.H(6, Ui.Line(person.Title, "h3"), person.Id == me?.Id ? Ui.Pill(s["You"], null, "Accent.Soft", "Accent.SoftText") : null), Ui.Line(roles.Length > 0 ? string.Join(", ", roles) : s["traveler"], "caption")).Margin(14, 0, 0, 0)),
+            var body = Ui.V(10, Ui.Columns("Auto,*", Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, person), 52), Ui.V(3, Ui.H(6, Ui.Line(person.Title, "h3"), person.Id == me?.Id ? Ui.Pill(s["You"], null, "Accent.Soft", "Accent.SoftText") : null), Ui.Line(roles.Length > 0 ? string.Join(", ", roles) : s["traveler"], "caption")).Margin(14, 0, 0, 0)),
                 Ui.H(14, Ui.H(5, Ui.Icon("calendar", 13, "Text.Subtle"), Ui.Text(string.Format(s["InItems"], items), "caption")), github is null ? null : Ui.H(5, Ui.Icon("cloud", 13, "Text.Subtle"), Ui.Text("@" + github, "caption"))));
             grid.Children.Add(new Button { Width = 300, Content = body.Margin(18) }.Classed("card").Named(person.Title).Bind(w, person));
         }

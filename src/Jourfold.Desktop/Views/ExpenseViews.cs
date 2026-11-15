@@ -67,7 +67,7 @@ public static class ExpenseViews
         {
             var name = Name(trip, person);
             var included = split.People.Contains(person);
-            var check = new CheckBox { IsChecked = included, MinWidth = 0, Content = Ui.H(8, Ui.Avatar(name, 22), Ui.Line(name)) };
+            var check = new CheckBox { IsChecked = included, MinWidth = 0, Content = Ui.H(8, Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, person), 22), Ui.Line(name)) };
             AutomationProperties.SetName(check, string.Format(s["SharesExpense"], name));
             // Somebody always shares it; the last person cannot leave.
             if (included && split.People.Count == 1) { check.IsEnabled = false; ToolTip.SetTip(check, s["SplitLastPerson"]); }
@@ -182,7 +182,7 @@ public static class ExpenseViews
         {
             var name = Name(trip, person) + (m.Me?.Id == person ? " (" + s["You"] + ")" : "");
             var (icon, brush) = direction switch { > 0 => ("arrow-left", "Success"), < 0 => ("arrow-right", "Warning"), _ => ("coins", "Text.Subtle") };
-            people.Children.Add(Ui.H(8, Ui.Avatar(Name(trip, person), 26), Ui.V(0, Ui.Line(name, "strong"), Ui.H(4, Ui.Icon(icon, 12, brush), Ui.Line(line, "caption")))));
+            people.Children.Add(Ui.H(8, Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, person), 26), Ui.V(0, Ui.Line(name, "strong"), Ui.H(4, Ui.Icon(icon, 12, brush), Ui.Line(line, "caption")))));
         }
         body.Children.Add(people);
         var transfers = Expenses.SettleUp(trip, currency, m.EstimateRates);

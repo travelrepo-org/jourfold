@@ -103,7 +103,7 @@ public static class AgendaView
             Ui.Tile(icon, kind, 34).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(item.Title, "title"), where is null ? null : Ui.Line(where, "caption")),
             WeatherHint(m, item),
-            people.Length > 0 ? Ui.AvatarStack(people, 24).Margin(10, 0) : null,
+            people.Length > 0 ? Ui.AvatarStack(ScheduleQueries.Participants(trip, item).Select(p => Jourfold.UI.PersonLooks.Of(trip, p)), 24).Margin(10, 0) : null,
             Ui.Pill(s[status], statusIcon, bg, fg));
         return new Button { Content = grid }.Classed("row").Named(item.Title).Bind(w, item);
     }

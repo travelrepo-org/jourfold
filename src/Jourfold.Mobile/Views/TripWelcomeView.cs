@@ -46,7 +46,7 @@ public sealed class TripWelcomeView
             var email = TripPeople.Emails(p).FirstOrDefault();
             var row = new Button
             {
-                Content = Ui.Columns("Auto,*", Ui.Avatar(p.Title, 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), email is null ? null : Ui.Text(email, "caption"))),
+                Content = Ui.Columns("Auto,*", Ui.Avatar(Jourfold.UI.PersonLooks.Of(s.Trip!, p), 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), email is null ? null : Ui.Text(email, "caption"))),
                 MinHeight = 60,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 HorizontalContentAlignment = HorizontalAlignment.Stretch,

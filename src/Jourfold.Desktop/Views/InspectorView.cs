@@ -542,7 +542,7 @@ public static class InspectorView
             var packed = Ui.V(4);
             foreach (var person in item.Assignees)
             {
-                var check = new CheckBox { IsChecked = item.IsPackedBy(person.Id), Content = Ui.H(8, Ui.Avatar(person.Title, 22), Ui.Text(person.Title)) };
+                var check = new CheckBox { IsChecked = item.IsPackedBy(person.Id), Content = Ui.H(8, Ui.Avatar(Jourfold.UI.PersonLooks.Of(w.Model.Trip!, person), 22), Ui.Text(person.Title)) };
                 AutomationProperties.SetName(check, string.Format(s["PackedBy"], person.Title));
                 check.IsCheckedChanged += async (_, _) => await m.TogglePackedAsync(e.Id, person.Id);
                 packed.Children.Add(check);
@@ -762,7 +762,7 @@ public static class InspectorView
     {
         var m = w.Model; var s = m.Strings;
         var me = m.Me?.Id == e.Id;
-        body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(e.Title, 64), Ui.V(4, me ? Ui.Pill(s["You"], null, "Accent.Soft", "Accent.SoftText") : null, Ui.Text(s["PersonLocalHint"], "caption")).Margin(14, 0, 0, 0)));
+        body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(Jourfold.UI.PersonLooks.Of(w.Model.Trip!, e), 64), Ui.V(4, me ? Ui.Pill(s["You"], null, "Accent.Soft", "Accent.SoftText") : null, Ui.Text(s["PersonLocalHint"], "caption")).Margin(14, 0, 0, 0)));
         body.Children.Add(Field(s["Roles"], ListText(w, e, "roles", s["Roles"])));
         var fields = EditorModel.Fields(e);
         string Identities(string key, string inner) => string.Join(", ", (EditorModel.Get(e, "identities/" + key) as JsonArray ?? []).Select(i => i?[inner]?.ToString()).Where(x => x is not null));
@@ -877,7 +877,7 @@ public static class InspectorView
             var author = TripComments.Author(trip, comment)?.Title ?? s["Someone"];
             var when = DateTimeOffset.TryParse(comment.Data["created_at"]?.ToString(), CultureInfo.InvariantCulture, out var at) ? Formats.Relative(at, s) : "";
             var remove = Ui.IconButton("trash-2", s["Delete"], "small"); remove.Click += (_, _) => _ = m.DeleteAsync(comment.Id);
-            body.Children.Add(Ui.Columns("Auto,*", Ui.Avatar(author, 30).Also(a => a.VerticalAlignment = VerticalAlignment.Top), Ui.V(4, Ui.Columns("*,Auto", Ui.H(8, Ui.Text(author, "title"), Ui.Text(when, "caption")), remove), new MarkdownView(comment.Data["body"]?.ToString() ?? "")).Margin(10, 0, 0, 0)));
+            body.Children.Add(Ui.Columns("Auto,*", (TripComments.Author(trip, comment) is { } writer ? Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, writer), 30) : Ui.Avatar(author, 30)).Also(a => a.VerticalAlignment = VerticalAlignment.Top), Ui.V(4, Ui.Columns("*,Auto", Ui.H(8, Ui.Text(author, "title"), Ui.Text(when, "caption")), remove), new MarkdownView(comment.Data["body"]?.ToString() ?? "")).Margin(10, 0, 0, 0)));
         }
         if (comments.Count == 0) body.Children.Add(Ui.Text(s["NoCommentsYet"], "muted"));
         var box = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 70, PlaceholderText = s["WriteComment"] }; AutomationProperties.SetName(box, s["WriteComment"]);

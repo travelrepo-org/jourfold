@@ -252,7 +252,7 @@ public sealed partial class Dialogs
         var people = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
         foreach (var person in trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title))
         {
-            var chip = Ui.Choice(person.Title, null, peopleIds.Contains(person.Id), "chip"); chip.Content = Ui.H(6, Ui.Avatar(person.Title, 18), Ui.Text(person.Title));
+            var chip = Ui.Choice(person.Title, null, peopleIds.Contains(person.Id), "chip"); chip.Content = Ui.H(6, Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, person), 18), Ui.Text(person.Title));
             chip.Click += (_, _) => { if (!peopleIds.Remove(person.Id)) peopleIds.Add(person.Id); chip.IsSelected = peopleIds.Contains(person.Id); if (kind == "expense") RenderSplit(); };
             people.Children.Add(chip);
         }

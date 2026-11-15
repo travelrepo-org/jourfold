@@ -1986,5 +1986,10 @@
   "Updates": "Updates",
   "UpdateChecksHint": "Einmal am Tag beim Start fragt Jourfold bei GitHub nach dem neuesten Release und sagt Bescheid, wenn es ein neueres gibt. Gesendet werden nur Name und Version der App, nichts aus Ihren Reisen. Es wird nichts heruntergeladen oder installiert.",
   "RemoveCurrency": "{0} aus der Liste entfernen",
-  "DepartureZone": "Ortszeit bei Abfahrt"
+  "DepartureZone": "Ortszeit bei Abfahrt",
+  "PaidForSpoken": "{0} hat für {1} bezahlt",
+  "PaysForSpoken": "{0} zahlt für {1}",
+  "PayerOpenSpoken": "Wer zahlt, ist noch offen, für {0}",
+  "PayerMissingSpoken": "Wer bezahlt hat, fehlt, für {0}",
+  "NobodyYet": "noch niemanden"
 }

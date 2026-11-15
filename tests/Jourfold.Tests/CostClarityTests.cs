@@ -179,6 +179,46 @@ public sealed class CostClarityTests : IDisposable
         Assert.Equal(31.84m, Expenses.ChargeOf(main)!.Value);
     }
 
+    [AvaloniaFact]
+    public async Task TheCostListSaysWhoPaidAndForWhomAndShowsWhatIsMissing()
+    {
+        var session = await Phone();
+        try
+        {
+            var trip = session.Trip!;
+            var alex = trip.Entities.Values.Single(e => e.Type == "person" && e.Title == "Alex");
+            var sam = trip.Entities.Values.Single(e => e.Type == "person" && e.Title == "Sam");
+            var tea = trip.Entities.Values.Single(e => e.Type == "expense" && e.Title == "Tea ceremony");
+            string Spoken(Action<System.Text.Json.Nodes.JsonObject> change)
+            {
+                var e = tea.Copy(); change(e.Data);
+                var control = MorePages.ExpensePeople(session, Expenses.Split(trip, e))!;
+                return Avalonia.Automation.AutomationProperties.GetName(control)!;
+            }
+            bool Warns(Action<System.Text.Json.Nodes.JsonObject> change)
+            {
+                var e = tea.Copy(); change(e.Data);
+                var control = MorePages.ExpensePeople(session, Expenses.Split(trip, e))!;
+                return control.GetLogicalDescendants().OfType<Panel>().Any(p => p.Classes.Contains("unknown") && p.Classes.Contains("warning"));
+            }
+            System.Text.Json.Nodes.JsonArray Ids(params Entity[] people) => new(people.Select(p => (System.Text.Json.Nodes.JsonNode)p.Id.ToString()).ToArray());
+            // Paid by Alex for both travellers: "Everyone".
+            Assert.Equal("Alex paid for Everyone", Spoken(d => { d["paid_by"] = Ids(alex); d.Remove("split"); }));
+            // Paid by Alex for Sam alone.
+            Assert.Equal("Alex paid for Sam", Spoken(d => { d["paid_by"] = Ids(alex); d["split"] = new System.Text.Json.Nodes.JsonObject { ["method"] = "equal", ["parts"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["person"] = sam.Id.ToString() }) }; }));
+            // Still to pay and nobody entered yet: open, not a warning.
+            Assert.Equal("Who pays is open yet, for Everyone", Spoken(d => { d.Remove("paid_by"); d["estimated"] = true; }));
+            Assert.False(Warns(d => { d.Remove("paid_by"); d["estimated"] = true; }));
+            // Paid and nobody entered: missing, in the warning colour.
+            Assert.Equal("Who paid is missing, for Everyone", Spoken(d => { d.Remove("paid_by"); d["estimated"] = false; }));
+            Assert.True(Warns(d => { d.Remove("paid_by"); d["estimated"] = false; }));
+            // Split by amounts without anybody: for nobody yet, in the warning colour.
+            Assert.Equal("Alex paid for nobody yet", Spoken(d => { d["paid_by"] = Ids(alex); d["split"] = new System.Text.Json.Nodes.JsonObject { ["method"] = "amount", ["parts"] = new System.Text.Json.Nodes.JsonArray() }; }));
+            Assert.True(Warns(d => { d["paid_by"] = Ids(alex); d["split"] = new System.Text.Json.Nodes.JsonObject { ["method"] = "amount", ["parts"] = new System.Text.Json.Nodes.JsonArray() }; }));
+        }
+        finally { session.Dispose(); }
+    }
+
     [Theory]
     [InlineData("Pacific/Auckland", "NZD")]
     [InlineData("Asia/Shanghai", "CNY")]

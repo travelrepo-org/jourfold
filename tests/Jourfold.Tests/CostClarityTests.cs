@@ -219,6 +219,33 @@ public sealed class CostClarityTests : IDisposable
         finally { session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task SearchingTheCostsFiltersOnlyTheListAndLeavesTheRestAsItIs()
+    {
+        var session = await Phone();
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowTab(MobileTab.More); session.ShowPage("costs"); Probe.Layout();
+            IEnumerable<TextBlock> Texts() { Probe.Layout(); return Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<TextBlock>(); }
+            var heading = Texts().First(t => t.Text == "Who owes whom");
+            Assert.Contains(Texts(), t => t.Text == "Tea ceremony");
+            var box = Avalonia.VisualTree.VisualExtensions.GetVisualDescendants(window).OfType<TextBox>().First(t => t.Name == MorePages.DraftPrefix + "costs.search");
+            box.Text = "rail";
+            await Probe.Until(() => !Texts().Any(t => t.Text == "Tea ceremony"));
+            Assert.Contains(Texts(), t => t.Text == "Rail passes");
+            // Only the list changed: the page above it was not drawn again, and the field keeps what was typed.
+            Assert.Same(heading, Texts().First(t => t.Text == "Who owes whom"));
+            Assert.Equal("rail", session.Drafts["costs.search"]);
+            // Nothing found says so; clearing the field shows all again.
+            box.Text = "zzz";
+            await Probe.Until(() => Texts().Any(t => t.Text?.Contains("zzz", StringComparison.Ordinal) == true && t.Text != "zzz"));
+            box.Text = "";
+            await Probe.Until(() => Texts().Any(t => t.Text == "Tea ceremony"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [Theory]
     [InlineData("Pacific/Auckland", "NZD")]
     [InlineData("Asia/Shanghai", "CNY")]

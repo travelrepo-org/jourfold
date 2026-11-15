@@ -568,14 +568,30 @@ public static class MorePages
             tiles.Children.Add(Total(s, totals[i]).Col(i % columns * 2).Row(i / columns).Also(c => c.Margin = new Thickness(0, 0, 0, 12)));
         }
         // By the day each was paid (its own day, its plan's or its charge's), latest first, and a search over them.
-        var query = s.Drafts.GetValueOrDefault("costs.search");
-        var found = expenses.Where(x => Jourfold.UI.CostTexts.Matches(str, trip, x.Expense, query)).Select(x => (x.Expense, Day: Expenses.DateOf(trip, x.Expense))).ToArray();
-        var dated = found.Where(x => x.Day is not null).OrderByDescending(x => x.Day).ThenBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
-        var undated = found.Where(x => x.Day is null).OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
+        // Each payment's split, day, searchable text and row are worked out once; typing only filters them and redraws
+        // the list, not the totals, debts and budgets above, which made searching slow.
+        var payments = expenses.Select(x =>
+        {
+            var split = Expenses.Split(trip, x.Expense);
+            return (x.Expense, Day: Expenses.DateOf(trip, x.Expense), Texts: Jourfold.UI.CostTexts.SearchTexts(str, trip, x.Expense, split), Row: new Lazy<Control>(() => Expense(s, x.Expense, Expenses.DateOf(trip, x.Expense), split)));
+        }).ToArray();
+        var results = new ContentControl();
+        var none = Ui.Text("", "caption").Margin(20, 0);
+        void Show(string? query)
+        {
+            var found = payments.Where(x => Jourfold.UI.CostTexts.Matches(x.Texts, query)).ToArray();
+            var dated = found.Where(x => x.Day is not null).OrderByDescending(x => x.Day).ThenBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
+            var undated = found.Where(x => x.Day is null).OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
+            foreach (var row in payments.Where(x => x.Row.IsValueCreated)) Ui.Detach(row.Row.Value);
+            none.Text = found.Length == 0 && !string.IsNullOrWhiteSpace(query) ? string.Format(CultureInfo.CurrentCulture, str["NoCostsFound"], query!.Trim()) : "";
+            none.IsVisible = none.Text.Length > 0;
+            results.Content = Ui.V(16,
+                dated.Length == 0 ? null : Group(str["ByDate"], dated.Select(x => x.Row.Value).ToArray()),
+                undated.Length == 0 ? null : Group(str["WithoutDay"], undated.Select(x => x.Row.Value).ToArray()));
+        }
+        Show(s.Drafts.GetValueOrDefault("costs.search"));
         return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, add, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
-            expenses.Length == 0 ? null : CostSearch(s, query, found.Length),
-            dated.Length == 0 ? null : Group(str["ByDate"], dated.Select(x => Expense(s, x.Expense, x.Day)).ToArray()),
-            undated.Length == 0 ? null : Group(str["WithoutDay"], undated.Select(x => Expense(s, x.Expense, null)).ToArray()),
+            expenses.Length == 0 ? null : CostSearch(s, Show), none, results,
             Ui.Columns("Auto,*", Ui.Icon("info", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 6, 0), Ui.Text(str["NoAutoConversion"], "caption")).Margin(20, 0));
     }
 
@@ -639,10 +655,11 @@ public static class MorePages
 
     /// <summary>
     /// The search over the payments, by name, category, person and what they belong to. The text is kept as a draft so
-    /// it survives the page being drawn again; the page follows after a short pause in typing.
+    /// it survives the page being drawn again; after a short pause in typing, <paramref name="show"/> filters the list.
     /// </summary>
-    private static Control CostSearch(MobileSession s, string? query, int found)
+    private static Control CostSearch(MobileSession s, Action<string?> show)
     {
+        var query = s.Drafts.GetValueOrDefault("costs.search");
         var str = s.Strings;
         var box = new TextBox { Text = query ?? "", PlaceholderText = str["SearchCosts"], InnerLeftContent = Ui.Icon("search", 16, "Text.Subtle").Margin(12, 0, 0, 0), MinHeight = 48, Name = MorePages.DraftPrefix + "costs.search" };
         AutomationProperties.SetName(box, str["SearchCosts"]);
@@ -653,12 +670,11 @@ public static class MorePages
             if ((box.Text ?? "") == (s.Drafts.GetValueOrDefault("costs.search") ?? "")) return;
             s.Drafts["costs.search"] = box.Text;
             pause?.Stop();
-            pause = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
-            pause.Tick += (_, _) => { pause!.Stop(); s.FocusDraft = "costs.search"; s.Redraw(); };
+            pause = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            pause.Tick += (_, _) => { pause!.Stop(); show(box.Text); };
             pause.Start();
         };
-        var none = found == 0 && !string.IsNullOrWhiteSpace(query) ? Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NoCostsFound"], query!.Trim()), "caption").Margin(4, 6, 0, 0) : null;
-        return Ui.V(4, box, none).Margin(16, 0);
+        return box.Margin(16, 0);
     }
 
     /// <summary>The offer to bring costs older versions wrote up to date, when it was postponed or not answered yet.</summary>
@@ -948,9 +964,10 @@ public static class MorePages
         return Group(str["WhoOwesWhom"], Padded(rows));
     }
 
-    private static Control Expense(MobileSession s, Entity expense, LocalDate? day)
+    private static Control Expense(MobileSession s, Entity expense, LocalDate? day, ExpenseSplit? known = null)
     {
         var trip = s.Trip!; var str = s.Strings;
+        var split = known ?? Expenses.Split(trip, expense);
         var money = TripSummaries.Money(expense.Data["amount"]);
         var estimated = expense.Data["estimated"] is JsonValue flag && flag.TryGetValue<bool>(out var e) && e;
         var related = (expense.Data["related"] as JsonArray ?? []).Select(r => Guid.TryParse(r?["id"]?.ToString(), out var id) ? trip.Find(id) : null).OfType<Entity>().FirstOrDefault();
@@ -960,9 +977,9 @@ public static class MorePages
             : (Control)Ui.Icon("receipt", 20, "Text.Muted").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center);
         var summary = Ui.Columns("40,*,Auto",
             date.Also(c => c.VerticalAlignment = VerticalAlignment.Center),
-            Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption"), ExpensePeople(s, Expenses.Split(trip, expense))?.Margin(0, 4, 0, 0)).Margin(12, 0, 8, 0),
+            Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption"), ExpensePeople(s, split)?.Margin(0, 4, 0, 0)).Margin(12, 0, 8, 0),
             Ui.V(4, money is null ? null : Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, expense, s.TripCurrencyCode, 16), Ui.Text(Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right),
-                estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, Expenses.Split(trip, expense))?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
+                estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, split)?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
         return Unfolding(s, expense.Id, summary, () =>
         {
             var body = ExpenseFacts(s, expense);

@@ -36,6 +36,8 @@ If the sibling TravelRepo source repository is private, its checkout also needs 
 
 ## Automated tests and live GitHub validation
 
+CI runs the suite through `eng/run-tests.py`: a run that gives no result within 20 minutes, as when the test host on the hosted Macs hangs before the first test, is stopped and started once more, with a warning in the run. A run that fails by itself is not repeated. Each test is listed as it ends, and the test platform's own log is kept as the `vstest-diag` artifact for five days. The iOS workflow starts the app on an iPhone for pull requests and on an iPhone and an iPad on `main`.
+
 The checked-in test suites use temporary Git repositories and mocked HTTP responses at the GitHub boundary. They do not require a GitHub login, an App token, an OS keyring entry or a personal smoke repository. Dependency restore and audit still need their configured package feeds.
 
 The 2026-09-30 live GitHub probes were run separately from `.tools/` in the bootstrap workspace, outside both product repositories. They are not shipped with Jourfold and are not invoked by either CI workflow. The checked-in [validation report](live-github-validation.md) records their results; it is not an executable test.

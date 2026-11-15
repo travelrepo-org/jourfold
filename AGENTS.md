@@ -144,6 +144,19 @@ Test English and German layouts for important screens, including long labels and
 
 Normal automated tests and CI must run without a contributor's GitHub login, OS keyring, or personal smoke repository. Live provider validation is a separate, explicitly configured workflow with disposable data. Never commit credentials or copy a developer's local authentication into CI.
 
+## Pull requests that change the interface
+
+A pull request that changes what the interface shows has before-and-after images in its description, so a reviewer can compare without building it.
+
+- Show each affected view, for each platform it affects (desktop, phone, tablet), as it looks on the base branch and with the change.
+- Keep everything else the same: the same synthetic trip and state, the same window or screen size, theme and language. When colours change, show Light and Dark.
+- Use only synthetic data, such as the sample trip or test fixtures, never a person's real trip, names, e-mail addresses or accounts. This applies even when someone has shared real data to discuss a problem.
+- Capture the real application, headless or on an emulator or device. Do not use mockups or retouched images.
+- A new view has no "before"; say so and show the result. If capturing is blocked, name the blocker.
+- The images go on the `pr-screenshots` branch, not into the change itself. `docs/screenshots.md` describes how.
+
+These images are for review. The README screenshots below still follow their own rule.
+
 ## README
 
 Keep the README concise and factual.

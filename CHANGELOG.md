@@ -15,6 +15,10 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 - Yellow and amber are kept for warnings and things that need attention; no person, kind or category uses them.
 - On tablets the timetable shows three, five or seven days, so one is always in the middle, and the arrows glide by the days shown.
 
+### Fixes
+
+- On phones and tablets, searching the cost list is quick again: typing only filters the list instead of working out the totals, debts and budgets above it again.
+
 ## 0.13.1 “Smug Seal” – 2026-11-14
 
 ### Highlights

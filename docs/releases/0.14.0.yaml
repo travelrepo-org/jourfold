@@ -16,3 +16,6 @@ changes:
     de: "Gelb und Bernstein bleiben Warnungen und Dingen vorbehalten, die Aufmerksamkeit brauchen; keine Person, Art oder Kategorie verwendet sie."
   - en: "On tablets the timetable shows three, five or seven days, so one is always in the middle, and the arrows glide by the days shown."
     de: "Auf Tablets zeigt die Zeitleiste drei, fünf oder sieben Tage, sodass immer einer in der Mitte steht, und die Pfeile gleiten um die gezeigten Tage."
+fixes:
+  - en: "On phones and tablets, searching the cost list is quick again: typing only filters the list instead of working out the totals, debts and budgets above it again."
+    de: "Auf Handys und Tablets ist die Suche in der Kostenliste wieder schnell: Tippen filtert nur noch die Liste, statt Summen, Schulden und Budgets darüber jedes Mal neu zu berechnen."

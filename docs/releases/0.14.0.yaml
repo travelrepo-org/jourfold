@@ -1,0 +1,21 @@
+# Release notes for Jourfold 0.14.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.14.0
+date: 2026-11-15
+highlights:
+  - icon: calendar-days
+    en: "On tablets and phones, the timetable's days glide sideways with your finger and come to rest with a day in the middle. On tablets you see the days around it, on phones a part of the day before and after at the edges, so a look at the next day does not change the day yet."
+    de: "Auf Tablets und Handys gleiten die Tage der Zeitleiste mit dem Finger zur Seite und kommen mit einem Tag in der Mitte zur Ruhe. Auf Tablets sehen Sie die Tage drumherum, auf Handys einen Teil des Vor- und Folgetags an den Rändern, sodass ein Blick auf den nächsten Tag den Tag noch nicht wechselt."
+  - icon: coins
+    en: "On phones and tablets, every payment in the cost list shows who paid and for whom: the payer's circle with coins, or a clock while it is still to pay, an arrow, and the people it is for, or Everyone. A missing payer or a split without people shows as a circle with a question mark."
+    de: "Auf Handys und Tablets zeigt jede Zahlung in der Kostenliste, wer bezahlt hat und für wen: den Kreis der zahlenden Person mit Münzen, oder eine Uhr, solange noch zu zahlen ist, einen Pfeil und die Personen, für die gezahlt wurde, oder Alle. Ein fehlender Zahler oder eine Aufteilung ohne Personen erscheint als Kreis mit Fragezeichen."
+changes:
+  - en: "Everyone in a trip has a colour of their own, the same on the computer, phones and tablets. Up to fifteen people all differ, a new person changes nobody else's colour, renaming keeps it, and two people with the same name differ in colour and letters."
+    de: "Jede Person einer Reise hat eine eigene Farbe, gleich am Computer, auf Handys und Tablets. Bis zu fünfzehn Personen unterscheiden sich alle, eine neue Person ändert keine andere Farbe, Umbenennen behält sie, und zwei Personen mit gleichem Namen unterscheiden sich in Farbe und Buchstaben."
+  - en: "Yellow and amber are kept for warnings and things that need attention; no person, kind or category uses them."
+    de: "Gelb und Bernstein bleiben Warnungen und Dingen vorbehalten, die Aufmerksamkeit brauchen; keine Person, Art oder Kategorie verwendet sie."
+  - en: "On tablets the timetable shows three, five or seven days, so one is always in the middle, and the arrows glide by the days shown."
+    de: "Auf Tablets zeigt die Zeitleiste drei, fünf oder sieben Tage, sodass immer einer in der Mitte steht, und die Pfeile gleiten um die gezeigten Tage."
+fixes:
+  - en: "On phones and tablets, searching the cost list is quick again: typing only filters the list instead of working out the totals, debts and budgets above it again."
+    de: "Auf Handys und Tablets ist die Suche in der Kostenliste wieder schnell: Tippen filtert nur noch die Liste, statt Summen, Schulden und Budgets darüber jedes Mal neu zu berechnen."

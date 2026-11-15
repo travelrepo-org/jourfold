@@ -129,33 +129,48 @@ public static class Ui
         }.Res(Border.BackgroundProperty, "Kind." + kindKey + ".Bg");
     }
 
-    private static readonly string[] AvatarColors = ["#14968F", "#3B7DD8", "#7C5CD6", "#E2843A", "#36A464", "#C9558E", "#6366D1", "#D9605F", "#4F86A6"];
-    public static string Initials(string name)
+    public static string Initials(string name) => PersonLooks.Initials(name);
+
+    /// <summary>A circle for someone who is no person of a trip, such as a version's author; its colour comes from the name.</summary>
+    public static Decoration Avatar(string name, double size = 28, IImage? image = null) => Avatar(PersonLooks.ForName(name), size, image);
+
+    /// <summary>A person's circle: their colour and letters (see <see cref="PersonLooks"/>), or their picture.</summary>
+    public static Decoration Avatar(PersonLook look, double size = 28, IImage? image = null)
     {
-        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        if (parts.Length == 0) return "?";
-        return parts.Length == 1 ? parts[0][..Math.Min(2, parts[0].Length)].ToUpperInvariant() : (parts[0][..1] + parts[^1][..1]).ToUpperInvariant();
-    }
-    public static Decoration Avatar(string name, double size = 28, IImage? image = null)
-    {
-        var hash = 0; foreach (var ch in name) hash = unchecked(hash * 31 + ch);
-        var color = Color.Parse(AvatarColors[Math.Abs(hash % AvatarColors.Length)]);
+        var color = Color.Parse(look.Color);
         Control content = image is not null
             ? new Image { Source = image, Stretch = Stretch.UniformToFill }
-            : new TextBlock { Text = Initials(name), Foreground = Brushes.White, FontSize = Math.Max(9, size * 0.38), FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
+            : new TextBlock { Text = look.Initials, Foreground = Brushes.White, FontSize = Math.Max(9, size * 0.38), FontWeight = FontWeight.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center };
         var avatar = new Decoration { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Background = new SolidColorBrush(color), Child = content, ClipToBounds = true, VerticalAlignment = VerticalAlignment.Center };
         avatar.Res(Border.BorderBrushProperty, "Bg.Surface"); avatar.BorderThickness = new Thickness(size >= 24 ? 2 : 1.5);
-        ToolTip.SetTip(avatar, name); AutomationProperties.SetName(avatar, name);
+        ToolTip.SetTip(avatar, look.Name); AutomationProperties.SetName(avatar, look.Name);
         return avatar;
     }
-    public static Control AvatarStack(IEnumerable<string> names, double size = 24, int max = 4)
+
+    public static Control AvatarStack(IEnumerable<string> names, double size = 24, int max = 4) => AvatarStack(names.Select(PersonLooks.ForName), size, max);
+
+    /// <summary>Overlapping circles, at most <paramref name="max"/> and then how many more.</summary>
+    public static Control AvatarStack(IEnumerable<PersonLook> people, double size = 24, int max = 4)
     {
-        var list = names.ToArray(); var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = -size * 0.22 };
-        foreach (var name in list.Take(max)) panel.Children.Add(Avatar(name, size));
+        var list = people.ToArray(); var panel = new StackPanel { Orientation = Orientation.Horizontal, Spacing = -size * 0.22 };
+        foreach (var look in list.Take(max)) panel.Children.Add(Avatar(look, size));
         if (list.Length > max)
-            panel.Children.Add(new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Child = Text("+" + (list.Length - max), "caption").Also(t => { t.FontSize = size * 0.38; t.FontWeight = FontWeight.Bold; t.HorizontalAlignment = HorizontalAlignment.Center; }) }.Res(Border.BackgroundProperty, "Bg.Muted"));
-        AutomationProperties.SetName(panel, string.Join(", ", list));
+            panel.Children.Add(new Border { Width = size, Height = size, CornerRadius = new CornerRadius(size / 2), Child = Text("+" + (list.Length - max), "caption").Also(t => { t.FontSize = size * 0.38; t.FontWeight = FontWeight.Bold; t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; }) }.Res(Border.BackgroundProperty, "Bg.Muted"));
+        AutomationProperties.SetName(panel, string.Join(", ", list.Select(l => l.Name)));
         return panel;
+    }
+
+    /// <summary>
+    /// A dashed circle with a question mark where a person is missing, such as nobody entered as having paid. In the
+    /// warning colour when something needs fixing, quiet when it is only not decided yet.
+    /// </summary>
+    public static Control Unknown(double size, bool warning)
+    {
+        var mark = Text("?", "caption").Also(t => { t.FontSize = Math.Max(9, size * 0.45); t.FontWeight = FontWeight.Bold; t.HorizontalAlignment = HorizontalAlignment.Center; t.VerticalAlignment = VerticalAlignment.Center; });
+        var ring = new Avalonia.Controls.Shapes.Ellipse { Width = size - 2, Height = size - 2, StrokeThickness = 1.5, StrokeDashArray = [2.5, 2] };
+        if (warning) { ring.Res(Avalonia.Controls.Shapes.Shape.StrokeProperty, "Warning"); mark.Res(TextBlock.ForegroundProperty, "Warning"); ring.Res(Avalonia.Controls.Shapes.Shape.FillProperty, "Warning.Soft"); }
+        else { ring.Res(Avalonia.Controls.Shapes.Shape.StrokeProperty, "Text.Subtle"); mark.Res(TextBlock.ForegroundProperty, "Text.Muted"); }
+        return new Panel { Width = size, Height = size, Children = { ring.Also(r => { r.HorizontalAlignment = HorizontalAlignment.Center; r.VerticalAlignment = VerticalAlignment.Center; }), mark } }.Classed("unknown", warning ? "warning" : "open");
     }
 
     public static Control EmptyState(string icon, string title, string body, params Control[] actions)

@@ -45,7 +45,7 @@ public sealed partial class Dialogs
             radio.IsCheckedChanged += (_, _) => { if (radio.IsChecked == true) { choice = id; Update(); } };
             radios.Add(radio); list.Children.Add(radio);
         }
-        foreach (var person in request.People) Option(person.Id.ToString(), person.Title, Ui.Avatar(person.Title, 26));
+        foreach (var person in request.People) Option(person.Id.ToString(), person.Title, Ui.Avatar(Main?.Model.Trip is { } owned ? Jourfold.UI.PersonLooks.Of(owned, person) : Jourfold.UI.PersonLooks.ForName(person.Title), 26));
         Option(WhoAmIAnswer.AddMe, s["AddMeAsNewPerson"], Ui.Icon("plus", 18, "Accent"));
         Option(WhoAmIAnswer.NotInTrip, s["NotPartOfTrip"], Ui.Icon("user", 18, "Text.Subtle"), s["NotPartOfTripHint"]);
         var ok = Ui.Button(s["ApplyChoice"], null, "primary"); ok.IsDefault = true; var cancel = Action("Cancel");

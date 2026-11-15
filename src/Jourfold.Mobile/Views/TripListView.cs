@@ -104,7 +104,7 @@ public static class TripListView
                 Ui.Text(trip.Trip.Manifest.Title, "h3"),
                 Ui.Text(dates.Length > 0 ? dates : s.Strings["NoDatesYet"], "muted"),
                 trip.Places.Count > 0 ? Ui.Text(string.Join(", ", trip.Places), "caption") : null,
-                trip.Travellers.Count > 0 ? Ui.AvatarStack(trip.Travellers, 26).Margin(0, 4, 0, 0) : null).Margin(16, 12, 16, 14));
+                trip.Travellers.Count > 0 ? Ui.AvatarStack(trip.Trip.Entities.Values.Where(e => e.Type == "person").OrderBy(e => e.Title, StringComparer.CurrentCulture).Select(p => Jourfold.UI.PersonLooks.Of(trip.Trip, p)), 26).Margin(0, 4, 0, 0) : null).Margin(16, 12, 16, 14));
         var card = new Border { Child = content, ClipToBounds = true }.Classed("card");
         var button = new Button { Content = card }.Classed("card");
         AutomationProperties.SetName(button, trip.Trip.Manifest.Title + (dates.Length > 0 ? ", " + dates : ""));

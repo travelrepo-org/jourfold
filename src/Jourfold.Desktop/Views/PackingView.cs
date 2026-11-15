@@ -120,7 +120,7 @@ public static class PackingView
             foreach (var person in item.Assignees.Take(item.Everyone ? 6 : 12))
             {
                 var packed = item.IsPackedBy(person.Id);
-                var chip = new ChoiceButton { IsSelected = packed, Padding = new Thickness(3, 2, 8, 2), CornerRadius = new CornerRadius(12), Content = Ui.H(5, Ui.Avatar(person.Title, 20), Ui.Text(person.Title.Split(' ')[0], "caption"), packed ? Ui.Icon("check", 12, "Success") : null) }.Classed("chip");
+                var chip = new ChoiceButton { IsSelected = packed, Padding = new Thickness(3, 2, 8, 2), CornerRadius = new CornerRadius(12), Content = Ui.H(5, Ui.Avatar(Jourfold.UI.PersonLooks.Of(w.Model.Trip!, person), 20), Ui.Text(person.Title.Split(' ')[0], "caption"), packed ? Ui.Icon("check", 12, "Success") : null) }.Classed("chip");
                 var name = string.Format(packed ? s["PackedBy"] : s["NotPackedBy"], person.Title);
                 AutomationProperties.SetName(chip, name); ToolTip.SetTip(chip, name + ". " + s["ClickToToggle"]);
                 chip.Click += async (_, _) => await m.TogglePackedAsync(task.Id, person.Id);

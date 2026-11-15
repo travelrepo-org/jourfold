@@ -163,7 +163,7 @@ public sealed class TimetableView : UserControl
             if (vm.Lanes)
             {
                 var name = c < people.Length ? people[c].Title : vm.Strings["Unassigned"];
-                cell = Ui.H(8, c < people.Length ? Ui.Avatar(name, 26) : Ui.Icon("users", 18, "Text.Subtle"), Ui.Line(name, "title"));
+                cell = Ui.H(8, c < people.Length ? Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, people[c]), 26) : Ui.Icon("users", 18, "Text.Subtle"), Ui.Line(name, "title"));
             }
             else
             {
@@ -481,7 +481,7 @@ public sealed class TimetableView : UserControl
             if (where is not null && height >= 62) stack.Children.Add(Ui.Line(where, "caption").Also(t => t.FontSize = 11));
             if (p.Span.StartZone is { } z && z != zone.Id && height >= 62) stack.Children.Add(Ui.Line(string.Format(s["LocalTimeIn"], Formats.Time(p.Start.InZone(DateTimeZoneProviders.Tzdb[z]).TimeOfDay), Formats.ZoneName(z)), "caption").Also(t => t.FontSize = 11));
             var participants = ScheduleQueries.Participants(trip, item);
-            if (participants.Count > 0 && height >= 84 && width >= 120 && !vm.Lanes) stack.Children.Add(Ui.AvatarStack(participants.Select(x => x.Title), 18, 3).Margin(0, 3, 0, 0));
+            if (participants.Count > 0 && height >= 84 && width >= 120 && !vm.Lanes) stack.Children.Add(Ui.AvatarStack(participants.Select(x => Jourfold.UI.PersonLooks.Of(trip, x)), 18, 3).Margin(0, 3, 0, 0));
             body = stack;
         }
         var dashed = status is "idea" || approximate || p.Span.Precision == TimePrecision.DayPart;

@@ -863,6 +863,56 @@ public static class MorePages
         return Ui.Card(body, 14);
     }
 
+    /// <summary>
+    /// Who paid and for whom, in the row itself, so the list answers it without opening each payment: the payers with
+    /// coins, an arrow, and the people it is for, or one chip when it is for all the trip's travellers. A payment still
+    /// to pay has a clock instead of coins. A missing payer or a split without people shows a dashed circle with a
+    /// question mark: quiet while it is only not decided, as for a payment still to pay, in the warning colour when the
+    /// payment cannot be divided without it.
+    /// </summary>
+    public static Control? ExpensePeople(MobileSession s, ExpenseSplit split)
+    {
+        var trip = s.Trip!; var str = s.Strings;
+        var payers = split.Payers.Distinct().ToArray();
+        var shares = split.Shares.Select(x => x.Person).Distinct().ToArray();
+        var travellers = TripPeople.Travelers(trip).Select(p => p.Id).ToHashSet();
+        // A trip without people has nobody to show.
+        if (payers.Length == 0 && shares.Length == 0 && travellers.Count == 0) return null;
+        var everyone = shares.Length >= 2 && travellers.SetEquals(shares);
+        var planned = (split.Issues & SplitIssues.Estimated) != 0;
+        string Names(IEnumerable<Guid> ids) => string.Join(", ", ids.Select(id => trip.Find(id)?.Title ?? "?"));
+        var forWhom = everyone ? str["Everyone"] : shares.Length == 0 ? str["NobodyYet"] : Names(shares);
+        var spoken = payers.Length > 0 ? string.Format(CultureInfo.CurrentCulture, str[planned ? "PaysForSpoken" : "PaidForSpoken"], Names(payers), forWhom)
+            : string.Format(CultureInfo.CurrentCulture, str[planned ? "PayerOpenSpoken" : "PayerMissingSpoken"], forWhom);
+        const double Size = 22;
+        Control Badge(Control avatar)
+        {
+            var badge = new Border
+            {
+                Width = 13,
+                Height = 13,
+                CornerRadius = new CornerRadius(6.5),
+                BorderThickness = new Thickness(1),
+                Child = Ui.Icon(planned ? "clock" : "coins", 9, "Text").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center),
+                HorizontalAlignment = HorizontalAlignment.Right,
+                VerticalAlignment = VerticalAlignment.Bottom,
+                Margin = new Thickness(0, 0, -4, -3),
+            }.Res(Border.BackgroundProperty, "Bg.Surface").Res(Border.BorderBrushProperty, "Line");
+            return new Panel { Children = { avatar, badge } };
+        }
+        Control All() => new Border { CornerRadius = new CornerRadius(Size / 2), Padding = new Thickness(8, 1), Height = Size, Child = Ui.Text(str["Everyone"], "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center) }.Res(Border.BackgroundProperty, "Bg.Muted");
+        // Paid: who paid with coins; still to pay: who will pay with a clock; nobody entered: a question mark, in the
+        // warning colour once it is paid, because then the payment cannot be divided.
+        var from = new StackPanel { Orientation = Orientation.Horizontal, Spacing = -Size * 0.22 + 4 };
+        foreach (var payer in payers) from.Children.Add(Badge(Ui.Avatar(Jourfold.UI.PersonLooks.Of(trip, payer), Size)));
+        if (payers.Length == 0) from.Children.Add(Badge(Ui.Unknown(Size, warning: !planned)));
+        // For everyone, for some, or for nobody yet when the split names no one.
+        Control to = everyone ? All() : shares.Length == 0 ? Ui.Unknown(Size, warning: true) : Ui.AvatarStack(shares.Select(p => Jourfold.UI.PersonLooks.Of(trip, p)), Size);
+        var result = Ui.H(6, from, Ui.Icon("arrow-right", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center), to);
+        AutomationProperties.SetName(result, spoken);
+        return result;
+    }
+
     private static Border? SplitPill(Localization str, ExpenseSplit split) =>
         split.Debts.Count == 0 || split.Amount is null ? null
         : split.IsSettled ? Ui.Pill(str["SettledState"], "circle-check", "Success.Soft", "Success")
@@ -910,7 +960,7 @@ public static class MorePages
             : (Control)Ui.Icon("receipt", 20, "Text.Muted").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center);
         var summary = Ui.Columns("40,*,Auto",
             date.Also(c => c.VerticalAlignment = VerticalAlignment.Center),
-            Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption")).Margin(12, 0, 8, 0),
+            Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption"), ExpensePeople(s, Expenses.Split(trip, expense))?.Margin(0, 4, 0, 0)).Margin(12, 0, 8, 0),
             Ui.V(4, money is null ? null : Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, expense, s.TripCurrencyCode, 16), Ui.Text(Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right),
                 estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, Expenses.Split(trip, expense))?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
         return Unfolding(s, expense.Id, summary, () =>
@@ -993,7 +1043,7 @@ public static class MorePages
             var isMe = me?.Id == p.Id;
             var row = new Button
             {
-                Content = Ui.Columns("Auto,*,Auto", Ui.Avatar(p.Title, 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), detail.Length == 0 ? null : Ui.Text(detail, "caption")),
+                Content = Ui.Columns("Auto,*,Auto", Ui.Avatar(Jourfold.UI.PersonLooks.Of(s.Trip!, p), 40).Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(p.Title, "strong"), detail.Length == 0 ? null : Ui.Text(detail, "caption")),
                     isMe ? new Border { Child = Ui.Text(str["MeBadge"], "small"), Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(8) }.Res(Border.BackgroundProperty, "Accent.Soft") : null),
                 MinHeight = 64,
                 HorizontalAlignment = HorizontalAlignment.Stretch,

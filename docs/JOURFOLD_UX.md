@@ -313,6 +313,13 @@ Jourfold may display:
 
 No central Jourfold account exists.
 
+Generated circles look the same on every platform (`PersonLooks` in `Jourfold.UI`):
+- Colour: one of fifteen colours that white letters read well on (contrast at least 4.5 to 1). Within a trip they are handed out in the order people joined (their time-ordered IDs), so up to fifteen people all differ, adding someone changes nobody else's colour, renaming keeps it, and two people with the same name differ. Someone who is not a person of the trip, such as a version's author, gets a colour from their name.
+- Letters: the initials ("Lena Weber" LW, "Max" MA). Where two people of a trip share them, the later one takes a later letter of the name that is free ("Mara" MR), and the same name again is numbered (M2).
+- No person colour is yellow, amber or orange; that colour is the warning colour (see section 28).
+- A missing person, such as nobody entered as having paid, is a dashed circle with a question mark: quiet while it is not decided yet, in the warning colour when something cannot work without it.
+- Stacks show at most four circles and then "+N". Where a list says who took part, everyone of the trip reads as one "Everyone" chip instead of the whole stack.
+
 A local app identity profile can be used as a template when creating the current user's person entity in a trip.
 
 ## 15. Participant timetable mode
@@ -611,6 +618,8 @@ Examples:
 Blocking errors are reserved for repository integrity or unsafe operations.
 
 Warnings are visible but should not create constant modal interruption.
+
+The warning colour (the amber `Warning`, `Warning.Soft` and `Warning.Line` tokens) is reserved for warnings and things that need attention, such as an estimate that still lacks what the card charged, a payment still to pay or open, or a missing payer. Nothing else uses yellow, amber or orange tones: not person colours, kinds of plans or categories, so the colour always means the same. Colour is never the only sign; an icon, a shape or a word says the same.
 
 ## 29. Public repository safety
 

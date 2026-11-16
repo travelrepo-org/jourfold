@@ -122,6 +122,42 @@ public partial class MainViewModel
         return true;
     }
 
+    /// <summary>
+    /// Changes the amount of an expense. When a card charge in another currency is recorded for it, the charge belonged
+    /// to the old amount, so Jourfold asks whether it changed too: if only the price was corrected, the charge and what
+    /// was paid back stay as they are; otherwise the new amount charged is entered with it, in one undoable step. An
+    /// expense now in the charged currency needs no charge any more. Cancelling changes nothing.
+    /// </summary>
+    public Task ChangeExpenseAmountAsync(Guid expenseId, Money amount) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip || trip.Find(expenseId) is not { Type: "expense" } expense) return;
+        var before = TripSummaries.Money(expense.Data["amount"]);
+        if (before is not null && before.Amount == amount.Amount && before.Currency == amount.Currency) return;
+        var changed = expense.Copy();
+        changed.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = amount.Value, ["currency"] = amount.Currency };
+        if (Expenses.ChargeOf(expense) is { } charge && charge.Source != Expenses.Cash && before is not null)
+        {
+            if (charge.Currency == amount.Currency) changed = Expenses.WithoutCharge(changed);
+            else
+            {
+                var charged = Formats.Money(charge.Value, charge.Currency);
+                var answer = await Interaction.ChooseAsync(string.Format(Strings["PriceChangedTitle"], Formats.Money(before.Amount, before.Currency), Formats.Money(amount.Amount, amount.Currency), charged),
+                [
+                    new("keep", string.Format(Strings["PriceChangedKeep"], charged), "check", Strings["PriceChangedKeepHint"]),
+                    new("charge", Strings["PriceChangedNewCharge"], "wallet", Strings["PriceChangedNewChargeHint"])
+                ]);
+                if (answer is null) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+                if (answer == "charge")
+                {
+                    if (await Interaction.PromptAsync(string.Format(Strings["ChargedIn"], charge.Currency), charge.Value.ToString(System.Globalization.CultureInfo.CurrentCulture)) is not { } text) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+                    if (ExchangeRates.Amount(text) is not { } value || value <= 0) { Interaction.Toast(Strings["ChargedNotNumber"]); ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+                    changed = Expenses.WithCharge(changed, value, charge.Currency, charge.Date ?? Today, charge.Source ?? "card");
+                }
+            }
+        }
+        await Workspace.EditAsync(changed);
+    });
+
     /// <summary>Changes the day of an amount charged, keeping the amount; for cash, the day of its rate.</summary>
     public Task SetChargeDayAsync(Guid expenseId, LocalDate day) => EditExpenseAsync(expenseId, (_, e) =>
         Expenses.ChargeOf(e) is not { } charge ? e

@@ -511,18 +511,13 @@ The database should be rebuildable from repositories and user settings wherever 
 
 ## 14. Search
 
-Use a derived local full-text index.
+The search over a trip is TravelRepo's `TripSearch`: an in-memory index built from the trip snapshot and kept as
+long as the snapshot is. Jourfold stores no copy of trip text for it; earlier versions kept an SQLite full-text
+index in the local database, which is dropped on start. The computer's palette and the phone's search page share
+the presentation rules in `Jourfold.UI/SearchTexts`.
 
-Index:
-- titles,
-- places,
-- Markdown,
-- comments,
-- tasks,
-- booking references where appropriate,
-- tags,
-- filenames,
-- URLs.
+It covers titles, places and addresses, journey ends, providers, connection and booking numbers, people, amounts,
+categories in the app's language, tasks, packing, file names, and Markdown notes on request.
 
 PDF OCR and image OCR are not v1 requirements.
 

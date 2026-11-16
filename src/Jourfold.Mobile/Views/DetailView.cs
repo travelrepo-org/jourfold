@@ -37,6 +37,8 @@ public static class DetailView
         var trip = s.Trip!; var str = s.Strings;
         var entry = s.Entry(item.Id);
         var page = Ui.V(14);
+        // Opened from the search: the way to where this is, in the plan or on its page.
+        if (SearchView.ShowButton(s, item) is { } show) page.Children.Add(show);
 
         // Glance
         if (entry is not null && TimeText.Local(entry, s.PhoneZone, str, s.Trip) is { Start.Length: > 0 } time)

@@ -31,15 +31,32 @@ public static class Lines
     }
 
     /// <summary>The compact trip header: cover, name, dates and travellers. Trip switching is the back button, not a menu.</summary>
+    /// <summary>
+    /// Frames the item a jump from the search led to in the accent colour and scrolls it into view once. Everything
+    /// else is returned as it is.
+    /// </summary>
+    public static Control Mark(MobileSession s, Guid id, Control control, double radius = 12)
+    {
+        if (s.Marked != id) return control;
+        var frame = new Border { BorderThickness = new Thickness(2), CornerRadius = new CornerRadius(radius), IsHitTestVisible = false }.Res(Border.BorderBrushProperty, "Accent");
+        var marked = new Panel { Children = { control, frame }, Tag = "marked" };
+        if (s.TakeMarkScroll()) marked.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => marked.BringIntoView(), Avalonia.Threading.DispatcherPriority.Loaded);
+        return marked;
+    }
+
     public static Control TripHeader(MobileSession s)
     {
         var trip = s.Trip!; var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
         var meta = string.Join(" · ", new[] { Formats.DateRange(start, end), Names(people, s) }.Where(t => t.Length > 0));
         var back = Ui.IconButton("chevron-left", s.Strings["Trips"]); back.Click += (_, _) => s.Close();
-        return Ui.Columns("Auto,Auto,*", back,
+        // The search is one tap away on every tab.
+        var search = Ui.IconButton("search", s.Strings["SearchTrip"]); search.Click += (_, _) => s.ShowSearch();
+        ToolTip.SetTip(search, s.Strings["SearchTrip"] + " (" + AppShell.Shortcut("K") + ")");
+        return Ui.Columns("Auto,Auto,*,Auto", back,
             Covers.Thumbnail(s.Workspace?.Repository, trip, 44, 44, 10).Margin(0, 0, 12, 0),
-            Ui.V(1, Ui.Line(trip.Manifest.Title, "title"), Ui.Line(meta.Length > 0 ? meta : s.Strings["NoDatesYet"], "caption"))).Margin(4, 6, 16, 6);
+            Ui.V(1, Ui.Line(trip.Manifest.Title, "title"), Ui.Line(meta.Length > 0 ? meta : s.Strings["NoDatesYet"], "caption")),
+            search.Margin(8, 0, 0, 0)).Margin(4, 6, 8, 6);
     }
 
     /// <summary>"Alex and Sam", "Alex, Sam and Kim".</summary>
@@ -162,13 +179,13 @@ public static class Lines
         }.Res(Border.BorderBrushProperty, "Kind." + key + ".Bar").Res(Border.BackgroundProperty, idea ? "Bg.Surface" : "Kind." + key + ".Bg");
         Control visual = idea ? Dashed(card, "Kind." + key + ".Bar") : card;
         if (state == LineState.Past || e.Status == "completed") visual.Opacity = 0.55;
-        if (onTap is null) return visual;
+        if (onTap is null) return Mark(s, e.Item.Id, visual);
         var button = new Button { Content = visual }.Classed("card");
         AutomationProperties.SetName(button, e.Item.Title + (details.Length > 0 ? ", " + details : ""));
         Menus.OnHold(button, () => s.ShowMenu(Menus.Item(s, e.Item)));
         // A button on the card, such as Navigate, does only its own thing.
         button.Click += (_, args) => { if (args.Source == button) onTap(); };
-        return button;
+        return Mark(s, e.Item.Id, button);
     }
 
     /// <summary>A dashed outline around a tentative item, drawn over its card.</summary>

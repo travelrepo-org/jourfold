@@ -28,25 +28,47 @@ public sealed partial class Dialogs
                 results.Children.Add(Ui.Text(group.Key.ToUpperInvariant(), "overline").Margin(10, 10, 0, 4));
                 foreach (var choice in group.Take(12))
                 {
-                    var content = Ui.Columns("Auto,*,Auto", Ui.Icon(choice.Icon, 16, "Text.Muted"), Ui.V(0, Ui.Line(choice.Title, "strong"), choice.Subtitle is null ? null : Ui.Line(choice.Subtitle, "caption")).Margin(12, 0), choice.Shortcut is null ? null : new Border { Child = Ui.Text(choice.Shortcut, "caption"), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Bg.Subtle"));
+                    var content = Ui.Columns("Auto,*,Auto", Ui.Icon(choice.Icon, 16, "Text.Muted"), Ui.V(0, choice.TitleRanges is { Count: > 0 } marks ? SearchTexts.Marked(choice.Title, marks, "strong") : Ui.Line(choice.Title, "strong"), choice.Subtitle is null ? null : choice.SubtitleRanges is { Count: > 0 } where ? SearchTexts.Marked(choice.Subtitle, where, "caption") : Ui.Line(choice.Subtitle, "caption")).Margin(12, 0), choice.Shortcut is null ? choice.Detail is null ? null : Ui.Text(choice.Detail, "caption").Also(t => t.VerticalAlignment = VerticalAlignment.Center) : new Border { Child = Ui.Text(choice.Shortcut, "caption"), Padding = new Thickness(6, 1), CornerRadius = new CornerRadius(4) }.Res(Border.BackgroundProperty, "Bg.Subtle"));
                     var button = new Button { Content = content, Padding = new Thickness(10, 7) }.Classed("row").Named(choice.Title);
+                    if (choice.Spoken is { } spoken) AutomationProperties.SetName(button, spoken);
                     button.Click += (_, _) => sheet?.Close(choice); results.Children.Add(button); buttons.Add((button, choice));
                 }
             }
             if (buttons.Count == 0) results.Children.Add(Ui.Text(s["NothingFound"], "muted").Margin(10, 12));
             Highlight();
         }
-        query.TextChanged += (_, _) => Fill();
+        // Typing searches after a short pause, so a long trip is not searched for every letter.
+        Avalonia.Threading.DispatcherTimer? pause = null;
+        query.TextChanged += (_, _) =>
+        {
+            pause?.Stop();
+            if (!model.HasTrip || string.IsNullOrWhiteSpace(query.Text)) { Fill(); return; }
+            pause = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(150) };
+            pause.Tick += (_, _) => { pause!.Stop(); Fill(); };
+            pause.Start();
+        };
+        // How the trip's results are grouped, and whether note texts are searched; both are remembered.
+        Control? options = null;
+        if (model.HasTrip)
+        {
+            var byDay = new RadioButton { Content = s["SearchByDay"], IsChecked = model.SearchByDay, GroupName = "search.group" };
+            var byKind = new RadioButton { Content = s["SearchByKind"], IsChecked = !model.SearchByDay, GroupName = "search.group" };
+            byDay.IsCheckedChanged += (_, _) => { if (byDay.IsChecked is { } on && on != model.SearchByDay) { model.SearchByDay = on; Fill(); } };
+            var notes = new CheckBox { Content = s["SearchNotes"], IsChecked = model.SearchNotes, Tag = "search.notes" };
+            notes.IsCheckedChanged += (_, _) => { model.SearchNotes = notes.IsChecked == true; Fill(); };
+            var grouping = Ui.H(12, byDay, byKind); AutomationProperties.SetName(grouping, s["SearchGrouping"]);
+            options = Ui.H(20, grouping, notes).Margin(4, 0);
+        }
         query.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Down && buttons.Count > 0) { index = Math.Min(buttons.Count - 1, index + 1); Highlight(); e.Handled = true; }
             if (e.Key == Key.Up && buttons.Count > 0) { index = Math.Max(0, index - 1); Highlight(); e.Handled = true; }
-            if (e.Key == Key.Enter && buttons.Count > 0) { sheet?.Close(buttons[index].Choice); e.Handled = true; }
+            if (e.Key == Key.Enter) { if (pause is { IsEnabled: true }) { pause.Stop(); Fill(); } if (buttons.Count > 0) sheet?.Close(buttons[index].Choice); e.Handled = true; }
         };
         Fill();
         var hint = Ui.H(14, Ui.Text("↑ ↓ " + s["PaletteNavigate"], "caption"), Ui.Text("Enter " + s["PaletteOpen"], "caption"), Ui.Text("Esc " + s["Close"], "caption"));
         var search = new Panel { Children = { query, Ui.Icon("search", 16, "Text.Subtle").Also(i => { i.HorizontalAlignment = HorizontalAlignment.Left; i.Margin = new Thickness(12, 0, 0, 0); }) } };
-        sheet = new DialogSheet(s["SearchTitle"], Ui.V(10, search, new ScrollViewer { Content = results, MaxHeight = 420 }, hint), 640, top: true) { ShowClose = false };
+        sheet = new DialogSheet(s["SearchTitle"], Ui.V(10, search, options, new ScrollViewer { Content = results, MaxHeight = 420 }, hint), 640, top: true) { ShowClose = false };
         sheet.Opened += (_, _) => query.Focus();
         return await sheet.ShowDialog<PaletteChoice>(owner);
     }

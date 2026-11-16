@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.VisualTree;
 using Jourfold.Application;
 using NodaTime;
 using TravelRepo.Core;
@@ -77,6 +78,10 @@ public sealed class QuickAddView
     private Guid? related, relatedBefore;
     // An expense's category, who shares it and what the card booked in the trip's currency, with how they were.
     private string? category, categoryBefore;
+    // The category the title of a new expense suggests while it is typed ("Taxi" is transport); kept unless another is chosen.
+    private string? titleCategory;
+    // Holds the category chips of the form as drawn last, so typing the title can replace them alone.
+    private ContentControl? categoryHost;
     private readonly HashSet<Guid> sharing = [];
     private Guid[] sharingBefore = [];
     private bool sharingTouched;
@@ -131,6 +136,15 @@ public sealed class QuickAddView
         // A budget starts in the trip's currency, an expense in the one most paid in.
         currency = kind == "budget" ? s.TripCurrencyCode : TripSummaries.Costs(trip).FirstOrDefault()?.Currency ?? "EUR";
         title.PlaceholderText = str["QuickAddTitleHint"]; AutomationProperties.SetName(title, str["Title"]);
+        // Only the category's chips are drawn again, so the title keeps the focus and the keyboard.
+        title.TextChanged += (_, _) =>
+        {
+            if (editing is not null || s.Trip is not { } now) return;
+            var suggested = ExpenseCategories.SuggestFromTitle(title.Text, now);
+            if (suggested == titleCategory) return;
+            titleCategory = suggested;
+            if (kind == "expense" && categoryHost is { } host && host.IsAttachedToVisualTree()) host.Content = CategoryControls();
+        };
         AutomationProperties.SetName(start, str["StartTime"]); AutomationProperties.SetName(end, str["EndTime"]);
         place.ItemsSource = from.ItemsSource = trip.Entities.Values.Where(e => e.Type == "place").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
         place.PlaceholderText = from.PlaceholderText = str["PlaceOptional"]; AutomationProperties.SetName(place, str["Place"]); AutomationProperties.SetName(from, str["From"]);
@@ -456,7 +470,8 @@ public sealed class QuickAddView
             if (PeopleField(str["Payer"]) is { } payers) rest.Children.Add(payers);
             rest.Children.Add(Field(str["BelongsTo"], RelatedControls()));
             rest.Children.Add(Field(str["SharedByLabel"], SharingControls()));
-            rest.Children.Add(Field(str["Category"], CategoryControls()));
+            categoryHost = new ContentControl { Content = CategoryControls() };
+            rest.Children.Add(Field(str["Category"], categoryHost));
             if (editing is null && s.Host.TakePhoto is { } take)
             {
                 var photo = Ui.Button(receipt is null ? str["PhotographReceipt"] : str["ReceiptTaken"], receipt is null ? "camera" : "check", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
@@ -736,7 +751,10 @@ public sealed class QuickAddView
         var str = s.Strings; var trip = s.Trip!;
         var probe = Entity.Create("expense", "");
         if (related is { } id && trip.Find(id) is { } target) probe.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = target.Type, ["id"] = id.ToString() });
-        var current = category ?? ExpenseCategories.Suggested(trip, probe) ?? ExpenseCategories.Other;
+        // What it belongs to says most; then the title of a new expense; a chosen category beats both.
+        var fromPlan = ExpenseCategories.Suggested(trip, probe);
+        var fromTitle = category is null && fromPlan is null && editing is null ? titleCategory : null;
+        var current = category ?? fromPlan ?? fromTitle ?? ExpenseCategories.Other;
         var chips = Ui.Flow(8);
         foreach (var c in ExpenseCategories.Standard.Concat(ExpenseCategories.Custom(trip)).Append(category).OfType<string>().Distinct(StringComparer.CurrentCultureIgnoreCase))
         {
@@ -750,7 +768,7 @@ public sealed class QuickAddView
             var add = Chip(str["NewCategory"], "plus", false, "chip");
             add.Click += (_, _) => { addingCategory = true; Render(); Avalonia.Threading.Dispatcher.UIThread.Post(() => newCategory.Focus(), Avalonia.Threading.DispatcherPriority.Background); };
             chips.Children.Add(add);
-            return chips;
+            return fromTitle is null ? chips : Ui.V(6, chips, Ui.Text(str["CategoryFromTitle"], "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Tag = "category.fromTitle"; }));
         }
         var ok = Ui.IconButton("check", str["NewCategory"]); ok.Click += (_, _) => TakeNewCategory();
         return Ui.V(8, chips, Ui.Columns("*,Auto", newCategory, ok));
@@ -1032,7 +1050,9 @@ public sealed class QuickAddView
             item.Data["estimated"] = estimated.IsChecked == true;
             var dueDay = estimated.IsChecked == true && dueDate.SelectedDate is { } picked ? LocalDate.FromDateTime(picked.Date) : (LocalDate?)null;
             if (dueDay != dueBefore || created) item = Expenses.WithDue(item, dueDay);
-            if (category != categoryBefore) item = ExpenseCategories.With(trip, item, category);
+            // A new expense keeps the category its title suggested, unless what it belongs to says more or another was chosen.
+            var chosenCategory = category ?? (created && ExpenseCategories.Suggested(trip, item) is null ? ExpenseCategories.SuggestFromTitle(item.Title, trip) : null);
+            if (chosenCategory != categoryBefore) item = ExpenseCategories.With(trip, item, chosenCategory);
             if (splitMethod is SplitMethod.Equal && sharing.Count > 0 && (created || splitTouched || !sharing.SetEquals(sharingBefore))) item = Expenses.WithSplit(item, SplitMethod.Equal, SplitPeople().Select(p => (p, (decimal?)null)));
             else if (splitMethod is { } method and not SplitMethod.Equal && sharing.Count > 0 && (created || splitTouched || !sharing.SetEquals(sharingBefore)))
                 item = Expenses.WithSplit(item, method, SplitPeople().Select(p => (p, ExchangeRates.Amount(SplitBox(p).Text))));

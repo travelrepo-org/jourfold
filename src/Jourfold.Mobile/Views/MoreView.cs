@@ -29,6 +29,8 @@ public static class MoreView
                 Row(s, "places", "map-pin", str["Places"], string.Format(CultureInfo.CurrentCulture, str["CountPlaces"], places)),
                 Row(s, "files", "paperclip", str["Files"], string.Format(CultureInfo.CurrentCulture, str["CountFiles"], files)),
                 Row(s, "costs", "wallet", str["Costs"], Jourfold.UI.CostTexts.PaidSummary(trip, s.TripCurrencyCode, s.EstimateRates) ?? (currencies.Length > 0 ? string.Join(" + ", currencies) : str["NoCostsYet"])),
+                // The map, while the bar's third button opens something else.
+                s.ThirdPlace == "map" || AppShell.HasSidebar(s, width) ? null : Row(s, "map", "map", str["Map"], null, s.OpenMap),
                 Row(s, "converter", "coins", str["Converter"], s.Rates is { } rates ? string.Format(CultureInfo.CurrentCulture, str["RatesFromShort"], rates.Date.ToString(Formats.DayPattern("d MMM", CultureInfo.GetCultureInfo(str.Language)), CultureInfo.GetCultureInfo(str.Language))) : null)),
             Group(str["TripTogether"],
                 Row(s, "trip", "pencil", str["TripDetails"], (Formats.DateRange(TripQueries.EffectiveDates(trip).Start, TripQueries.EffectiveDates(trip).End) is { Length: > 0 } range ? range : str["NoDatesYet"]) + " · " + s.TripCurrencyCode),
@@ -40,20 +42,21 @@ public static class MoreView
         return Ui.Scroll(page);
     }
 
-    private static Control Group(string title, params Control[] rows)
+    private static Control Group(string title, params Control?[] all)
     {
+        var rows = all.OfType<Control>().ToArray();
         var list = Ui.V(0);
         for (var i = 0; i < rows.Length; i++) { if (i > 0) list.Children.Add(Ui.Divider().Margin(52, 0, 0, 0)); list.Children.Add(rows[i]); }
         return Ui.V(8, Ui.Text(title, "overline").Margin(20, 0), new Border { Child = list, ClipToBounds = true }.Classed("card").Margin(16, 0));
     }
 
-    private static Control Row(MobileSession s, string page, string icon, string title, string? detail)
+    private static Control Row(MobileSession s, string page, string icon, string title, string? detail, Action? open = null)
     {
         var content = Ui.Columns("Auto,*,Auto", Ui.Icon(icon, 20, "Text.Muted").Margin(0, 0, 16, 0), Ui.V(1, Ui.Text(title, "strong"), detail is null ? null : Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle"))
             .Also(g => g.MinHeight = 40);
         var row = new Button { Content = content }.Classed("row");
         Avalonia.Automation.AutomationProperties.SetName(row, title);
-        row.Click += (_, _) => s.ShowPage(page);
+        row.Click += (_, _) => { if (open is not null) open(); else s.ShowPage(page); };
         return row;
     }
 

@@ -183,7 +183,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Store.Remember(path, next.State.Trip, remotes.Count > 0 ? "remote" : "local");
         RefreshRecent();
         shareKey = remotes.Count == 0 ? "Publish" : remotes.Values.Any(IsGitHubUrl) ? "Invite" : "Share"; OnPropertyChanged(nameof(SharingLabel));
-        Store.Index(path, next.State.Trip); _ = RefreshPrivacyAsync(remotes.Values); OnPropertyChanged(nameof(HasTrip)); OnPropertyChanged(nameof(IsLibrary)); OnPropertyChanged(nameof(IsSample));
+        _ = RefreshPrivacyAsync(remotes.Values); OnPropertyChanged(nameof(HasTrip)); OnPropertyChanged(nameof(IsLibrary)); OnPropertyChanged(nameof(IsSample));
         Selected = null;
         var preferred = Store.Get("openingView");
         View = preferred is { } p && p != "Remember" ? p : Store.Get("lastView") ?? "Plan";

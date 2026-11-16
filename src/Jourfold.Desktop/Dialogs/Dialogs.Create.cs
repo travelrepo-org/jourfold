@@ -267,7 +267,24 @@ public sealed partial class Dialogs
             splitDraft.Data["paid_by"] = new System.Text.Json.Nodes.JsonArray(peopleIds.Select(id => (System.Text.Json.Nodes.JsonNode?)id.ToString()).ToArray());
         }
         // The category edits the same draft, so a booking's stay already suggests accommodation.
-        void RenderCategory() => categoryHost.Content = ExpenseViews.CategoryEditor(s, trip, splitDraft, change => { splitDraft = change(trip, splitDraft); RenderCategory(); return Task.CompletedTask; }, () => PromptAsync(s["NewCategory"]));
+        // The title suggests one while it is typed ("Taxi" is transport), until a category is chosen by hand or what the
+        // expense belongs to says more.
+        var categoryChosen = false; string? categoryFromTitle = null;
+        void RenderCategory()
+        {
+            var editor = ExpenseViews.CategoryEditor(s, trip, splitDraft, change => { categoryChosen = true; categoryFromTitle = null; splitDraft = change(trip, splitDraft); RenderCategory(); return Task.CompletedTask; }, () => PromptAsync(s["NewCategory"]));
+            categoryHost.Content = categoryFromTitle is null ? editor : Ui.V(6, editor, Ui.Text(s["CategoryFromTitle"], "caption").Also(t => { t.TextWrapping = TextWrapping.Wrap; t.Tag = "category.fromTitle"; }));
+        }
+        void SuggestCategory()
+        {
+            if (kind != "expense" || categoryChosen) return;
+            var withoutOwn = ExpenseCategories.With(trip, splitDraft, null);
+            var suggested = ExpenseCategories.Suggested(trip, withoutOwn) is null ? ExpenseCategories.SuggestFromTitle(title.Text, trip) : null;
+            if (suggested == categoryFromTitle && ExpenseCategories.Stored(splitDraft) == suggested) return;
+            categoryFromTitle = suggested; splitDraft = ExpenseCategories.With(trip, withoutOwn, suggested);
+            RenderCategory();
+        }
+        title.TextChanged += (_, _) => SuggestCategory();
         void RenderSplit()
         {
             SyncSplitAmount();
@@ -302,7 +319,7 @@ public sealed partial class Dialogs
             if (next is { } target && trip.Find(target) is { } entity) splitDraft.Data["related"] = new System.Text.Json.Nodes.JsonArray(new System.Text.Json.Nodes.JsonObject { ["type"] = entity.Type, ["id"] = entity.Id.ToString() });
             else splitDraft.Data.Remove("related");
             if (wasSuggested && Expenses.PeopleFor(trip, related) is { Count: > 0 } sharingNow) splitDraft = Expenses.WithSplit(splitDraft, SplitMethod.Equal, sharingNow.Select(x => (x, (decimal?)null)));
-            if (kind == "expense") { RenderCategory(); RenderSplit(); }
+            if (kind == "expense") { SuggestCategory(); RenderCategory(); RenderSplit(); }
         };
 
         // Layout() rebuilds the rows whenever the type or a toggle changes. The editors themselves are kept, so typed text
@@ -352,7 +369,7 @@ public sealed partial class Dialogs
                 fields.Children.Add(planned);
                 fields.Children.Add(planned.IsChecked == true ? Row(s["Due"], due) : Row(s["PaidOnLabel"], paidOn));
                 fields.Children.Add(Row(s["BelongsTo"], belongsTo));
-                RenderCategory(); fields.Children.Add(Row(s["Category"], categoryHost));
+                SuggestCategory(); RenderCategory(); fields.Children.Add(Row(s["Category"], categoryHost));
             }
             if (kind == "expense" && TripPeople.Travelers(trip).Count > 0) { RenderSplit(); fields.Children.Add(Row(s["Split"], splitHost)); }
             if (kind == "expense") fields.Children.Add(Row(s["Receipt"], receipt));

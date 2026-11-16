@@ -97,6 +97,27 @@ try
         s.ShowPage("costs");
         s.ToggleGroup(s.Trip!.Entities.Values.First(e => e.Type == "expense" && e.Title == "Flights").Id);
         await Capture("costs");
+        await Capture("costs-dark", theme: ThemeVariant.Dark);
+        // The costs as the bar's third place, as they are unless the user chose something else.
+        s.ShowThirdPlace();
+        await Capture("costs-place", 412, 2400);
+        // The search: empty, results by day and by kind, a result's details over it, and the jump to the plan.
+        s.ShowTab(MobileTab.Today); s.ShowSearch();
+        await Capture("search");
+        s.Drafts[MobileSession.SearchDraft] = "shin"; s.Redraw();
+        await Capture("search-results");
+        await Capture("search-results-dark", theme: ThemeVariant.Dark);
+        await Capture("tablet-search", 1194, 834);
+        s.SearchByDay = false; s.Redraw();
+        await Capture("search-by-kind");
+        s.SearchByDay = true; s.Drafts[MobileSession.SearchDraft] = "gracry"; s.Redraw();
+        await Capture("search-typo");
+        var found = Jourfold.UI.SearchTexts.Find(s.Strings, s.Trip!, "shinkansen", false)[0].Entity;
+        s.Drafts[MobileSession.SearchDraft] = "shinkansen"; s.ShowDetails(found.Id);
+        await Capture("search-details");
+        s.ShowInPlace(found.Id);
+        await Capture("search-shown");
+        s.GoBack(); s.Drafts.Remove(MobileSession.SearchDraft);
         s.ShowPage("travellers");
         await Capture("travellers");
         s.ShowPage("sync"); await s.RefreshVersionsAsync();

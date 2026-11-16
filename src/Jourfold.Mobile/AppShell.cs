@@ -121,7 +121,7 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>
-    /// Shortcuts for a hardware keyboard: Ctrl+N adds, Ctrl+1 to Ctrl+4 open the four places, the arrow keys move
+    /// Shortcuts for a hardware keyboard: Ctrl+N adds, Ctrl+K or Ctrl+F searches, Ctrl+1 to Ctrl+4 open the four places, the arrow keys move
     /// between days, Escape goes back. Typing in a field keeps its keys, except Escape.
     /// </summary>
     private void OnKey(object? sender, Avalonia.Input.KeyEventArgs e)
@@ -132,7 +132,8 @@ public sealed class AppShell : UserControl
         switch (e.Key)
         {
             case Avalonia.Input.Key.N when ctrl: Session.ShowQuickAdd(); break;
-            case >= Avalonia.Input.Key.D1 and <= Avalonia.Input.Key.D4 when ctrl: Session.ShowTab(Places[e.Key - Avalonia.Input.Key.D1].Tab); break;
+            case Avalonia.Input.Key.K or Avalonia.Input.Key.F when ctrl: Session.ShowSearch(); break;
+            case >= Avalonia.Input.Key.D1 and <= Avalonia.Input.Key.D4 when ctrl: Go(ShownPlaces()[e.Key - Avalonia.Input.Key.D1]); break;
             case Avalonia.Input.Key.Left when Session.Showing == Overlay.None && Session.Tab is MobileTab.Plan or MobileTab.Map: Session.StepDay(-1); break;
             case Avalonia.Input.Key.Right when Session.Showing == Overlay.None && Session.Tab is MobileTab.Plan or MobileTab.Map: Session.StepDay(1); break;
             default: return;
@@ -542,17 +543,56 @@ public sealed class AppShell : UserControl
         return new Border { Child = card, Background = new SolidColorBrush(Colors.Black, 0.32) }.Classed("question");
     }
 
-    private static readonly (MobileTab Tab, string Icon, string Label)[] Places =
-        [(MobileTab.Today, "calendar", "Today"), (MobileTab.Plan, "list", "Plan"), (MobileTab.Map, "map", "Map"), (MobileTab.More, "ellipsis", "More")];
+    /// <summary>A place of the bar, rail or sidebar: a tab, or a page of the trip shown as a place of its own.</summary>
+    private readonly record struct PlaceEntry(MobileTab Tab, string? Page, string Icon, string Label);
 
-    private Button Place(MobileTab tab, string icon, string label)
+    private static readonly PlaceEntry Today = new(MobileTab.Today, null, "calendar", "Today"), Plan = new(MobileTab.Plan, null, "list", "Plan"),
+        MapPlace = new(MobileTab.Map, null, "map", "Map"), More = new(MobileTab.More, null, "ellipsis", "More");
+
+    /// <summary>The third button as chosen in the settings: the costs unless the user chose otherwise.</summary>
+    public static (string Icon, string Label) ThirdPlaceLook(string place) => place switch
     {
-        var s = Session.Strings; var text = s[label];
-        var key = Array.FindIndex(Places, p => p.Tab == tab) + 1;
-        var button = new ChoiceButton { IsSelected = Session.Tab == tab, Content = Ui.V(3, Ui.Icon(icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
+        "map" => ("map", "Map"),
+        "bookings" => ("ticket", "Bookings"),
+        "tasks" => ("square-check", "Tasks"),
+        "packing" => ("backpack", "Packing"),
+        _ => ("wallet", "Costs")
+    };
+
+    /// <summary>Today, Plan, what the user chose as the third, and More: the places of the bottom bar and the rail.</summary>
+    private PlaceEntry[] BarPlaces()
+    {
+        var third = Session.ThirdPlace; var (icon, label) = ThirdPlaceLook(third);
+        return [Today, Plan, third == "map" ? MapPlace : new(MobileTab.More, third, icon, label), More];
+    }
+
+    /// <summary>Whether the open sidebar shows, which lists the map and every page of the trip itself.</summary>
+    public static bool HasSidebar(MobileSession session, WidthClass width) => width == WidthClass.Wide && session.Settings.Values.GetValueOrDefault("sidebar") != "collapsed";
+
+    /// <summary>The four places as shown now: the sidebar keeps the map, since it lists the trip's pages below.</summary>
+    private PlaceEntry[] ShownPlaces() => HasSidebar(Session, Breakpoint) ? [Today, Plan, MapPlace, More] : BarPlaces();
+
+    private void Go(PlaceEntry place) { if (place.Page is null) Session.ShowTab(place.Tab); else Session.ShowThirdPlace(); }
+
+    /// <summary>
+    /// Whether the user is at a place of the bar. A page that is the third place marks its own button, wherever it
+    /// was opened from; everything else under More marks More, and so does the map when it has no button.
+    /// </summary>
+    private bool IsAt(PlaceEntry place)
+    {
+        var third = BarPlaces()[2];
+        if (place.Page is { } page) return Session.Tab == MobileTab.More && Session.Page == page;
+        if (place.Tab == MobileTab.More) return Session.Tab == MobileTab.More && !(third.Page is not null && Session.Page == third.Page) || Session.Tab == MobileTab.Map && third.Tab != MobileTab.Map;
+        return Session.Tab == place.Tab;
+    }
+
+    private Button Place(PlaceEntry place, int number)
+    {
+        var s = Session.Strings; var text = s[place.Label];
+        var button = new ChoiceButton { IsSelected = IsAt(place), Content = Ui.V(3, Ui.Icon(place.Icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
-        ToolTip.SetTip(button, text + " (" + Shortcut(key.ToString(CultureInfo.InvariantCulture)) + ")");
-        button.Click += (_, _) => Session.ShowTab(tab);
+        ToolTip.SetTip(button, text + " (" + Shortcut(number.ToString(CultureInfo.InvariantCulture)) + ")");
+        button.Click += (_, _) => Go(place);
         return button;
     }
 
@@ -565,15 +605,16 @@ public sealed class AppShell : UserControl
         return plus;
     }
 
-    /// <summary>Today, Plan, the plus, Map, More: the plus sits in the middle, within thumb reach.</summary>
+    /// <summary>Today, Plan, the plus, the third place (the costs unless chosen otherwise), More: the plus sits in the middle, within thumb reach.</summary>
     private Control BottomBar()
     {
         var grid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,Auto,*,*"), Margin = new Thickness(4, 0) };
-        grid.Children.Add(Place(Places[0].Tab, Places[0].Icon, Places[0].Label).Col(0));
-        grid.Children.Add(Place(Places[1].Tab, Places[1].Icon, Places[1].Label).Col(1));
+        var places = BarPlaces();
+        grid.Children.Add(Place(places[0], 1).Col(0));
+        grid.Children.Add(Place(places[1], 2).Col(1));
         grid.Children.Add(Plus().Margin(8, 4).Col(2));
-        grid.Children.Add(Place(Places[2].Tab, Places[2].Icon, Places[2].Label).Col(3));
-        grid.Children.Add(Place(Places[3].Tab, Places[3].Icon, Places[3].Label).Col(4));
+        grid.Children.Add(Place(places[2], 3).Col(3));
+        grid.Children.Add(Place(places[3], 4).Col(4));
         return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
     }
 
@@ -584,7 +625,8 @@ public sealed class AppShell : UserControl
     private Control Rail()
     {
         var items = Ui.V(4, Plus().Also(p => p.HorizontalAlignment = HorizontalAlignment.Center).Margin(0, 12, 0, 16));
-        foreach (var (tab, icon, label) in Places) items.Children.Add(Place(tab, icon, label).Also(b => b.Width = 80));
+        var places = BarPlaces();
+        for (var i = 0; i < places.Length; i++) items.Children.Add(Place(places[i], i + 1).Also(b => b.Width = 80));
         var layout = new Grid { RowDefinitions = new RowDefinitions("*,Auto"), Children = { items } };
         if (Breakpoint == WidthClass.Wide) layout.Children.Add(SidebarToggle(open: true).Row(1));
         return new Border { Child = layout, Width = 88, BorderThickness = new Thickness(0, 0, 1, 0) }.Classed("bar");
@@ -603,9 +645,10 @@ public sealed class AppShell : UserControl
         var items = Ui.V(4, Ui.Text(trip.Manifest.Title, "strong").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis).Margin(8, 16, 8, 2),
             Ui.Text(Formats.DateRange(TravelRepo.Core.TripQueries.EffectiveDates(trip).Start, TravelRepo.Core.TripQueries.EffectiveDates(trip).End), "caption").Margin(8, 0, 8, 14),
             add.Margin(0, 0, 0, 12));
-        for (var i = 0; i < Places.Length; i++)
+        var places = ShownPlaces();
+        for (var i = 0; i < places.Length; i++)
         {
-            var (tab, icon, label) = Places[i];
+            var (tab, _, icon, label) = places[i];
             var text = s[label];
             var button = new ChoiceButton
             {

@@ -73,6 +73,8 @@ public sealed class MapPage : UserControl
         BuildOverlay();
         if (day?.Date != fitted && Bounds.Width > 0) Fit();
         else if (s.SelectedItem is { } chosen && stops.FirstOrDefault(x => x.Entry.Item.Id == chosen)?.At is { } at) { surface.CenterOn(at); Shift(); }
+        // A place found by the search that no plan of the day uses: the map moves there.
+        if (s.TakeMapCenter() is { } found) { surface.CenterOn(found); Shift(); }
         Place();
     }
 

@@ -112,8 +112,42 @@ Samsung DeX windows, and changes as soon as a window changes size; attaching a k
   can show the list closed and the timetable open.
 
 With a mouse, rows, places and cards show where the pointer is (only then, so a tapped row does not stay marked),
-and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+1 to
-Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and Map, and Escape to go back.
+and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+K or
+Ctrl+F for the search, Ctrl+1 to Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and
+Map, and Escape to go back.
+
+## The bar and its third button
+
+The bottom bar, and the rail from 600 dp, has Today, Plan, the plus and More in fixed places. The button between the
+plus and More opens the **Costs** unless something else is chosen under **Settings → Third button of the bar**: the
+map, the bookings, the tasks or the packing lists. The choice stays on the device (`bar.third` in the settings file).
+A page opened with that button is a place like Today: it has no way back of its own, back leads to Today, and its
+button is marked wherever the page was opened from. While the map is not the third button, **More** lists it, and
+back from it returns to More. The sidebar on wide screens keeps Today, Plan, Map and More, since it lists the trip's
+pages below them.
+
+## Search
+
+The magnifier in the trip's header, on Today, Plan and More, opens the search with the field ready to type in.
+TravelRepo's `TripSearch` does the finding, the same as on the computer and in the MCP `search` tool; the app only
+shows the results (`SearchView`, and `SearchTexts` in Jourfold.UI, which the computer shares).
+
+- It finds plans, bookings, costs, places, tasks, packing lists and their items, notes by title and files by name, by
+  title, place, address, journey ends, provider, connection and booking number, people, amount, and category in the
+  app's language ("Essen" finds food). Case and accents do not matter, a beginning of a word is enough, and one typo
+  is forgiven in words of five letters or more. Every word must be found.
+- Note texts are searched only with **Also search notes**, which the device remembers.
+- The **best match** stands on top, larger, with its day and time. Below, results are grouped **by day**, in trip
+  order (during the trip today first, then the coming days, then the past ones), and what has no day by kind; or
+  **by kind** throughout. Chips limit the results to one kind. Each result shows the kind's icon, the title with the
+  words found marked (bold and underlined, in the accent colour), where it was found when the title did not match
+  ("Booking no.: GR-1187"), and the day or time.
+- Typing only draws the results again, after a pause of 150 ms, so the field keeps the focus and the keyboard.
+- A tap opens the result's details over the search (a place's form, a packing item's page, a file's viewer). Closing
+  them returns to the same words, results and position. **Show in the plan** (or in the bookings, the costs, the
+  tasks, on the map) in the details, or holding a result, jumps there: a plan to its day, framed in the accent
+  colour and scrolled into view; a booking or payment to its page with the row unfolded; a place to the map on the
+  day of a plan there. Back returns to the search.
 
 Back, by gesture, Escape or the button at the top of a page, returns to where something was opened from. A page
 opened from Today, such as the packing lists, goes back to Today; one opened from More, the rail or the sidebar goes
@@ -304,8 +338,11 @@ usual spelling and the phone number below.
   expense form offers the same chips in the same order; choosing one only moves the mark. No currency is offered only because the bank quotes
   its rates against the euro.
 - **Costs** (More → Costs): the total and budget in the trip currency, who owes whom (one line per person), payments
-  still to pay with **Mark as paid**, budgets, categories per person and the payments by day with a search over name,
-  category, people and what they belong to. **Add expense** and the plus on that page start an expense: the day it was
+  still to pay with **Mark as paid**, budgets, categories per person under their total (for everyone, or for the
+  people chosen), and the payments by day, each with the icon of its category before its title, with a search over name,
+  category, people and what they belong to. The title of a new expense suggests its category while it is typed
+  ("Taxi" is transport, "Restaurant" food; TravelRepo's `ExpenseCategories.SuggestFromTitle`), marked on the chips
+  with a line that says so; it is kept unless another is chosen, and what the expense belongs to says more than its title. **Add expense** and the plus on that page start an expense: the day it was
   paid, its currency (chips as on the converter, including the ones chosen lately there; **Other** suggests codes while
   typing and takes one with Enter), what the card charged in the trip currency, who paid, what it belongs to, how it is split (equally, by amounts,
   shares or percent; only a split that adds up can be saved), a category or a new one. **Pay back…** is the pay

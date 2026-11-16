@@ -67,7 +67,12 @@ public sealed record QuickAddRequest(string Kind, TripSnapshot Trip, LocalDate D
     /// <summary>Whether the new expense is still to pay, such as the rest of a booking due on site.</summary>
     public bool Planned { get; init; }
 }
-public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut);
+/// <param name="Detail">A quiet text at the right, such as the day and time of a search result.</param>
+/// <param name="TitleRanges">The parts of the title a search found, to mark.</param>
+/// <param name="SubtitleRanges">The parts of the subtitle a search found, to mark.</param>
+/// <param name="Spoken">What a screen reader says instead of the title alone.</param>
+public sealed record PaletteChoice(string Id, string Title, string? Subtitle, string Icon, string Group, string? Shortcut, string? Detail = null,
+    IReadOnlyList<TravelRepo.Core.TextRange>? TitleRanges = null, IReadOnlyList<TravelRepo.Core.TextRange>? SubtitleRanges = null, string? Spoken = null);
 public sealed record ConflictPrompt(string Title, string Field, string Current, string Incoming, IReadOnlyList<string> Actions, string CurrentRaw);
 public sealed record ConflictAnswer(string Action, string? Text = null);
 /// <summary>How far a long task has come, for a progress bar: <paramref name="Done"/> of <paramref name="Total"/> steps, or an open-ended wait when the total is 0.</summary>

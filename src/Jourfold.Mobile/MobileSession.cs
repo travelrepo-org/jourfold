@@ -145,7 +145,7 @@ public sealed partial class MobileSession : IDisposable
         Workspace = workspace; workspace.Changed += OnWorkspaceChanged;
         await ApplyIdentityAsync(ct);
         Agenda = TripAgenda.Build(workspace.State.Trip);
-        Tab = MobileTab.Today; Page = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
+        Tab = MobileTab.Today; Page = null; pageAsPlace = false; Unmark(); SearchOnly = null; SelectedItem = null; expanded.Clear(); HasChanges = false; trail.Clear(); detailTrail.Clear();
         SelectedDate = Agenda.Find(PhoneToday) is not null ? PhoneToday : Agenda.Days.FirstOrDefault()?.Date ?? PhoneToday;
         await RefreshRemoteAsync(ct);
         // Changes left from the last time, for example when Android stopped the app, become a version soon.
@@ -176,7 +176,7 @@ public sealed partial class MobileSession : IDisposable
 
     private void Reset()
     {
-        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; VersionProblem = null; PendingMerge = null; Drafts.Remove("version");
+        quiet?.Dispose(); quiet = null; HasChanges = false; History = []; Page = null; trail.Clear(); detailTrail.Clear(); Remote = null; SyncProblem = null; VersionProblem = null; PendingMerge = null; Drafts.Remove("version"); Drafts.Remove(SearchDraft);
         viewing.Clear(); FileProblem = null; TaxiCard = null;
         Agenda = new([], []); Showing = Overlay.None; OverlayItem = null; Asking = null; Changed?.Invoke();
     }
@@ -200,13 +200,52 @@ public sealed partial class MobileSession : IDisposable
     }
 
     /// <summary>Goes to a tab from the bottom bar, rail or sidebar; the way back starts there.</summary>
-    public void ShowTab(MobileTab tab) { Tab = tab; Page = null; trail.Clear(); Changed?.Invoke(); }
+    public void ShowTab(MobileTab tab) { Tab = tab; Page = null; trail.Clear(); pageAsPlace = false; Unmark(); Changed?.Invoke(); }
+
+    /// <summary>What the third button of the bar can open: a page of the trip, or the map.</summary>
+    public static readonly IReadOnlyList<string> ThirdPlaces = ["costs", "map", "bookings", "tasks", "packing"];
+
+    /// <summary>
+    /// What the button between the plus and More opens on this device: the costs unless the user chose something
+    /// else in the settings. Today, Plan, the plus and More are fixed.
+    /// </summary>
+    public string ThirdPlace => Settings.Values.GetValueOrDefault("bar.third") is { } chosen && ThirdPlaces.Contains(chosen) ? chosen : "costs";
+
+    /// <summary>Chooses what the third button of the bar opens, and remembers it on this device.</summary>
+    public void SetThirdPlace(string place)
+    {
+        if (!ThirdPlaces.Contains(place) || place == ThirdPlace) return;
+        Settings.Values["bar.third"] = place; Settings.Save(); Changed?.Invoke();
+    }
+
+    // Whether the page showing was opened with the third button of the bar, as a place of its own.
+    private bool pageAsPlace;
+
+    /// <summary>
+    /// Whether the page showing is a place of the bar, opened with its third button: it has no way back of its own,
+    /// and back leads to Today as from the other places.
+    /// </summary>
+    public bool PageIsPlace => pageAsPlace && trail.Count == 0 && Page is not null && Page == ThirdPlace;
+
+    /// <summary>Goes to what the third button of the bar opens: a page as a place of its own, or the map.</summary>
+    public void ShowThirdPlace()
+    {
+        if (ThirdPlace == "map") { ShowTab(MobileTab.Map); return; }
+        trail.Clear(); pageAsPlace = true; Go(ThirdPlace);
+    }
+
+    /// <summary>Opens the map from More, when the bar has another third button; back returns to where it was opened from.</summary>
+    public void OpenMap()
+    {
+        if (Tab != MobileTab.Map) trail.Add((Tab, Page));
+        Tab = MobileTab.Map; Page = null; Changed?.Invoke();
+    }
 
     /// <summary>
     /// Opens a page under More as a place of its own, from More, the rail or the sidebar: back leads to More. The sync
     /// page appears once its versions are read, so it is drawn only once.
     /// </summary>
-    public void ShowPage(string? page) { trail.Clear(); Go(page); }
+    public void ShowPage(string? page) { trail.Clear(); pageAsPlace = false; Unmark(); Go(page); }
 
     /// <summary>Opens a page under More from somewhere else, such as Today or another page; back returns there.</summary>
     public void OpenPage(string page)
@@ -232,13 +271,14 @@ public sealed partial class MobileSession : IDisposable
     /// <summary>Back from a page: to where it was opened from, otherwise to More. False on a tab itself.</summary>
     public bool GoBack()
     {
+        Unmark();
         if (trail.Count > 0)
         {
             (Tab, Page) = trail[^1]; trail.RemoveAt(trail.Count - 1);
             if (Page == "sync" && Workspace is not null) _ = RefreshVersionsAsync(force: true); else Changed?.Invoke();
             return true;
         }
-        if (Page is null) return false;
+        if (Page is null || PageIsPlace) return false;
         Go(null);
         return true;
     }

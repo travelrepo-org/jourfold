@@ -59,9 +59,9 @@ Both repositories were built after deleting their source/test/sample bin and obj
 | 46. Historical conversion | PASS | Conversion context schema; no automatic current-rate rewriting. |
 | 48. Collections | PASS | Collection references and editor. |
 | 49. Map | PASS | Web Mercator map from trip coordinates with category markers, transport routes and shared selection; fully offline by default. OpenStreetMap tiles and Nominatim address search are opt-in, cached, rate-limited and attributed; no API key. |
-| 50. Command palette | PASS | Ctrl+K palette with live search over trip content (FTS), navigation and commands, grouped results and keyboard navigation. |
+| 50. Command palette | PASS | Ctrl+K palette with live search over trip content (TravelRepo's `TripSearch`), navigation and commands, results grouped by day or by kind, and keyboard navigation. |
 | 51. Quick Add | PASS | One Quick Add sheet for activity, food, sight, transport, stay, booking, task, note, place, person, expense, budget and collection; transport modes as chips; places created by name; one undoable edit. Tests build schema-valid entities for every type. |
-| 52. Search | PASS | Rebuildable SQLite FTS index for canonical fields and Markdown. |
+| 52. Search | PASS | TravelRepo's in-memory `TripSearch` over canonical fields and Markdown, rebuilt from the trip whenever it changes; nothing is stored. The same search on phones and tablets. |
 | 53. GitHub authentication | PASS | Real GitHub App device authorization approved on 2026-09-30; token persisted through Jourfold OsSecretStore and reused by fresh instances. No client secret or App private key used. |
 | 54. GitHub discovery | PASS | Live granted-installation manifest discovery and Jourfold discovery command selected, cloned and opened private OWNER/jourfold-smoke with scripted dialog choices. |
 | 55. GitHub create/publish | PASS | Live SDK and Jourfold Publish command created private repositories, set remotes and pushed initial versions. Library-state bug found and fixed; regression tests cover successful and failed initial pushes. |

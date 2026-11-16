@@ -63,6 +63,14 @@
           "Avalonia": "12.1.4"
         }
       },
+      "Avalonia.HtmlRenderer": {
+        "type": "Transitive",
+        "resolved": "12.0.0",
+        "contentHash": "JWwvZzECMVI4oPzYgZ3wXi6ybG5CgFpdzV1UaFD7nUQKd+sMLk+xy6NceXzoNFjgc+UkLzQKxIrE5tjqki8NCg==",
+        "dependencies": {
+          "Avalonia": "12.0.0"
+        }
+      },
       "Avalonia.Remote.Protocol": {
         "type": "Transitive",
         "resolved": "12.1.4",
@@ -208,11 +216,11 @@
       "jourfold.application": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Git": "[0.6.0, )",
-          "TravelRepo.Merge": "[0.6.0, )",
-          "TravelRepo.Plugins.Abstractions": "[0.6.0, )",
-          "TravelRepo.Providers.GitHub": "[0.6.0, )",
-          "TravelRepo.Providers.Weather": "[0.6.0, )"
+          "TravelRepo.Git": "[0.13.0, )",
+          "TravelRepo.Merge": "[0.13.0, )",
+          "TravelRepo.Plugins.Abstractions": "[0.13.0, )",
+          "TravelRepo.Providers.GitHub": "[0.13.0, )",
+          "TravelRepo.Providers.Weather": "[0.13.0, )"
         }
       },
       "jourfold.mobile": {
@@ -220,17 +228,18 @@
         "dependencies": {
           "Avalonia": "[12.1.4, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "Jourfold.UI": "[0.7.1, )",
-          "TravelRepo.Documents": "[0.6.0, )"
+          "Jourfold.UI": "[0.14.0, )",
+          "TravelRepo.Documents": "[0.13.0, )"
         }
       },
       "jourfold.ui": {
         "type": "Project",
         "dependencies": {
           "Avalonia": "[12.1.4, )",
+          "Avalonia.HtmlRenderer": "[12.0.0, )",
           "Avalonia.Themes.Fluent": "[12.1.4, )",
-          "Jourfold.Application": "[0.7.1, )",
-          "TravelRepo.Documents": "[0.6.0, )",
+          "Jourfold.Application": "[0.14.0, )",
+          "TravelRepo.Documents": "[0.13.0, )",
           "ZXing.Net": "[0.16.10, )"
         }
       },
@@ -246,59 +255,59 @@
           "MimeKit": "[4.18.1, )",
           "PdfPig": "[0.1.16, )",
           "System.Security.Cryptography.Pkcs": "[10.0.13, )",
-          "TravelRepo.Core": "[0.6.0, )"
+          "TravelRepo.Core": "[0.13.0, )"
         }
       },
       "travelrepo.git": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Repository": "[0.6.0, )"
+          "TravelRepo.Repository": "[0.13.0, )"
         }
       },
       "travelrepo.merge": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Repository": "[0.6.0, )"
+          "TravelRepo.Repository": "[0.13.0, )"
         }
       },
       "travelrepo.plugins.abstractions": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.6.0, )"
+          "TravelRepo.Core": "[0.13.0, )"
         }
       },
       "travelrepo.providers.abstractions": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.6.0, )"
+          "TravelRepo.Core": "[0.13.0, )"
         }
       },
       "travelrepo.providers.github": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Providers.Abstractions": "[0.6.0, )",
-          "TravelRepo.Serialization": "[0.6.0, )"
+          "TravelRepo.Providers.Abstractions": "[0.13.0, )",
+          "TravelRepo.Serialization": "[0.13.0, )"
         }
       },
       "travelrepo.providers.weather": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.6.0, )",
-          "TravelRepo.Providers.Abstractions": "[0.6.0, )"
+          "TravelRepo.Core": "[0.13.0, )",
+          "TravelRepo.Providers.Abstractions": "[0.13.0, )"
         }
       },
       "travelrepo.repository": {
         "type": "Project",
         "dependencies": {
-          "TravelRepo.Core": "[0.6.0, )",
-          "TravelRepo.Serialization": "[0.6.0, )"
+          "TravelRepo.Core": "[0.13.0, )",
+          "TravelRepo.Serialization": "[0.13.0, )"
         }
       },
       "travelrepo.serialization": {
         "type": "Project",
         "dependencies": {
           "JsonSchema.Net": "[7.3.4, )",
-          "TravelRepo.Core": "[0.6.0, )",
+          "TravelRepo.Core": "[0.13.0, )",
           "YamlDotNet": "[16.3.0, )"
         }
       }

@@ -405,6 +405,9 @@ public static class ExpenseViews
         {
             if (currency.Key != home) rows.Children.Add(Ui.Text(string.Format(s["NotConvertedIn"], currency.Key), "caption").Margin(0, 6, 0, 0));
             var sum = currency.Sum(t => t.Amount);
+            // What it all comes to, for everyone or for the people chosen, above what it is made of.
+            var total = m.CategoryPeople.Count == 0 ? s["CategoryTotal"] : string.Format(s["CategoryTotalOf"], string.Join(", ", TripPeople.Travelers(trip).Where(p => m.CategoryPeople.Contains(p.Id)).Select(p => p.Title)));
+            rows.Children.Add(Ui.Columns("Auto,*,Auto", Ui.Icon("calculator", 14, "Text.Muted").Margin(0, 0, 8, 0), Ui.Text(total, "strong"), Ui.Text((currency.Any(t => t.Estimated) ? "≈ " : "") + Formats.Money(sum, currency.Key), "strong")).Also(r => r.Tag = "category.total"));
             foreach (var t in currency)
             {
                 var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);

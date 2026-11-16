@@ -28,6 +28,7 @@ public static class MorePages
         "places" => Places(s),
         "files" => Files(s),
         "costs" => Costs(s, width),
+        "search" => SearchView.Build(s, width),
         "pay" => Pay(s),
         "travellers" => Travellers(s),
         "sync" => Sync(s),
@@ -46,9 +47,14 @@ public static class MorePages
     /// <summary>A page with a way back to where it was opened from and a large title.</summary>
     private static Control Frame(MobileSession s, string title, params Control?[] body)
     {
-        var back = Ui.Button(s.BackLabel, "chevron-left", "ghost").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.Padding = new Thickness(8, 8, 12, 8); });
-        back.Click += (_, _) => s.GoBack();
-        var page = Ui.V(16, Ui.V(4, back, Ui.Text(title, "h1").Margin(16, 0)));
+        // A page opened with the third button of the bar is a place of its own, like Today: nothing to go back to.
+        Button? back = null;
+        if (!s.PageIsPlace)
+        {
+            back = Ui.Button(s.BackLabel, "chevron-left", "ghost").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.Padding = new Thickness(8, 8, 12, 8); });
+            back.Click += (_, _) => s.GoBack();
+        }
+        var page = Ui.V(16, Ui.V(4, back, Ui.Text(title, "h1").Margin(16, back is null ? 12 : 0, 16, 0)));
         foreach (var part in body) if (part is not null) page.Children.Add(part);
         page.Margin = new Thickness(0, 4, 0, 32);
         return Ui.Scroll(page);
@@ -77,7 +83,7 @@ public static class MorePages
         var button = new Button { Content = summary }.Classed("row");
         button.Click += (_, _) => s.ToggleGroup(id);
         AutomationProperties.SetName(button, Ui.FindDescendant<TextBlock>(summary, _ => true)?.Text);
-        return open ? Ui.V(0, button, details().Margin(16, 0, 16, 16)) : button;
+        return Lines.Mark(s, id, open ? Ui.V(0, button, details().Margin(16, 0, 16, 16)) : button, 0);
     }
 
     /// <summary>Starts the name of a field made by <see cref="Draft"/>, so the shell can find it again after drawing the page.</summary>
@@ -545,7 +551,7 @@ public static class MorePages
         var box = new CheckBox { IsChecked = done, Content = Ui.V(2, name, caption), MinHeight = 56, Padding = new Thickness(12, 0, 0, 0), Margin = new Thickness(16, 4) };
         AutomationProperties.SetName(box, task.Title);
         box.IsCheckedChanged += async (_, _) => await s.SetTaskDoneAsync(task.Id, box.IsChecked == true);
-        return box;
+        return Lines.Mark(s, task.Id, box, 0);
     }
 
     // Costs
@@ -804,6 +810,10 @@ public static class MorePages
             if (group.Key != home) rows.Add(Ui.Text(string.Format(CultureInfo.CurrentCulture, str["NotConvertedIn"], group.Key), "caption").Margin(16, 8, 16, 2));
             // Each with its part of the whole as a bar and in percent, as on the computer.
             var sum = group.Sum(t => t.Amount);
+            // What it all comes to, for everyone or for the people chosen, above what it is made of.
+            var whose = s.CategoryPeople.Count == 0 ? str["CategoryTotal"] : string.Format(CultureInfo.CurrentCulture, str["CategoryTotalOf"], Lines.Names(TripPeople.Travelers(trip).Where(p => s.CategoryPeople.Contains(p.Id)).Select(p => p.Title).ToArray(), s));
+            rows.Add(Ui.Columns("Auto,*,Auto", Ui.Icon("calculator", 18, "Text.Muted").Margin(0, 0, 12, 0), Ui.Text(whose, "strong"), Ui.Text((group.Any(t => t.Estimated) ? "≈ " : "") + Formats.Money(sum, group.Key), "strong").Margin(8, 0, 0, 0))
+                .Also(r => r.Tag = "category.total"));
             rows.AddRange(group.Select(t =>
             {
                 var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
@@ -975,9 +985,15 @@ public static class MorePages
         var culture = CultureInfo.GetCultureInfo(str.Language);
         var date = day is { } d ? Ui.V(0, Ui.Text(d.Day.ToString(culture), "strong").Also(t => t.HorizontalAlignment = HorizontalAlignment.Center), Ui.Text(d.ToString("MMM", culture), "caption").Also(t => t.HorizontalAlignment = HorizontalAlignment.Center))
             : (Control)Ui.Icon("receipt", 20, "Text.Muted").Also(i => i.HorizontalAlignment = HorizontalAlignment.Center);
+        // The category's icon before the title says at a glance what kind of expense it is.
+        var category = ExpenseCategories.Of(trip, expense);
+        var kind = Ui.Icon(Jourfold.UI.CostTexts.CategoryIcon(category), 16, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 6, 0);
+        kind.Tag = "category:" + category;
+        AutomationProperties.SetName(kind, string.Format(CultureInfo.CurrentCulture, str["CategoryOfExpense"], Jourfold.UI.CostTexts.Category(str, category)));
+        ToolTip.SetTip(kind, Jourfold.UI.CostTexts.Category(str, category));
         var summary = Ui.Columns("40,*,Auto",
             date.Also(c => c.VerticalAlignment = VerticalAlignment.Center),
-            Ui.V(2, Ui.Text(expense.Title, "strong"), related is null ? null : Ui.Text(related.Title, "caption"), ExpensePeople(s, split)?.Margin(0, 4, 0, 0)).Margin(12, 0, 8, 0),
+            Ui.V(2, Ui.Columns("Auto,*", kind, Ui.Text(expense.Title, "strong")), related is null ? null : Ui.Text(related.Title, "caption"), ExpensePeople(s, split)?.Margin(0, 4, 0, 0)).Margin(12, 0, 8, 0),
             Ui.V(4, money is null ? null : Ui.H(6, Jourfold.UI.CostTexts.ChargeMark(str, expense, s.TripCurrencyCode, 16), Ui.Text(Formats.Money(money.Amount, money.Currency), "strong")).Also(h => h.HorizontalAlignment = HorizontalAlignment.Right),
                 estimated ? Ui.Pill(str["ToPay"], "clock", "Warning.Soft", "Warning").Also(p => p.HorizontalAlignment = HorizontalAlignment.Right) : SplitPill(str, split)?.Also(p => p.HorizontalAlignment = HorizontalAlignment.Right)));
         return Unfolding(s, expense.Id, summary, () =>
@@ -1309,11 +1325,28 @@ public static class MorePages
             Ui.V(8, Ui.Text(str["Weather"], "overline").Margin(20, 0), Ui.Card(new ToggleSwitch { IsChecked = s.WeatherOn, OnContent = str["WeatherTurnOn"], OffContent = str["WeatherTurnOn"] }
                 .Also(t => { AutomationProperties.SetName(t, str["WeatherTurnOn"]); t.IsCheckedChanged += async (_, _) => await s.SetWeatherAsync(t.IsChecked == true); }), 14).Margin(16, 0)),
             Calendar(s),
+            ThirdPlaceCard(s),
             Updates(s),
             Group(str["App"], [
                 Info("globe", str["Language"], CultureInfo.GetCultureInfo(str.Language).NativeName),
                 Info("folder", str["StorageUsed"], Formats.Bytes(size)),
                 about]));
+    }
+
+    /// <summary>What the button between the plus and More opens: the costs at first, or the map, bookings, tasks or packing lists.</summary>
+    private static Control ThirdPlaceCard(MobileSession s)
+    {
+        var str = s.Strings;
+        var chips = Ui.Flow(8);
+        foreach (var place in MobileSession.ThirdPlaces)
+        {
+            var (icon, label) = AppShell.ThirdPlaceLook(place);
+            var chip = Ui.Choice(str[label], icon, s.ThirdPlace == place, "chip").Also(c => c.MinHeight = 44);
+            AutomationProperties.SetName(chip, str["ThirdPlace"] + ": " + str[label]);
+            chip.Click += (_, _) => s.SetThirdPlace(place);
+            chips.Children.Add(chip);
+        }
+        return Ui.V(8, Ui.Text(str["ThirdPlace"], "overline").Margin(20, 0), Ui.Card(Ui.V(12, Ui.Text(str["ThirdPlaceHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap), chips), 14).Margin(16, 0));
     }
 
     /// <summary>Whether the app looks for new versions; only in the APK and IPA from GitHub, which stores do not update.</summary>

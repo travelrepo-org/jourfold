@@ -119,6 +119,12 @@ public partial class MainViewModel
 
     // Command palette -------------------------------------------------------------------------------------
 
+    /// <summary>Whether the search also reads note texts. Off at first; remembered on this computer.</summary>
+    public bool SearchNotes { get => Preference("SearchNotes", "off") == "on"; set => SetPreference("SearchNotes", value ? "on" : "off"); }
+
+    /// <summary>Whether search results are grouped by day (the default) or by kind; remembered on this computer.</summary>
+    public bool SearchByDay { get => Preference("SearchGroup", "day") != "kind"; set => SetPreference("SearchGroup", value ? "day" : "kind"); }
+
     public IReadOnlyList<PaletteChoice> PaletteSearch(string query)
     {
         query = query.Trim(); var s = Strings; var results = new List<PaletteChoice>();
@@ -147,11 +153,20 @@ public partial class MainViewModel
         Command("Settings", s["Settings"], "settings", Shortcuts.Label("Ctrl+,"));
         Command("Theme", s["ToggleTheme"], "moon");
         Command("About", s["About"], "info");
+        // The trip's content, found by TravelRepo's search as on phones and tablets: the best match, then by day or by kind.
         if (Workspace is not null && query.Length > 0)
         {
-            Store.Index(Workspace.Repository.Root, Workspace.State.Trip);
-            foreach (var id in Store.Search(Workspace.Repository.Root, query).Take(25))
-                if (Workspace.State.Trip.Find(id) is { Type: not "trip" and not "comment" } e) { var (icon, _) = Visuals.For(Workspace.State.Trip, e); results.Add(new(id.ToString(), e.Title, s[e.Type == "schedule_item" ? "activity" : e.Type], icon, s["InThisTrip"], null)); }
+            var trip = Workspace.State.Trip;
+            var hits = SearchTexts.Find(s, trip, query, SearchNotes);
+            foreach (var section in SearchTexts.Sections(s, trip, hits.Take(60).ToArray(), SearchByDay, Today))
+                foreach (var hit in section.Hits)
+                {
+                    var (icon, _) = Visuals.For(trip, hit.Entity);
+                    var where = SearchTexts.Where(s, hit);
+                    // Under a day's heading the time is enough.
+                    var when = section.Day is null ? SearchTexts.When(s, hit) : hit.Start is { } start && hit.Zone is { } zone && NodaTime.DateTimeZoneProviders.Tzdb.GetZoneOrNull(zone) is { } tz ? Formats.Time(start.InZone(tz).TimeOfDay) : null;
+                    results.Add(new(hit.Entity.Id.ToString(), hit.Entity.Title, where?.Text ?? SearchTexts.One(s, hit.Kind), icon, section.Title, null, when, hit.TitleRanges, where?.Ranges, SearchTexts.Spoken(s, hit)));
+                }
         }
         return results;
     }

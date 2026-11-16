@@ -4,6 +4,10 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 
 ## 0.15.1 “Unhurried Unicorn” – 2026-11-16
 
+### Highlights
+
+- On phones you can swipe through the days as fast as you like: a second swipe right after the first moves on, in the list and on the timetable, and the row of dates follows at once.
+
 ### Changes
 
 - On Android, Settings, Notifications now says whether the travel day may appear as a Live Update in the status bar (Android 16 and newer), leads to the system setting when it is turned off for Jourfold, and has "Show an example": a journey for one minute, with a line that says whether Android made it a Live Update. The pill and every other reminder need "Remind me on the trip" to be on; allowing notifications in the system alone is not enough.
@@ -11,7 +15,6 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 
 ### Fixes
 
-- On phones, swiping through the days twice in a row works: in the list the next day is there as soon as you let go, and on the timetable a second swipe catches the days while they still glide and moves on.
 - On the phone's timetable, the row of dates marks the new day as the days start to glide, not after they have come to rest.
 
 ## 0.15.0 “Untamed Unicorn” – 2026-11-16

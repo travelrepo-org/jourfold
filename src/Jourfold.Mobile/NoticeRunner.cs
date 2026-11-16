@@ -7,6 +7,17 @@ using TravelRepo.Repository;
 
 namespace Jourfold.Mobile;
 
+/// <summary>How the system treats the travel day's ongoing notification beyond listing it.</summary>
+public enum LiveSupport
+{
+    /// <summary>The system has nothing more than the notification itself, as Android before 16.</summary>
+    None,
+    /// <summary>The system could show it in the status bar, but the user turned that off for the app.</summary>
+    Off,
+    /// <summary>The system may show it as a Live Update, with the time in the status bar.</summary>
+    On
+}
+
 /// <summary>
 /// The device's notifications, as the platform shows them. Jourfold works out what to show and when to wake up again;
 /// the platform shows it and wakes the app at that time, also when it is not running.
@@ -33,6 +44,15 @@ public interface ISystemNotices
     /// already counts down to are not announced again.
     /// </summary>
     bool ShowsLive => true;
+    /// <summary>Whether the system may show the travel day in the status bar as well (Android 16's Live Updates).</summary>
+    LiveSupport Live => LiveSupport.None;
+    /// <summary>Opens the system page where the user allows Live Updates for the app.</summary>
+    void OpenLiveSettings() { }
+    /// <summary>
+    /// Whether the system shows the travel day's notification as a Live Update right now; null when it cannot say or
+    /// nothing is shown.
+    /// </summary>
+    bool? LivePromoted => null;
     /// <summary>Whether the system settings let the user choose kinds of notifications, as Android's channels do.</summary>
     bool HasKinds => true;
     /// <summary>

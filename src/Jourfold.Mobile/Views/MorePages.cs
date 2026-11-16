@@ -1220,6 +1220,26 @@ public static class MorePages
             var kinds = Ui.Button(str[notices.HasKinds ? "NoticesKinds" : "NoticesSettings"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             kinds.Click += (_, _) => notices.OpenSettings();
             body.Children.Add(kinds);
+            // The travel day in the status bar: whether the system allows it, a way to allow it, and an example to look at.
+            if (notices.ShowsLive)
+            {
+                var live = notices.Live;
+                var state = Ui.Columns("Auto,*", Ui.Icon(live == LiveSupport.On ? "circle-check" : live == LiveSupport.Off ? "triangle-alert" : "info", 16, live == LiveSupport.On ? "Success" : live == LiveSupport.Off ? "Warning" : "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 8, 0),
+                    Hint(str[live switch { LiveSupport.On => "LiveUpdatesOn", LiveSupport.Off => "LiveUpdatesOff", _ => "LiveUpdatesNone" }]));
+                state.Tag = "live:" + live;
+                var part = Ui.V(8, Ui.Text(str["LiveUpdates"], "strong"), state);
+                if (live == LiveSupport.Off)
+                {
+                    var allow = Ui.Button(str["LiveUpdatesAllow"], "settings", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+                    allow.Click += (_, _) => notices.OpenLiveSettings();
+                    part.Children.Add(allow);
+                }
+                var example = Ui.Button(str["LiveExample"], "bell", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                example.Click += async (_, _) => await s.ShowLiveExampleAsync();
+                part.Children.Add(example);
+                if (s.LiveExampleResult is { } result) part.Children.Add(Hint(result).Also(t => { t.Tag = "live.result"; AutomationProperties.SetLiveSetting(t, AutomationLiveSetting.Polite); }));
+                body.Children.Add(Ui.Divider()); body.Children.Add(part);
+            }
         }
         if (s.NoticesProblem is { } problem) body.Children.Add(Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }));
         return Ui.V(8, Ui.Text(str["NoticesSection"], "overline").Margin(20, 0), Ui.Card(body, 14).Margin(16, 0));

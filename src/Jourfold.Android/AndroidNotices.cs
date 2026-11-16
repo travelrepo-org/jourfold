@@ -76,22 +76,56 @@ public sealed class AndroidNotices(Context context, string language, string devi
         var builder = new Notification.Builder(context, LiveChannel).SetSmallIcon(Resource.Drawable.ic_notification)!
             .SetContentTitle(live.Title)!.SetContentText(live.Text)!.SetOngoing(true)!.SetOnlyAlertOnce(true)!.SetCategory(Notification.CategoryProgress)!
             .SetContentIntent(Open(tripFolder, live.Item, ticket: false, LiveId))!;
+        int? done = null;
         if (live.Until is { } until)
         {
             // The system counts down to the departure or arrival itself, also between updates.
             builder.SetWhen(until.ToUnixTimeMilliseconds())!.SetShowWhen(true)!.SetUsesChronometer(true)!.SetChronometerCountDown(true);
             if (live.From is { } from && until > from)
-            {
-                var done = (int)Math.Clamp((NodaTime.SystemClock.Instance.GetCurrentInstant() - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100);
-                builder.SetProgress(100, done, false);
-            }
+                done = (int)Math.Clamp((NodaTime.SystemClock.Instance.GetCurrentInstant() - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100);
         }
         if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
-        // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar.
-        var extras = new Bundle(); extras.PutBoolean("android.requestPromotedOngoing", true);
-        if (live.Until is { } chip) extras.PutString("android.shortCriticalText", chip.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).ToString("HH:mm", null));
-        builder.AddExtras(extras);
+        if (OperatingSystem.IsAndroidVersionAtLeast(36))
+        {
+            // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar that
+            // carries the time of the departure or arrival. The progress style is the one the system and the makers'
+            // own surfaces, such as the lock screen, lay out for journeys.
+            if (done is { } progress)
+                builder.SetStyle(new Notification.ProgressStyle().SetStyledByProgress(true)!.SetProgress(progress)!
+                    .SetProgressTrackerIcon(global::Android.Graphics.Drawables.Icon.CreateWithResource(context, Resource.Drawable.ic_notification)));
+            if (live.Until is { } chip) builder.SetShortCriticalText(chip.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
+            var extras = new Bundle(); extras.PutBoolean(RequestPromoted, true);
+            builder.AddExtras(extras);
+        }
+        else if (done is { } progress) builder.SetProgress(100, progress, false);
         Manager.Notify(LiveId, builder.Build());
+    }
+
+    /// <summary>Notification.EXTRA_REQUEST_PROMOTED_ONGOING, which asks Android 16 to show the notification as a Live Update.</summary>
+    private const string RequestPromoted = "android.requestPromotedOngoing";
+
+    public LiveSupport Live => !OperatingSystem.IsAndroidVersionAtLeast(36) ? LiveSupport.None : Manager.CanPostPromotedNotifications() ? LiveSupport.On : LiveSupport.Off;
+
+    public void OpenLiveSettings()
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(36)) return;
+        try
+        {
+            context.StartActivity(new Intent(global::Android.Provider.Settings.ActionAppNotificationPromotionSettings)
+                .PutExtra(global::Android.Provider.Settings.ExtraAppPackage, context.PackageName).AddFlags(ActivityFlags.NewTask));
+        }
+        // A maker's Android without that page: the app's notification settings are the nearest.
+        catch (ActivityNotFoundException) { OpenSettings(); }
+    }
+
+    public bool? LivePromoted
+    {
+        get
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(36)) return null;
+            var shown = Manager.GetActiveNotifications()?.FirstOrDefault(n => n.Id == LiveId)?.Notification;
+            return shown is null ? null : (shown.Flags & NotificationFlags.PromotedOngoing) != 0;
+        }
     }
 
     public void WakeAt(Instant? at)

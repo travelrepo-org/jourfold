@@ -7,6 +7,7 @@ using Avalonia.Controls.Documents;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
 using Avalonia.Threading;
 using NodaTime;
@@ -82,6 +83,9 @@ public static class PlanView
         return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
     }
 
+    /// <summary>How long the phone's timetable rests on a new day before the plan is drawn again around it.</summary>
+    public static readonly TimeSpan RedrawAfterRest = TimeSpan.FromMilliseconds(450);
+
     /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>
     internal const double PhoneDayShare = 0.7;
 
@@ -97,8 +101,24 @@ public static class PlanView
         var all = s.Agenda.Days;
         var window = TimetableView.Window(all, Math.Max(0, all.ToList().FindIndex(d => d.Date == day.Date)));
         var area = new Border { ClipToBounds = true, Background = Brushes.Transparent };
-        // The date strip and the pull for the next day follow the day in the middle, so the plan is drawn again then.
-        var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window, index => { if (window.Days[index].Date != day.Date) s.ShowDate(window.Days[index].Date); });
+        // The date strip marks the day a swipe is heading for at once, in place. The rest that names the day, such as
+        // the pull for the next one, needs the plan drawn again; that waits until the days have been at rest for a
+        // moment, and a finger that takes hold of them again puts it off, so quick swipes follow one another.
+        IDisposable? redraw = null;
+        void Mark(int index)
+        {
+            redraw?.Dispose(); redraw = null;
+            var date = window.Days[index].Date;
+            foreach (var chip in strip.GetLogicalDescendants().OfType<ChoiceButton>().Where(c => c.Classes.Contains("date")))
+            {
+                chip.IsSelected = chip.Tag is LocalDate chipDate && chipDate == date;
+                if (chip.IsSelected) chip.BringIntoView();
+            }
+        }
+        var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window,
+            settled: index => { if (window.Days[index].Date != day.Date) redraw = DispatcherTimer.RunOnce(() => s.ShowDate(window.Days[index].Date), RedrawAfterRest); },
+            aimed: Mark);
+        pan.Grabbed += () => { redraw?.Dispose(); redraw = null; };
         var (header, allDay, grid, nights) = TimetableView.Parts(s, window.Days, pan);
         area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
         strip.Padding = new Thickness(0, 4, 0, 2);
@@ -161,7 +181,7 @@ public static class PlanView
             var label = day.Date.ToString("ddd", culture);
             var content = Ui.V(2, Ui.Text(label, "small").Also(t => t.HorizontalAlignment = HorizontalAlignment.Center), Ui.Text(day.Date.Day.ToString(CultureInfo.InvariantCulture), "strong").Also(t => t.HorizontalAlignment = HorizontalAlignment.Center),
                 day.Date == s.PhoneToday ? new Border { Width = 5, Height = 5, CornerRadius = new CornerRadius(3), HorizontalAlignment = HorizontalAlignment.Center }.Res(Border.BackgroundProperty, "NowLine") : null);
-            var chip = new ChoiceButton { IsSelected = day.Date == s.SelectedDate, Content = content }.Classed("date");
+            var chip = new ChoiceButton { IsSelected = day.Date == s.SelectedDate, Content = content, Tag = day.Date }.Classed("date");
             Avalonia.Automation.AutomationProperties.SetName(chip, Lines.DayTitle(day.Date, s));
             chip.Click += (_, _) => { enter = day.Date > s.SelectedDate ? 1 : day.Date < s.SelectedDate ? -1 : 0; s.ShowDate(day.Date); };
             strip.Children.Add(chip);
@@ -374,8 +394,10 @@ public static class PlanView
             sideways = null; start = null;
             e.Handled = true; e.Pointer.Capture(null);
             if (!far || !Can(direction)) { Back(); return; }
+            // The next day is drawn at once and slides in from the side; waiting for this one to slide out first made a
+            // second swipe right after the first go nowhere.
             move.Transitions = [slide]; move.X = -direction * scroll.Bounds.Width; content.Opacity = 0.3;
-            DispatcherTimer.RunOnce(() => { enter = direction; step(direction); }, TimeSpan.FromMilliseconds(150));
+            enter = direction; step(direction);
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         scroll.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (sideways == true) Back(); }, RoutingStrategies.Bubble, handledEventsToo: true);
     }

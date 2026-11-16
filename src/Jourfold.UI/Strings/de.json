@@ -2052,5 +2052,16 @@
   "SearchShowTasks": "Bei den Aufgaben zeigen",
   "SearchShowPacking": "In der Packliste zeigen",
   "SearchHoldHint": "Tippen Sie auf einen Treffer für seine Details. Halten Sie ihn gedrückt, um dorthin zu springen.",
-  "ClearSearch": "Suche leeren"
+  "ClearSearch": "Suche leeren",
+  "LiveUpdates": "Live-Update in der Statusleiste",
+  "LiveUpdatesOn": "Erlaubt. An einem Reisetag zeigt die Statusleiste die Abfahrts- oder Ankunftszeit, solange Jourfold nicht auf dem Bildschirm ist.",
+  "LiveUpdatesOff": "Für Jourfold in den Systemeinstellungen ausgeschaltet. Der Reisetag bleibt eine gewöhnliche Benachrichtigung.",
+  "LiveUpdatesNone": "Diese Android-Version kennt keine Live-Updates. Der Reisetag bleibt eine dauerhafte Benachrichtigung.",
+  "LiveUpdatesAllow": "In den Systemeinstellungen erlauben",
+  "LiveExample": "Beispiel zeigen",
+  "LiveExampleJourney": "Beispielfahrt",
+  "LiveExampleText": "Ein Beispiel von Jourfold. Es verschwindet nach einer Minute.",
+  "LiveExamplePromoted": "Android zeigt das Beispiel als Live-Update. Verlassen Sie Jourfold, um es in der Statusleiste zu sehen; es verschwindet nach einer Minute.",
+  "LiveExamplePlain": "Das Beispiel steht für eine Minute in den Benachrichtigungen, aber Android hat daraus kein Live-Update gemacht.",
+  "LiveExampleShown": "Das Beispiel steht für eine Minute in den Benachrichtigungen."
 }

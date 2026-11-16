@@ -38,7 +38,11 @@ ends as its arrival or end, on the days between as running all day. TravelRepo's
 ## Plan, details and long press
 
 The date strip stays at the top while the day scrolls. A sideways swipe moves the day with the finger and slides the
-next one in; the strip scrolls on its own. At the end of a day, pulling on upwards lifts the page a little and fades in
+next one in; the strip scrolls on its own. The next day is drawn as soon as the finger lets go, so a second swipe
+right after the first moves on another day. On the one-day time grid the date strip marks the day a swipe is heading
+for as the glide begins, a finger that touches the days again takes them from where they are, and the plan around
+the new day (such as the pull for the next one) is drawn once the days have rested for a moment (`DayPan`,
+`PlanView.RedrawAfterRest`). At the end of a day, pulling on upwards lifts the page a little and fades in
 "Next day" with an arrow; once it turns to the accent colour, letting go opens the next day. Pulling down at the
 start of a day leads to the day before in the same way. The pull only counts when the finger is put down at the end or
 the start, so scrolling fast through a day stops there. The same works on the one-day time grid. A tap on an item opens its details at the smallest step (time, place,
@@ -285,11 +289,24 @@ shows what is due once, and an alarm wakes it for the next notice; it also runs 
 time zone changes (an arrival up to three hours early is shown on the zone change after landing), and after edits
 and syncs. A tap opens the plan, "Show ticket" its first ticket.
 
+**Live Updates.** On Android 16 and newer the travel day's notification asks to be a Live Update: it uses the
+progress style while a journey is under way, carries the departure or arrival time as the short text for the status
+bar chip, and requests promotion; the manifest has `POST_PROMOTED_NOTIFICATIONS`. The system decides: it shows the
+chip only while Jourfold is not on the screen, the user can turn Live Updates off per app, and a maker's Android may
+show them elsewhere (such as Samsung's Now Bar) or not at all. All of this needs "Remind me on the trip" to be on;
+allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
+(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
+example**: a journey that arrives in 45 minutes, for a minute, with a line that says whether Android made it a Live
+Update (`LivePromoted`, read from the posted notification's flags). Checked on an Android 14 emulator, where it is an
+ongoing notification with countdown and progress; the Android 16 path has not been run on a device by the
+maintainers of this change. The pill shows only what the plan says: there are no live delays or gates.
+
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
 allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
-choose from; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
+choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
+widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
 there yet.
 
 ## Tickets

@@ -4,8 +4,8 @@ version: 0.15.1
 date: 2026-11-16
 highlights:
   - icon: calendar-days
-    en: "On phones you can swipe through the days as fast as you like: a second swipe right after the first moves on, in the list and on the timetable, and the row of dates follows at once."
-    de: "Auf Handys können Sie so schnell durch die Tage wischen, wie Sie möchten: Ein zweiter Wisch gleich nach dem ersten geht weiter, in der Liste und in der Zeitleiste, und die Datumsreihe zieht sofort mit."
+    en: "On phones you can swipe through the days as fast as you like: a second swipe right after the first moves on, in the list and on the timetable. The timetable no longer has the row of dates; each day's head names it, and a flick goes several days."
+    de: "Auf Handys können Sie so schnell durch die Tage wischen, wie Sie möchten: Ein zweiter Wisch gleich nach dem ersten geht weiter, in der Liste und in der Zeitleiste. Die Zeitleiste hat keine Datumsreihe mehr; jeder Tag trägt sein Datum im Kopf, und ein schneller Wisch springt mehrere Tage."
 changes:
   - en: "On Android, Settings, Notifications now says whether the travel day may appear as a Live Update in the status bar (Android 16 and newer), leads to the system setting when it is turned off for Jourfold, and has \"Show an example\": a journey for one minute, with a line that says whether Android made it a Live Update. The pill and every other reminder need \"Remind me on the trip\" to be on; allowing notifications in the system alone is not enough."
     de: "Auf Android sagt Einstellungen, Benachrichtigungen jetzt, ob der Reisetag als Live-Update in der Statusleiste erscheinen darf (ab Android 16), führt zur Systemeinstellung, wenn das für Jourfold ausgeschaltet ist, und hat „Beispiel zeigen“: eine Fahrt für eine Minute, mit einer Zeile, die sagt, ob Android daraus ein Live-Update gemacht hat. Die Pille und alle anderen Erinnerungen brauchen „Unterwegs erinnern“; Benachrichtigungen nur im System zu erlauben genügt nicht."
@@ -13,8 +13,10 @@ changes:
     de: "Ab Android 16 nutzt die Benachrichtigung zum Reisetag während einer Fahrt die Fortschrittsdarstellung des Systems, mit der Ankunftszeit in der Statusleiste."
   - en: "On Samsung phones, Settings, Notifications says that One UI shows Live Updates only for Samsung's own and approved apps, and that \"Live notifications for all apps\" in the developer options lets Jourfold's through."
     de: "Auf Samsung-Handys sagt Einstellungen, Benachrichtigungen, dass One UI Live-Updates nur für Samsungs eigene und freigegebene Apps zeigt und dass „Live-Benachrichtigungen für alle Apps“ in den Entwickleroptionen die von Jourfold durchlässt."
+  - en: "Settings has \"Check now\" next to \"Check for new versions\" in copies from GitHub: it asks at once, also with the daily check off, and says whether there is a newer version. Copies from an app store still never ask."
+    de: "Die Einstellungen haben in Kopien von GitHub „Jetzt prüfen“ neben „Nach neuen Versionen suchen“: Es fragt sofort, auch wenn die tägliche Suche aus ist, und sagt, ob es eine neuere Version gibt. Kopien aus einem App-Store fragen weiterhin nie."
 fixes:
   - en: "The example of the travel day's notification goes away after a minute, also when Jourfold is asleep by then."
     de: "Das Beispiel der Reisetag-Benachrichtigung verschwindet nach einer Minute, auch wenn Jourfold bis dahin schläft."
-  - en: "On the phone's timetable, the row of dates marks the new day as the days start to glide, not after they have come to rest."
-    de: "In der Zeitleiste auf dem Handy markiert die Datumsreihe den neuen Tag, sobald die Tage zu gleiten beginnen, nicht erst nachdem sie zur Ruhe gekommen sind."
+  - en: "On the phone's timetable, the plan is no longer drawn again when the days come to rest, so a swipe right after it is not lost."
+    de: "In der Zeitleiste auf dem Handy wird der Plan nicht mehr neu gezeichnet, wenn die Tage zur Ruhe kommen, sodass ein Wisch direkt danach nicht verloren geht."

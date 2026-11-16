@@ -53,6 +53,11 @@ public interface ISystemNotices
     /// nothing is shown.
     /// </summary>
     bool? LivePromoted => null;
+    /// <summary>
+    /// Whether the phone's maker shows Live Updates only for apps it approved, as Samsung's One UI does, unless the user
+    /// lets all apps through in the developer options.
+    /// </summary>
+    bool LiveByMakerOnly => false;
     /// <summary>Whether the system settings let the user choose kinds of notifications, as Android's channels do.</summary>
     bool HasKinds => true;
     /// <summary>

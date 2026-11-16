@@ -23,7 +23,7 @@ public sealed record TravelNotice(string Key, NoticeKind Kind, Instant At, strin
 /// countdown or progress goes, <see cref="From"/> where progress starts; <see cref="Changes"/> is when it looks
 /// different next.
 /// </summary>
-public sealed record LiveNotice(string Title, string Text, Instant? From, Instant? Until, Instant Changes, Guid Item, bool Ticket);
+public sealed record LiveNotice(string Title, string Text, Instant? From, Instant? Until, Instant Changes, Guid Item, bool Ticket, TimeSpan? Lasts = null);
 
 /// <summary>
 /// Works out the notifications of a trip from its plan alone, offline: departures, changes between journeys, arrivals

@@ -293,10 +293,14 @@ and syncs. A tap opens the plan, "Show ticket" its first ticket.
 progress style while a journey is under way, carries the departure or arrival time as the short text for the status
 bar chip, and requests promotion; the manifest has `POST_PROMOTED_NOTIFICATIONS`. The system decides: it shows the
 chip only while Jourfold is not on the screen, the user can turn Live Updates off per app, and a maker's Android may
-show them elsewhere (such as Samsung's Now Bar) or not at all. All of this needs "Remind me on the trip" to be on;
+show them elsewhere (such as Samsung's Now Bar) or not at all. Samsung's One UI 8 shows Live Updates only for
+Samsung's own apps and apps it approved, unless "Live notifications for all apps" is on in the developer options;
+on a Samsung phone the settings say so (`LiveByMakerOnly`), and the notification itself stays an ordinary one with
+progress. All of this needs "Remind me on the trip" to be on;
 allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
 (`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
-example**: a journey that arrives in 45 minutes, for a minute, with a line that says whether Android made it a Live
+example**: a journey that arrives in 45 minutes, for a minute (the system removes it with `setTimeoutAfter`, also
+when Jourfold is asleep by then), with a line that says whether Android made it a Live
 Update (`LivePromoted`, read from the posted notification's flags). Checked on an Android 14 emulator, where it is an
 ongoing notification with countdown and progress; the Android 16 path has not been run on a device by the
 maintainers of this change. The pill shows only what the plan says: there are no live delays or gates.

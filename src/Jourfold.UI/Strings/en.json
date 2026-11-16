@@ -2058,10 +2058,11 @@
   "LiveUpdatesOff": "Turned off for Jourfold in the system settings. The travel day stays an ordinary notification.",
   "LiveUpdatesNone": "This Android version has no Live Updates. The travel day stays an ongoing notification.",
   "LiveUpdatesAllow": "Allow in the system settings",
+  "LiveUpdatesSamsung": "Samsung's One UI shows Live Updates in the status bar and the Now Bar only for Samsung's own apps and the ones it approved. To see Jourfold's there, turn on “Live notifications for all apps” in the developer options.",
   "LiveExample": "Show an example",
   "LiveExampleJourney": "Example journey",
   "LiveExampleText": "An example from Jourfold. It goes away after a minute.",
-  "LiveExamplePromoted": "Android shows the example as a Live Update. Leave Jourfold to see it in the status bar; it goes away after a minute.",
+  "LiveExamplePromoted": "Android marked the example as a Live Update. Leave Jourfold to see it in the status bar; it goes away after a minute.",
   "LiveExamplePlain": "The example is in the notifications for a minute, but Android did not make it a Live Update.",
   "LiveExampleShown": "The example is in the notifications for a minute."
 }

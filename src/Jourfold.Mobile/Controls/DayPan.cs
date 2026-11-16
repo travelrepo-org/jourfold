@@ -35,6 +35,9 @@ public sealed class DayPan
     /// <summary>The shortest time between two moves that the finger's speed is measured over, in milliseconds.</summary>
     public const ulong MinGap = 8;
 
+    /// <summary>How fast, in pixels per millisecond, a finger must still move when it lets go for its drag to be a swipe.</summary>
+    public const double MinSwipeSpeed = 0.08;
+
     public double DayWidth { get; }
     public int Count { get; }
     public double Offset => offset;
@@ -158,9 +161,12 @@ public sealed class DayPan
         {
             if (sideways != true) { start = null; return; }
             sideways = null; start = null; e.Handled = true; e.Pointer.Capture(null);
-            // A short slip, such as while tapping, is no flick, however quick.
+            // A short slip, such as while tapping, is no flick, however quick. A drag past it that is still moving the
+            // way it went when the finger lets go is a swipe and moves at least one day, as does one that caught the days
+            // on their way; only a drag that stopped or turned back settles on the nearest day.
             var dragged = offset - from;
-            Release(Math.Abs(dragged) < MinFlick ? 0 : speed, fromDay, caught && Math.Abs(dragged) >= MinFlick ? Math.Sign(dragged) : 0);
+            var swiped = Math.Abs(dragged) >= MinFlick && (caught || -speed * Math.Sign(dragged) > MinSwipeSpeed);
+            Release(Math.Abs(dragged) < MinFlick ? 0 : speed, fromDay, swiped ? Math.Sign(dragged) : 0);
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         area.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (sideways == true) { sideways = null; start = null; Release(0, fromDay); } }, RoutingStrategies.Bubble, handledEventsToo: true);
     }
@@ -172,8 +178,8 @@ public sealed class DayPan
     /// when the finger caught it.
     /// </summary>
     /// <param name="onward">
-    /// 1 or -1 when the finger caught the days on their way and dragged them on, later or earlier: that swipe moves at
-    /// least one day beyond the one the first was heading for, so two swipes in a row are two days. 0 otherwise.
+    /// 1 or -1 for a swipe later or earlier: it moves at least one day beyond <paramref name="fromDay"/>, also when the
+    /// finger caught the days on their way, so two swipes in a row are two days. 0 for a drag that stopped or turned back.
     /// </param>
     public void Release(double speed, int fromDay, int onward = 0)
     {

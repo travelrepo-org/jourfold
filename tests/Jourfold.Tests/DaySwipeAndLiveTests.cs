@@ -111,6 +111,22 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             Assert.True(session.SelectedDate < second);
             Assert.True(page.IsAttachedToVisualTree());
 
+            // A short swipe that is still moving when the finger lets go goes on a day, however unhurried; a drag that
+            // stops and turns back a little before letting go stays on the day.
+            await Task.Delay(TimeSpan.FromMilliseconds(800));
+            var before = session.SelectedDate;
+            window.MouseDown(new Point(300, 600), MouseButton.Left);
+            for (var step = 1; step <= 10; step++) { await Task.Delay(30); window.MouseMove(new Point(300 - 7 * step, 602)); }
+            window.MouseUp(new Point(230, 602), MouseButton.Left);
+            Assert.True(session.SelectedDate > before, "An unhurried short swipe did not move on.");
+            await Task.Delay(TimeSpan.FromMilliseconds(800));
+            before = session.SelectedDate;
+            window.MouseDown(new Point(300, 600), MouseButton.Left);
+            for (var step = 1; step <= 8; step++) { await Task.Delay(15); window.MouseMove(new Point(300 - 10 * step, 602)); }
+            for (var step = 1; step <= 8; step++) { await Task.Delay(15); window.MouseMove(new Point(220 + step, 602)); }
+            window.MouseUp(new Point(228, 602), MouseButton.Left);
+            Assert.Equal(before, session.SelectedDate);
+
             // Back to the list, the strip is there again on the chosen day.
             session.Settings.Values["plan.day"] = "list"; session.ShowDate(session.SelectedDate); Probe.Layout();
             Assert.Equal(session.SelectedDate, DateChips(window).Single(c => c.IsSelected).Tag);

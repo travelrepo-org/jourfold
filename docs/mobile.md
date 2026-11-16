@@ -42,7 +42,9 @@ next one in; the strip scrolls on its own. The next day is drawn as soon as the 
 right after the first moves on another day. The one-day time grid has no date strip: each day's head names it, the
 chosen day changes as the glide begins, a finger that touches the days again takes them from where they are, and
 nothing is drawn again when they come to rest (only near the end of a long trip's window), so one swipe follows
-another at once; the pull for the next day reads the chosen day when the pull starts (`DayPan`). At the end of a day, pulling on upwards lifts the page a little and fades in
+another at once; the pull for the next day reads the chosen day when the pull starts (`DayPan`). A drag past a short slip that is
+still moving when the finger lets go moves at least one day, however unhurried; only one that stopped or turned back
+settles on the nearest day. At the end of a day, pulling on upwards lifts the page a little and fades in
 "Next day" with an arrow; once it turns to the accent colour, letting go opens the next day. Pulling down at the
 start of a day leads to the day before in the same way. The pull only counts when the finger is put down at the end or
 the start, so scrolling fast through a day stops there. The same works on the one-day time grid. A tap on an item opens its details at the smallest step (time, place,

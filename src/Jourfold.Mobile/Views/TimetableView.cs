@@ -52,8 +52,7 @@ public static class TimetableView
     /// <param name="width">The width of the whole timetable, the time column included.</param>
     /// <param name="share">How much of the days' width one day takes: one of the columns on the tablet, most of it on the phone.</param>
     /// <param name="settled">Called with the day in the middle once the days have come to rest.</param>
-    /// <param name="aimed">Called with the day a glide is heading for, as it begins.</param>
-    internal static Controls.DayPan Pan(MobileSession s, Control area, double width, double share, (int First, AgendaDay[] Days) window, Action<int>? settled = null, Action<int>? aimed = null)
+    internal static Controls.DayPan Pan(MobileSession s, Control area, double width, double share, (int First, AgendaDay[] Days) window, Action<int>? settled = null)
     {
         var lanes = Math.Max(1, width - Gutter);
         var pan = new Controls.DayPan(lanes * share, window.Days.Length, () => area.Bounds.Width > Gutter ? area.Bounds.Width - Gutter : lanes);
@@ -62,8 +61,8 @@ public static class TimetableView
         // The first layout gives the real width; until the user moves the days, the chosen day stays in the middle.
         var moved = false;
         area.SizeChanged += (_, _) => { if (!moved) pan.Jump(pan.OffsetOf(chosen)); };
-        // The chosen day changes as the glide begins, so the date strip and the next swipe go by it at once.
-        pan.Aimed += day => { moved = true; s.FollowDate(window.Days[day].Date); aimed?.Invoke(day); };
+        // The chosen day changes as the glide begins, so the next swipe and the pull for the next day go by it at once.
+        pan.Aimed += day => { moved = true; s.FollowDate(window.Days[day].Date); };
         pan.Grabbed += () => moved = true;
         pan.Settled += day =>
         {

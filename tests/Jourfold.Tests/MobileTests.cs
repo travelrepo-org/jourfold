@@ -313,10 +313,12 @@ public sealed class MobileTests : IDisposable
             Assert.Equal("timetable", session.Settings.Values["plan.day"]);
             Assert.True(PlanView.DayTimetable(session, WidthClass.Phone));
             Assert.Contains("Senso-ji and Asakusa, 11:00 – 13:00", Names());
-            // The larger screens keep their own choice, and the date strip still changes the day.
+            // The larger screens keep their own choice. The time grid has no date strip; the days' heads name them.
             Assert.False(session.Settings.Values.ContainsKey("plan.mode"));
             Assert.False(PlanView.DayTimetable(session, WidthClass.Tablet));
-            Probe.Click(window, "Monday 17 May");
+            Assert.DoesNotContain("Monday 17 May", Names());
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "17 May");
+            session.ShowDate(new LocalDate(2027, 5, 17));
             Assert.Equal(new LocalDate(2027, 5, 17), session.SelectedDate);
             // Monday is in the middle now, with a part of the days before and after at the edges.
             Assert.Contains(Names(), n => n?.StartsWith("Train to Nikko", StringComparison.Ordinal) == true);

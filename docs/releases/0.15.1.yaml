@@ -11,6 +11,10 @@ changes:
     de: "Auf Android sagt Einstellungen, Benachrichtigungen jetzt, ob der Reisetag als Live-Update in der Statusleiste erscheinen darf (ab Android 16), führt zur Systemeinstellung, wenn das für Jourfold ausgeschaltet ist, und hat „Beispiel zeigen“: eine Fahrt für eine Minute, mit einer Zeile, die sagt, ob Android daraus ein Live-Update gemacht hat. Die Pille und alle anderen Erinnerungen brauchen „Unterwegs erinnern“; Benachrichtigungen nur im System zu erlauben genügt nicht."
   - en: "On Android 16 and newer, the travel day's notification uses the system's progress layout for journeys while one is under way, with the arrival time in the status bar."
     de: "Ab Android 16 nutzt die Benachrichtigung zum Reisetag während einer Fahrt die Fortschrittsdarstellung des Systems, mit der Ankunftszeit in der Statusleiste."
+  - en: "On Samsung phones, Settings, Notifications says that One UI shows Live Updates only for Samsung's own and approved apps, and that \"Live notifications for all apps\" in the developer options lets Jourfold's through."
+    de: "Auf Samsung-Handys sagt Einstellungen, Benachrichtigungen, dass One UI Live-Updates nur für Samsungs eigene und freigegebene Apps zeigt und dass „Live-Benachrichtigungen für alle Apps“ in den Entwickleroptionen die von Jourfold durchlässt."
 fixes:
+  - en: "The example of the travel day's notification goes away after a minute, also when Jourfold is asleep by then."
+    de: "Das Beispiel der Reisetag-Benachrichtigung verschwindet nach einer Minute, auch wenn Jourfold bis dahin schläft."
   - en: "On the phone's timetable, the row of dates marks the new day as the days start to glide, not after they have come to rest."
     de: "In der Zeitleiste auf dem Handy markiert die Datumsreihe den neuen Tag, sobald die Tage zu gleiten beginnen, nicht erst nachdem sie zur Ruhe gekommen sind."

@@ -12,9 +12,11 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 
 - On Android, Settings, Notifications now says whether the travel day may appear as a Live Update in the status bar (Android 16 and newer), leads to the system setting when it is turned off for Jourfold, and has "Show an example": a journey for one minute, with a line that says whether Android made it a Live Update. The pill and every other reminder need "Remind me on the trip" to be on; allowing notifications in the system alone is not enough.
 - On Android 16 and newer, the travel day's notification uses the system's progress layout for journeys while one is under way, with the arrival time in the status bar.
+- On Samsung phones, Settings, Notifications says that One UI shows Live Updates only for Samsung's own and approved apps, and that "Live notifications for all apps" in the developer options lets Jourfold's through.
 
 ### Fixes
 
+- The example of the travel day's notification goes away after a minute, also when Jourfold is asleep by then.
 - On the phone's timetable, the row of dates marks the new day as the days start to glide, not after they have come to rest.
 
 ## 0.15.0 “Untamed Unicorn” – 2026-11-16

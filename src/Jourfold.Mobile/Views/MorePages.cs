@@ -1357,8 +1357,29 @@ public static class MorePages
         var toggle = new ToggleSwitch { IsChecked = s.Updates.On, OnContent = str["UpdateChecks"], OffContent = str["UpdateChecks"] };
         AutomationProperties.SetName(toggle, str["UpdateChecks"]);
         toggle.IsCheckedChanged += (_, _) => s.SetUpdateChecks(toggle.IsChecked == true);
-        return Ui.V(8, Ui.Text(str["Updates"], "overline").Margin(20, 0),
-            Ui.Card(Ui.V(8, toggle, Ui.Text(str["UpdateChecksHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap)), 14).Margin(16, 0));
+        var card = Ui.V(8, toggle, Ui.Text(str["UpdateChecksHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
+        // Asking right away, also with the daily look turned off.
+        var now = Ui.Button(str[s.CheckingUpdateNow ? "UpdateChecking" : "UpdateCheckNow"], "refresh-cw", "soft").Also(b => { b.HorizontalAlignment = HorizontalAlignment.Left; b.IsEnabled = !s.CheckingUpdateNow; });
+        now.Click += async (_, _) => await s.CheckForUpdatesNowAsync();
+        card.Children.Add(now);
+        if (s.UpdateNow is { } answer)
+        {
+            var text = answer.Answer switch
+            {
+                Jourfold.Application.UpdateAnswer.Newer => string.Format(CultureInfo.CurrentCulture, str["UpdateAvailable"], answer.Release!.Title),
+                Jourfold.Application.UpdateAnswer.Latest => string.Format(CultureInfo.CurrentCulture, str["UpdateNowLatest"], s.Updates.Current),
+                _ => str["UpdateNowUnreachable"],
+            };
+            var said = Ui.Text(text, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Tag = "update.now"; AutomationProperties.SetLiveSetting(t, AutomationLiveSetting.Polite); });
+            card.Children.Add(said);
+            if (answer.Release is { } release)
+            {
+                var view = Ui.Button(str["UpdateView"], "external-link", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                view.Click += async (_, _) => { if (TopLevel.GetTopLevel(view)?.Launcher is { } launcher) await launcher.LaunchUriAsync(release.Page); };
+                card.Children.Add(view);
+            }
+        }
+        return Ui.V(8, Ui.Text(str["Updates"], "overline").Margin(20, 0), Ui.Card(card, 14).Margin(16, 0));
     }
 
     /// <summary>The installed app's version, such as a preview's; the assembly's where the platform does not say.</summary>

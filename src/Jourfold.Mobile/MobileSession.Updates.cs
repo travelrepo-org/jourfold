@@ -25,9 +25,24 @@ public sealed partial class MobileSession
     /// <summary>Looks for a new version when due, at start. Errors, such as being offline, pass silently.</summary>
     public async Task CheckForUpdatesAsync(CancellationToken ct = default)
     {
-        var source = ReleaseSource ?? (c => AppDistribution.Repository is { } repo ? UpdateCheck.LatestOnGitHubAsync(MapsHttp, repo, OnlineIdentity.UserAgent, c) : Task.FromResult<AppRelease?>(null));
-        if (await Updates.CheckAsync(source, ct)) Changed?.Invoke();
+        if (await Updates.CheckAsync(Source, ct)) Changed?.Invoke();
     }
+
+    /// <summary>The answer of the last "Check now" in Settings; null before it and while it asks.</summary>
+    public UpdateResult? UpdateNow { get; private set; }
+    /// <summary>Whether "Check now" is asking right now.</summary>
+    public bool CheckingUpdateNow { get; private set; }
+
+    /// <summary>Looks for a new version now, because the user asked; also when looking once a day is off.</summary>
+    public async Task CheckForUpdatesNowAsync(CancellationToken ct = default)
+    {
+        if (CheckingUpdateNow) return;
+        CheckingUpdateNow = true; UpdateNow = null; Changed?.Invoke();
+        try { UpdateNow = await Updates.CheckNowAsync(Source, ct); }
+        finally { CheckingUpdateNow = false; Changed?.Invoke(); }
+    }
+
+    private Func<CancellationToken, Task<AppRelease?>> Source => ReleaseSource ?? (c => AppDistribution.Repository is { } repo ? UpdateCheck.LatestOnGitHubAsync(MapsHttp, repo, OnlineIdentity.UserAgent, c) : Task.FromResult<AppRelease?>(null));
 
     public void SkipUpdate(AppRelease release) { Updates.Skip(release); Changed?.Invoke(); }
 

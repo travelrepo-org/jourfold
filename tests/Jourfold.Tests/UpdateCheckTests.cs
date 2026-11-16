@@ -138,6 +138,42 @@ public sealed class UpdateCheckTests
     }
 
     [Fact]
+    public async Task CheckNowAsksAtOnceAlsoWhenTheDailyLookIsOffAndOffersASkippedVersionAgain()
+    {
+        var store = new Values(); var now = DateTimeOffset.UnixEpoch; var asked = 0; var offline = false; AppRelease? latest = Next;
+        var check = new UpdateCheck(store, "0.12.0", AppDistribution.GitHub, () => now);
+        Task<AppRelease?> Source(CancellationToken _) { asked++; return offline ? throw new HttpRequestException("offline") : Task.FromResult(latest); }
+
+        await check.CheckAsync(Source);
+        check.Skip(check.Offer!); check.Set(false);
+        // Not due, turned off and skipped: asking now still asks, and tells about the skipped version again.
+        Assert.Equal(new UpdateResult(UpdateAnswer.Newer, Next), await check.CheckNowAsync(Source));
+        Assert.Equal(2, asked);
+        check.Set(true);
+        Assert.Equal(Next, check.Offer);
+
+        offline = true;
+        Assert.Equal(new UpdateResult(UpdateAnswer.Unreachable), await check.CheckNowAsync(Source));
+        offline = false;
+        Assert.Equal(new UpdateResult(UpdateAnswer.Latest), await new UpdateCheck(store, "99.1.0", AppDistribution.GitHub, () => now).CheckNowAsync(Source));
+        latest = null;
+        Assert.Equal(UpdateAnswer.Latest, (await check.CheckNowAsync(Source)).Answer);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("fdroid")]
+    [InlineData("play")]
+    [InlineData("appstore")]
+    public async Task StoreAndSelfBuiltCopiesNeverAskEvenWhenToldToCheckNow(string? distribution)
+    {
+        var asked = 0;
+        var check = new UpdateCheck(new Values(), "0.12.0", distribution);
+        Assert.Equal(UpdateAnswer.Unreachable, (await check.CheckNowAsync(_ => { asked++; return Task.FromResult<AppRelease?>(Next); })).Answer);
+        Assert.Equal(0, asked);
+    }
+
+    [Fact]
     public async Task TurnedOffItNeverAsks()
     {
         var store = new Values(); var asked = 0;
@@ -239,8 +275,73 @@ public sealed class UpdateCheckTests
             session.ShowPage("settings"); Probe.Layout();
             await Probe.Until(() => Probe.All<TextBlock>(window).Any(t => t.Text == "About Jourfold"));
             Assert.DoesNotContain(Probe.All<ToggleSwitch>(window), t => AutomationProperties.GetName(t) == "Check for new versions");
+            Assert.DoesNotContain(Probe.All<TextBlock>(window), t => t.Text == "Check now");
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ThePhonesSettingsCheckNowAndSayWhatCameOfIt()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "jourfold-updates-" + Guid.NewGuid()); Directory.CreateDirectory(root);
+        var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"]; AppRelease? latest = null; var asked = 0;
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), SystemClock.Instance, () => tokyo, "en", new MemorySecrets(), AppVersion: "0.12.0", Distribution: AppDistribution.GitHub))
+        {
+            ReleaseSource = _ => { asked++; return Task.FromResult(latest); },
+        };
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            string? Said() { Probe.Layout(); return Probe.All<TextBlock>(window).FirstOrDefault(t => t.Tag as string == "update.now")?.Text; }
+            session.SetUpdateChecks(false);
+            session.ShowPage("settings"); Probe.Layout();
+            Assert.Null(Said());
+            var before = asked;
+            Probe.Click(window, "Check now");
+            await Probe.Until(() => Said() == "You have the latest version (0.12.0).");
+            Assert.Equal(before + 1, asked);
+
+            latest = Next;
+            Probe.Click(window, "Check now");
+            await Probe.Until(() => Said() == "Jourfold 99.1.0 “Quiet Quokka” is available");
+            Assert.Contains(Probe.All<Button>(window), b => Probe.All<TextBlock>(b).Any(t => t.Text == "View release"));
+            // The daily look stays as the user set it.
+            Assert.False(session.Updates.On);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheDesktopsSettingsCheckNowAndAStoreCopyHasNoButton()
+    {
+        var w = new MainWindow(); var m = w.Model;
+        foreach (var key in new[] { UpdateCheck.OnKey, UpdateCheck.CheckedKey, UpdateCheck.LatestKey, UpdateCheck.TitleKey, UpdateCheck.PageKey, UpdateCheck.SkipKey }) m.Store.Set(key, "");
+        m.SetPreference("Language", "en");
+        w.Show(); Dispatcher.UIThread.RunJobs();
+        try
+        {
+            m.ReleaseSource = _ => Task.FromResult<AppRelease?>(Next);
+            m.Distribution = "play";
+            _ = ((Dialogs)m.Interaction).SettingsAsync(m); Probe.Layout();
+            Probe.Click(Probe.Sheet(w), m.Strings["General"]); Probe.Layout();
+            Assert.DoesNotContain(Probe.All<TextBlock>(Probe.Sheet(w)), t => t.Text == "Check now");
+            Probe.Click(Probe.Sheet(w), m.Strings["Close"]); Probe.Layout();
+
+            m.Distribution = AppDistribution.GitHub;
+            _ = ((Dialogs)m.Interaction).SettingsAsync(m); Probe.Layout();
+            Probe.Click(Probe.Sheet(w), m.Strings["General"]); Probe.Layout();
+            var button = Probe.All<Button>(Probe.Sheet(w)).First(b => Probe.All<TextBlock>(b).Any(t => t.Text == "Check now"));
+            button.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => Probe.All<TextBlock>(Probe.Sheet(w)).Any(t => t.Text == "Jourfold 99.1.0 “Quiet Quokka” is available"));
+            Probe.Layout();
+            Assert.Contains(Probe.All<Button>(Probe.Sheet(w)), b => Avalonia.Automation.AutomationProperties.GetName(b) == "View release" || Probe.All<TextBlock>(b).Any(t => t.Text == "View release"));
+            Probe.Click(Probe.Sheet(w), m.Strings["Close"]); Probe.Layout();
+        }
+        finally
+        {
+            foreach (var key in new[] { UpdateCheck.OnKey, UpdateCheck.CheckedKey, UpdateCheck.LatestKey, UpdateCheck.TitleKey, UpdateCheck.PageKey, UpdateCheck.SkipKey }) m.Store.Set(key, "");
+            w.Close();
+        }
     }
 
     private sealed class Answer(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler

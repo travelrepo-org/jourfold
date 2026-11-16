@@ -118,7 +118,27 @@ public sealed partial class Dialogs
                     Row(s["TripsFolder"], s["TripsFolderHint"], folder);
                     Row(s["DesktopNotifications"], s["DesktopNotificationsHint"], Toggle(model.DesktopNotificationsEnabled, model.SetDesktopNotifications, s["DesktopNotifications"]));
                     // Store and self-built copies never look, so they show no setting for it.
-                    if (model.Updates.Available) Row(s["UpdateChecks"], s["UpdateChecksHint"], Toggle(model.Updates.On, model.SetUpdateChecks, s["UpdateChecks"]));
+                    if (model.Updates.Available)
+                    {
+                        Row(s["UpdateChecks"], s["UpdateChecksHint"], Toggle(model.Updates.On, model.SetUpdateChecks, s["UpdateChecks"]));
+                        // Asking right away, also with the daily look turned off; the answer stays under the button.
+                        var now = Ui.Button(s[model.CheckingUpdateNow ? "UpdateChecking" : "UpdateCheckNow"], "refresh-cw", "ghost");
+                        now.IsEnabled = !model.CheckingUpdateNow;
+                        now.Click += async (_, _) => { now.IsEnabled = false; now.Content = s["UpdateChecking"]; await model.CheckForUpdatesNowAsync(); if (settingsPage == "General") Render(); };
+                        var said = model.UpdateNow is not { } answer ? null : answer.Answer switch
+                        {
+                            UpdateAnswer.Newer => string.Format(System.Globalization.CultureInfo.CurrentCulture, s["UpdateAvailable"], answer.Release!.Title),
+                            UpdateAnswer.Latest => string.Format(System.Globalization.CultureInfo.CurrentCulture, s["UpdateNowLatest"], model.Updates.Current),
+                            _ => s["UpdateNowUnreachable"],
+                        };
+                        Row(s["UpdateCheckNow"], said, now);
+                        if (model.UpdateNow?.Release is { } release)
+                        {
+                            var view = Ui.Button(s["UpdateView"], "external-link", "ghost");
+                            view.Click += async (_, _) => { if (TopLevel.GetTopLevel(view)?.Launcher is { } launcher) await launcher.LaunchUriAsync(release.Page); };
+                            page.Children.Add(view.Also(b => b.HorizontalAlignment = HorizontalAlignment.Right));
+                        }
+                    }
                     break;
                 case "Appearance":
                     Row(s["Theme"], s["ThemeHint"], Segments("Theme", "System", ("System", "monitor"), ("Light", "sun"), ("Dark", "moon")));

@@ -215,7 +215,9 @@ the top) and under More; they are kept in `settings.json` in the app's private f
 The APK and IPA from GitHub releases ask GitHub once a day at start for the latest release, with only the app's name
 and version, and show a card above the trips when there is a newer one: "View release" opens its page, "Skip this
 version" stays quiet until the next one, and "Stop checking for updates" turns it off and says where to turn it back
-on (Settings → Updates). Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
+on (Settings → Updates). **Check now** there asks at once, also with the daily look turned off, and says under the
+button what came of it: a newer release with "View release", the latest version, or that GitHub could not be reached
+(`UpdateCheck.CheckNowAsync`); a version skipped before is offered again. Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
 ask and show no such setting.
 
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too) with its code name,

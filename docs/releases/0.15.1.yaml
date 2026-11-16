@@ -20,3 +20,5 @@ fixes:
     de: "Das Beispiel der Reisetag-Benachrichtigung verschwindet nach einer Minute, auch wenn Jourfold bis dahin schläft."
   - en: "On the phone's timetable, the plan is no longer drawn again when the days come to rest, so a swipe right after it is not lost."
     de: "In der Zeitleiste auf dem Handy wird der Plan nicht mehr neu gezeichnet, wenn die Tage zur Ruhe kommen, sodass ein Wisch direkt danach nicht verloren geht."
+  - en: "On the phone's timetable, a short or unhurried swipe moves on a day instead of springing back."
+    de: "In der Zeitleiste auf dem Handy geht auch ein kurzer oder gemächlicher Wisch einen Tag weiter, statt zurückzuspringen."

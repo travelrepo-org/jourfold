@@ -19,6 +19,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 
 - The example of the travel day's notification goes away after a minute, also when Jourfold is asleep by then.
 - On the phone's timetable, the plan is no longer drawn again when the days come to rest, so a swipe right after it is not lost.
+- On the phone's timetable, a short or unhurried swipe moves on a day instead of springing back.
 
 ## 0.15.0 “Untamed Unicorn” – 2026-11-16
 

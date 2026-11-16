@@ -2058,10 +2058,11 @@
   "LiveUpdatesOff": "Für Jourfold in den Systemeinstellungen ausgeschaltet. Der Reisetag bleibt eine gewöhnliche Benachrichtigung.",
   "LiveUpdatesNone": "Diese Android-Version kennt keine Live-Updates. Der Reisetag bleibt eine dauerhafte Benachrichtigung.",
   "LiveUpdatesAllow": "In den Systemeinstellungen erlauben",
+  "LiveUpdatesSamsung": "One UI von Samsung zeigt Live-Updates in der Statusleiste und der Now Bar nur für Samsungs eigene und von Samsung freigegebene Apps. Damit die von Jourfold dort erscheinen, schalten Sie in den Entwickleroptionen „Live-Benachrichtigungen für alle Apps“ ein.",
   "LiveExample": "Beispiel zeigen",
   "LiveExampleJourney": "Beispielfahrt",
   "LiveExampleText": "Ein Beispiel von Jourfold. Es verschwindet nach einer Minute.",
-  "LiveExamplePromoted": "Android zeigt das Beispiel als Live-Update. Verlassen Sie Jourfold, um es in der Statusleiste zu sehen; es verschwindet nach einer Minute.",
+  "LiveExamplePromoted": "Android hat das Beispiel als Live-Update gekennzeichnet. Verlassen Sie Jourfold, um es in der Statusleiste zu sehen; es verschwindet nach einer Minute.",
   "LiveExamplePlain": "Das Beispiel steht für eine Minute in den Benachrichtigungen, aber Android hat daraus kein Live-Update gemacht.",
   "LiveExampleShown": "Das Beispiel steht für eine Minute in den Benachrichtigungen."
 }

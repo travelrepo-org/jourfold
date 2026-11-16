@@ -41,6 +41,17 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         window.MouseUp(new Point(to, y + 2), MouseButton.Left);
     }
 
+    /// <summary>
+    /// A sideways drag at a finger's pace, a move every ten milliseconds, so the speed it is let go with does not depend
+    /// on how fast the machine running the test sends the moves.
+    /// </summary>
+    private static async Task PacedSwipe(Window window, double from, double to, double y = 600)
+    {
+        window.MouseDown(new Point(from, y), MouseButton.Left);
+        for (var step = 1; step <= 10; step++) { await Task.Delay(10); window.MouseMove(new Point(from + (to - from) * step / 10, y + 2)); }
+        window.MouseUp(new Point(to, y + 2), MouseButton.Left);
+    }
+
     private static ChoiceButton[] DateChips(Window window) => Probe.All<ChoiceButton>(window).Where(c => c.Classes.Contains("date")).ToArray();
 
     [AvaloniaFact]
@@ -82,14 +93,14 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             Assert.Equal(days[0].Date, chips.Single(c => c.IsSelected).Tag);
 
             // Letting go names the day the glide is heading for, on the strip and as the chosen day, before it rests.
-            // A short drag, so the days do not fly to the end of the trip, whatever speed the test's pointer is measured at.
-            Swipe(window, 300, 230);
+            // At a finger's pace, so the days do not fly to the end of the trip.
+            await PacedSwipe(window, 300, 180);
             var first = session.SelectedDate;
             Assert.True(first > days[0].Date);
-            Assert.True(first < days[^1].Date, "The first swipe went to the last day, which leaves nothing to check.");
+            Assert.True(first < days[^1].Date, $"The first swipe went to the last day of {days.Count}, which leaves nothing to check.");
             Assert.Equal(first, chips.Single(c => c.IsSelected).Tag);
             // The plan is not drawn again in between: the strip is the same one, so the finger can go on at once.
-            Swipe(window, 300, 230);
+            await PacedSwipe(window, 300, 180);
             var second = session.SelectedDate;
             Assert.True(second > first, "The second swipe right after the first did not move on.");
             Assert.Equal(second, chips.Single(c => c.IsSelected).Tag);
@@ -130,10 +141,11 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         LiveSupport ISystemNotices.Live => live;
         public void OpenLiveSettings() => OpenedLiveSettings++;
         public bool? LivePromoted => Live.LastOrDefault() is null ? null : promoted;
+        public bool LiveByMakerOnly { get; init; }
     }
 
     [AvaloniaTheory]
-    [InlineData(LiveSupport.On, true, "Allowed. On a travel day", "Android shows the example as a Live Update.")]
+    [InlineData(LiveSupport.On, true, "Allowed. On a travel day", "Android marked the example as a Live Update.")]
     [InlineData(LiveSupport.On, false, "Allowed. On a travel day", "but Android did not make it a Live Update.")]
     [InlineData(LiveSupport.Off, false, "Turned off for Jourfold in the system settings.", "but Android did not make it a Live Update.")]
     [InlineData(LiveSupport.None, null, "This Android version has no Live Updates.", "The example is in the notifications for a minute.")]
@@ -162,8 +174,25 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             Assert.Equal(session.Now + Duration.FromMinutes(45), example.Until);
             Assert.True(example.From < session.Now);
             Assert.Equal("Example journey · arrives 11:25", example.Title);
+            // The system takes it away after a minute, also when the app is asleep by then.
+            Assert.Equal(MobileSession.LiveExampleTime, example.Lasts);
             Probe.Layout();
             Assert.Contains(Probe.All<TextBlock>(window), t => t.Tag as string == "live.result" && t.Text!.Contains(result, StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task OnASamsungPhoneTheSettingsSayWhereToLetJourfoldsLiveUpdatesThrough()
+    {
+        var notices = new LiveNotices(LiveSupport.On, true) { LiveByMakerOnly = true };
+        var (session, window) = await OpenAsync(notices);
+        try
+        {
+            session.ShowPage("settings"); await session.SetNoticesAsync(true); Probe.Layout();
+            var hint = Assert.Single(Probe.All<TextBlock>(window), t => t.Tag as string == "live.maker");
+            Assert.Contains("Live notifications for all apps", hint.Text, StringComparison.Ordinal);
+            Assert.Contains("developer options", hint.Text, StringComparison.Ordinal);
         }
         finally { window.Close(); session.Dispose(); }
     }

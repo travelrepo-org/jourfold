@@ -32,6 +32,9 @@ public sealed class DayPan
     /// <summary>How far a drag must go before its speed carries the days on.</summary>
     public const double MinFlick = 40;
 
+    /// <summary>The shortest time between two moves that the finger's speed is measured over, in milliseconds.</summary>
+    public const ulong MinGap = 8;
+
     public double DayWidth { get; }
     public int Count { get; }
     public double Offset => offset;
@@ -142,7 +145,9 @@ public sealed class DayPan
                 else if (Math.Abs(delta.Y) > 12) { sideways = false; start = null; return; }
                 else return;
             }
-            if (e.Timestamp > lastTime) { speed = 0.6 * speed + 0.4 * (at.X - lastX) / (e.Timestamp - lastTime); lastTime = e.Timestamp; lastX = at.X; }
+            // Two moves that arrive a millisecond apart say little about the finger's speed; a screen reports one about every
+            // eight milliseconds at most, so a shorter gap counts as that long.
+            if (e.Timestamp > lastTime) { speed = 0.6 * speed + 0.4 * (at.X - lastX) / Math.Max(MinGap, e.Timestamp - lastTime); lastTime = e.Timestamp; lastX = at.X; }
             var wanted = from - delta.X;
             // Past the first or last day the strip follows only a little, to show there is nothing further.
             var shown = wanted < 0 ? wanted * 0.25 : wanted > Max ? Max + (wanted - Max) * 0.25 : wanted;

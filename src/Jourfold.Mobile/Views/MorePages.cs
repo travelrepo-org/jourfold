@@ -1228,6 +1228,7 @@ public static class MorePages
                     Hint(str[live switch { LiveSupport.On => "LiveUpdatesOn", LiveSupport.Off => "LiveUpdatesOff", _ => "LiveUpdatesNone" }]));
                 state.Tag = "live:" + live;
                 var part = Ui.V(8, Ui.Text(str["LiveUpdates"], "strong"), state);
+                if (live != LiveSupport.None && notices.LiveByMakerOnly) part.Children.Add(Hint(str["LiveUpdatesSamsung"]).Also(t => t.Tag = "live.maker"));
                 if (live == LiveSupport.Off)
                 {
                     var allow = Ui.Button(str["LiveUpdatesAllow"], "settings", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);

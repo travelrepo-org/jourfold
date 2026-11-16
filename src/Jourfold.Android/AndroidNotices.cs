@@ -85,6 +85,8 @@ public sealed class AndroidNotices(Context context, string language, string devi
                 done = (int)Math.Clamp((NodaTime.SystemClock.Instance.GetCurrentInstant() - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100);
         }
         if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
+        // The system takes it away itself, also when the app is asleep by then.
+        if (live.Lasts is { } lasts) builder.SetTimeoutAfter((long)lasts.TotalMilliseconds);
         if (OperatingSystem.IsAndroidVersionAtLeast(36))
         {
             // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar that
@@ -105,6 +107,12 @@ public sealed class AndroidNotices(Context context, string language, string devi
     private const string RequestPromoted = "android.requestPromotedOngoing";
 
     public LiveSupport Live => !OperatingSystem.IsAndroidVersionAtLeast(36) ? LiveSupport.None : Manager.CanPostPromotedNotifications() ? LiveSupport.On : LiveSupport.Off;
+
+    /// <summary>
+    /// Samsung's One UI shows Live Updates in the status bar and the Now Bar only for Samsung's own apps and the ones it
+    /// approved, unless "Live notifications for all apps" is on in the developer options.
+    /// </summary>
+    public bool LiveByMakerOnly => OperatingSystem.IsAndroidVersionAtLeast(36) && string.Equals(Build.Manufacturer, "samsung", StringComparison.OrdinalIgnoreCase);
 
     public void OpenLiveSettings()
     {

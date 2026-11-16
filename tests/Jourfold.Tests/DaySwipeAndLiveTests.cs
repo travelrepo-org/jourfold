@@ -116,8 +116,10 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             await Task.Delay(TimeSpan.FromMilliseconds(800));
             var before = session.SelectedDate;
             window.MouseDown(new Point(300, 600), MouseButton.Left);
-            for (var step = 1; step <= 10; step++) { await Task.Delay(30); window.MouseMove(new Point(300 - 7 * step, 602)); }
-            window.MouseUp(new Point(230, 602), MouseButton.Left);
+            // About 0.45 px/ms: well under a flick, yet far enough above the least speed that a slow test machine, whose
+            // delays stretch, still lets go while moving.
+            for (var step = 1; step <= 10; step++) { await Task.Delay(20); window.MouseMove(new Point(300 - 9 * step, 602)); }
+            window.MouseUp(new Point(210, 602), MouseButton.Left);
             Assert.True(session.SelectedDate > before, "An unhurried short swipe did not move on.");
             await Task.Delay(TimeSpan.FromMilliseconds(800));
             before = session.SelectedDate;

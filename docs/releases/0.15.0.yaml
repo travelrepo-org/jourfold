@@ -1,0 +1,24 @@
+# Release notes for Jourfold 0.15.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.15.0
+date: 2026-11-16
+highlights:
+  - icon: search
+    en: "Search the whole trip: the magnifier in the trip's header on phones and tablets, and Ctrl+K on the computer, find plans, bookings, costs, places, tasks and packing items. The beginning of a word is enough, accents do not matter and a typo is forgiven. The best match shows its day and time right away; a tap opens the details, and \"Show\" jumps to the day in the plan."
+    de: "Die ganze Reise durchsuchen: Die Lupe im Kopf der Reise auf Handys und Tablets und Strg+K am Computer finden Pläne, Buchungen, Kosten, Orte, Aufgaben und Packstücke. Ein Wortanfang genügt, Akzente spielen keine Rolle und ein Tippfehler wird verziehen. Der beste Treffer zeigt gleich Tag und Uhrzeit; ein Tipp öffnet die Details, und „Zeigen“ springt zum Tag im Plan."
+  - icon: wallet
+    en: "On phones and tablets, the button between the plus and More now opens the costs. If you would rather have the map there, or the bookings, tasks or packing lists, choose it under Settings, Third button of the bar. The map is under More meanwhile."
+    de: "Auf Handys und Tablets öffnet die Schaltfläche zwischen dem Plus und Mehr jetzt die Kosten. Wenn Sie dort lieber die Karte hätten, oder die Buchungen, Aufgaben oder Packlisten, wählen Sie es unter Einstellungen, Dritte Schaltfläche der Leiste. Die Karte steht solange unter Mehr."
+changes:
+  - en: "Search results are grouped by day, during the trip with today first, or by kind, and can be limited to one kind. Each result says where it was found, such as a place or a booking number, with the words found marked. Note texts are searched only when \"Also search notes\" is on; the choice is remembered."
+    de: "Suchergebnisse sind nach Tag gruppiert, während der Reise mit heute zuerst, oder nach Art, und lassen sich auf eine Art beschränken. Jeder Treffer sagt, wo er gefunden wurde, etwa bei einem Ort oder einer Buchungsnummer, und die gefundenen Wörter sind markiert. Notiztexte werden nur durchsucht, wenn „Auch Notizen durchsuchen“ eingeschaltet ist; die Wahl bleibt gespeichert."
+  - en: "Category names are found in the app's language: \"Essen\" finds every food plan and expense."
+    de: "Kategorien werden in der Sprache der App gefunden: „Essen“ findet alle Pläne und Ausgaben für Essen."
+  - en: "The title of a new expense suggests its category while you type: \"Taxi\" is transport, \"Restaurant\" food, \"Souvenirs\" souvenirs, and a title used before takes the category it had then. Choose another if it does not fit; what the expense belongs to still says more than its title."
+    de: "Der Titel einer neuen Ausgabe schlägt beim Tippen ihre Kategorie vor: „Taxi“ ist Transport, „Restaurant“ Essen, „Souvenirs“ Souvenirs, und ein schon verwendeter Titel bekommt die Kategorie von damals. Wählen Sie eine andere, wenn sie nicht passt; wozu die Ausgabe gehört, sagt weiterhin mehr als ihr Titel."
+  - en: "On phones and tablets, every payment in the cost list shows the icon of its category before its title."
+    de: "Auf Handys und Tablets zeigt jede Zahlung in der Kostenliste das Symbol ihrer Kategorie vor dem Titel."
+  - en: "\"By category\" starts with a line for the total: of everyone, or of the people you chose, such as your own part."
+    de: "„Nach Kategorie“ beginnt mit einer Zeile für die Summe: von allen oder von den gewählten Personen, etwa Ihrem eigenen Anteil."
+  - en: "The computer no longer keeps a copy of the trips' text in its local database for the search; the old index is removed on start."
+    de: "Der Computer hält für die Suche keine Kopie der Reisetexte mehr in seiner lokalen Datenbank; der alte Index wird beim Start entfernt."

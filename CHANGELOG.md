@@ -2,6 +2,22 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.15.0 “Untamed Unicorn” – 2026-11-16
+
+### Highlights
+
+- Search the whole trip: the magnifier in the trip's header on phones and tablets, and Ctrl+K on the computer, find plans, bookings, costs, places, tasks and packing items. The beginning of a word is enough, accents do not matter and a typo is forgiven. The best match shows its day and time right away; a tap opens the details, and "Show" jumps to the day in the plan.
+- On phones and tablets, the button between the plus and More now opens the costs. If you would rather have the map there, or the bookings, tasks or packing lists, choose it under Settings, Third button of the bar. The map is under More meanwhile.
+
+### Changes
+
+- Search results are grouped by day, during the trip with today first, or by kind, and can be limited to one kind. Each result says where it was found, such as a place or a booking number, with the words found marked. Note texts are searched only when "Also search notes" is on; the choice is remembered.
+- Category names are found in the app's language: "Essen" finds every food plan and expense.
+- The title of a new expense suggests its category while you type: "Taxi" is transport, "Restaurant" food, "Souvenirs" souvenirs, and a title used before takes the category it had then. Choose another if it does not fit; what the expense belongs to still says more than its title.
+- On phones and tablets, every payment in the cost list shows the icon of its category before its title.
+- "By category" starts with a line for the total: of everyone, or of the people you chose, such as your own part.
+- The computer no longer keeps a copy of the trips' text in its local database for the search; the old index is removed on start.
+
 ## 0.14.0 “Mellow Marmot” – 2026-11-15
 
 ### Highlights

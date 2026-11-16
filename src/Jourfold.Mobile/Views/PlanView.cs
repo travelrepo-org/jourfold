@@ -55,10 +55,10 @@ public static class PlanView
             return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, "plan.mode", timetable: true));
         }
         var day = s.Agenda.Find(s.SelectedDate) ?? s.Agenda.Days.FirstOrDefault();
+        var key = Offers(width, height) ? "plan.mode" : "plan.day";
+        if (day is not null && DayTimetable(s, width, height)) return OneDay(s, day, Modes(s, key, timetable: true), pixels);
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
-        var key = Offers(width, height) ? "plan.mode" : "plan.day";
-        if (day is not null && DayTimetable(s, width, height)) return OneDay(s, day, strip, Modes(s, key, timetable: true), pixels);
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
         var page = Ui.V(6, Lines.TripHeader(s), Modes(s, key, timetable: false).Margin(16, 0, 16, 4), strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
@@ -83,49 +83,30 @@ public static class PlanView
         return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
     }
 
-    /// <summary>How long the phone's timetable rests on a new day before the plan is drawn again around it.</summary>
-    public static readonly TimeSpan RedrawAfterRest = TimeSpan.FromMilliseconds(450);
-
     /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>
     internal const double PhoneDayShare = 0.7;
 
     /// <summary>
-    /// One day on the time grid for the phone, drawn as the tablet's timetable: the date strip above it, all-day plans
+    /// One day on the time grid for the phone, drawn as the tablet's timetable: each day's head above it, all-day plans
     /// over the grid and the night below it. The day is in the middle with a part of the day before and after at the
-    /// edges; the days glide sideways with the finger and the nearest comes to rest in the middle.
+    /// edges; the days glide sideways with the finger and the nearest comes to rest in the middle. There is no date
+    /// strip: the days' heads name them, a flick goes several days, and nothing is drawn again when the days come to
+    /// rest (only near the end of a long trip's window), so one swipe can follow another at once.
     /// </summary>
     /// <param name="width">The width the page gets, for how wide the day is.</param>
-    private static Control OneDay(MobileSession s, AgendaDay day, Border strip, Control modes, double width)
+    private static Control OneDay(MobileSession s, AgendaDay day, Control modes, double width)
     {
         shown = (s.Workspace?.Repository.Root, day.Date); offset = 0;
         var all = s.Agenda.Days;
         var window = TimetableView.Window(all, Math.Max(0, all.ToList().FindIndex(d => d.Date == day.Date)));
         var area = new Border { ClipToBounds = true, Background = Brushes.Transparent };
-        // The date strip marks the day a swipe is heading for at once, in place. The rest that names the day, such as
-        // the pull for the next one, needs the plan drawn again; that waits until the days have been at rest for a
-        // moment, and a finger that takes hold of them again puts it off, so quick swipes follow one another.
-        IDisposable? redraw = null;
-        void Mark(int index)
-        {
-            redraw?.Dispose(); redraw = null;
-            var date = window.Days[index].Date;
-            foreach (var chip in strip.GetLogicalDescendants().OfType<ChoiceButton>().Where(c => c.Classes.Contains("date")))
-            {
-                chip.IsSelected = chip.Tag is LocalDate chipDate && chipDate == date;
-                if (chip.IsSelected) chip.BringIntoView();
-            }
-        }
-        var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window,
-            settled: index => { if (window.Days[index].Date != day.Date) redraw = DispatcherTimer.RunOnce(() => s.ShowDate(window.Days[index].Date), RedrawAfterRest); },
-            aimed: Mark);
-        pan.Grabbed += () => { redraw?.Dispose(); redraw = null; };
+        var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window);
         var (header, allDay, grid, nights) = TimetableView.Parts(s, window.Days, pan);
         area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
-        strip.Padding = new Thickness(0, 4, 0, 2);
         return new Grid
         {
-            RowDefinitions = new RowDefinitions("Auto,Auto,Auto,*"),
-            Children = { Lines.TripHeader(s), modes.Margin(16, 6, 16, 4).Row(1), strip.Row(2), area.Row(3) },
+            RowDefinitions = new RowDefinitions("Auto,Auto,*"),
+            Children = { Lines.TripHeader(s), modes.Margin(16, 6, 16, 4).Row(1), area.Row(2) },
         };
     }
 
@@ -248,12 +229,18 @@ public static class PlanView
     private static Control PullForDay(MobileSession s, ScrollViewer scroll)
     {
         const double Full = 110;
-        var days = s.Agenda.Days.ToList(); var index = days.FindIndex(d => d.Date == s.SelectedDate);
-        AgendaDay? Neighbour(int direction) => index + direction >= 0 && index + direction < days.Count ? days[index + direction] : null;
-        var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
-        Border Sign(int direction, string text, string icon) => new Border
+        // The chosen day at the time of the pull: on the phone's timetable the days glide without the plan being drawn again.
+        var days = s.Agenda.Days.ToList();
+        AgendaDay? Neighbour(int direction)
         {
-            Child = direction > 0 ? Ui.H(8, Ui.Text(text, "strong"), Ui.Icon(icon, 18)) : Ui.H(8, Ui.Icon(icon, 18), Ui.Text(text, "strong")),
+            var index = days.FindIndex(d => d.Date == s.SelectedDate);
+            return index >= 0 && index + direction >= 0 && index + direction < days.Count ? days[index + direction] : null;
+        }
+        var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
+        TextBlock nextText = Ui.Text("", "strong"), previousText = Ui.Text("", "strong");
+        Border Sign(int direction, TextBlock text, string icon) => new Border
+        {
+            Child = direction > 0 ? Ui.H(8, text, Ui.Icon(icon, 18)) : Ui.H(8, Ui.Icon(icon, 18), text),
             Padding = new Thickness(16, 10),
             CornerRadius = new CornerRadius(20),
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -265,7 +252,9 @@ public static class PlanView
         string Label(int direction) => Neighbour(direction) is { } d
             ? string.Format(CultureInfo.CurrentCulture, s.Strings[direction > 0 ? "NextDayPull" : "PreviousDayPull"], d.Date.ToString(s.Strings["PullDayFormat"], culture))
             : "";
-        var next = Sign(1, Label(1), "arrow-right"); var previous = Sign(-1, Label(-1), "arrow-left");
+        var next = Sign(1, nextText, "arrow-right"); var previous = Sign(-1, previousText, "arrow-left");
+        void Name() { nextText.Text = Label(1); previousText.Text = Label(-1); }
+        Name();
         var follow = new TranslateTransform(); scroll.RenderTransform = follow;
         var back = new DoubleTransition { Property = TranslateTransform.YProperty, Duration = TimeSpan.FromMilliseconds(160), Easing = new CubicEaseOut() };
 
@@ -297,7 +286,7 @@ public static class PlanView
         {
             if (e.Pointer.Type == PointerType.Mouse) return;
             start = e.GetPosition(scroll); lastY = start.Value.Y; anchor = null; direction = 0; pull = 0; follow.Transitions = null;
-            pressedAtEnd = AtEnd(); pressedAtStart = AtStart();
+            pressedAtEnd = AtEnd(); pressedAtStart = AtStart(); Name();
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         scroll.AddHandler(InputElement.PointerMovedEvent, (_, e) =>
         {

@@ -82,46 +82,38 @@ public sealed class DaySwipeAndLiveTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task OnThePhonesTimetableTheDateStripFollowsAtOnceAndTheNextSwipeNeedsNoRest()
+    public async Task OnThePhonesTimetableSwipesFollowOneAnotherAndThePlanIsNotDrawnAgainAtRest()
     {
         var (session, window) = await OpenAsync();
         try
         {
             session.Settings.Values["plan.day"] = "timetable"; session.ShowTab(MobileTab.Plan);
             var days = session.Agenda.Days; session.ShowDate(days[0].Date); Probe.Layout();
-            var chips = DateChips(window);
-            Assert.Equal(days[0].Date, chips.Single(c => c.IsSelected).Tag);
+            // No date strip: the days' heads name them. The list keeps its strip.
+            Assert.Empty(DateChips(window));
+            var page = Probe.All<TextBlock>(window).First();
 
-            // Letting go names the day the glide is heading for, on the strip and as the chosen day, before it rests.
+            // Letting go names the day the glide is heading for as the chosen day, before it rests.
             // At a finger's pace, so the days do not fly to the end of the trip.
             await PacedSwipe(window, 300, 180);
             var first = session.SelectedDate;
             Assert.True(first > days[0].Date);
             Assert.True(first < days[^1].Date, $"The first swipe went to the last day of {days.Count}, which leaves nothing to check.");
-            Assert.Equal(first, chips.Single(c => c.IsSelected).Tag);
-            // The plan is not drawn again in between: the strip is the same one, so the finger can go on at once.
             await PacedSwipe(window, 300, 180);
             var second = session.SelectedDate;
             Assert.True(second > first, "The second swipe right after the first did not move on.");
-            Assert.Equal(second, chips.Single(c => c.IsSelected).Tag);
-            Assert.Same(chips[0], DateChips(window)[0]);
-            Assert.True(chips[0].IsAttachedToVisualTree());
 
-            // Once the days have rested a moment, the plan is drawn again around the day they stopped at.
-            await Probe.Until(() => !chips[0].IsAttachedToVisualTree(), 3000);
+            // The days come to rest and the plan stays as it is, so a finger can go on whenever it likes.
+            await Task.Delay(TimeSpan.FromMilliseconds(1500)); Probe.Layout();
+            Assert.True(page.IsAttachedToVisualTree(), "The plan was drawn again when the days came to rest.");
             Assert.Equal(second, session.SelectedDate);
-            Assert.Equal(second, DateChips(window).Single(c => c.IsSelected).Tag);
-
-            // A finger that takes hold of the days while they still glide keeps the plan from being drawn again under it,
-            // however long it holds them.
-            chips = DateChips(window);
-            Swipe(window, 150, 350);
-            window.MouseDown(new Point(150, 600), MouseButton.Left);
-            for (var step = 1; step <= 10; step++) window.MouseMove(new Point(150 + 20 * step, 602));
-            await Task.Delay(PlanView.RedrawAfterRest + TimeSpan.FromMilliseconds(700)); Probe.Layout();
-            Assert.True(chips[0].IsAttachedToVisualTree(), "The plan was drawn again under the finger.");
-            window.MouseUp(new Point(350, 602), MouseButton.Left);
+            await PacedSwipe(window, 180, 300);
             Assert.True(session.SelectedDate < second);
+            Assert.True(page.IsAttachedToVisualTree());
+
+            // Back to the list, the strip is there again on the chosen day.
+            session.Settings.Values["plan.day"] = "list"; session.ShowDate(session.SelectedDate); Probe.Layout();
+            Assert.Equal(session.SelectedDate, DateChips(window).Single(c => c.IsSelected).Tag);
         }
         finally { window.Close(); session.Dispose(); }
     }

@@ -15,6 +15,8 @@ changes:
     de: "Auf Samsung-Handys sagt Einstellungen, Benachrichtigungen, dass One UI Live-Updates nur für Samsungs eigene und freigegebene Apps zeigt und dass „Live-Benachrichtigungen für alle Apps“ in den Entwickleroptionen die von Jourfold durchlässt."
   - en: "Settings has \"Check now\" next to \"Check for new versions\" in copies from GitHub: it asks at once, also with the daily check off, and says whether there is a newer version. Copies from an app store still never ask."
     de: "Die Einstellungen haben in Kopien von GitHub „Jetzt prüfen“ neben „Nach neuen Versionen suchen“: Es fragt sofort, auch wenn die tägliche Suche aus ist, und sagt, ob es eine neuere Version gibt. Kopien aus einem App-Store fragen weiterhin nie."
+  - en: "On phones, \"Something went wrong\" has Technical details: the error as written to the log on the device, to read and copy into a report. Nothing is sent."
+    de: "Auf Handys hat „Etwas ist schiefgelaufen“ technische Details: den Fehler, wie er im Protokoll auf dem Gerät steht, zum Lesen und Kopieren in einen Bericht. Es wird nichts gesendet."
 fixes:
   - en: "The example of the travel day's notification is a train that arrives a minute later: its progress moves on and it goes away on arrival, also when Jourfold is asleep by then."
     de: "Das Beispiel der Reisetag-Benachrichtigung ist ein Zug, der eine Minute später ankommt: Sein Fortschritt rückt vor, und es verschwindet bei der Ankunft, auch wenn Jourfold bis dahin schläft."

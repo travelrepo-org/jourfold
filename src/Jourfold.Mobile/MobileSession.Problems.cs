@@ -28,10 +28,17 @@ public sealed partial class MobileSession
         if (ChangeProblem is not null) return;
         ProblemTitle = Strings[expected ? "NotSaved" : "SomethingWentWrong"];
         ChangeProblem = expected ? Strings.Error(exception) : Strings["UnexpectedErrorPhone"];
+        ProblemDetails = expected ? null : "Jourfold " + (Host.AppVersion ?? "") + " (" + Host.Device + ")\n" + exception;
         Changed?.Invoke();
     }
 
-    public void DismissProblem() { if (ChangeProblem is null) return; ChangeProblem = null; ProblemTitle = null; Changed?.Invoke(); }
+    /// <summary>
+    /// What went wrong in an unexpected failure, as written to the log, for the user to read and copy into a report;
+    /// nothing is sent. Null for expected failures, whose message says it all.
+    /// </summary>
+    public string? ProblemDetails { get; private set; }
+
+    public void DismissProblem() { if (ChangeProblem is null) return; ChangeProblem = null; ProblemTitle = null; ProblemDetails = null; Changed?.Invoke(); }
 
     /// <summary>
     /// Failures that come from the trip or the device rather than from a bug, such as a trip with errors that TravelRepo

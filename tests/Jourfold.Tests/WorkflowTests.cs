@@ -54,7 +54,7 @@ public sealed class WorkflowTests : IDisposable
     [AvaloniaFact]
     public async Task ShellLoadsAndTimetableDropWritesCanonicalTime()
     {
-        using var w = await Create(); var path = w.Repository.Root; var activity = Entity.Create("schedule_item", "Aachen walk"); await w.EditAsync(activity); w.Dispose();
+        using var w = await Create(); var path = w.Repository.Root; var activity = Entity.Create("schedule_item", "Hamburg walk"); await w.EditAsync(activity); w.Dispose();
         var settings = (LocalStore)App.Services.GetService(typeof(LocalStore))!; settings.Set("textsize", "Normal"); settings.Set("highcontrast", "false"); settings.Set("openingview", "Plan");
         var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.View = "Plan"; window.Model.InboxOpen = false; window.Model.ShowDate(new LocalDate(2027, 5, 12)); Probe.Layout();
         Assert.True(window.Model.HasTrip); Assert.Single(window.Model.InboxItems);
@@ -110,7 +110,7 @@ public sealed class WorkflowTests : IDisposable
     public async Task NewTripCommandAndQuickAddCreateRealOfflineContent()
     {
         using var store = new LocalStore(Path.Combine(root, "settings"));
-        var interaction = new TestInteraction(); interaction.Answers.Enqueue("Aachen weekend"); interaction.Answers.Enqueue(Path.Combine(root, "chosen-folder"));
+        var interaction = new TestInteraction(); interaction.Answers.Enqueue("Hamburg weekend"); interaction.Answers.Enqueue(Path.Combine(root, "chosen-folder"));
         using var model = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction);
         await model.NewTripCommand.ExecuteAsync(null); Assert.True(model.HasTrip); Assert.Empty(interaction.Errors);
         Assert.Equal(Path.Combine(root, "chosen-folder"), model.Workspace!.Repository.Root);
@@ -119,8 +119,8 @@ public sealed class WorkflowTests : IDisposable
         Assert.Contains(model.Workspace.State.Trip.Entities.Values.Single(e => e.Type == "person").Id.ToString(), model.Workspace.State.Trip.Manifest.Data["participants"]!.AsArray().Select(n => n!.ToString()));
         var activity = model.Workspace.State.Trip.Entities.Values.Single(e => e.Type == "schedule_item");
         Assert.Contains(activity, model.InboxItems);
-        await EditorModel.UpdateAsync(model, activity.Id, new EditorField("title", "Title"), "Explore Aachen");
-        Assert.Equal("Explore Aachen", model.Workspace.State.Trip.Find(activity.Id)!.Title);
+        await EditorModel.UpdateAsync(model, activity.Id, new EditorField("title", "Title"), "Explore Hamburg");
+        Assert.Equal("Explore Hamburg", model.Workspace.State.Trip.Find(activity.Id)!.Title);
         await model.UndoCommand.ExecuteAsync(null); Assert.Equal("New activity", model.Workspace.State.Trip.Find(activity.Id)!.Title);
         Assert.Single(await model.Workspace.Git.HistoryAsync());
         interaction.Answers.Enqueue("Add the first ideas"); await model.CreateVersionCommand.ExecuteAsync(null);
@@ -130,10 +130,10 @@ public sealed class WorkflowTests : IDisposable
     [AvaloniaFact]
     public async Task MapAcceptsRoundTrippedDecimalCoordinatesAndSharedSelection()
     {
-        using var w = await Create(); var place = Entity.Create("place", "Aachen"); place.Data["location"] = new JsonObject { ["latitude"] = 50.7753, ["longitude"] = 6.0839 }; await w.EditAsync(place); var path = w.Repository.Root; w.Dispose();
+        using var w = await Create(); var place = Entity.Create("place", "Hamburg"); place.Data["location"] = new JsonObject { ["latitude"] = 53.5511, ["longitude"] = 9.9937 }; await w.EditAsync(place); var path = w.Repository.Root; w.Dispose();
         var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); window.Model.Navigate("Map"); window.Model.Selected = window.Model.Workspace!.State.Trip.Find(place.Id); Dispatcher.UIThread.RunJobs();
         Assert.IsType<MapView>(window.FindControl<ContentControl>("MainContent")!.Content); Assert.Equal(place.Id, window.Model.Selected!.Id);
-        Assert.Contains(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Aachen"); window.Close();
+        Assert.Contains(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Hamburg"); window.Close();
     }
     [Fact]
     public async Task MergeTransfersNewBinaryResourcesAndPreservesPrimaryMetadata()

@@ -37,13 +37,13 @@ public sealed class GitHubAccountTests : IDisposable
         public bool Installed { get; set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(TravelRepo.Core.Entity.CreateTrip("Lisbon"))));
+            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(TravelRepo.Core.Entity.CreateTrip("Paris"))));
             static string Repo(string name) => "{\"full_name\":\"alex/" + name + "\",\"clone_url\":\"https://github.com/alex/" + name + ".git\",\"html_url\":\"https://github.com/alex/" + name + "\",\"private\":true,\"size\":3}";
             var body = request.RequestUri!.AbsolutePath switch
             {
                 "/user/installations" => Installed ? "{\"total_count\":1,\"installations\":[{\"id\":5}]}" : "{\"total_count\":0,\"installations\":[]}",
-                "/user/installations/5/repositories" => "{\"total_count\":2,\"repositories\":[" + Repo("lisbon") + "," + Repo("notes") + "]}",
-                "/repos/alex/lisbon/contents/travel.yaml" => "{\"content\":\"" + trip + "\"}",
+                "/user/installations/5/repositories" => "{\"total_count\":2,\"repositories\":[" + Repo("paris") + "," + Repo("notes") + "]}",
+                "/repos/alex/paris/contents/travel.yaml" => "{\"content\":\"" + trip + "\"}",
                 _ => null
             };
             return Task.FromResult(body is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
@@ -205,15 +205,15 @@ public sealed class NewTripPublishingTests : IDisposable
         var handler = new CreateRepository(bare, githubWorks ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity);
         using var http = new HttpClient(handler); using var store = new LocalStore(Path.Combine(root, "state"));
         NewTripDefaults? offered = null;
-        var interaction = new TestInteraction { NewTrip = d => { offered = d; return new("Lisbon in October", "en", null, null, null, [], null, Path.Combine(root, "Lisbon"), "Alex", "lisbon-in-october"); } };
+        var interaction = new TestInteraction { NewTrip = d => { offered = d; return new("Paris in October", "en", null, null, null, [], null, Path.Combine(root, "Paris"), "Alex", "paris-in-october"); } };
         using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, new Secrets(), "client"));
         await vm.NewTripCommand.ExecuteAsync(null);
 
-        Assert.True(offered!.GitHubConnected); Assert.True(vm.HasTrip); Assert.Equal("lisbon-in-october", handler.Requested);
+        Assert.True(offered!.GitHubConnected); Assert.True(vm.HasTrip); Assert.Equal("paris-in-october", handler.Requested);
         var remotes = await vm.Workspace!.Git.RemotesAsync();
         if (githubWorks)
         {
-            Assert.Equal(bare, remotes["origin"]); Assert.Contains(string.Format(vm.Strings["PublishedPrivately"], "alex/lisbon-in-october"), interaction.Toasts);
+            Assert.Equal(bare, remotes["origin"]); Assert.Contains(string.Format(vm.Strings["PublishedPrivately"], "alex/paris-in-october"), interaction.Toasts);
             var pushed = await new GitCliBackend().ExecuteAsync(bare, ["rev-parse", "refs/heads/" + await vm.Workspace.Git.CurrentBranchAsync()]); Assert.Equal(await vm.Workspace.Git.HeadAsync(), pushed.Output.Trim());
         }
         else

@@ -326,7 +326,7 @@ A local app identity profile can be used as a template when creating the current
 
 Participant grouping uses one lane per person, plus optional Unassigned.
 
-Do not create lanes for participant combinations such as `Alex + Carla`.
+Do not create lanes for participant combinations such as `Alex + Sam`.
 
 A shared item:
 - may visually span adjacent participant lanes,
@@ -454,7 +454,7 @@ Default History is a human-readable activity/version timeline.
 
 Examples:
 - Alex changed the Tokyo hotel.
-- Carla added a train to Kyoto.
+- Sam added a train to Kyoto.
 - Jourfold merged `Cheaper flights`.
 - External Git change by Alex.
 

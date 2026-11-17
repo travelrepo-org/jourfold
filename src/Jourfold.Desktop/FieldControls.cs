@@ -16,7 +16,7 @@ public static class FieldOptions
         .Where(c => c.Name.Length > 0).OrderBy(c => c.DisplayName).Select(c => new Choice(c.Name, c.DisplayName + " · " + c.NativeName + " (" + c.Name + ")")).ToArray();
     /// <summary>
     /// Every IANA timezone, labelled so people can search by city, country, region note or UTC offset:
-    /// "Shanghai · China (Beijing Time) · UTC+8". Zones without a country (Etc/GMT+8) and old aliases (PRC) follow
+    /// "Vancouver · Canada (Pacific - BC (most areas)) · UTC−8/−7". Zones without a country (Etc/GMT+8) and old aliases (Canada/Pacific) follow
     /// with their plain ID, so stored values always resolve.
     /// </summary>
     public static IReadOnlyList<Choice> Timezones => timezones.Value;

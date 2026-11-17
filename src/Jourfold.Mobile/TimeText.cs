@@ -43,7 +43,7 @@ public static class TimeText
         return Clock(there) + (there.Date > here ? " +1" : there.Date < here ? " −1" : "");
     }
 
-    /// <summary>The place a zone is named after, such as "Berlin" or "New York".</summary>
+    /// <summary>The place a zone is named after, such as "Berlin" or "Toronto".</summary>
     public static string Place(DateTimeZone zone) => zone.Id is "UTC" or "Etc/UTC" ? "UTC" : Formats.ZoneName(zone.Id);
 
     /// <summary>The dash between two times, joined to both so that "16:00–18:00" never breaks across lines.</summary>
@@ -58,7 +58,7 @@ public static class TimeText
 
     /// <summary>
     /// What to call an item's zone: the town of the place where it starts or ends, read from its address, otherwise the
-    /// place the zone is named after. Seattle is in the zone "America/Los_Angeles", but a flight there should say Seattle.
+    /// place the zone is named after. Montreal is in the zone "America/Toronto", but a flight there should say Montreal.
     /// </summary>
     private static string Place(DateTimeZone zone, TripSnapshot? trip, Entity item, bool end)
     {

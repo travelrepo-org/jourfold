@@ -44,9 +44,9 @@ public sealed class DesktopTravelTests : IDisposable
         var w = await OpenAsync(); var m = w.Model;
         try
         {
-            var home = Place("Home airport", 50.03, 8.57); var hub = Place("Hub airport", 37.46, 126.44); var far = Place("Destination airport", 34.43, 135.23);
-            var first = Journey("First flight", home, hub, "2027-03-01T13:00:00", "Europe/Berlin", "2027-03-02T07:00:00", "Asia/Seoul");
-            var second = Journey("Second flight", hub, far, "2027-03-02T09:30:00", "Asia/Seoul", "2027-03-02T11:30:00", "Asia/Tokyo");
+            var home = Place("Frankfurt Airport", 50.03, 8.57); var hub = Place("Haneda Airport", 35.55, 139.78); var far = Place("Kansai Airport", 34.43, 135.23);
+            var first = Journey("First flight", home, hub, "2027-03-01T13:00:00", "Europe/Berlin", "2027-03-02T07:00:00", "Asia/Tokyo");
+            var second = Journey("Second flight", hub, far, "2027-03-02T09:30:00", "Asia/Tokyo", "2027-03-02T11:30:00", "Asia/Tokyo");
             var flights = Entity.Create("booking", "Flights"); var other = Entity.Create("booking", "Other booking");
             var tour = Entity.Create("schedule_item", "Day tour"); var temple = Entity.Create("schedule_item", "Temple");
             await m.Workspace!.ApplyAsync(new[] { home, hub, far, first, second, flights, other, tour, temple }.Select(e => new EntityEdit(e.Id, e)).ToArray());
@@ -68,7 +68,7 @@ public sealed class DesktopTravelTests : IDisposable
 
             // The first flight says how long there is to change and where, and which flight follows.
             m.Navigate("Plan"); m.Selected = m.Trip!.Find(first.Id); Probe.ShowDetails(w);
-            await Probe.Until(() => Texts(w).Contains("2\u00a0h\u00a030\u00a0min to change at Hub airport"));
+            await Probe.Until(() => Texts(w).Contains("2\u00a0h\u00a030\u00a0min to change at Haneda Airport"));
             Assert.Contains("Continues with", Texts(w));
             m.Selected = m.Trip!.Find(second.Id); Probe.ShowDetails(w);
             await Probe.Until(() => Texts(w).Contains("Comes from"));

@@ -11,13 +11,14 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 ### Changes
 
 - On Android, Settings, Notifications now says whether the travel day may appear as a Live Update in the status bar (Android 16 and newer), leads to the system setting when it is turned off for Jourfold, and has "Show an example": a journey for one minute, with a line that says whether Android made it a Live Update. The pill and every other reminder need "Remind me on the trip" to be on; allowing notifications in the system alone is not enough.
-- On Android 16 and newer, the travel day's notification uses the system's progress layout for journeys while one is under way, with the arrival time in the status bar.
+- On Android 16 and newer, the travel day's notification uses the system's progress layout for journeys while one is under way, in Jourfold's colour with the plane, train or bus riding along. The status bar shows the minutes left in the last hour, as a delivery app does, and the departure or arrival time before that.
 - On Samsung phones, Settings, Notifications says that One UI shows Live Updates only for Samsung's own and approved apps, and that "Live notifications for all apps" in the developer options lets Jourfold's through.
 - Settings has "Check now" next to "Check for new versions" in copies from GitHub: it asks at once, also with the daily check off, and says whether there is a newer version. Copies from an app store still never ask.
 
 ### Fixes
 
-- The example of the travel day's notification goes away after a minute, also when Jourfold is asleep by then.
+- The example of the travel day's notification is a train that arrives a minute later: its progress moves on and it goes away on arrival, also when Jourfold is asleep by then.
+- During a journey the travel day's notification moves on every few minutes, every minute in the last hour, instead of every five.
 - On the phone's timetable, the plan is no longer drawn again when the days come to rest, so a swipe right after it is not lost.
 - On the phone's timetable, a short or unhurried swipe moves on a day instead of springing back.
 

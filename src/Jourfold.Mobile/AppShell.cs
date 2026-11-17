@@ -468,8 +468,20 @@ public sealed class AppShell : UserControl
         var s = Session.Strings;
         var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
         var title = Session.ProblemTitle ?? s["NotSaved"];
-        var card = Ui.Card(Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")),
-                Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap), Ui.Columns("*,Auto", null, close.Col(1))), 20)
+        var body = Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")), Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap));
+        if (Session.ProblemDetails is { } details)
+        {
+            // The log's entry, to read before copying it into a report; it stays on the device unless the user pastes it.
+            var text = new SelectableTextBlock { Text = details, TextWrapping = TextWrapping.Wrap, FontSize = 12 }.Also(t => t.Res(TextBlock.ForegroundProperty, "Text.Muted"));
+            var copy = Ui.Button(s["CopyDetails"], "copy", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            copy.Click += async (_, _) => { if (TopLevel.GetTopLevel(copy)?.Clipboard is { } clipboard) await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(clipboard, details); copy.Content = Ui.H(6, Ui.Icon("check", 15), Ui.Text(s["Copied"])); };
+            var shown = Ui.V(8, new ScrollViewer { Content = text, MaxHeight = 220 }, copy).Also(p => p.IsVisible = false);
+            var toggle = Ui.Button(s["TechnicalDetails"], "file-text", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            toggle.Click += (_, _) => shown.IsVisible = !shown.IsVisible;
+            body.Children.Add(toggle); body.Children.Add(shown);
+        }
+        body.Children.Add(Ui.Columns("*,Auto", null, close.Col(1)));
+        var card = Ui.Card(body, 20)
             .Also(c => { c.MaxWidth = 420; c.Margin = new Thickness(24); c.VerticalAlignment = VerticalAlignment.Center; });
         Avalonia.Automation.AutomationProperties.SetLiveSetting(card, Avalonia.Automation.AutomationLiveSetting.Assertive);
         AutomationProperties.SetName(card, title + ". " + problem);

@@ -61,6 +61,13 @@ public sealed class MobileProblemTests : IDisposable
             Assert.Contains("Jourfold could not finish this. The details are kept in a log on this device and are not sent anywhere.", Texts());
             var log = await File.ReadAllTextAsync(session.ErrorLog);
             Assert.Contains("Jourfold 9.9.9", log); Assert.Contains("A bug in an action", log);
+            // The details can be read and copied for a report, but only when asked for.
+            Assert.DoesNotContain(window.GetVisualDescendants().OfType<SelectableTextBlock>(), t => t.IsEffectivelyVisible);
+            Probe.Click(window, "Technical details"); Probe.Layout();
+            var details = Assert.Single(window.GetVisualDescendants().OfType<SelectableTextBlock>(), t => t.IsEffectivelyVisible);
+            Assert.Contains("Jourfold 9.9.9", details.Text); Assert.Contains("InvalidOperationException: A bug in an action", details.Text);
+            Probe.Click(window, "Copy details");
+            Assert.Equal(details.Text, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
 
             Probe.Click(window, "Close");
             Assert.Null(session.ChangeProblem); Assert.DoesNotContain("Something went wrong", Texts());

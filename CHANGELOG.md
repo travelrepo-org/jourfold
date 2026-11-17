@@ -18,6 +18,7 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 
 ### Fixes
 
+- On phones with weather turned on, reminders, the travel day's notification and its example work again. Since 0.8.0 working them out failed there before anything was shown.
 - The example of the travel day's notification is a train that arrives a minute later: its progress moves on and it goes away on arrival, also when Jourfold is asleep by then.
 - During a journey the travel day's notification moves on every few minutes, every minute in the last hour, instead of every five.
 - On the phone's timetable, the plan is no longer drawn again when the days come to rest, so a swipe right after it is not lost.

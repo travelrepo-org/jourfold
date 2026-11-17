@@ -18,6 +18,8 @@ changes:
   - en: "On phones, \"Something went wrong\" has Technical details: the error as written to the log on the device, to read and copy into a report. Nothing is sent."
     de: "Auf Handys hat „Etwas ist schiefgelaufen“ technische Details: den Fehler, wie er im Protokoll auf dem Gerät steht, zum Lesen und Kopieren in einen Bericht. Es wird nichts gesendet."
 fixes:
+  - en: "On phones with weather turned on, reminders, the travel day's notification and its example work again. Since 0.8.0 working them out failed there before anything was shown."
+    de: "Auf Handys mit eingeschaltetem Wetter funktionieren Erinnerungen, die Reisetag-Benachrichtigung und ihr Beispiel wieder. Seit 0.8.0 scheiterte dort ihre Berechnung, bevor etwas angezeigt wurde."
   - en: "The example of the travel day's notification is a train that arrives a minute later: its progress moves on and it goes away on arrival, also when Jourfold is asleep by then."
     de: "Das Beispiel der Reisetag-Benachrichtigung ist ein Zug, der eine Minute später ankommt: Sein Fortschritt rückt vor, und es verschwindet bei der Ankunft, auch wenn Jourfold bis dahin schläft."
   - en: "During a journey the travel day's notification moves on every few minutes, every minute in the last hour, instead of every five."

@@ -146,7 +146,8 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         public void OpenSettings() { }
         public void Show(TravelNotice notice, string tripFolder) { }
         public void ShowLive(LiveNotice? notice, string? tripFolder) => Live.Add(notice);
-        public void WakeAt(Instant? at) { }
+        public List<Instant?> Woken { get; } = [];
+        public void WakeAt(Instant? at) => Woken.Add(at);
         public void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets) { }
         LiveSupport ISystemNotices.Live => live;
         public void OpenLiveSettings() => OpenedLiveSettings++;
@@ -176,20 +177,57 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             Assert.Equal(support == LiveSupport.Off, allow is not null);
             if (allow is not null) { Probe.Click(window, "Allow in the system settings"); Assert.Equal(1, notices.OpenedLiveSettings); }
 
-            // The example is a journey under way that arrives in 45 minutes, so it has a time for the status bar and progress.
+            // The example is a train under way that arrives in a minute, half way there, with the minutes left for the
+            // status bar and the train riding along the progress.
             var before = notices.Live.Count;
             Probe.Click(window, "Show an example");
             await Probe.Until(() => session.LiveExampleResult is not null);
             var example = notices.Live[before]!;
-            Assert.Equal(session.Now + Duration.FromMinutes(45), example.Until);
-            Assert.True(example.From < session.Now);
-            Assert.Equal("Example journey · arrives 11:25", example.Title);
-            // The system takes it away after a minute, also when the app is asleep by then.
+            Assert.Equal(session.Now + Duration.FromMinutes(1), example.Until);
+            Assert.Equal(50, example.Progress(session.Now));
+            Assert.Equal("Train to Aachen · arrives 10:41", example.Title);
+            Assert.Equal(("1 min", "train-front"), (example.Chip, example.Icon));
+            // The system takes it away when it arrives, also when the app is asleep by then; until then the app wakes
+            // every few seconds to move it on.
             Assert.Equal(MobileSession.LiveExampleTime, example.Lasts);
+            Assert.Equal(session.Now + NoticeRunner.ExampleStep, notices.Woken.Last());
             Probe.Layout();
             Assert.Contains(Probe.All<TextBlock>(window), t => t.Tag as string == "live.result" && t.Text!.Contains(result, StringComparison.Ordinal));
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [Fact]
+    public void TheExampleMovesOnLikeAJourneyAndIsGoneWhenItArrives()
+    {
+        var started = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var settings = MobileSettings.Load(Path.Combine(root, "settings.json"));
+        var english = new Localization("en"); var german = new Localization("de");
+        Assert.Null(NoticeRunner.Example(settings, started, Tokyo, english));
+        settings.Values[NoticeRunner.ExampleSetting] = started.ToUnixTimeMilliseconds() + "|/trips/aachen";
+        var (first, folder) = NoticeRunner.Example(settings, started, Tokyo, english)!.Value;
+        Assert.Equal(("/trips/aachen", 50), (folder, first.Progress(started)));
+        // Half a minute on, the same train is three quarters there and its time to go away is shorter.
+        var later = NoticeRunner.Example(settings, started + Duration.FromSeconds(30), Tokyo, german)!.Value.Live;
+        Assert.Equal((75, "1 Min", "Zug nach Aachen · Ankunft 10:41"), (later.Progress(started + Duration.FromSeconds(30)), later.Chip, later.Title));
+        Assert.Equal(TimeSpan.FromSeconds(30), later.Lasts);
+        Assert.Null(NoticeRunner.Example(settings, started + Duration.FromMinutes(1), Tokyo, english));
+    }
+
+    [Fact]
+    public void TheStatusBarCountsTheMinutesInTheLastHourAndTheNotificationIsDrawnAgainAsItMovesOn()
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 0).InZoneStrictly(Tokyo).ToInstant();
+        var english = new Localization("en");
+        Assert.Equal("45 min", LiveNotice.ChipFor(now + Duration.FromMinutes(44) + Duration.FromSeconds(10), now, Tokyo, english));
+        Assert.Equal("60 min", LiveNotice.ChipFor(now + Duration.FromHours(1), now, Tokyo, english));
+        Assert.Equal("11:01", LiveNotice.ChipFor(now + Duration.FromMinutes(61), now, Tokyo, english));
+        // A long flight moves on a step every five minutes at most, a short ride every minute; the last hour every minute.
+        LiveNotice Ride(Duration took, Duration left) => new("", "", now - took + left, now + left, now + left, Guid.Empty, false);
+        Assert.Equal(now + Duration.FromMinutes(5), Ride(Duration.FromHours(11), Duration.FromHours(5)).Redraw(now));
+        Assert.Equal(now + Duration.FromMinutes(3), Ride(Duration.FromHours(5), Duration.FromHours(2)).Redraw(now));
+        Assert.Equal(now + Duration.FromMinutes(1), Ride(Duration.FromHours(11), Duration.FromMinutes(50)).Redraw(now));
+        Assert.Equal(now + Duration.FromMinutes(1), Ride(Duration.FromMinutes(70), Duration.FromMinutes(65)).Redraw(now));
     }
 
     [AvaloniaFact]

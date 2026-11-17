@@ -124,15 +124,45 @@ public static class NoticeRunner
                     }
                 }
             }
+            // The example from the settings takes the travel day's place for its minute and moves on like a journey.
+            var example = Example(settings, now, phone, strings);
+            if (example is { } shownExample) live = shownExample;
             notices.ShowLive(live?.Live, live?.Folder);
             notices.Schedule(coming.OrderBy(c => c.Item1.At).ToArray());
             notices.SetTicketShortcuts(shortcuts.OrderBy(t => t.At).Take(3).Select(t => t.Shortcut).ToArray());
-            // While travelling the progress is redrawn every few minutes; otherwise the plan is read again twice a day.
-            var wake = new[] { next, live?.Live.Changes, now + (live is null ? Duration.FromHours(12) : Duration.FromMinutes(5)) }.OfType<Instant>().Where(t => t > now).Min();
+            // While travelling the notification is redrawn as the progress and the minutes left move on, the example every
+            // few seconds; otherwise the plan is read again twice a day.
+            var redraw = example is not null ? now + ExampleStep : live is { } shownLive ? shownLive.Live.Redraw(now) : now + Duration.FromHours(12);
+            var wake = new[] { next, live?.Live.Changes, redraw }.OfType<Instant>().Where(t => t > now).Min();
             notices.WakeAt(wake);
             File.WriteAllText(shownPath, JsonSerializer.Serialize(shown));
         }
         finally { Running.Release(); }
+    }
+
+    /// <summary>The setting that holds when the example was started and from which trip, as "milliseconds|folder".</summary>
+    public const string ExampleSetting = "live.example";
+
+    /// <summary>How long the example stays: a short journey that arrives when it goes away.</summary>
+    public static readonly Duration ExampleTime = Duration.FromMinutes(1);
+
+    /// <summary>How often the example is drawn again, so its progress and the minutes left visibly move on.</summary>
+    public static readonly Duration ExampleStep = Duration.FromSeconds(10);
+
+    /// <summary>
+    /// The example journey while it runs: a train that left a minute before it was started and arrives a minute after,
+    /// when the system takes it away. Null before and after.
+    /// </summary>
+    public static (LiveNotice Live, string Folder)? Example(MobileSettings settings, Instant now, DateTimeZone phone, Localization s)
+    {
+        var value = settings.Values.GetValueOrDefault(ExampleSetting);
+        if (value?.Split('|', 2) is not [var ms, var folder] || !long.TryParse(ms, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var started)) return null;
+        var from = Instant.FromUnixTimeMilliseconds(started); var until = from + ExampleTime;
+        if (now < from || now >= until) return null;
+        var title = string.Format(System.Globalization.CultureInfo.CurrentCulture, s["NoticeArrives"], s["LiveExampleJourney"], until.InZone(phone).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
+        var live = new LiveNotice(title, s["LiveExampleText"], from - ExampleTime, until, until, Guid.Empty, false, (until - now).ToTimeSpan())
+        { Chip = LiveNotice.ChipFor(until, now, phone, s), Icon = "train-front" };
+        return (live, folder);
     }
 
     private static Dictionary<string, long> Read(string path)

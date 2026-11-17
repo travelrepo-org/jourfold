@@ -995,6 +995,9 @@ public sealed class MobileTests : IDisposable
         Assert.Equal(("Flight to Tokyo · departs 13:20", At(14, 13, 20, Berlin)), (before.Title, before.Until!.Value));
         var flying = TravelNotices.Live(trip, session.Me, At(14, 20, 0, Berlin), Berlin, English)!;
         Assert.Equal("Flight to Tokyo · arrives 08:35 Tokyo", flying.Title); Assert.Equal(At(14, 13, 20, Berlin), flying.From);
+        // The status bar has the time on the phone's clock, the minutes left in the last hour, and the plane rides along.
+        Assert.Equal(("13:20", "plane", "01:35"), (before.Chip, flying.Icon, flying.Chip));
+        Assert.Equal("40 min", TravelNotices.Live(trip, session.Me, At(14, 12, 40, Berlin), Berlin, English)!.Chip);
         Assert.Null(TravelNotices.Live(trip, session.Me, At(14, 6, 0, Berlin), Berlin, English));
 
         // Plans for someone else do not remind the user.

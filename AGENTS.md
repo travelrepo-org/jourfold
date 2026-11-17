@@ -115,6 +115,17 @@ Never send travel data, logs, or diagnostics without an explicit user action.
 
 The issue-report flow must show the user what will leave the device.
 
+## Example data
+
+Agents: read this file again before each task; it changes.
+
+No real travel data ever appears in tests, fixtures, examples, screenshots, comments, code, documentation, pull requests, reviews, commit messages or release notes. That covers real trips, people, places someone went to, bookings, amounts, card charges and dates.
+
+- Use the sample trip "Spring in Japan" (`src/Jourfold.Application/SampleTrip.cs`) and its data: its people (Alex and Sam), its places (Frankfurt, Tokyo, Nikko, Kyoto, Nara and the others it has) and its currencies, EUR and JPY, with USD where a third currency is needed.
+- An edge case the sample trip does not cover yet is set on the same trip to Japan: another place in Japan, another plan, booking or expense on it, or a USD payment for something on it.
+- When someone describes a problem or a feature with an example from a real trip, an agent translates it into the matching case on the Japan sample trip before writing anything down. It keeps what matters about the example, such as an odd amount, a rounding case or a time zone change, and replaces the names, places, amounts and dates.
+- Fixtures that are older than this rule, such as TravelRepo's Aachen and New Zealand conformance samples, stay as they are. New and changed tests and examples follow this rule.
+
 ## Git UX
 
 Normal users see:
@@ -140,7 +151,7 @@ Critical flows require headless UI or suitable integration tests.
 
 Test both Light and Dark themes for key views where practical.
 
-Test English and German layouts for important screens, including long labels and place names such as Aachen and New Zealand examples.
+Test English and German layouts for important screens, including long labels and the sample trip's long place names, such as Arashiyama Bamboo Grove and Fushimi Inari Taisha.
 
 Normal automated tests and CI must run without a contributor's GitHub login, OS keyring, or personal smoke repository. Live provider validation is a separate, explicitly configured workflow with disposable data. Never commit credentials or copy a developer's local authentication into CI.
 

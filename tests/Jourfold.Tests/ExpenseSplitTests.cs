@@ -70,7 +70,7 @@ public sealed class ExpenseSplitTests : IDisposable
         using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
         using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
         var (path, p) = await Trip(); await m.OpenAsync(path);
-        var ferry = Expense("Ferry to Waiheke", "90.00", "NZD", p.Ana); await m.Workspace!.EditAsync(ferry);
+        var ferry = Expense("Ferry to Picton", "90.00", "NZD", p.Ana); await m.Workspace!.EditAsync(ferry);
         Expenses.Split(m.Trip!, m.Trip!.Find(ferry.Id)!).Shares.Select(x => x.Amount).Should(30m, 30m, 30m);
 
         await m.SetSplitMethodAsync(ferry.Id, SplitMethod.Amount);
@@ -104,7 +104,7 @@ public sealed class ExpenseSplitTests : IDisposable
         using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
         using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
         var (path, p) = await Trip(); await m.OpenAsync(path);
-        var dinner = Expense("Dinner in Aachen", "90.00", "EUR", p.Ana);   // Ben owes Ana 30
+        var dinner = Expense("Dinner in Hamburg", "90.00", "EUR", p.Ana);   // Ben owes Ana 30
         var taxi = Expense("Taxi", "30.00", "EUR", p.Ben);                  // Ana owes Ben 10
         var museum = Expense("Te Papa", "60.00", "NZD", p.Cleo);           // Ben owes Cleo 20 NZD
         await m.Workspace!.ApplyAsync([new(dinner.Id, dinner), new(taxi.Id, taxi), new(museum.Id, museum)]);
@@ -142,7 +142,7 @@ public sealed class ExpenseSplitTests : IDisposable
         using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
         using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
         var (path, p) = await Trip(); await m.OpenAsync(path);
-        var dinner = Expense("Dinner in Aachen", "90.00", "EUR", p.Ana); await m.Workspace!.EditAsync(dinner);
+        var dinner = Expense("Dinner in Hamburg", "90.00", "EUR", p.Ana); await m.Workspace!.EditAsync(dinner);
         var labels = m.ExportLabels(new Jourfold.UI.Localization(language));
         var text = TripExport.Text(TripExport.Document(m.Trip!, new ExportOptions { Parts = ExportParts.Costs, Person = p.Ben.Id }, labels, System.Globalization.CultureInfo.GetCultureInfo(language)));
         Assert.True(text.Contains(share, StringComparison.Ordinal), text);
@@ -158,7 +158,7 @@ public sealed class ExpenseSplitTests : IDisposable
         var (path, p) = await Trip(); await m.OpenAsync(path);
         await m.SetTripCurrencyAsync("EUR");
         Assert.Equal("EUR", TripCurrency.Stored(m.Trip!));
-        var tour = Expense("Hobbiton", "300.00", "NZD", p.Ana); await m.Workspace!.EditAsync(tour);
+        var tour = Expense("Weta Workshop tour", "300.00", "NZD", p.Ana); await m.Workspace!.EditAsync(tour);
 
         // Nothing charged yet and no rates: who owes whom stays in NZD.
         Assert.All(Expenses.SettleUp(m.Trip!, m.TripCurrencyCode, m.EstimateRates), t => Assert.Equal("NZD", t.Currency));
@@ -485,10 +485,10 @@ public sealed class ExpenseSplitTests : IDisposable
             Probe.Click(Probe.Sheet(w), m.Strings["Close"]); Probe.Layout();
             m.Selected = m.Trip!.Manifest; Probe.ShowDetails(w);
             await Probe.Until(() => Texts(w.FindControl<Control>("InspectorHost")!).Contains(label));
-            await m.SetTripCurrencyAsync("CHF");
-            Assert.Equal("CHF", TripCurrency.Stored(m.Trip!));
-            Assert.Equal("CHF", m.TripCurrencyCode);
-            Assert.Contains("currency: CHF", File.ReadAllText(Path.Combine(m.Workspace!.Repository.Root, "travel.yaml")), StringComparison.Ordinal);
+            await m.SetTripCurrencyAsync("CAD");
+            Assert.Equal("CAD", TripCurrency.Stored(m.Trip!));
+            Assert.Equal("CAD", m.TripCurrencyCode);
+            Assert.Contains("currency: CAD", File.ReadAllText(Path.Combine(m.Workspace!.Repository.Root, "travel.yaml")), StringComparison.Ordinal);
         }
         finally { w.Close(); }
     }

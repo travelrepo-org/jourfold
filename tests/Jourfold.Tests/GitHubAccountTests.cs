@@ -28,7 +28,7 @@ public sealed class GitHubAccountTests : IDisposable
         {
             if (Offline) throw new HttpRequestException("offline");
             Assert.EndsWith("/user", request.RequestUri!.AbsolutePath);
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex\",\"name\":\"Alex Example\",\"html_url\":\"https://github.com/alex\"}") });
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex-travels\",\"name\":\"Alex Example\",\"html_url\":\"https://github.com/alex-travels\"}") });
         }
     }
 
@@ -37,13 +37,13 @@ public sealed class GitHubAccountTests : IDisposable
         public bool Installed { get; set; }
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(TravelRepo.Core.Entity.CreateTrip("Lisbon"))));
-            static string Repo(string name) => "{\"full_name\":\"alex/" + name + "\",\"clone_url\":\"https://github.com/alex/" + name + ".git\",\"html_url\":\"https://github.com/alex/" + name + "\",\"private\":true,\"size\":3}";
+            var trip = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(TravelRepo.Serialization.YamlCodec.Write(TravelRepo.Core.Entity.CreateTrip("Paris"))));
+            static string Repo(string name) => "{\"full_name\":\"alex-travels/" + name + "\",\"clone_url\":\"https://github.com/alex-travels/" + name + ".git\",\"html_url\":\"https://github.com/alex-travels/" + name + "\",\"private\":true,\"size\":3}";
             var body = request.RequestUri!.AbsolutePath switch
             {
                 "/user/installations" => Installed ? "{\"total_count\":1,\"installations\":[{\"id\":5}]}" : "{\"total_count\":0,\"installations\":[]}",
-                "/user/installations/5/repositories" => "{\"total_count\":2,\"repositories\":[" + Repo("lisbon") + "," + Repo("notes") + "]}",
-                "/repos/alex/lisbon/contents/travel.yaml" => "{\"content\":\"" + trip + "\"}",
+                "/user/installations/5/repositories" => "{\"total_count\":2,\"repositories\":[" + Repo("paris") + "," + Repo("notes") + "]}",
+                "/repos/alex-travels/paris/contents/travel.yaml" => "{\"content\":\"" + trip + "\"}",
                 _ => null
             };
             return Task.FromResult(body is null ? new HttpResponseMessage(HttpStatusCode.NotFound) : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
@@ -96,11 +96,11 @@ public sealed class GitHubAccountTests : IDisposable
         var interaction = new TestInteraction();
         using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, secrets, "client"));
         await vm.RefreshGitHubAccountAsync();
-        Assert.True(vm.GitHubConnected); Assert.Equal("alex", vm.GitHubLogin); Assert.Equal("Alex Example", vm.GitHubAccount!.Name);
+        Assert.True(vm.GitHubConnected); Assert.Equal("alex-travels", vm.GitHubLogin); Assert.Equal("Alex Example", vm.GitHubAccount!.Name);
 
         using var offline = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, secrets, "client"));
         handler.Offline = true; await offline.RefreshGitHubAccountAsync();
-        Assert.True(offline.GitHubConnected); Assert.Null(offline.GitHubAccount); Assert.Equal("alex", offline.GitHubLogin);
+        Assert.True(offline.GitHubConnected); Assert.Null(offline.GitHubAccount); Assert.Equal("alex-travels", offline.GitHubLogin);
 
         await vm.DisconnectGitHubCommand.ExecuteAsync(null);
         Assert.False(vm.GitHubConnected); Assert.Null(vm.GitHubLogin); Assert.Empty(secrets.Values);
@@ -120,14 +120,14 @@ public sealed class GitHubAccountTests : IDisposable
             Probe.Click(Probe.Sheet(w), vm.Strings["Providers"]); Probe.Layout();
             static IEnumerable<string?> Texts(Control sheet) => Probe.All<TextBlock>(sheet).Select(t => t.Text);
             static bool Has(Control sheet, string label) => Probe.All<Button>(sheet).Any(b => Avalonia.Automation.AutomationProperties.GetName(b) == label);
-            await Probe.Until(() => Texts(Probe.Sheet(w)).Contains("Signed in as @alex"));
+            await Probe.Until(() => Texts(Probe.Sheet(w)).Contains("Signed in as @alex-travels"));
             var sheet = Probe.Sheet(w);
             Assert.Contains(vm.Strings["Connected"], Texts(sheet)); Assert.Contains("Alex Example", Texts(sheet));
             Assert.False(Has(sheet, vm.Strings["ConnectGitHub"])); Assert.True(Has(sheet, vm.Strings["Disconnect"])); Assert.True(Has(sheet, vm.Strings["GitHubProfile"]));
 
             // Leaving the page and coming back must not offer to connect again.
             Probe.Click(sheet, vm.Strings["General"]); Probe.Layout(); Probe.Click(Probe.Sheet(w), vm.Strings["Providers"]); Probe.Layout();
-            Assert.False(Has(Probe.Sheet(w), vm.Strings["ConnectGitHub"])); Assert.Contains("Signed in as @alex", Texts(Probe.Sheet(w)));
+            Assert.False(Has(Probe.Sheet(w), vm.Strings["ConnectGitHub"])); Assert.Contains("Signed in as @alex-travels", Texts(Probe.Sheet(w)));
             Probe.Click(Probe.Sheet(w), vm.Strings["Close"]); await settings.WaitAsync(TimeSpan.FromSeconds(3));
         }
         finally { w.Close(); }
@@ -189,10 +189,10 @@ public sealed class NewTripPublishingTests : IDisposable
         public string? Requested { get; private set; }
         protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            if (request.RequestUri!.AbsolutePath == "/user") return new(HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex\"}") };
+            if (request.RequestUri!.AbsolutePath == "/user") return new(HttpStatusCode.OK) { Content = new StringContent("{\"login\":\"alex-travels\"}") };
             Assert.Equal("/user/repos", request.RequestUri.AbsolutePath);
             Requested = System.Text.Json.Nodes.JsonNode.Parse(await request.Content!.ReadAsStringAsync(ct))!["name"]!.ToString();
-            return status != HttpStatusCode.OK ? new(status) : new(HttpStatusCode.OK) { Content = new StringContent($$"""{"full_name":"alex/{{Requested}}","clone_url":{{System.Text.Json.JsonSerializer.Serialize(bare)}},"html_url":"https://github.com/alex/{{Requested}}","private":true}""") };
+            return status != HttpStatusCode.OK ? new(status) : new(HttpStatusCode.OK) { Content = new StringContent($$"""{"full_name":"alex-travels/{{Requested}}","clone_url":{{System.Text.Json.JsonSerializer.Serialize(bare)}},"html_url":"https://github.com/alex-travels/{{Requested}}","private":true}""") };
         }
     }
 
@@ -205,15 +205,15 @@ public sealed class NewTripPublishingTests : IDisposable
         var handler = new CreateRepository(bare, githubWorks ? HttpStatusCode.OK : HttpStatusCode.UnprocessableEntity);
         using var http = new HttpClient(handler); using var store = new LocalStore(Path.Combine(root, "state"));
         NewTripDefaults? offered = null;
-        var interaction = new TestInteraction { NewTrip = d => { offered = d; return new("Lisbon in October", "en", null, null, null, [], null, Path.Combine(root, "Lisbon"), "Alex", "lisbon-in-october"); } };
+        var interaction = new TestInteraction { NewTrip = d => { offered = d; return new("Paris in October", "en", null, null, null, [], null, Path.Combine(root, "Paris"), "Alex", "paris-in-october"); } };
         using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction, () => new GitHubProvider(http, new Secrets(), "client"));
         await vm.NewTripCommand.ExecuteAsync(null);
 
-        Assert.True(offered!.GitHubConnected); Assert.True(vm.HasTrip); Assert.Equal("lisbon-in-october", handler.Requested);
+        Assert.True(offered!.GitHubConnected); Assert.True(vm.HasTrip); Assert.Equal("paris-in-october", handler.Requested);
         var remotes = await vm.Workspace!.Git.RemotesAsync();
         if (githubWorks)
         {
-            Assert.Equal(bare, remotes["origin"]); Assert.Contains(string.Format(vm.Strings["PublishedPrivately"], "alex/lisbon-in-october"), interaction.Toasts);
+            Assert.Equal(bare, remotes["origin"]); Assert.Contains(string.Format(vm.Strings["PublishedPrivately"], "alex-travels/paris-in-october"), interaction.Toasts);
             var pushed = await new GitCliBackend().ExecuteAsync(bare, ["rev-parse", "refs/heads/" + await vm.Workspace.Git.CurrentBranchAsync()]); Assert.Equal(await vm.Workspace.Git.HeadAsync(), pushed.Output.Trim());
         }
         else

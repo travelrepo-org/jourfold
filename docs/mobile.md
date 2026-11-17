@@ -292,8 +292,10 @@ time zone changes (an arrival up to three hours early is shown on the zone chang
 and syncs. A tap opens the plan, "Show ticket" its first ticket.
 
 **Live Updates.** On Android 16 and newer the travel day's notification asks to be a Live Update: it uses the
-progress style while a journey is under way, carries the departure or arrival time as the short text for the status
-bar chip, and requests promotion; the manifest has `POST_PROMOTED_NOTIFICATIONS`. The system decides: it shows the
+progress style while a journey is under way (a bar in the accent colour with the vehicle riding along, `ic_live_*`,
+drawn by `eng/android-icons.py` from the app's transport icons), carries the short text for the status bar chip
+(`LiveNotice.Chip`: the minutes left in the last hour, as "45 min", otherwise the departure or arrival time), has no
+chronometer next to the title, and requests promotion; the manifest has `POST_PROMOTED_NOTIFICATIONS`. The system decides: it shows the
 chip only while Jourfold is not on the screen, the user can turn Live Updates off per app, and a maker's Android may
 show them elsewhere (such as Samsung's Now Bar) or not at all. Samsung's One UI 8 shows Live Updates only for
 Samsung's own apps and apps it approved, unless "Live notifications for all apps" is on in the developer options;
@@ -301,11 +303,14 @@ on a Samsung phone the settings say so (`LiveByMakerOnly`), and the notification
 progress. All of this needs "Remind me on the trip" to be on;
 allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
 (`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
-example**: a journey that arrives in 45 minutes, for a minute (the system removes it with `setTimeoutAfter`, also
-when Jourfold is asleep by then), with a line that says whether Android made it a Live
-Update (`LivePromoted`, read from the posted notification's flags). Checked on an Android 14 emulator, where it is an
-ongoing notification with countdown and progress; the Android 16 path has not been run on a device by the
-maintainers of this change. The pill shows only what the plan says: there are no live delays or gates.
+example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
+`NoticeRunner` shows it in place of the travel day and wakes every ten seconds to move it on, also when Jourfold is
+asleep; at the arrival the system removes it (`setTimeoutAfter`) and a real journey comes back. A line says whether
+Android made it a Live Update (`LivePromoted`, read from the posted notification's flags). While a real journey is
+under way the notification is drawn again every minute in the last hour and otherwise as the progress moves a step,
+every one to five minutes (`LiveNotice.Redraw`). Checked on an Android 14 emulator, where it is an ongoing
+notification with countdown and moving progress, and on a Galaxy S26 Ultra with One UI's developer option on, where
+it is a pill in the status bar and the Now Bar. The pill shows only what the plan says: there are no live delays or gates.
 
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they

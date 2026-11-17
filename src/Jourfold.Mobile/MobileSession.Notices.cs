@@ -23,29 +23,24 @@ public sealed partial class MobileSession
     public string? LiveExampleResult { get; private set; }
 
     /// <summary>How long the example stays.</summary>
-    public static readonly TimeSpan LiveExampleTime = TimeSpan.FromMinutes(1);
+    public static readonly TimeSpan LiveExampleTime = NoticeRunner.ExampleTime.ToTimeSpan();
 
     /// <summary>
-    /// Shows the travel day's notification with an example journey that arrives in 45 minutes, so the user sees on
-    /// their own device what a travel day looks like, and whether the system makes it a Live Update. After a minute
-    /// the system removes it by itself (the app may be asleep by then), and the notices are worked out again, which puts a
-    /// real journey back.
+    /// Shows the travel day's notification with an example journey that arrives in a minute, so the user sees on their
+    /// own device what a travel day looks like, and whether the system makes it a Live Update. The notices run as on a
+    /// travel day: they wake the app every few seconds to move the progress on, also when it is asleep, and when the
+    /// example has arrived the system has taken it away and a real journey comes back.
     /// </summary>
     public async Task ShowLiveExampleAsync(CancellationToken ct = default)
     {
         if (Host.Notices is not { } notices || !NoticesOn) return;
-        var now = Now; var arrives = now + NodaTime.Duration.FromMinutes(45);
-        var title = string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["NoticeArrives"], Strings["LiveExampleJourney"], arrives.InZone(PhoneZone).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
-        notices.ShowLive(new LiveNotice(title, Strings["LiveExampleText"], now - NodaTime.Duration.FromMinutes(45), arrives, arrives, Guid.Empty, false, LiveExampleTime), Workspace?.Repository.Root ?? Host.DataRoot);
+        Settings.Values[NoticeRunner.ExampleSetting] = Now.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + (Workspace?.Repository.Root ?? Host.DataRoot);
+        Settings.Save();
+        await NoticeRunner.RunAsync(Host, ct: ct);
         // The system decides a moment after the notification is posted.
         await Task.Delay(TimeSpan.FromMilliseconds(600), ct);
         LiveExampleResult = Strings[notices.LivePromoted switch { true => "LiveExamplePromoted", false when notices.Live != LiveSupport.None => "LiveExamplePlain", _ => "LiveExampleShown" }];
         Changed?.Invoke();
-        _ = Task.Delay(LiveExampleTime, CancellationToken.None).ContinueWith(async _ =>
-        {
-            try { await NoticeRunner.RunAsync(Host); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or TravelRepo.Core.DomainException or System.Text.Json.JsonException) { }
-        }, TaskScheduler.Default);
     }
 
     /// <summary>

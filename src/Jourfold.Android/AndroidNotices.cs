@@ -76,32 +76,52 @@ public sealed class AndroidNotices(Context context, string language, string devi
         var builder = new Notification.Builder(context, LiveChannel).SetSmallIcon(Resource.Drawable.ic_notification)!
             .SetContentTitle(live.Title)!.SetContentText(live.Text)!.SetOngoing(true)!.SetOnlyAlertOnce(true)!.SetCategory(Notification.CategoryProgress)!
             .SetContentIntent(Open(tripFolder, live.Item, ticket: false, LiveId))!;
-        int? done = null;
-        if (live.Until is { } until)
-        {
-            // The system counts down to the departure or arrival itself, also between updates.
-            builder.SetWhen(until.ToUnixTimeMilliseconds())!.SetShowWhen(true)!.SetUsesChronometer(true)!.SetChronometerCountDown(true);
-            if (live.From is { } from && until > from)
-                done = (int)Math.Clamp((NodaTime.SystemClock.Instance.GetCurrentInstant() - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100);
-        }
+        var done = live.Progress(NodaTime.SystemClock.Instance.GetCurrentInstant());
         if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
         // The system takes it away itself, also when the app is asleep by then.
         if (live.Lasts is { } lasts) builder.SetTimeoutAfter((long)lasts.TotalMilliseconds);
+        builder.SetColor(Accent);
         if (OperatingSystem.IsAndroidVersionAtLeast(36))
         {
             // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar that
-            // carries the time of the departure or arrival. The progress style is the one the system and the makers'
-            // own surfaces, such as the lock screen, lay out for journeys.
+            // carries the minutes left or the time of the departure or arrival. The progress style is the one the system
+            // and the makers' own surfaces, such as Samsung's Now Bar, lay out for journeys: a bar in Jourfold's colour
+            // with the vehicle riding along. Jourfold draws it again as it moves on (NoticeRunner), so no counter
+            // ticks next to the title.
+            builder.SetShowWhen(false);
             if (done is { } progress)
-                builder.SetStyle(new Notification.ProgressStyle().SetStyledByProgress(true)!.SetProgress(progress)!
-                    .SetProgressTrackerIcon(global::Android.Graphics.Drawables.Icon.CreateWithResource(context, Resource.Drawable.ic_notification)));
-            if (live.Until is { } chip) builder.SetShortCriticalText(chip.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
+                builder.SetStyle(new Notification.ProgressStyle().SetStyledByProgress(true)!
+                    .SetProgressSegments([new Notification.ProgressStyle.Segment(100).SetColor(Accent)!])!.SetProgress(progress)!
+                    .SetProgressTrackerIcon(global::Android.Graphics.Drawables.Icon.CreateWithResource(context, Vehicle(live.Icon))));
+            if (live.Chip is { } chip) builder.SetShortCriticalText(chip);
             var extras = new Bundle(); extras.PutBoolean(RequestPromoted, true);
             builder.AddExtras(extras);
         }
-        else if (done is { } progress) builder.SetProgress(100, progress, false);
+        else
+        {
+            // The system counts down to the departure or arrival itself, also between updates.
+            if (live.Until is { } until) builder.SetWhen(until.ToUnixTimeMilliseconds())!.SetShowWhen(true)!.SetUsesChronometer(true)!.SetChronometerCountDown(true);
+            if (done is { } progress) builder.SetProgress(100, progress, false);
+        }
         Manager.Notify(LiveId, builder.Build());
     }
+
+    /// <summary>Jourfold's accent colour, the light theme's Accent token.</summary>
+    private static readonly global::Android.Graphics.Color Accent = global::Android.Graphics.Color.ParseColor("#0F7B7A");
+
+    /// <summary>The drawable of a vehicle icon (eng/android-icons.py draws them from the app's icons).</summary>
+    private static int Vehicle(string icon) => icon switch
+    {
+        "plane" => Resource.Drawable.ic_live_plane,
+        "train-front" => Resource.Drawable.ic_live_train_front,
+        "bus" => Resource.Drawable.ic_live_bus,
+        "car" => Resource.Drawable.ic_live_car,
+        "car-taxi-front" => Resource.Drawable.ic_live_car_taxi_front,
+        "ship" => Resource.Drawable.ic_live_ship,
+        "bike" => Resource.Drawable.ic_live_bike,
+        "footprints" => Resource.Drawable.ic_live_footprints,
+        _ => Resource.Drawable.ic_live_route
+    };
 
     /// <summary>Notification.EXTRA_REQUEST_PROMOTED_ONGOING, which asks Android 16 to show the notification as a Live Update.</summary>
     private const string RequestPromoted = "android.requestPromotedOngoing";

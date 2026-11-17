@@ -185,7 +185,7 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             var example = notices.Live[before]!;
             Assert.Equal(session.Now + Duration.FromMinutes(1), example.Until);
             Assert.Equal(50, example.Progress(session.Now));
-            Assert.Equal("Train to Aachen · arrives 10:41", example.Title);
+            Assert.Equal("Train to Kyoto · arrives 10:41", example.Title);
             Assert.Equal(("1 min", "train-front"), (example.Chip, example.Icon));
             // The system takes it away when it arrives, also when the app is asleep by then; until then the app wakes
             // every few seconds to move it on.
@@ -204,12 +204,12 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         var settings = MobileSettings.Load(Path.Combine(root, "settings.json"));
         var english = new Localization("en"); var german = new Localization("de");
         Assert.Null(NoticeRunner.Example(settings, started, Tokyo, english));
-        settings.Values[NoticeRunner.ExampleSetting] = started.ToUnixTimeMilliseconds() + "|/trips/aachen";
+        settings.Values[NoticeRunner.ExampleSetting] = started.ToUnixTimeMilliseconds() + "|/trips/spring-in-japan";
         var (first, folder) = NoticeRunner.Example(settings, started, Tokyo, english)!.Value;
-        Assert.Equal(("/trips/aachen", 50), (folder, first.Progress(started)));
+        Assert.Equal(("/trips/spring-in-japan", 50), (folder, first.Progress(started)));
         // Half a minute on, the same train is three quarters there and its time to go away is shorter.
         var later = NoticeRunner.Example(settings, started + Duration.FromSeconds(30), Tokyo, german)!.Value.Live;
-        Assert.Equal((75, "1 Min", "Zug nach Aachen · Ankunft 10:41"), (later.Progress(started + Duration.FromSeconds(30)), later.Chip, later.Title));
+        Assert.Equal((75, "1 Min", "Zug nach Kyoto · Ankunft 10:41"), (later.Progress(started + Duration.FromSeconds(30)), later.Chip, later.Title));
         Assert.Equal(TimeSpan.FromSeconds(30), later.Lasts);
         Assert.Null(NoticeRunner.Example(settings, started + Duration.FromMinutes(1), Tokyo, english));
     }

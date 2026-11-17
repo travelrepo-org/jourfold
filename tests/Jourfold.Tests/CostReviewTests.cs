@@ -39,7 +39,7 @@ public sealed class CostReviewTests : IDisposable
     public void TheSearchFindsAPaymentByItsNameAndByThePeopleInIt()
     {
         var alex = Entity.Create("person", "Alex"); var sam = Entity.Create("person", "Sam");
-        var place = Entity.Create("place", "Café Zürich");
+        var place = Entity.Create("place", "Café Grüne Tür");
         var lunch = Entity.Create("schedule_item", "Lunch"); lunch.Data["default_place"] = place.Id.ToString();
         var pizza = Expense("Alex's Pizza", "30.00", "EUR", sam, sam);
         var taxi = Expense("Taxi", "20.00", "EUR", alex, alex, sam);
@@ -51,7 +51,7 @@ public sealed class CostReviewTests : IDisposable
         // "alex" finds both the pizza place and what Alex paid or shares.
         Assert.Equal(["Alex's Pizza", "Taxi"], Found("alex"));
         // The place of the plan it belongs to, without accents, and the category in words.
-        Assert.Equal(["Coffee"], Found("zurich"));
+        Assert.Equal(["Coffee"], Found("grune"));
         // The coffee belongs to a plan, which makes it food; the others are "other".
         Assert.Equal(["Alex's Pizza", "Taxi"], Found("other"));
         Assert.Equal(["Taxi"], Found("taxi sam"));

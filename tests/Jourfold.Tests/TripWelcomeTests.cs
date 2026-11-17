@@ -47,7 +47,7 @@ public sealed class TripWelcomeTests : IDisposable
     public async Task APhoneAsksOnceAndSavesTheEmailOnThePersonAndForOtherTrips()
     {
         var path = await Trip("lake", "Alex", "Sam");
-        var session = Phone("""{ "GitHubLogin": "sam", "GitHubId": 42, "Name": "Sam" }""");
+        var session = Phone("""{ "GitHubLogin": "sam-travels", "GitHubId": 42, "Name": "Sam" }""");
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         try
         {
@@ -57,7 +57,7 @@ public sealed class TripWelcomeTests : IDisposable
             Probe.Layout();
             Assert.Contains("Who are you in this trip?", window.GetVisualDescendants().OfType<TextBlock>().Select(t => t.Text));
             // Without an email of one's own, GitHub's private address is offered, and keeping it for other trips is.
-            Assert.Equal("42+sam@users.noreply.github.com", session.SuggestedEmail);
+            Assert.Equal("42+sam-travels@users.noreply.github.com", session.SuggestedEmail);
             Assert.True(session.OfferRememberEmail);
 
             var sam = session.Trip!.Entities.Values.Single(e => e.Title == "Sam");
@@ -65,7 +65,7 @@ public sealed class TripWelcomeTests : IDisposable
             Assert.Equal(Overlay.None, session.Showing);
             Assert.Equal(sam.Id, session.Me?.Id);
             Assert.Equal(["sam@example.invalid"], TripPeople.Emails(session.Trip!.Find(sam.Id)!));
-            Assert.Equal(["sam"], TripPeople.GitHubLogins(session.Trip!.Find(sam.Id)!));
+            Assert.Equal(["sam-travels"], TripPeople.GitHubLogins(session.Trip!.Find(sam.Id)!));
             Assert.Equal("sam@example.invalid", session.Settings.Email);
             Assert.Equal("sam@example.invalid", await GitEmail(path));
 

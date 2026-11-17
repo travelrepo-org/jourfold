@@ -36,7 +36,7 @@ public sealed class AcceptanceFlowTests : IDisposable
 
     private async Task<string> Create()
     {
-        var repo = new TravelRepository(Path.Combine(root, "trip")); await repo.InitializeAsync(Entity.CreateTrip("Aachen", "de", "Europe/Berlin")); await new GitRepository(repo, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); return repo.Root;
+        var repo = new TravelRepository(Path.Combine(root, "trip")); await repo.InitializeAsync(Entity.CreateTrip("Hamburg", "de", "Europe/Berlin")); await new GitRepository(repo, new GitCliBackend()).InitializeAsync("Alex", "alex@example.invalid"); return repo.Root;
     }
     [Fact]
     public async Task AttachmentsAndMarkdownUndoAsCoherentCommands()
@@ -76,7 +76,7 @@ public sealed class AcceptanceFlowTests : IDisposable
     public async Task AccommodationAndCommentsUseStructuredFieldsAndRenderTogether()
     {
         var path = await Create(); using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction(); using var vm = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); await vm.OpenAsync(path);
-        var person = Entity.Create("person", "Alex"); var place = Entity.Create("place", "Hotel Aachen"); await vm.Workspace!.ApplyAsync([new(person.Id, person), new(place.Id, place)]);
+        var person = Entity.Create("person", "Alex"); var place = Entity.Create("place", "Hotel Hamburg"); await vm.Workspace!.ApplyAsync([new(person.Id, person), new(place.Id, place)]);
         interaction.Answers.Enqueue("Hotel stay"); await vm.AddAsync("accommodation"); var stay = vm.Selected!;
         interaction.Answers.Enqueue("2027-05-12T15:00:00"); interaction.Answers.Enqueue("Europe/Berlin"); await EditorModel.ComplexAsync(vm, stay.Id, EditorModel.Fields(stay).Single(f => f.Path.EndsWith("check_in", StringComparison.Ordinal)));
         await EditorModel.UpdateAsync(vm, stay.Id, new("components/accommodation/rooms", "Rooms", "list"), "Room 21, Room 22");
@@ -100,8 +100,8 @@ public sealed class AcceptanceFlowTests : IDisposable
     {
         var path = await Create(); var backend = new GitCliBackend(); var local = new GitRepository(new TravelRepository(path), backend);
         var remote = Path.Combine(root, "remote.git"); Directory.CreateDirectory(remote); await backend.ExecuteAsync(remote, ["init", "--bare"]); await local.AddRemoteAsync("origin", remote); await local.PushAsync("origin");
-        var otherPath = Path.Combine(root, "other"); await GitRepository.CloneAsync(backend, remote, otherPath); var other = new GitRepository(new TravelRepository(otherPath), backend); await backend.ExecuteAsync(otherPath, ["switch", "main"]); await other.SetIdentityAsync("Carla", "carla@example.invalid");
-        var remotePerson = Entity.Create("person", "Carla"); await other.Repository.ApplyAsync(await other.Repository.ReadAsync(), [new(remotePerson.Id, remotePerson)]); await other.CreateVersionAsync("Add Carla"); await other.PushAsync("origin");
+        var otherPath = Path.Combine(root, "other"); await GitRepository.CloneAsync(backend, remote, otherPath); var other = new GitRepository(new TravelRepository(otherPath), backend); await backend.ExecuteAsync(otherPath, ["switch", "main"]); await other.SetIdentityAsync("Sam", "sam@example.invalid");
+        var remotePerson = Entity.Create("person", "Sam"); await other.Repository.ApplyAsync(await other.Repository.ReadAsync(), [new(remotePerson.Id, remotePerson)]); await other.CreateVersionAsync("Add Sam"); await other.PushAsync("origin");
         var localPerson = Entity.Create("person", "Alex"); await local.Repository.ApplyAsync(await local.Repository.ReadAsync(), [new(localPerson.Id, localPerson)]); await local.CreateVersionAsync("Add Alex"); var head = await local.HeadAsync();
         using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction(); using var vm = new MainViewModel(store, backend, new OsSecretStore(), interaction) { MergeGracePeriod = TimeSpan.FromMilliseconds(120) }; await vm.OpenAsync(path);
         if (cancel) vm.PropertyChanged += (_, args) => { if (args.PropertyName == nameof(vm.Notice) && vm.Notice.Length > 0) Dispatcher.UIThread.Post(() => vm.CancelMergeCommand.Execute(null)); };
@@ -182,10 +182,10 @@ public sealed class AcceptanceFlowTests : IDisposable
     public async Task TimetableSplitsOvernightSharedItemsWithoutDuplicatingCanonicalEntities()
     {
         var path = await Create(); var repo = new TravelRepository(path);
-        var alex = Entity.Create("person", "Alex"); var carla = Entity.Create("person", "Carla");
-        var item = Entity.Create("schedule_item", "Night train"); item.Data["participants"] = new JsonArray(alex.Id.ToString(), carla.Id.ToString());
+        var alex = Entity.Create("person", "Alex"); var sam = Entity.Create("person", "Sam");
+        var item = Entity.Create("schedule_item", "Night train"); item.Data["participants"] = new JsonArray(alex.Id.ToString(), sam.Id.ToString());
         item.Data["time"] = new JsonObject { ["precision"] = "exact", ["start"] = new ZonedTime("2027-05-12T23:00:00", "Europe/Berlin").ToJson(), ["end"] = new ZonedTime("2027-05-13T03:00:00", "Europe/Berlin").ToJson() };
-        await repo.ApplyAsync(await repo.ReadAsync(), [new(alex.Id, alex), new(carla.Id, carla), new(item.Id, item)]);
+        await repo.ApplyAsync(await repo.ReadAsync(), [new(alex.Id, alex), new(sam.Id, sam), new(item.Id, item)]);
         var window = new MainWindow(); window.Show(); await window.Model.OpenAsync(path); var vm = window.Model; vm.View = "Plan"; vm.InboxOpen = false; vm.SetLanes(false); vm.ShowDate(new LocalDate(2027, 5, 12)); Dispatcher.UIThread.RunJobs();
         Button[] Blocks() => Probe.All<Button>(window.FindControl<ContentControl>("MainContent")!).Where(b => Equals(b.Tag, item.Id)).ToArray();
         Assert.Equal(2, Blocks().Length);

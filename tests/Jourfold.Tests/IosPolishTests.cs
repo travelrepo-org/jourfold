@@ -39,15 +39,15 @@ public sealed class IosPolishTests : IDisposable
             session.ShowQuickAdd(); Probe.Layout();
             var title = window.GetVisualDescendants().OfType<TextBox>().First(t => t.IsVisible);
             title.Focus(); Probe.Layout();
-            await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(window.Clipboard!, "Wanaka");
+            await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(window.Clipboard!, "Queenstown");
             window.KeyPress(Key.V, RawInputModifiers.Meta, PhysicalKey.V, "v");
-            await Probe.Until(() => title.Text == "Wanaka");
+            await Probe.Until(() => title.Text == "Queenstown");
             window.KeyPress(Key.A, RawInputModifiers.Meta, PhysicalKey.A, "a");
-            Assert.Equal("Wanaka", title.SelectedText);
+            Assert.Equal("Queenstown", title.SelectedText);
             window.KeyPress(Key.X, RawInputModifiers.Meta, PhysicalKey.X, "x");
             await Probe.Until(() => string.IsNullOrEmpty(title.Text));
             window.KeyPress(Key.Z, RawInputModifiers.Meta, PhysicalKey.Z, "z");
-            await Probe.Until(() => title.Text == "Wanaka");
+            await Probe.Until(() => title.Text == "Queenstown");
         }
         finally { AppShell.AppleKeys = before; window.Close(); session.Dispose(); }
     }

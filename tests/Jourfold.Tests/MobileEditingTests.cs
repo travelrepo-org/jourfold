@@ -190,31 +190,31 @@ public sealed class MobileEditingTests : IDisposable
 
             // Typing suggests codes, as on the converter.
             Other().GetVisualDescendants().OfType<TextBox>().First().Focus(); Probe.Layout();
-            window.KeyTextInput("CH"); Probe.Layout();
+            window.KeyTextInput("CA"); Probe.Layout();
             await Probe.Until(() => Other().IsDropDownOpen);
-            Assert.Contains("CHF", (IEnumerable<string>)Other().ItemsSource!);
+            Assert.Contains("CAD", (IEnumerable<string>)Other().ItemsSource!);
 
             // Enter takes a typed code: it becomes a chosen chip and the field empties.
-            Other().Text = "thb"; Probe.Layout();
+            Other().Text = "nzd"; Probe.Layout();
             Other().RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Enter });
-            await Probe.Until(() => Chosen("THB"));
+            await Probe.Until(() => Chosen("NZD"));
             Assert.Equal("", Other().Text ?? "");
-            // What the card charged is asked in the trip currency for a payment in baht.
+            // What the card charged is asked in the trip currency for a payment in New Zealand dollars.
             Assert.Contains(Probe.All<TextBox>(Form(window)), t => AutomationProperties.GetName(t) == "Amount charged in EUR");
-            Assert.Contains("THB", session.RecentCurrencies);
+            Assert.Contains("NZD", session.RecentCurrencies);
 
             // Choosing from the list does the same.
-            Other().SelectedItem = "CHF";
-            await Probe.Until(() => Chosen("CHF"));
-            Assert.True(Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "THB")), "the baht stays to tap again");
+            Other().SelectedItem = "CAD";
+            await Probe.Until(() => Chosen("CAD"));
+            Assert.True(Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "NZD")), "the New Zealand dollars stay to tap again");
 
             // A currency added by hand has an x that takes it off the list.
-            Probe.Click(Form(window), "Remove THB from the list"); Probe.Layout();
-            await Probe.Until(() => !Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "THB")));
-            Assert.DoesNotContain("THB", session.RecentCurrencies);
+            Probe.Click(Form(window), "Remove NZD from the list"); Probe.Layout();
+            await Probe.Until(() => !Probe.All<ChoiceButton>(Form(window)).Any(c => Probe.All<TextBlock>(c).Any(t => t.Text == "NZD")));
+            Assert.DoesNotContain("NZD", session.RecentCurrencies);
 
             Tap(window, "Save");
-            await Probe.Until(() => TripSummaries.Money(session.Trip!.Find(rail.Id)!.Data["amount"])?.Currency == "CHF");
+            await Probe.Until(() => TripSummaries.Money(session.Trip!.Find(rail.Id)!.Data["amount"])?.Currency == "CAD");
         }
         finally { window.Close(); session.Dispose(); }
     }
@@ -362,15 +362,15 @@ public sealed class MobileEditingTests : IDisposable
         try
         {
             session.ShowQuickAdd("group");
-            Field<TextBox>(window, "Title").Text = "Day in Kamakura";
+            Field<TextBox>(window, "Title").Text = "Day in Nikko";
             Tap(window, "Add");
-            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Day in Kamakura"));
-            var group = session.Trip!.Entities.Values.Single(e => e.Title == "Day in Kamakura");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Day in Nikko"));
+            var group = session.Trip!.Entities.Values.Single(e => e.Title == "Day in Nikko");
             // The new group opens, to add its steps.
             Assert.Equal((Overlay.Details, group.Id), (session.Showing, session.OverlayItem));
 
             session.ShowQuickAdd(null, group.Id);
-            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "New step in Day in Kamakura");
+            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "New step in Day in Nikko");
             Field<TextBox>(window, "Title").Text = "Great Buddha";
             Tap(window, "Add");
             await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Great Buddha"));

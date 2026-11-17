@@ -16,7 +16,7 @@ public sealed class CostClarityTests : IDisposable
     private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-clarity-" + Guid.NewGuid());
     public void Dispose() => TestFiles.Delete(root);
     private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
-    private static readonly ExchangeRates Friday = new(new DateOnly(2027, 5, 14), new Dictionary<string, decimal> { ["JPY"] = 160m, ["USD"] = 1.1m, ["CHF"] = 0.95m });
+    private static readonly ExchangeRates Friday = new(new DateOnly(2027, 5, 14), new Dictionary<string, decimal> { ["JPY"] = 160m, ["USD"] = 1.1m, ["CAD"] = 1.5m });
 
     private async Task<MobileSession> Phone()
     {
@@ -173,7 +173,7 @@ public sealed class CostClarityTests : IDisposable
     [AvaloniaFact]
     public void ADraftPaidWithCashIsAddedAtItsRate()
     {
-        var trip = new TripSnapshot(TripCurrency.With(Entity.CreateTrip("Wanaka", "en", "Pacific/Auckland"), "EUR"), new Dictionary<Guid, Entity>());
+        var trip = new TripSnapshot(TripCurrency.With(Entity.CreateTrip("Queenstown", "en", "Pacific/Auckland"), "EUR"), new Dictionary<Guid, Entity>());
         var (main, _) = Jourfold.Application.QuickAdd.Build(new Jourfold.Application.QuickAddDraft("expense", "Market") { Amount = 60m, Currency = "NZD", ChargedCurrency = "EUR", CashRate = 318.40m / 600m, PaidOn = new LocalDate(2027, 5, 14) }, trip);
         Assert.True(Expenses.IsCash(main));
         Assert.Equal(31.84m, Expenses.ChargeOf(main)!.Value);
@@ -248,11 +248,11 @@ public sealed class CostClarityTests : IDisposable
 
     [Theory]
     [InlineData("Pacific/Auckland", "NZD")]
-    [InlineData("Asia/Shanghai", "CNY")]
+    [InlineData("America/Vancouver", "CAD")]
     [InlineData("Europe/Berlin", "EUR")]
     [InlineData("Asia/Tokyo", "JPY")]
-    [InlineData("America/New_York", "USD")]
-    [InlineData("Asia/Calcutta", "INR")]
+    [InlineData("America/St_Johns", "CAD")]
+    [InlineData("Europe/Paris", "EUR")]
     [InlineData("Etc/UTC", null)]
     public void TheLocalCurrencyComesFromThePhonesTimeZone(string zone, string? expected) =>
         Assert.Equal(expected, Jourfold.UI.CurrencyCodes.OfZone(DateTimeZoneProviders.Tzdb[zone]));
@@ -260,7 +260,7 @@ public sealed class CostClarityTests : IDisposable
     [AvaloniaFact]
     public async Task TheCurrenciesKeepOneOrderTripLocalCostsRegionThenRecent()
     {
-        // A trip from Germany to New Zealand with a layover in China, on a phone in Auckland.
+        // A trip from Germany to New Zealand with a layover in Japan, on a phone in Auckland.
         var folder = Path.Combine(root, "nz"); Directory.CreateDirectory(folder); Friday.Save(Path.Combine(folder, "rates.json"));
         var session = new MobileSession(new MobileHost(folder, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 40)), () => DateTimeZoneProviders.Tzdb["Pacific/Auckland"], "en", new MemorySecrets()));
         try
@@ -270,30 +270,30 @@ public sealed class CostClarityTests : IDisposable
             var trip = session.Trip!;
             var edits = trip.Entities.Values.Where(e => e.Type == "expense").Select((e, i) =>
             {
-                var copy = e.Copy(); copy.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "10", ["currency"] = i % 2 == 0 ? "CNY" : "NZD" };
+                var copy = e.Copy(); copy.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "10", ["currency"] = i % 2 == 0 ? "JPY" : "NZD" };
                 return new TravelRepo.Repository.EntityEdit(copy.Id, copy);
             }).ToArray();
             await session.SaveDetailsAsync(edits);
             var region = System.Globalization.RegionInfo.CurrentRegion.ISOCurrencySymbol;
-            Assert.Equal(new[] { "EUR", "NZD", "CNY", region }.Distinct(), session.TripCurrencies());
+            Assert.Equal(new[] { "EUR", "NZD", "JPY", region }.Distinct(), session.TripCurrencies());
             // One chosen under Other comes after them, with an x.
-            session.RememberCurrency("THB");
-            Assert.Equal(["THB"], session.RecentShown);
-            // A payment in baht moves it up among the trip's currencies, without an x.
+            session.RememberCurrency("CAD");
+            Assert.Equal(["CAD"], session.RecentShown);
+            // A payment in Canadian dollars moves it up among the trip's currencies, without an x.
             var market = session.Trip!.Entities.Values.First(e => e.Type == "expense").Copy();
-            market.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "300", ["currency"] = "THB" };
+            market.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "300", ["currency"] = "CAD" };
             await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(market.Id, market)]);
-            Assert.Contains("THB", session.TripCurrencies()); Assert.Empty(session.RecentShown);
-            // Four more chosen meanwhile do not push it out, since it was not shown.
-            foreach (var code in new[] { "CHF", "GBP", "SEK", "DKK" }) session.RememberCurrency(code);
-            Assert.Contains("THB", session.RecentCurrencies);
+            Assert.Contains("CAD", session.TripCurrencies()); Assert.Empty(session.RecentShown);
+            // Four more chosen meanwhile do not push it out, since it was not shown. Codes that belong to no country.
+            foreach (var code in new[] { "XTS", "XXX", "XAU", "XAG" }) session.RememberCurrency(code);
+            Assert.Contains("CAD", session.RecentCurrencies);
             // Without the payment it is back with its x.
             market.Data["amount"] = new System.Text.Json.Nodes.JsonObject { ["value"] = "10", ["currency"] = "NZD" };
             await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(market.Id, market)]);
-            Assert.DoesNotContain("THB", session.TripCurrencies()); Assert.Contains("THB", session.RecentShown);
+            Assert.DoesNotContain("CAD", session.TripCurrencies()); Assert.Contains("CAD", session.RecentShown);
             // The x takes it off.
-            session.ForgetConverterCurrency("THB");
-            Assert.DoesNotContain("THB", session.RecentShown);
+            session.ForgetConverterCurrency("CAD");
+            Assert.DoesNotContain("CAD", session.RecentShown);
         }
         finally { session.Dispose(); }
     }
@@ -350,16 +350,16 @@ public sealed class CostClarityTests : IDisposable
         try
         {
             session.ShowTab(MobileTab.More); session.ShowPage("converter");
-            // Chosen under Other, Swiss francs stay to tap after switching back.
-            session.ChooseConverterCurrency("converter.from", "CHF");
+            // Chosen under Other, Canadian dollars stay to tap after switching back.
+            session.ChooseConverterCurrency("converter.from", "CAD");
             session.ChooseConverterCurrency("converter.from", "JPY");
-            Assert.Equal(["CHF"], session.RecentCurrencies);
+            Assert.Equal(["CAD"], session.RecentCurrencies);
             // A long press takes it off again.
-            session.ForgetConverterCurrency("CHF"); Assert.Empty(session.RecentCurrencies);
-            session.ChooseConverterCurrency("converter.from", "CHF"); session.ChooseConverterCurrency("converter.from", "JPY");
+            session.ForgetConverterCurrency("CAD"); Assert.Empty(session.RecentCurrencies);
+            session.ChooseConverterCurrency("converter.from", "CAD"); session.ChooseConverterCurrency("converter.from", "JPY");
             var page = MorePages.Build(session, WidthClass.Phone);
             Assert.Contains(page.GetLogicalDescendants().OfType<Avalonia.Controls.Primitives.ToggleButton>().Select(b => b.Content as string)
-                .Concat(page.GetLogicalDescendants().OfType<Button>().Select(b => Avalonia.Automation.AutomationProperties.GetName(b))), n => n == "CHF");
+                .Concat(page.GetLogicalDescendants().OfType<Button>().Select(b => Avalonia.Automation.AutomationProperties.GetName(b))), n => n == "CAD");
             // Fetched on Sunday, the newest rates are Friday's, and the page says why.
             Assert.True(CostTexts.RatesOfEarlierDay(Friday, new DateTimeOffset(2027, 5, 16, 10, 0, 0, TimeSpan.Zero)));
             Assert.False(CostTexts.RatesOfEarlierDay(Friday, new DateTimeOffset(2027, 5, 14, 16, 30, 0, TimeSpan.Zero)));

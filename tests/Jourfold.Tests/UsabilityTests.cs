@@ -112,18 +112,18 @@ public sealed class UsabilityTests : IDisposable
     {
         var w = Window(); try
         {
-            var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex", GitHubConnected: true, GitHubLogin: "alex")); Probe.Layout();
-            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Lisbon in October";
+            var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex", GitHubConnected: true, GitHubLogin: "alex-travels")); Probe.Layout();
+            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Paris in October";
             Probe.Click(Sheet(w), "Next"); Probe.Layout(); Probe.Click(Sheet(w), "Next"); Probe.Layout();
             Assert.True(Probe.Tagged<RadioButton>(Sheet(w), "share-local").IsChecked);
             Assert.False(Probe.Tagged<TextBox>(Sheet(w), "repository").IsEffectivelyVisible);
             Probe.Tagged<RadioButton>(Sheet(w), "share-github").IsChecked = true; Probe.Layout();
             var repository = Probe.Tagged<TextBox>(Sheet(w), "repository");
-            Assert.True(repository.IsEffectivelyVisible); Assert.Equal("lisbon-in-october", repository.Text);
-            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == "Creates a private repository in the account @alex.");
+            Assert.True(repository.IsEffectivelyVisible); Assert.Equal("paris-in-october", repository.Text);
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == "Creates a private repository in the account @alex-travels.");
             Probe.Click(Sheet(w), "Create trip");
             var draft = await task.WaitAsync(TimeSpan.FromSeconds(3));
-            Assert.Equal("lisbon-in-october", draft!.GitHubRepository); Assert.Null(draft.RemoteUrl);
+            Assert.Equal("paris-in-october", draft!.GitHubRepository); Assert.Null(draft.RemoteUrl);
         }
         finally { w.Close(); }
     }
@@ -135,16 +135,16 @@ public sealed class UsabilityTests : IDisposable
         {
             var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex")); Probe.Layout();
             Probe.Click(Sheet(w), "Next"); Probe.Layout(); Assert.False(task.IsCompleted);
-            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Aachen";
+            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Hamburg";
             Probe.Tagged<CalendarDatePicker>(Sheet(w), "start").SelectedDate = new DateTime(2027, 5, 14); Probe.Layout();
             Assert.Equal(new DateTime(2027, 5, 17), Probe.Tagged<CalendarDatePicker>(Sheet(w), "end").SelectedDate);
             Probe.Click(Sheet(w), "Next"); Probe.Layout();
             Assert.Equal("Alex", Probe.Tagged<TextBox>(Sheet(w), "me").Text);
-            var person = Probe.Tagged<TextBox>(Sheet(w), "person"); person.Text = "Carla"; Probe.Click(Sheet(w), "Add person"); Probe.Layout();
+            var person = Probe.Tagged<TextBox>(Sheet(w), "person"); person.Text = "Sam"; Probe.Click(Sheet(w), "Add person"); Probe.Layout();
             Probe.Click(Sheet(w), "Next"); Probe.Layout(); Probe.Click(Sheet(w), "Create trip");
             var draft = await task.WaitAsync(TimeSpan.FromSeconds(3));
-            Assert.NotNull(draft); Assert.Equal("Aachen", draft.Title); Assert.Equal("2027-05-14", draft.Start); Assert.Equal("2027-05-17", draft.End); Assert.Equal(["Carla"], draft.Participants); Assert.Equal("Alex", draft.MyName);
-            Assert.Equal(Path.Combine(root, "Aachen"), draft.Destination);
+            Assert.NotNull(draft); Assert.Equal("Hamburg", draft.Title); Assert.Equal("2027-05-14", draft.Start); Assert.Equal("2027-05-17", draft.End); Assert.Equal(["Sam"], draft.Participants); Assert.Equal("Alex", draft.MyName);
+            Assert.Equal(Path.Combine(root, "Hamburg"), draft.Destination);
         }
         finally { w.Close(); }
     }
@@ -421,9 +421,9 @@ public sealed class UsabilityTests : IDisposable
         var w = Window(); try
         {
             await Open(w); var m = w.Model; m.SetPreference("Language", "de"); Probe.Layout();
-            var image = Path.Combine(root, "hobbit-house-photo.png"); await File.WriteAllBytesAsync(image, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5V8AAAAASUVORK5CYII="));
+            var image = Path.Combine(root, "bamboo-grove-photo.png"); await File.WriteAllBytesAsync(image, Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a5V8AAAAASUVORK5CYII="));
             var document = await m.Workspace!.Repository.ImportDocumentAsync(image, "image/png"); await m.Workspace.ReloadAsync();
-            var visit = Entity.Create("schedule_item", "Hobbiton"); await m.Workspace.EditAsync(visit);
+            var visit = Entity.Create("schedule_item", "Arashiyama"); await m.Workspace.EditAsync(visit);
             var inspector = w.FindControl<Control>("InspectorHost")!;
             void AllButtonsFit()
             {
@@ -434,7 +434,7 @@ public sealed class UsabilityTests : IDisposable
                     Assert.True(right <= inspector.Bounds.Width + 0.5, $"\"{Avalonia.Automation.AutomationProperties.GetName(button)}{button.Content as string}\" ends at {right}, the inspector is {inspector.Bounds.Width} wide");
                 }
             }
-            var place = Entity.Create("place", "Hobbiton Movie Set"); await m.Workspace.EditAsync(place);
+            var place = Entity.Create("place", "Arashiyama Bamboo Grove"); await m.Workspace.EditAsync(place);
             m.Selected = m.Workspace.State.Trip.Find(document.Id); AllButtonsFit();
             m.Selected = m.Workspace.State.Trip.Find(place.Id); AllButtonsFit();
             m.Selected = m.Workspace.State.Trip.Find(visit.Id); Probe.Layout(); Probe.Click(inspector, m.Strings["Notes"]); AllButtonsFit();
@@ -464,7 +464,7 @@ public sealed class UsabilityTests : IDisposable
     public void AssistantServerNamesAreShortAndPlain()
     {
         Assert.Equal("jourfold-spring-in-japan", MainViewModel.AssistantServerName("Spring in Japan"));
-        Assert.Equal("jourfold-zurich-geneve-2027", MainViewModel.AssistantServerName("Zürich & Genève 2027"));
+        Assert.Equal("jourfold-montreal-nice-uber-paris-2027", MainViewModel.AssistantServerName("Montréal & Nice über Paris 2027"));
         Assert.Equal("jourfold-trip", MainViewModel.AssistantServerName("東京"));
     }
 
@@ -498,14 +498,14 @@ public sealed class UsabilityTests : IDisposable
         {
             await Open(w); var count = w.Model.Workspace!.State.Trip.Entities.Count;
             var task = w.Model.AddAsync("transport"); Probe.Layout();
-            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Train to Cologne";
+            Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Train to Berlin";
             Probe.Click(Sheet(w), w.Model.Strings["train"]);
-            var places = Probe.All<AutoCompleteBox>(Sheet(w)).ToArray(); places[0].Text = "Aachen Hbf"; places[1].Text = "Köln Hbf";
+            var places = Probe.All<AutoCompleteBox>(Sheet(w)).ToArray(); places[0].Text = "Hamburg Hbf"; places[1].Text = "Berlin Südkreuz";
             Probe.Click(Sheet(w), "Add"); await task;
             var trip = w.Model.Workspace.State.Trip;
-            var train = trip.Entities.Values.Single(e => e.Title == "Train to Cologne");
+            var train = trip.Entities.Values.Single(e => e.Title == "Train to Berlin");
             Assert.Equal("train", train.Data["components"]!["transport"]!["type"]!.ToString());
-            var route = ScheduleQueries.Route(trip, train); Assert.Equal("Aachen Hbf", route.From!.Title); Assert.Equal("Köln Hbf", route.To!.Title);
+            var route = ScheduleQueries.Route(trip, train); Assert.Equal("Hamburg Hbf", route.From!.Title); Assert.Equal("Berlin Südkreuz", route.To!.Title);
             Assert.Equal(count + 3, trip.Entities.Count); Assert.Equal(train.Id, w.Model.Selected!.Id);
             await w.Model.UndoCommand.ExecuteAsync(null); Assert.Equal(count, w.Model.Workspace.State.Trip.Entities.Count);
         }
@@ -570,8 +570,8 @@ public sealed class UsabilityTests : IDisposable
     {
         var control = new SearchChoice(FieldOptions.Timezones, "Europe/Berlin", "Timezone"); Assert.Equal("Europe/Berlin", control.Value); Assert.StartsWith("Berlin · Germany", control.Text);
         // People search by country, city, region note or offset, not by IANA ID.
-        foreach (var query in new[] { "China", "Shanghai", "Beijing", "UTC+8" }) Assert.Contains(FieldOptions.Timezones, c => c.Id == "Asia/Shanghai" && c.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase));
-        Assert.Contains(FieldOptions.Timezones, c => c.Id == "PRC" && c.Label.Contains("Asia/Shanghai"));
+        foreach (var query in new[] { "Canada", "Vancouver", "Pacific", "UTC−8" }) Assert.Contains(FieldOptions.Timezones, c => c.Id == "America/Vancouver" && c.Label.Contains(query, StringComparison.CurrentCultureIgnoreCase));
+        Assert.Contains(FieldOptions.Timezones, c => c.Id == "Canada/Pacific" && c.Label.Contains("America/Vancouver"));
         Assert.Contains(FieldOptions.Timezones, c => c.Id == "Pacific/Auckland" && c.Label.Contains("New Zealand") && c.Label.Contains("UTC+12/+13"));
         var host = new Window { Content = control }; host.Show(); Probe.Layout(); Assert.True(control.Input.Bounds.Height > 20); host.Close();
         control.Text = "not-a-timezone"; Assert.Null(control.Value);

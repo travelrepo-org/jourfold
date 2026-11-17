@@ -26,7 +26,7 @@ public sealed class UsageFixTests : IDisposable
 
     private async Task<string> Trip()
     {
-        var repository = new TravelRepository(Path.Combine(root, "trip")); await repository.InitializeAsync(Entity.CreateTrip("Rotorua", "en", "Pacific/Auckland"));
+        var repository = new TravelRepository(Path.Combine(root, "trip")); await repository.InitializeAsync(Entity.CreateTrip("Queenstown", "en", "Pacific/Auckland"));
         await new GitRepository(repository, new GitCliBackend()).InitializeAsync("Test", "test@example.invalid");
         return repository.Root;
     }
@@ -49,7 +49,7 @@ public sealed class UsageFixTests : IDisposable
     private static async Task<(Entity Lodge, Entity Stay, Entity Booking)> Stay(MainViewModel m)
     {
         var lodge = Entity.Create("place", "Aroha Lodge");
-        var stay = Entity.Create("schedule_item", "Night in Rotorua"); stay.Data["default_place"] = lodge.Id.ToString();
+        var stay = Entity.Create("schedule_item", "Night in Queenstown"); stay.Data["default_place"] = lodge.Id.ToString();
         stay.Data["components"]!["accommodation"] = new JsonObject { ["place"] = lodge.Id.ToString() };
         var booking = Entity.Create("booking", "Booking 4711"); booking.Data["items"] = new JsonArray(stay.Id.ToString());
         await m.Workspace!.ApplyAsync([new(lodge.Id, lodge), new(stay.Id, stay), new(booking.Id, booking)]);
@@ -172,7 +172,7 @@ public sealed class UsageFixTests : IDisposable
     {
         var (m, interaction, scope) = await Model(); using (scope)
         {
-            var place = Entity.Create("place", "Hobbiton"); await m.Workspace!.EditAsync(place);
+            var place = Entity.Create("place", "Te Papa"); await m.Workspace!.EditAsync(place);
             // The edit starts a "git status" in the background, which may hold index.lock for a moment and then remove it.
             // The test's lock is made only while no Git process holds one (CreateNew), so no Git process removes it.
             var lockFile = Path.Combine(m.Workspace.Repository.Root, ".git", "index.lock");
@@ -183,7 +183,7 @@ public sealed class UsageFixTests : IDisposable
             }
             File.SetLastWriteTimeUtc(lockFile, DateTime.UtcNow.AddMinutes(-5));
             interaction.Answers.Enqueue("lock");
-            await m.RunAsync(() => m.Workspace.Git.CreateVersionAsync("Add Hobbiton"));
+            await m.RunAsync(() => m.Workspace.Git.CreateVersionAsync("Add Te Papa"));
             var problem = Assert.Single(interaction.Problems);
             Assert.Contains(problem.Actions, a => a.Id == "lock");
             // Depending on the Git version, staging or committing is the step that meets the lock.

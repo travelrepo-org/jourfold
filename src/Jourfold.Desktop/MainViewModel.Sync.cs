@@ -146,7 +146,7 @@ public partial class MainViewModel
         return created;
     }
 
-    /// <summary>A GitHub repository name suggested for a trip title, for example <c>lisbon-in-october</c>.</summary>
+    /// <summary>A GitHub repository name suggested for a trip title, for example <c>paris-in-october</c>.</summary>
     public static string RepositoryName(string title) => FolderName(title).Replace(' ', '-').ToLowerInvariant();
 
     public Task AddRemoteAsync(string name, string url) => RunAsync(async () =>

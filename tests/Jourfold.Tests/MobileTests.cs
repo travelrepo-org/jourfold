@@ -608,7 +608,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex-travels", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
             // Loading the sign-in asks GitHub whether it still counts; the fake says it does.
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         }
@@ -623,7 +623,7 @@ public sealed class MobileTests : IDisposable
         while (alex.Syncing) await Task.Delay(20);
         Assert.Null(alex.SyncProblem); Assert.NotNull(alex.LastSync);
 
-        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex-travels/spring-in-japan", shared, "https://github.com/alex-travels/spring-in-japan", true));
         Assert.Equal("Spring in Japan", sam.Trip!.Manifest.Title);
         while (sam.Syncing) await Task.Delay(20);
 
@@ -644,7 +644,7 @@ public sealed class MobileTests : IDisposable
         // Signing in fills in the account's name, but GitHub shows no email for this account, and Android has no Git
         // settings of its own.
         var settings = Path.Combine(root, "alex"); Directory.CreateDirectory(settings);
-        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "GitHubId": 1234567, "Name": "Alex" }""");
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex-travels", "GitHubId": 1234567, "Name": "Alex" }""");
         var git = new GitCliBackend();
         var session = new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets()));
         var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
@@ -652,8 +652,8 @@ public sealed class MobileTests : IDisposable
         foreach (var key in new[] { "user.name", "user.email" }) await git.ExecuteAsync(path, ["config", "--local", "--unset", key]);
         async Task<string> Saved() => (await git.ExecuteAsync(path, ["config", "--local", "user.email"])).Output.Trim();
         await session.OpenAsync(path);
-        Assert.Equal(("Alex", "1234567+alex@users.noreply.github.com"), session.Identity);
-        Assert.Equal("1234567+alex@users.noreply.github.com", await Saved());
+        Assert.Equal(("Alex", "1234567+alex-travels@users.noreply.github.com"), session.Identity);
+        Assert.Equal("1234567+alex-travels@users.noreply.github.com", await Saved());
         // An email in the settings comes before GitHub's.
         await session.SaveSettingsAsync("Alex", "alex@example.invalid");
         Assert.Equal("alex@example.invalid", await Saved());
@@ -706,7 +706,7 @@ public sealed class MobileTests : IDisposable
         Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
         var secrets = new MemorySecrets(); await secrets.WriteAsync("github.user-token", "token");
         var settings = Path.Combine(root, "alex"); Directory.CreateDirectory(settings);
-        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex", "Name": "Alex", "Email": "alex@example.invalid" }""");
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "GitHubLogin": "alex-travels", "Name": "Alex", "Email": "alex@example.invalid" }""");
         var session = new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         await session.LoadGitHubAsync();
         var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
@@ -825,7 +825,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid", "Values": { "calendar": "trips" } }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex-travels", "Name": "{{name}}", "Email": "{{name}}@example.invalid", "Values": { "calendar": "trips" } }""");
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub(), Calendar: calendar));
         }
         async Task<string> Head(string folder) => (await git.ExecuteAsync(folder, ["rev-parse", "HEAD"])).Output.Trim();
@@ -834,7 +834,7 @@ public sealed class MobileTests : IDisposable
         var path = await alex.CreateSampleAsync(new LocalDate(2027, 5, 14));
         await alex.OpenAsync(path); await alex.Workspace!.Git.AddRemoteAsync("origin", shared);
         await alex.OpenAsync(path); while (alex.Syncing) await Task.Delay(20);
-        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        await sam.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex-travels/spring-in-japan", shared, "https://github.com/alex-travels/spring-in-japan", true));
         while (sam.Syncing) await Task.Delay(20);
         var samTrip = sam.Workspace!.Repository.Root; sam.Close();
 
@@ -875,7 +875,7 @@ public sealed class MobileTests : IDisposable
         MobileSession Phone(string name)
         {
             var settings = Path.Combine(root, name); Directory.CreateDirectory(settings);
-            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
+            File.WriteAllText(Path.Combine(settings, "settings.json"), $$"""{ "GitHubLogin": "alex-travels", "Name": "{{name}}", "Email": "{{name}}@example.invalid" }""");
             return new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", secrets, new FakeGitHub()));
         }
         var phone = Phone("phone"); var tablet = Phone("tablet");
@@ -883,7 +883,7 @@ public sealed class MobileTests : IDisposable
         var path = await phone.CreateSampleAsync(new LocalDate(2027, 5, 14));
         await phone.OpenAsync(path); await phone.Workspace!.Git.AddRemoteAsync("origin", shared);
         await phone.OpenAsync(path); while (phone.Syncing) await Task.Delay(20);
-        await tablet.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex/spring-in-japan", shared, "https://github.com/alex/spring-in-japan", true));
+        await tablet.GetTripAsync(new TravelRepo.Providers.RemoteRepository("alex-travels/spring-in-japan", shared, "https://github.com/alex-travels/spring-in-japan", true));
         while (tablet.Syncing) await Task.Delay(20);
 
         // Both rename the same dinner, and the tablet also moves a task: only the dinner needs a choice.

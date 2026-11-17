@@ -112,7 +112,7 @@ public sealed class UsabilityTests : IDisposable
     {
         var w = Window(); try
         {
-            var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex", GitHubConnected: true, GitHubLogin: "alex")); Probe.Layout();
+            var task = w.Model.Interaction.NewTripAsync(new NewTripDefaults(root, "en", "Europe/Berlin", "Alex", GitHubConnected: true, GitHubLogin: "alex-travels")); Probe.Layout();
             Probe.Tagged<TextBox>(Sheet(w), "title").Text = "Paris in October";
             Probe.Click(Sheet(w), "Next"); Probe.Layout(); Probe.Click(Sheet(w), "Next"); Probe.Layout();
             Assert.True(Probe.Tagged<RadioButton>(Sheet(w), "share-local").IsChecked);
@@ -120,7 +120,7 @@ public sealed class UsabilityTests : IDisposable
             Probe.Tagged<RadioButton>(Sheet(w), "share-github").IsChecked = true; Probe.Layout();
             var repository = Probe.Tagged<TextBox>(Sheet(w), "repository");
             Assert.True(repository.IsEffectivelyVisible); Assert.Equal("paris-in-october", repository.Text);
-            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == "Creates a private repository in the account @alex.");
+            Assert.Contains(Probe.All<TextBlock>(Sheet(w)), t => t.Text == "Creates a private repository in the account @alex-travels.");
             Probe.Click(Sheet(w), "Create trip");
             var draft = await task.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.Equal("paris-in-october", draft!.GitHubRepository); Assert.Null(draft.RemoteUrl);

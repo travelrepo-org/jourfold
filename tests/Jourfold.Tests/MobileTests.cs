@@ -1315,6 +1315,8 @@ public sealed class MobileTests : IDisposable
         var clock = new MovingClock { Now = At(14, 8, 0) }; var notices = new FakeNotices();
         var session = new MobileSession(new MobileHost(root, new GitCliBackend(), clock, () => Berlin, "en", new MemorySecrets(), Notices: notices));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        // With weather on, the notices read the forecasts kept on the device and never fetch any.
+        session.Settings.Values["weather.online"] = "on"; session.Settings.Save();
         await session.SetNoticesAsync(true);
         // In the morning the departure reminder is still to come: it is handed over with its time, soonest first.
         var departure = notices.Coming.Single(c => c.Notice.Kind == NoticeKind.Departure && c.Notice.Title.StartsWith("Flight to Tokyo", StringComparison.Ordinal));

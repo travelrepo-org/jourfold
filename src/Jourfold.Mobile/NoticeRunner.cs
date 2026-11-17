@@ -97,7 +97,7 @@ public static class NoticeRunner
             var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
             // Weather warnings come from the forecasts kept on the device; nothing is fetched here.
             var weather = settings.Values.GetValueOrDefault("weather.online") == "on"
-                ? new TravelRepo.Providers.Weather.WeatherService([], null, new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
+                ? TravelRepo.Providers.Weather.WeatherService.CacheOnly(new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
             Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>(); var coming = new List<(TravelNotice, string)>();
             foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
             {

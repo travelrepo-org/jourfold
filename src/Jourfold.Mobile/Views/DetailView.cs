@@ -284,9 +284,15 @@ public static class DetailView
             Padding = new Thickness(0, 6)
         }.Classed("row");
         AutomationProperties.SetName(row, str["ChangePlace"] + ": " + place.Title);
+        // A tap changes the place; a long press copies its address, as other lines of the details copy theirs.
+        Menus.CopiesOnHold(row, s, PlaceText(place));
         row.Click += (_, _) => s.ShowPlace(place.Id, item.Id, slot);
         return row;
     }
+
+    /// <summary>What a long press on a place copies: its address, otherwise its position, otherwise its name.</summary>
+    public static string PlaceText(Entity place) =>
+        Places.Address(place) ?? (Places.Location(place) is { } at ? PlaceEdits.Format(at.Latitude, at.Longitude) : place.Title);
 
     /// <summary>Picks files on the device, such as a ticket from the downloads, and attaches them to the item.</summary>
     private static Control AttachButton(MobileSession s, Entity item)

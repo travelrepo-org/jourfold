@@ -14,7 +14,8 @@ All notable changes to Jourfold. Generated from `docs/releases` by `python eng/c
 - On Android 16 and newer, the travel day's notification uses the system's progress layout for journeys while one is under way, in Jourfold's colour with the plane, train or bus riding along. The status bar shows the minutes left in the last hour, as a delivery app does, and the departure or arrival time before that.
 - On Samsung phones, Settings, Notifications says that One UI shows Live Updates only for Samsung's own and approved apps, and that "Live notifications for all apps" in the developer options lets Jourfold's through.
 - Settings has "Check now" next to "Check for new versions" in copies from GitHub: it asks at once, also with the daily check off, and says whether there is a newer version. Copies from an app store still never ask.
-- On phones, "Something went wrong" has Technical details: the error as written to the log on the device, to read and copy into a report. Nothing is sent.
+- On phones, "Something went wrong" has Send error by e-mail: your mail app opens with a few lines to fill in, what any app may read about the device (model, system, build, screen) and the error log attached. You see and edit everything there and send it yourself. To find the address, Jourfold asks GitHub for the project's public contact.
+- On phones, the travel day's notification can be swiped away: it stays away until the next part of the day, the departure, the arrival or a change.
 
 ### Fixes
 

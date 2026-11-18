@@ -21,9 +21,24 @@ public partial class MainViewModel
     /// <summary>Looks for a new version when due, at start. Errors, such as being offline, pass silently.</summary>
     public async Task CheckForUpdatesAsync()
     {
-        var source = ReleaseSource ?? (ct => AppDistribution.Repository is { } repo ? UpdateCheck.LatestOnGitHubAsync(weatherHttp, repo, OnlineIdentity.UserAgent, ct) : Task.FromResult<AppRelease?>(null));
-        if (await Updates.CheckAsync(source)) ContentChanged?.Invoke(this, EventArgs.Empty);
+        if (await Updates.CheckAsync(Source)) ContentChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>The answer of the last "Check now" in Settings; null before it and while it asks.</summary>
+    public UpdateResult? UpdateNow { get; private set; }
+    /// <summary>Whether "Check now" is asking right now.</summary>
+    public bool CheckingUpdateNow { get; private set; }
+
+    /// <summary>Looks for a new version now, because the user asked; also when looking once a day is off.</summary>
+    public async Task CheckForUpdatesNowAsync()
+    {
+        if (CheckingUpdateNow) return;
+        CheckingUpdateNow = true; UpdateNow = null;
+        try { UpdateNow = await Updates.CheckNowAsync(Source); }
+        finally { CheckingUpdateNow = false; ContentChanged?.Invoke(this, EventArgs.Empty); }
+    }
+
+    private Func<CancellationToken, Task<AppRelease?>> Source => ReleaseSource ?? (ct => AppDistribution.Repository is { } repo ? UpdateCheck.LatestOnGitHubAsync(weatherHttp, repo, OnlineIdentity.UserAgent, ct) : Task.FromResult<AppRelease?>(null));
 
     public void SkipUpdate(AppRelease release) { Updates.Skip(release); ContentChanged?.Invoke(this, EventArgs.Empty); }
 

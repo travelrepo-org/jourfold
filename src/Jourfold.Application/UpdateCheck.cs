@@ -8,6 +8,20 @@ namespace Jourfold.Application;
 /// <summary>A published Jourfold release: its version, its title such as <c>Jourfold 0.13.0 “Gallant Gnu”</c>, and its page.</summary>
 public sealed record AppRelease(string Version, string Title, Uri Page);
 
+/// <summary>What looking for a new version right now came to.</summary>
+public enum UpdateAnswer
+{
+    /// <summary>A newer release is out (<see cref="UpdateResult.Release"/>).</summary>
+    Newer,
+    /// <summary>The installed version is the latest.</summary>
+    Latest,
+    /// <summary>GitHub could not be asked or did not answer, such as offline.</summary>
+    Unreachable,
+}
+
+/// <summary>The answer of <see cref="UpdateCheck.CheckNowAsync"/>, with the newer release when there is one.</summary>
+public sealed record UpdateResult(UpdateAnswer Answer, AppRelease? Release = null);
+
 /// <summary>
 /// Where this build of Jourfold comes from, set when it is built with <c>-p:JourfoldDistribution=…</c> (or the
 /// environment variable of that name): <c>github</c> for the packages, APK and IPA attached to GitHub releases, and a
@@ -81,16 +95,35 @@ public sealed class UpdateCheck
     {
         if (!Due || checking) return false;
         checking = true;
+        try { return await AskAsync(source, ct) is { Item1: not null } && Offer is not null; }
+        finally { checking = false; }
+    }
+
+    /// <summary>
+    /// Asks for the latest release right away, because the user asked: also when looking once a day is turned off, and
+    /// a release skipped before is offered again. Store builds never ask (<see cref="Available"/>) and get
+    /// <see cref="UpdateAnswer.Unreachable"/>.
+    /// </summary>
+    public async Task<UpdateResult> CheckNowAsync(Func<CancellationToken, Task<AppRelease?>> source, CancellationToken ct = default)
+    {
+        if (!Available) return new UpdateResult(UpdateAnswer.Unreachable);
+        if (await AskAsync(source, ct) is not { } answer) return new UpdateResult(UpdateAnswer.Unreachable);
+        if (answer.Item1 is not { } latest || Compare(latest.Version, Current) <= 0) return new UpdateResult(UpdateAnswer.Latest);
+        if (store.Get(SkipKey) == latest.Version) store.Set(SkipKey, "");
+        return new UpdateResult(UpdateAnswer.Newer, latest);
+    }
+
+    /// <summary>Asks once and keeps the answer; null when GitHub could not be asked, a holder of null when there is no release.</summary>
+    private async Task<Tuple<AppRelease?>?> AskAsync(Func<CancellationToken, Task<AppRelease?>> source, CancellationToken ct)
+    {
         try
         {
             var latest = await source(ct);
             store.Set(CheckedKey, now().ToString("O", CultureInfo.InvariantCulture));
-            if (latest is null) return false;
-            store.Set(LatestKey, latest.Version); store.Set(TitleKey, latest.Title); store.Set(PageKey, latest.Page.ToString());
-            return Offer is not null;
+            if (latest is not null) { store.Set(LatestKey, latest.Version); store.Set(TitleKey, latest.Title); store.Set(PageKey, latest.Page.ToString()); }
+            return Tuple.Create(latest);
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or JsonException or FormatException or InvalidOperationException) { return false; }
-        finally { checking = false; }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException or JsonException or FormatException or InvalidOperationException) { return null; }
     }
 
     /// <summary>

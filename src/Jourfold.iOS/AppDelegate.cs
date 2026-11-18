@@ -108,10 +108,25 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
     private void OnActivated(object? sender, ActivatedEventArgs e)
     {
         if (e is FileActivatedEventArgs opened) { _ = ReceiveAsync(opened.Files); return; }
+        if (e is ProtocolActivatedEventArgs { Uri: { } uri }) { OpenLink(uri); return; }
         if (e.Kind != ActivationKind.Background || MobileApp.Host is not { } host) return;
         // Back on screen: notices may be due, and after a flight the time zone may have changed.
         var now = NSTimeZone.SystemTimeZone.Name; var changed = zone is not null && now != zone; zone = now;
         _ = IosNotices.RunAsync(host, changed);
+    }
+
+    /// <summary>
+    /// A tap on the Live Activity: jourfold://notice?trip=folder&amp;item=id opens the plan, with &amp;ticket=1 its ticket.
+    /// </summary>
+    private static void OpenLink(Uri uri)
+    {
+        if (uri.Scheme != IosNotices.Scheme || uri.Host != "notice" || MobileApp.Host is not { } host) return;
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        // Only a trip's folder name, never a path: the link may come from anywhere.
+        if (query["trip"] is not { Length: > 0 } trip || trip != Path.GetFileName(trip) || trip is "." or "..") return;
+        var item = Guid.TryParse(query["item"], out var id) ? id : (Guid?)null;
+        var ticket = query["ticket"] == "1";
+        WhenReady(session => session.OpenNoticeAsync(Path.Combine(host.TripsRoot, trip), item, ticket));
     }
 
     /// <summary>

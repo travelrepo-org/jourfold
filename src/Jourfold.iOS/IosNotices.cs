@@ -11,13 +11,16 @@ namespace Jourfold.iOS;
 /// <summary>
 /// Jourfold's notifications on iOS. iOS does not wake an app at a set time, so the coming notices are handed to the
 /// system ahead and it shows them by itself, also when Jourfold is not running. Jourfold works them out again whenever
-/// it comes on screen and, when iOS allows, in the background. There is no ongoing notification for the travel day and
-/// no kinds to choose from; a tap opens the plan, and "Show ticket" its ticket.
+/// it comes on screen and, when iOS allows, in the background. The travel day is a Live Activity on the Lock Screen and
+/// in the Dynamic Island (<see cref="IosLiveActivities"/>); there are no kinds to choose from. A tap opens the plan, and
+/// "Show ticket" its ticket.
 /// </summary>
 public sealed class IosNotices(string dataRoot, string language, string device) : UNUserNotificationCenterDelegate, ISystemNotices
 {
     /// <summary>The background refresh that works out the notices again; listed in Info.plist.</summary>
     public const string RefreshTask = "dev.jourfold.app.notices";
+    /// <summary>The app's URL scheme, which the Live Activity opens a plan or its ticket with; listed in Info.plist.</summary>
+    public const string Scheme = "jourfold";
     private const string Prefix = "jourfold.", TicketCategory = "ticket", TicketAction = "ticket", TripKey = "trip", ItemKey = "item";
     /// <summary>iOS keeps at most 64 scheduled notifications per app; the soonest are handed over.</summary>
     private const int Most = 60;
@@ -65,7 +68,14 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
 
     /// <summary>Scheduled notifications come on time.</summary>
     public bool OnTime => true;
-    public bool ShowsLive => false;
+    /// <summary>The travel day is a Live Activity where iOS has them: an iPhone with iOS 16.2 or newer.</summary>
+    public bool ShowsLive => Live != LiveSupport.None;
+    public LiveSupport Live => OnMain(() => IosLiveActivities.Support);
+    public string LiveTexts => "LiveActivities";
+    public bool? LivePromoted => Live == LiveSupport.None ? null : OnMain(() => IosLiveActivities.Showing);
+
+    /// <summary>Live Activities are allowed on the app's own page in the Settings app.</summary>
+    public void OpenLiveSettings() => UIApplication.SharedApplication.OpenUrl(new NSUrl(UIApplication.OpenSettingsUrlString), new UIApplicationOpenUrlOptions(), null);
     public bool HasKinds => false;
     public void AskOnTime() { }
 
@@ -97,8 +107,24 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
         File.WriteAllText(ScheduledPath, JsonSerializer.Serialize(scheduled, IosJson.Default.DictionaryStringInt64));
     }
 
-    /// <summary>iOS has no ongoing notification; Live Activities may take its place later.</summary>
-    public void ShowLive(LiveNotice? live, string? tripFolder) { }
+    /// <summary>
+    /// The travel day as a Live Activity. A part of the day the user swiped away from the Lock Screen stays away, as on
+    /// Android; iOS only tells when Jourfold runs next.
+    /// </summary>
+    public void ShowLive(LiveNotice? live, string? tripFolder)
+    {
+        var strings = new Jourfold.UI.Localization(language) { Device = device };
+        if (OnMain(() => IosLiveActivities.Show(live, tripFolder, strings)) is { } swiped && MobileApp.Host is { } host) NoticeRunner.Dismiss(host, swiped);
+    }
+
+    /// <summary>ActivityKit and UIKit are asked on the main thread; the notices may run in the background.</summary>
+    private static T OnMain<T>(Func<T> ask)
+    {
+        if (NSThread.IsMain) return ask();
+        T result = default!;
+        NSThread.MainThread.InvokeOnMainThread(() => result = ask());
+        return result;
+    }
 
     /// <summary>Asks iOS to run the notices again in the background from <paramref name="at"/>; iOS decides when.</summary>
     public void WakeAt(Instant? at)

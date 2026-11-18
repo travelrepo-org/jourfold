@@ -1225,13 +1225,13 @@ public static class MorePages
             {
                 var live = notices.Live;
                 var state = Ui.Columns("Auto,*", Ui.Icon(live == LiveSupport.On ? "circle-check" : live == LiveSupport.Off ? "triangle-alert" : "info", 16, live == LiveSupport.On ? "Success" : live == LiveSupport.Off ? "Warning" : "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 8, 0),
-                    Hint(str[live switch { LiveSupport.On => "LiveUpdatesOn", LiveSupport.Off => "LiveUpdatesOff", _ => "LiveUpdatesNone" }]));
+                    Hint(str[notices.LiveTexts + live switch { LiveSupport.On => "On", LiveSupport.Off => "Off", _ => "None" }]));
                 state.Tag = "live:" + live;
-                var part = Ui.V(8, Ui.Text(str["LiveUpdates"], "strong"), state);
+                var part = Ui.V(8, Ui.Text(str[notices.LiveTexts], "strong"), state);
                 if (live != LiveSupport.None && notices.LiveByMakerOnly) part.Children.Add(Hint(str["LiveUpdatesSamsung"]).Also(t => t.Tag = "live.maker"));
                 if (live == LiveSupport.Off)
                 {
-                    var allow = Ui.Button(str["LiveUpdatesAllow"], "settings", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+                    var allow = Ui.Button(str[notices.LiveTexts + "Allow"], "settings", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
                     allow.Click += (_, _) => notices.OpenLiveSettings();
                     part.Children.Add(allow);
                 }

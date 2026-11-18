@@ -29,6 +29,15 @@ public sealed record LiveNotice(string Title, string Text, Instant? From, Instan
     public string? Chip { get; init; }
     public string Icon { get; init; } = "route";
 
+    /// <summary>How long before the departure or arrival the status bar counts the minutes down instead of showing the time.</summary>
+    public static readonly Duration Countdown = Duration.FromHours(1);
+
+    /// <summary>
+    /// From when the short text counts the minutes down (<see cref="ChipFor"/>). iOS draws the Live Activity's countdown
+    /// itself from then on, as it does not wake the app every minute.
+    /// </summary>
+    public Instant? CountdownFrom => Until - Countdown;
+
     /// <summary>
     /// Which part of the travel day this is: the journey and the time it counts towards, so the countdown to a departure,
     /// the way to the arrival and a change each have their own. A notification the user swiped away stays away for its
@@ -47,7 +56,7 @@ public sealed record LiveNotice(string Title, string Text, Instant? From, Instan
     public Instant Redraw(Instant now)
     {
         if (Until is not { } until) return now + Duration.FromMinutes(5);
-        if (until - now <= Duration.FromHours(1)) return now + Duration.FromMinutes(1);
+        if (until - now <= Countdown) return now + Duration.FromMinutes(1);
         if (From is not { } from || until <= from) return now + Duration.FromMinutes(5);
         var step = Duration.FromTicks((until - from).BclCompatibleTicks / 100);
         return now + (step < Duration.FromMinutes(1) ? Duration.FromMinutes(1) : step > Duration.FromMinutes(5) ? Duration.FromMinutes(5) : step);
@@ -60,7 +69,7 @@ public sealed record LiveNotice(string Title, string Text, Instant? From, Instan
     public static string ChipFor(Instant until, Instant now, DateTimeZone phone, Localization s)
     {
         var left = until - now;
-        return left > Duration.Zero && left <= Duration.FromHours(1)
+        return left > Duration.Zero && left <= Countdown
             ? string.Format(CultureInfo.CurrentCulture, s["LiveMinutesLeft"], (int)Math.Ceiling(left.TotalMinutes))
             : until.InZone(phone).ToString("HH:mm", CultureInfo.InvariantCulture);
     }

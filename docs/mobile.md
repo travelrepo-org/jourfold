@@ -324,9 +324,31 @@ does not count as swiped away.
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
-allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
-choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
-widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
+allows one. Departures are announced like the other notices, and there are no kinds to choose from.
+
+**Live Activities.** On an iPhone with iOS 16.2 or newer the travel day is a Live Activity on the Lock Screen and in
+the Dynamic Island, with the same `LiveNotice` as Android's notification: the title and text, the vehicle, the
+countdown to the departure or arrival, the progress while under way, and "Show ticket". The compact Dynamic Island
+shows `LiveNotice.Chip`, the time, and from `LiveNotice.CountdownFrom` (the last hour) the time left. iOS does not wake
+Jourfold every minute, so the countdown and the progress move on by themselves (`Text(timerInterval:)`,
+`ProgressView(timerInterval:)`), and the next part of the day, such as the way to the arrival after the departure,
+appears when Jourfold runs again: on screen, after edits and syncs, or in a background refresh. Without that the
+activity stays at zero after its time until iOS ends it, after eight hours at most. There is no push server; nothing
+leaves the device. A tap opens the plan (`jourfold://notice?trip=…&item=…`), "Show ticket" its ticket. An activity the
+user swiped away from the Lock Screen stays away for its part of the day (`NoticeRunner.Dismiss`), as on Android; iOS
+says so only when Jourfold runs next. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
+is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and have **Show an example**; on
+an iPad or before iOS 16.2 the part is not there.
+
+ActivityKit is Swift only, so `src/Jourfold.iOS/LiveActivity` has a small Swift bridge with an Objective-C interface
+(`JourfoldLive.framework`, called by `IosLiveActivities`) and a WidgetKit extension that draws the activity
+(`JourfoldLiveActivity.appex`, iOS 16.2 and newer); both share `TravelDayAttributes.swift`, and the texts come from
+`en.json` and `de.json` through the activity's content. `LiveActivity/build.sh` builds both with `swiftc` from the Xcode
+the build uses (target `BuildLiveActivity` in the project). The extension has a bundle ID of its own,
+`<ApplicationId>.LiveActivity`, and on a device needs a provisioning profile for it: a signed device build includes
+it only with `-p:LiveActivityProvision=path/to/profile.mobileprovision` and otherwise builds the app without Live
+Activities, as before. Builds for the simulator and unsigned builds (the workflow's IPA) always include it;
+whether sideloading tools sign the extension along with the app is not tried yet. Ticket shortcuts on the app icon are not
 there yet.
 
 ## Problem reports
@@ -552,7 +574,8 @@ deleted), and at most three such apps per device.
 passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so the project
 turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an
 iPhone: signing in with GitHub, cloning a shared trip, Today, Plan and Map, editing and sync work. Not tried on a device
-yet: notifications, the calendar and the camera beyond starting them, and ⌘ keys on an iPad with a hardware keyboard.
+yet: notifications, the calendar and the camera beyond starting them, Live Activities (tried in the simulator only),
+and ⌘ keys on an iPad with a hardware keyboard.
 
 ## Screenshots
 

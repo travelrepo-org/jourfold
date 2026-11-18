@@ -46,6 +46,11 @@ public interface ISystemNotices
     bool ShowsLive => true;
     /// <summary>Whether the system may show the travel day in the status bar as well (Android 16's Live Updates).</summary>
     LiveSupport Live => LiveSupport.None;
+    /// <summary>
+    /// The start of the keys the settings word the travel day's system surface with: Android's Live Updates in the status
+    /// bar ("LiveUpdates", "LiveUpdatesOn", ...) or iOS's Live Activities on the Lock Screen ("LiveActivities", ...).
+    /// </summary>
+    string LiveTexts => "LiveUpdates";
     /// <summary>Opens the system page where the user allows Live Updates for the app.</summary>
     void OpenLiveSettings() { }
     /// <summary>

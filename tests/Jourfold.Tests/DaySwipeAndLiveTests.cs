@@ -153,6 +153,57 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         public void OpenLiveSettings() => OpenedLiveSettings++;
         public bool? LivePromoted => Live.LastOrDefault() is null ? null : promoted;
         public bool LiveByMakerOnly { get; init; }
+        public string LiveTexts { get; init; } = "LiveUpdates";
+    }
+
+    [AvaloniaTheory]
+    [InlineData(LiveSupport.On, true, "Allowed. The Lock Screen and the Dynamic Island", "Shown as a Live Activity.")]
+    [InlineData(LiveSupport.Off, false, "Turned off in the Settings app.", "iOS did not show it.")]
+    public async Task OnAnIPhoneTheSettingsSpeakOfLiveActivitiesOnTheLockScreen(LiveSupport support, bool promoted, string state, string result)
+    {
+        var notices = new LiveNotices(support, promoted) { LiveTexts = "LiveActivities" };
+        var (session, window) = await OpenAsync(notices);
+        try
+        {
+            session.ShowPage("settings");
+            await session.SetNoticesAsync(true); Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Live Activity on the Lock Screen");
+            Assert.DoesNotContain(Probe.All<TextBlock>(window), t => t.Text == "Live Update in the status bar");
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text!.StartsWith(state, StringComparison.Ordinal));
+            if (support == LiveSupport.Off) { Probe.Click(window, "Allow in the Settings app"); Assert.Equal(1, notices.OpenedLiveSettings); }
+            Probe.Click(window, "Show an example");
+            await Probe.Until(() => session.LiveExampleResult is not null);
+            Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Tag as string == "live.result" && t.Text!.StartsWith(result, StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [Theory]
+    [InlineData("LiveUpdates")]
+    [InlineData("LiveActivities")]
+    public void BothPlatformsWordTheTravelDayInEnglishAndGerman(string texts)
+    {
+        foreach (var language in new[] { "en", "de" })
+        {
+            var s = new Localization(language);
+            foreach (var key in new[] { "", "On", "Off", "None", "Allow", "Promoted", "Plain" }.Select(part => texts + part).Append("LiveTimeLeft").Append("LiveProgress"))
+                Assert.NotEqual(key, s[key]);
+        }
+    }
+
+    [Fact]
+    public void TheLiveActivityCountsDownFromTheMomentTheStatusBarDoes()
+    {
+        // iOS cannot redraw the Live Activity every minute, so it is told when the minutes left take the time's place.
+        var now = new LocalDateTime(2027, 5, 16, 10, 0).InZoneStrictly(Tokyo).ToInstant();
+        var english = new Localization("en");
+        var ride = new LiveNotice("", "", now, now + Duration.FromHours(3), now + Duration.FromHours(3), Guid.Empty, false);
+        var from = ride.CountdownFrom!.Value;
+        Assert.Equal(now + Duration.FromHours(2), from);
+        Assert.Equal("13:00", LiveNotice.ChipFor(ride.Until!.Value, from - Duration.FromSeconds(1), Tokyo, english));
+        Assert.Equal("60 min", LiveNotice.ChipFor(ride.Until!.Value, from, Tokyo, english));
+        Assert.Null((ride with { Until = null }).CountdownFrom);
     }
 
     [AvaloniaTheory]

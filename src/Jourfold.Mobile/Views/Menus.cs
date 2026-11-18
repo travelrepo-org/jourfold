@@ -91,15 +91,26 @@ public static class Menus
         if (string.IsNullOrWhiteSpace(copy)) return text;
         // Hits the whole line, not only the letters.
         text.Background ??= Avalonia.Media.Brushes.Transparent;
-        OnHold(text, async () =>
-        {
-            if (TopLevel.GetTopLevel(text)?.Clipboard is not { } clipboard) return;
-            await clipboard.SetTextAsync(copy);
-            if (OperatingSystem.IsAndroidVersionAtLeast(33)) return;
-            var notice = copy.Length <= 40 && !copy.Contains('\n') ? string.Format(CultureInfo.CurrentCulture, s.Strings["CopiedValue"], copy) : s.Strings["Copied"];
-            Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(text)?.Notify(notice);
-        });
+        CopiesOnHold(text, s, copy);
         return text;
+    }
+
+    /// <summary>
+    /// Copies <paramref name="value"/> on a long press or a right click on <paramref name="control"/>, also a button
+    /// whose tap does something else, such as a place that opens to be changed. On a button, call this before adding
+    /// its click handler (see <see cref="OnHold"/>).
+    /// </summary>
+    public static void CopiesOnHold(Control control, MobileSession s, string value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        OnHold(control, async () =>
+        {
+            if (TopLevel.GetTopLevel(control)?.Clipboard is not { } clipboard) return;
+            await clipboard.SetTextAsync(value);
+            if (OperatingSystem.IsAndroidVersionAtLeast(33)) return;
+            var notice = value.Length <= 40 && !value.Contains('\n') ? string.Format(CultureInfo.CurrentCulture, s.Strings["CopiedValue"], value) : s.Strings["Copied"];
+            Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<AppShell>(control)?.Notify(notice);
+        });
     }
 
     /// <summary>What can be done with an item: the same as in its details, plus duplicating and moving it.</summary>

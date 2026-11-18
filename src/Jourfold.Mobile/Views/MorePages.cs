@@ -140,6 +140,7 @@ public static class MorePages
                     Ui.V(1, Ui.Text(place.Title, "strong"), Ui.Text(detail, "caption")), Ui.Icon("chevron-right", 18, "Text.Subtle"))
             }.Classed("row");
             AutomationProperties.SetName(row, place.Title + ", " + detail);
+            Menus.CopiesOnHold(row, s, DetailView.PlaceText(place));
             row.Click += (_, _) => s.ShowPlace(place.Id);
             return (Control)row;
         }).ToList();

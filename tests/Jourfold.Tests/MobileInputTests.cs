@@ -39,6 +39,33 @@ public sealed class MobileInputTests : IDisposable
     private static void DrawAgain(MobileSession session) { session.Redraw(); Probe.Layout(); }
 
     [AvaloniaFact]
+    public async Task ALongPressOnAPlaceCopiesItsAddressAndATapStillOpensIt()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var stay = session.Trip!.Entities.Values.First(e => e.Type == "schedule_item" && e.Title == "Hotel Gracery Shinjuku");
+            session.ShowDetails(stay.Id); Probe.Layout();
+            Button Row() => Probe.All<Button>(window).First(b => AutomationProperties.GetName(b) == "Change place: Hotel Gracery Shinjuku");
+            // A long press (or a right click) copies the address, without opening the place.
+            Row().RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs { RoutedEvent = Control.ContextRequestedEvent });
+            await Probe.Until(() => Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!).GetAwaiter().GetResult() == "Kabukicho, Shinjuku City, Tokyo");
+            Assert.NotEqual(Overlay.Place, session.Showing);
+            // A tap opens it to be changed, as before.
+            Probe.Click(window, "Change place: Hotel Gracery Shinjuku");
+            Assert.Equal(Overlay.Place, session.Showing);
+
+            // The places page copies the same way.
+            session.CloseOverlay(); session.ShowTab(MobileTab.More); session.ShowPage("places"); Probe.Layout();
+            await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(window.Clipboard!, "");
+            Probe.All<Button>(window).First(b => (AutomationProperties.GetName(b) ?? "").StartsWith("teamLab Planets,", StringComparison.Ordinal))
+                .RaiseEvent(new Avalonia.Input.ContextRequestedEventArgs { RoutedEvent = Control.ContextRequestedEvent });
+            await Probe.Until(() => Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!).GetAwaiter().GetResult() == "Toyosu, Koto City, Tokyo");
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public void APageIsScrolledToItsPlaceBeforeAnythingElseRuns()
     {
         var scroll = new ScrollViewer { Content = new Border { Height = 3000 } };

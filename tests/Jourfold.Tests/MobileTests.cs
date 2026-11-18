@@ -313,10 +313,12 @@ public sealed class MobileTests : IDisposable
             Assert.Equal("timetable", session.Settings.Values["plan.day"]);
             Assert.True(PlanView.DayTimetable(session, WidthClass.Phone));
             Assert.Contains("Senso-ji and Asakusa, 11:00 – 13:00", Names());
-            // The larger screens keep their own choice, and the date strip still changes the day.
+            // The larger screens keep their own choice. The time grid has no date strip; the days' heads name them.
             Assert.False(session.Settings.Values.ContainsKey("plan.mode"));
             Assert.False(PlanView.DayTimetable(session, WidthClass.Tablet));
-            Probe.Click(window, "Monday 17 May");
+            Assert.DoesNotContain("Monday 17 May", Names());
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "17 May");
+            session.ShowDate(new LocalDate(2027, 5, 17));
             Assert.Equal(new LocalDate(2027, 5, 17), session.SelectedDate);
             // Monday is in the middle now, with a part of the days before and after at the edges.
             Assert.Contains(Names(), n => n?.StartsWith("Train to Nikko", StringComparison.Ordinal) == true);
@@ -993,6 +995,9 @@ public sealed class MobileTests : IDisposable
         Assert.Equal(("Flight to Tokyo · departs 13:20", At(14, 13, 20, Berlin)), (before.Title, before.Until!.Value));
         var flying = TravelNotices.Live(trip, session.Me, At(14, 20, 0, Berlin), Berlin, English)!;
         Assert.Equal("Flight to Tokyo · arrives 08:35 Tokyo", flying.Title); Assert.Equal(At(14, 13, 20, Berlin), flying.From);
+        // The status bar has the time on the phone's clock, the minutes left in the last hour, and the plane rides along.
+        Assert.Equal(("13:20", "plane", "01:35"), (before.Chip, flying.Icon, flying.Chip));
+        Assert.Equal("40 min", TravelNotices.Live(trip, session.Me, At(14, 12, 40, Berlin), Berlin, English)!.Chip);
         Assert.Null(TravelNotices.Live(trip, session.Me, At(14, 6, 0, Berlin), Berlin, English));
 
         // Plans for someone else do not remind the user.
@@ -1310,6 +1315,8 @@ public sealed class MobileTests : IDisposable
         var clock = new MovingClock { Now = At(14, 8, 0) }; var notices = new FakeNotices();
         var session = new MobileSession(new MobileHost(root, new GitCliBackend(), clock, () => Berlin, "en", new MemorySecrets(), Notices: notices));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        // With weather on, the notices read the forecasts kept on the device and never fetch any.
+        session.Settings.Values["weather.online"] = "on"; session.Settings.Save();
         await session.SetNoticesAsync(true);
         // In the morning the departure reminder is still to come: it is handed over with its time, soonest first.
         var departure = notices.Coming.Single(c => c.Notice.Kind == NoticeKind.Departure && c.Notice.Title.StartsWith("Flight to Tokyo", StringComparison.Ordinal));

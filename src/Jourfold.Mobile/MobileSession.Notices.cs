@@ -19,6 +19,30 @@ public sealed partial class MobileSession
         Changed?.Invoke();
     }
 
+    /// <summary>What trying the travel day's notification came to, shown under the button; null before it was tried.</summary>
+    public string? LiveExampleResult { get; private set; }
+
+    /// <summary>How long the example stays.</summary>
+    public static readonly TimeSpan LiveExampleTime = NoticeRunner.ExampleTime.ToTimeSpan();
+
+    /// <summary>
+    /// Shows the travel day's notification with an example journey that arrives in a minute, so the user sees on their
+    /// own device what a travel day looks like, and whether the system makes it a Live Update. The notices run as on a
+    /// travel day: they wake the app every few seconds to move the progress on, also when it is asleep, and when the
+    /// example has arrived the system has taken it away and a real journey comes back.
+    /// </summary>
+    public async Task ShowLiveExampleAsync(CancellationToken ct = default)
+    {
+        if (Host.Notices is not { } notices || !NoticesOn) return;
+        Settings.Values[NoticeRunner.ExampleSetting] = Now.ToUnixTimeMilliseconds().ToString(System.Globalization.CultureInfo.InvariantCulture) + "|" + (Workspace?.Repository.Root ?? Host.DataRoot);
+        Settings.Save();
+        await NoticeRunner.RunAsync(Host, ct: ct);
+        // The system decides a moment after the notification is posted.
+        await Task.Delay(TimeSpan.FromMilliseconds(600), ct);
+        LiveExampleResult = Strings[notices.LivePromoted switch { true => "LiveExamplePromoted", false when notices.Live != LiveSupport.None => "LiveExamplePlain", _ => "LiveExampleShown" }];
+        Changed?.Invoke();
+    }
+
     /// <summary>
     /// Opens what a notification is about: the trip, then the plan's details, or its first ticket.
     /// </summary>

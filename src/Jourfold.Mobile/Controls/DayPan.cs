@@ -32,12 +32,33 @@ public sealed class DayPan
     /// <summary>How far a drag must go before its speed carries the days on.</summary>
     public const double MinFlick = 40;
 
+    /// <summary>The shortest time between two moves that the finger's speed is measured over, in milliseconds.</summary>
+    public const ulong MinGap = 8;
+
+    /// <summary>How fast, in pixels per millisecond, a finger must still move when it lets go for its drag to be a swipe.</summary>
+    public const double MinSwipeSpeed = 0.08;
+
     public double DayWidth { get; }
     public int Count { get; }
     public double Offset => offset;
 
-    /// <summary>Raised when the strip has come to rest, with the day now in the middle.</summary>
+    /// <summary>
+    /// Raised when the strip has come to rest, with the day now in the middle. A glide that the finger catches again
+    /// before it ends does not come to rest and is not reported.
+    /// </summary>
     public event Action<int>? Settled;
+
+    /// <summary>
+    /// Raised as soon as a glide begins, with the day it is heading for, so what names the day, such as a date strip,
+    /// can change with the days and not after them.
+    /// </summary>
+    public event Action<int>? Aimed;
+
+    /// <summary>Raised when the finger takes hold of the days, also in the middle of a glide.</summary>
+    public event Action? Grabbed;
+
+    // Counts the glides, so one that was caught by the finger or replaced by another does not report its rest.
+    private int glide;
 
     /// <summary>A part that moves with the days: as wide as all of them, seen through a frame as wide as the viewport.</summary>
     public Control Layer(Control content)
@@ -74,8 +95,27 @@ public sealed class DayPan
         var distance = Math.Abs(target - offset);
         var time = TimeSpan.FromMilliseconds(Math.Clamp(140 + distance / DayWidth * 70, 160, 420));
         offset = target;
+        var mine = ++glide;
         foreach (var move in layers) { move.Transitions = [new DoubleTransition { Property = TranslateTransform.XProperty, Duration = time, Easing = new CubicEaseOut() }]; move.X = -offset; }
-        DispatcherTimer.RunOnce(() => Settled?.Invoke(Middle), time + TimeSpan.FromMilliseconds(20));
+        Aimed?.Invoke(Middle);
+        DispatcherTimer.RunOnce(() => { if (mine == glide) Settled?.Invoke(Middle); }, time + TimeSpan.FromMilliseconds(20));
+    }
+
+    /// <summary>
+    /// Stops a glide where the days are right now, so the finger takes them from there: a second swipe right after the
+    /// first carries on instead of waiting for the days to come to rest.
+    /// </summary>
+    /// <returns>Whether the days were still on their way, short of the day they were heading for.</returns>
+    private bool Catch()
+    {
+        glide++;
+        if (layers.Count == 0) return false;
+        // While gliding, the layer's place is the one on its way, not the one it is heading for.
+        var now = -layers[0].X;
+        var onTheWay = Math.Abs(now - offset) > 1;
+        foreach (var move in layers) { move.Transitions = null; move.X = -now; }
+        offset = now;
+        return onTheWay;
     }
 
     /// <summary>
@@ -86,7 +126,7 @@ public sealed class DayPan
     /// <param name="ignore">A part that scrolls sideways by itself, such as the phone's date strip, or null.</param>
     public void Follow(Control area, Control? ignore = null)
     {
-        Point? start = null; bool? sideways = null; double from = 0, lastX = 0, speed = 0; ulong lastTime = 0; var fromDay = 0;
+        Point? start = null; bool? sideways = null; double from = 0, lastX = 0, speed = 0; ulong lastTime = 0; var fromDay = 0; var caught = false;
         area.AddHandler(InputElement.PointerPressedEvent, (_, e) =>
         {
             var inside = ignore is not null && e.Source is Visual v && (v == ignore || Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(v).Contains(ignore));
@@ -100,13 +140,17 @@ public sealed class DayPan
             {
                 if (Math.Abs(delta.X) > 12 && Math.Abs(delta.X) > 1.3 * Math.Abs(delta.Y))
                 {
-                    sideways = true; e.Pointer.Capture(area); from = offset; fromDay = Middle;
-                    foreach (var move in layers) move.Transitions = null;
+                    sideways = true; e.Pointer.Capture(area);
+                    // A flick counts from the day the glide before was heading for, so two quick flicks move two days.
+                    fromDay = Middle; caught = Catch(); from = offset;
+                    Grabbed?.Invoke();
                 }
                 else if (Math.Abs(delta.Y) > 12) { sideways = false; start = null; return; }
                 else return;
             }
-            if (e.Timestamp > lastTime) { speed = 0.6 * speed + 0.4 * (at.X - lastX) / (e.Timestamp - lastTime); lastTime = e.Timestamp; lastX = at.X; }
+            // Two moves that arrive a millisecond apart say little about the finger's speed; a screen reports one about every
+            // eight milliseconds at most, so a shorter gap counts as that long.
+            if (e.Timestamp > lastTime) { speed = 0.6 * speed + 0.4 * (at.X - lastX) / Math.Max(MinGap, e.Timestamp - lastTime); lastTime = e.Timestamp; lastX = at.X; }
             var wanted = from - delta.X;
             // Past the first or last day the strip follows only a little, to show there is nothing further.
             var shown = wanted < 0 ? wanted * 0.25 : wanted > Max ? Max + (wanted - Max) * 0.25 : wanted;
@@ -117,8 +161,12 @@ public sealed class DayPan
         {
             if (sideways != true) { start = null; return; }
             sideways = null; start = null; e.Handled = true; e.Pointer.Capture(null);
-            // A short slip, such as while tapping, is no flick, however quick.
-            Release(Math.Abs(offset - from) < MinFlick ? 0 : speed, fromDay);
+            // A short slip, such as while tapping, is no flick, however quick. A drag past it that is still moving the
+            // way it went when the finger lets go is a swipe and moves at least one day, as does one that caught the days
+            // on their way; only a drag that stopped or turned back settles on the nearest day.
+            var dragged = offset - from;
+            var swiped = Math.Abs(dragged) >= MinFlick && (caught || -speed * Math.Sign(dragged) > MinSwipeSpeed);
+            Release(Math.Abs(dragged) < MinFlick ? 0 : speed, fromDay, swiped ? Math.Sign(dragged) : 0);
         }, RoutingStrategies.Tunnel, handledEventsToo: true);
         area.AddHandler(InputElement.PointerCaptureLostEvent, (_, _) => { if (sideways == true) { sideways = null; start = null; Release(0, fromDay); } }, RoutingStrategies.Bubble, handledEventsToo: true);
     }
@@ -126,12 +174,19 @@ public sealed class DayPan
     /// <summary>
     /// Lets go with <paramref name="speed"/> (pixels per millisecond, positive to the right): the strip carries on as
     /// far as the speed takes it and settles with the day nearest that place in the middle. A flick moves at least one day
-    /// from <paramref name="fromDay"/>, the day in the middle when the drag began.
+    /// from <paramref name="fromDay"/>, the day in the middle when the drag began, or the day a glide was heading for
+    /// when the finger caught it.
     /// </summary>
-    public void Release(double speed, int fromDay)
+    /// <param name="onward">
+    /// 1 or -1 for a swipe later or earlier: it moves at least one day beyond <paramref name="fromDay"/>, also when the
+    /// finger caught the days on their way, so two swipes in a row are two days. 0 for a drag that stopped or turned back.
+    /// </param>
+    public void Release(double speed, int fromDay, int onward = 0)
     {
         var aim = DayAt(Math.Clamp(offset - speed * 280, 0, Max));
         if (aim == fromDay && Math.Abs(speed) > 0.35) aim = fromDay + (speed < 0 ? 1 : -1);
+        if (onward > 0 && aim <= fromDay) aim = fromDay + 1;
+        if (onward < 0 && aim >= fromDay) aim = fromDay - 1;
         // Near the first and last day several days share the same place; the flick goes on to one that moves the strip.
         while (aim > 0 && aim < Count - 1 && OffsetOf(aim) == OffsetOf(fromDay) && aim != fromDay && Math.Abs(speed) > 0.35) aim += speed < 0 ? 1 : -1;
         GlideTo(aim);

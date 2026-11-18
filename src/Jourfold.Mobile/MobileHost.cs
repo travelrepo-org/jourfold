@@ -36,7 +36,13 @@ namespace Jourfold.Mobile;
 /// False when no app can; null where the platform cannot do it.
 /// </param>
 /// <param name="Haptic">A short vibration, as when a long press is reached; null where the platform has none.</param>
-public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null, Action<bool>? Brightness = null, Func<CancellationToken, Task<SharedFile?>>? TakePhoto = null, Func<string, string, Task>? ShareText = null, string? AppVersion = null, Action? Haptic = null, string? Distribution = null)
+/// <summary>
+/// A problem report the user sends from their own mail app: <see cref="To"/> may be unknown, the body can be edited
+/// there before sending, and the attachments are files under <see cref="MobileHost.SharedRoot"/>.
+/// </summary>
+public sealed record ProblemMail(string? To, string Subject, string Body, IReadOnlyList<string> Attachments);
+
+public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null, Action<bool>? Brightness = null, Func<CancellationToken, Task<SharedFile?>>? TakePhoto = null, Func<string, string, Task>? ShareText = null, string? AppVersion = null, Action? Haptic = null, string? Distribution = null, Func<ProblemMail, Task<bool>>? SendMail = null, Func<IReadOnlyList<(string Key, string Value)>>? SystemInfo = null)
 {
     /// <summary>Copies of files handed to other apps. Emptied each time, so they do not pile up.</summary>
     public string SharedRoot => Path.Combine(DataRoot, "shared");

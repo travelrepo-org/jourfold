@@ -7,6 +7,17 @@ using TravelRepo.Repository;
 
 namespace Jourfold.Mobile;
 
+/// <summary>How the system treats the travel day's ongoing notification beyond listing it.</summary>
+public enum LiveSupport
+{
+    /// <summary>The system has nothing more than the notification itself, as Android before 16.</summary>
+    None,
+    /// <summary>The system could show it in the status bar, but the user turned that off for the app.</summary>
+    Off,
+    /// <summary>The system may show it as a Live Update, with the time in the status bar.</summary>
+    On
+}
+
 /// <summary>
 /// The device's notifications, as the platform shows them. Jourfold works out what to show and when to wake up again;
 /// the platform shows it and wakes the app at that time, also when it is not running.
@@ -33,6 +44,20 @@ public interface ISystemNotices
     /// already counts down to are not announced again.
     /// </summary>
     bool ShowsLive => true;
+    /// <summary>Whether the system may show the travel day in the status bar as well (Android 16's Live Updates).</summary>
+    LiveSupport Live => LiveSupport.None;
+    /// <summary>Opens the system page where the user allows Live Updates for the app.</summary>
+    void OpenLiveSettings() { }
+    /// <summary>
+    /// Whether the system shows the travel day's notification as a Live Update right now; null when it cannot say or
+    /// nothing is shown.
+    /// </summary>
+    bool? LivePromoted => null;
+    /// <summary>
+    /// Whether the phone's maker shows Live Updates only for apps it approved, as Samsung's One UI does, unless the user
+    /// lets all apps through in the developer options.
+    /// </summary>
+    bool LiveByMakerOnly => false;
     /// <summary>Whether the system settings let the user choose kinds of notifications, as Android's channels do.</summary>
     bool HasKinds => true;
     /// <summary>
@@ -72,7 +97,7 @@ public static class NoticeRunner
             var shown = Read(shownPath).Where(p => Instant.FromUnixTimeMilliseconds(p.Value) > now - Duration.FromDays(4)).ToDictionary();
             // Weather warnings come from the forecasts kept on the device; nothing is fetched here.
             var weather = settings.Values.GetValueOrDefault("weather.online") == "on"
-                ? new TravelRepo.Providers.Weather.WeatherService([], null, new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
+                ? TravelRepo.Providers.Weather.WeatherService.CacheOnly(new TravelRepo.Providers.Weather.WeatherCache(Path.Combine(host.DataRoot, "cache", "weather")), clock: host.Clock) : null;
             Instant? next = null; (LiveNotice Live, string Folder)? live = null; var shortcuts = new List<(Instant At, TicketShortcut Shortcut)>(); var coming = new List<(TravelNotice, string)>();
             foreach (var folder in Directory.GetDirectories(host.TripsRoot).Order(StringComparer.Ordinal).Where(f => File.Exists(Path.Combine(f, "travel.yaml"))))
             {
@@ -99,15 +124,59 @@ public static class NoticeRunner
                     }
                 }
             }
-            notices.ShowLive(live?.Live, live?.Folder);
+            // The example from the settings takes the travel day's place for its minute and moves on like a journey.
+            var example = Example(settings, now, phone, strings);
+            if (example is { } shownExample) live = shownExample;
+            // Swiped away, the travel day stays away until its next part: the departure, the arrival or a change.
+            var dismissed = live is { } today && File.Exists(DismissedPath(host)) && File.ReadAllText(DismissedPath(host)).Trim() == today.Live.Key;
+            notices.ShowLive(dismissed ? null : live?.Live, dismissed ? null : live?.Folder);
             notices.Schedule(coming.OrderBy(c => c.Item1.At).ToArray());
             notices.SetTicketShortcuts(shortcuts.OrderBy(t => t.At).Take(3).Select(t => t.Shortcut).ToArray());
-            // While travelling the progress is redrawn every few minutes; otherwise the plan is read again twice a day.
-            var wake = new[] { next, live?.Live.Changes, now + (live is null ? Duration.FromHours(12) : Duration.FromMinutes(5)) }.OfType<Instant>().Where(t => t > now).Min();
+            // While travelling the notification is redrawn as the progress and the minutes left move on, the example every
+            // few seconds; swiped away, it waits for its next part; otherwise the plan is read again twice a day.
+            var redraw = dismissed ? now + Duration.FromHours(12) : example is not null ? now + ExampleStep : live is { } shownLive ? shownLive.Live.Redraw(now) : now + Duration.FromHours(12);
+            var wake = new[] { next, live?.Live.Changes, redraw }.OfType<Instant>().Where(t => t > now).Min();
             notices.WakeAt(wake);
             File.WriteAllText(shownPath, JsonSerializer.Serialize(shown));
         }
         finally { Running.Release(); }
+    }
+
+    private static string DismissedPath(MobileHost host) => Path.Combine(host.DataRoot, "live-dismissed.txt");
+
+    /// <summary>
+    /// Remembers that the user swiped the travel day's notification away, for the part it showed (<see cref="LiveNotice.Key"/>).
+    /// A file of its own, so the settings the app keeps in memory do not write over it.
+    /// </summary>
+    public static void Dismiss(MobileHost host, string key)
+    {
+        try { File.WriteAllText(DismissedPath(host), key); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+    }
+
+    /// <summary>The setting that holds when the example was started and from which trip, as "milliseconds|folder".</summary>
+    public const string ExampleSetting = "live.example";
+
+    /// <summary>How long the example stays: a short journey that arrives when it goes away.</summary>
+    public static readonly Duration ExampleTime = Duration.FromMinutes(1);
+
+    /// <summary>How often the example is drawn again, so its progress and the minutes left visibly move on.</summary>
+    public static readonly Duration ExampleStep = Duration.FromSeconds(10);
+
+    /// <summary>
+    /// The example journey while it runs: a train that left a minute before it was started and arrives a minute after,
+    /// when the system takes it away. Null before and after.
+    /// </summary>
+    public static (LiveNotice Live, string Folder)? Example(MobileSettings settings, Instant now, DateTimeZone phone, Localization s)
+    {
+        var value = settings.Values.GetValueOrDefault(ExampleSetting);
+        if (value?.Split('|', 2) is not [var ms, var folder] || !long.TryParse(ms, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out var started)) return null;
+        var from = Instant.FromUnixTimeMilliseconds(started); var until = from + ExampleTime;
+        if (now < from || now >= until) return null;
+        var title = string.Format(System.Globalization.CultureInfo.CurrentCulture, s["NoticeArrives"], s["LiveExampleJourney"], until.InZone(phone).ToString("HH:mm", System.Globalization.CultureInfo.InvariantCulture));
+        var live = new LiveNotice(title, s["LiveExampleText"], from - ExampleTime, until, until, Guid.Empty, false, (until - now).ToTimeSpan())
+        { Chip = LiveNotice.ChipFor(until, now, phone, s), Icon = "train-front" };
+        return (live, folder);
     }
 
     private static Dictionary<string, long> Read(string path)

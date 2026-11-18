@@ -18,7 +18,7 @@ public sealed class AndroidNotices(Context context, string language, string devi
 {
     private const int RequestCode = 4713, LiveId = 1;
     private const string LiveChannel = "travel_live", TravelDay = "travel_day", Reminders = "reminders", Deadlines = "deadlines";
-    public const string ExtraTrip = "dev.jourfold.app.trip", ExtraItem = "dev.jourfold.app.item", ExtraTicket = "dev.jourfold.app.ticket", ActionWake = "dev.jourfold.app.NOTICES";
+    public const string ExtraTrip = "dev.jourfold.app.trip", ExtraItem = "dev.jourfold.app.item", ExtraTicket = "dev.jourfold.app.ticket", ActionWake = "dev.jourfold.app.NOTICES", ActionLiveDismissed = "dev.jourfold.app.LIVE_DISMISSED", ExtraLiveKey = "dev.jourfold.app.live";
     private static TaskCompletionSource<bool>? asking;
 
     private NotificationManager Manager => (NotificationManager)context.GetSystemService(Context.NotificationService)!;
@@ -76,22 +76,87 @@ public sealed class AndroidNotices(Context context, string language, string devi
         var builder = new Notification.Builder(context, LiveChannel).SetSmallIcon(Resource.Drawable.ic_notification)!
             .SetContentTitle(live.Title)!.SetContentText(live.Text)!.SetOngoing(true)!.SetOnlyAlertOnce(true)!.SetCategory(Notification.CategoryProgress)!
             .SetContentIntent(Open(tripFolder, live.Item, ticket: false, LiveId))!;
-        if (live.Until is { } until)
+        var done = live.Progress(NodaTime.SystemClock.Instance.GetCurrentInstant());
+        if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
+        // Swiped away, it stays away for this part of the day; the runner hears of it through the receiver.
+        builder.SetDeleteIntent(PendingIntent.GetBroadcast(context, LiveId + 2, new Intent(context, typeof(NoticeReceiver)).SetAction(ActionLiveDismissed)!.PutExtra(ExtraLiveKey, live.Key),
+            PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent));
+        // The system takes it away itself, also when the app is asleep by then.
+        if (live.Lasts is { } lasts) builder.SetTimeoutAfter((long)lasts.TotalMilliseconds);
+        builder.SetColor(Accent);
+        if (OperatingSystem.IsAndroidVersionAtLeast(36))
+        {
+            // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar that
+            // carries the minutes left or the time of the departure or arrival. The progress style is the one the system
+            // and the makers' own surfaces, such as Samsung's Now Bar, lay out for journeys: a bar in Jourfold's colour
+            // with the vehicle riding along. Jourfold draws it again as it moves on (NoticeRunner), so no counter
+            // ticks next to the title.
+            builder.SetShowWhen(false);
+            if (done is { } progress)
+                builder.SetStyle(new Notification.ProgressStyle().SetStyledByProgress(true)!
+                    .SetProgressSegments([new Notification.ProgressStyle.Segment(100).SetColor(Accent)!])!.SetProgress(progress)!
+                    .SetProgressTrackerIcon(global::Android.Graphics.Drawables.Icon.CreateWithResource(context, Vehicle(live.Icon))));
+            if (live.Chip is { } chip) builder.SetShortCriticalText(chip);
+            var extras = new Bundle(); extras.PutBoolean(RequestPromoted, true);
+            builder.AddExtras(extras);
+        }
+        else
         {
             // The system counts down to the departure or arrival itself, also between updates.
-            builder.SetWhen(until.ToUnixTimeMilliseconds())!.SetShowWhen(true)!.SetUsesChronometer(true)!.SetChronometerCountDown(true);
-            if (live.From is { } from && until > from)
-            {
-                var done = (int)Math.Clamp((NodaTime.SystemClock.Instance.GetCurrentInstant() - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100);
-                builder.SetProgress(100, done, false);
-            }
+            if (live.Until is { } until) builder.SetWhen(until.ToUnixTimeMilliseconds())!.SetShowWhen(true)!.SetUsesChronometer(true)!.SetChronometerCountDown(true);
+            if (done is { } progress) builder.SetProgress(100, progress, false);
         }
-        if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
-        // Android 16 shows a promoted ongoing notification as a Live Update, with a chip in the status bar.
-        var extras = new Bundle(); extras.PutBoolean("android.requestPromotedOngoing", true);
-        if (live.Until is { } chip) extras.PutString("android.shortCriticalText", chip.InZone(DateTimeZoneProviders.Tzdb.GetSystemDefault()).ToString("HH:mm", null));
-        builder.AddExtras(extras);
         Manager.Notify(LiveId, builder.Build());
+    }
+
+    /// <summary>Jourfold's accent colour, the light theme's Accent token.</summary>
+    private static readonly global::Android.Graphics.Color Accent = global::Android.Graphics.Color.ParseColor("#0F7B7A");
+
+    /// <summary>The drawable of a vehicle icon (eng/android-icons.py draws them from the app's icons).</summary>
+    private static int Vehicle(string icon) => icon switch
+    {
+        "plane" => Resource.Drawable.ic_live_plane,
+        "train-front" => Resource.Drawable.ic_live_train_front,
+        "bus" => Resource.Drawable.ic_live_bus,
+        "car" => Resource.Drawable.ic_live_car,
+        "car-taxi-front" => Resource.Drawable.ic_live_car_taxi_front,
+        "ship" => Resource.Drawable.ic_live_ship,
+        "bike" => Resource.Drawable.ic_live_bike,
+        "footprints" => Resource.Drawable.ic_live_footprints,
+        _ => Resource.Drawable.ic_live_route
+    };
+
+    /// <summary>Notification.EXTRA_REQUEST_PROMOTED_ONGOING, which asks Android 16 to show the notification as a Live Update.</summary>
+    private const string RequestPromoted = "android.requestPromotedOngoing";
+
+    public LiveSupport Live => !OperatingSystem.IsAndroidVersionAtLeast(36) ? LiveSupport.None : Manager.CanPostPromotedNotifications() ? LiveSupport.On : LiveSupport.Off;
+
+    /// <summary>
+    /// Samsung's One UI shows Live Updates in the status bar and the Now Bar only for Samsung's own apps and the ones it
+    /// approved, unless "Live notifications for all apps" is on in the developer options.
+    /// </summary>
+    public bool LiveByMakerOnly => OperatingSystem.IsAndroidVersionAtLeast(36) && string.Equals(Build.Manufacturer, "samsung", StringComparison.OrdinalIgnoreCase);
+
+    public void OpenLiveSettings()
+    {
+        if (!OperatingSystem.IsAndroidVersionAtLeast(36)) return;
+        try
+        {
+            context.StartActivity(new Intent(global::Android.Provider.Settings.ActionAppNotificationPromotionSettings)
+                .PutExtra(global::Android.Provider.Settings.ExtraAppPackage, context.PackageName).AddFlags(ActivityFlags.NewTask));
+        }
+        // A maker's Android without that page: the app's notification settings are the nearest.
+        catch (ActivityNotFoundException) { OpenSettings(); }
+    }
+
+    public bool? LivePromoted
+    {
+        get
+        {
+            if (!OperatingSystem.IsAndroidVersionAtLeast(36)) return null;
+            var shown = Manager.GetActiveNotifications()?.FirstOrDefault(n => n.Id == LiveId)?.Notification;
+            return shown is null ? null : (shown.Flags & NotificationFlags.PromotedOngoing) != 0;
+        }
     }
 
     public void WakeAt(Instant? at)
@@ -156,6 +221,11 @@ public sealed class NoticeReceiver : BroadcastReceiver
     public override void OnReceive(Context? context, Intent? intent)
     {
         if (MobileApp.Host is not { } host) return;
+        if (intent?.Action == AndroidNotices.ActionLiveDismissed)
+        {
+            if (intent.GetStringExtra(AndroidNotices.ExtraLiveKey) is { } key) NoticeRunner.Dismiss(host, key);
+            return;
+        }
         var pending = GoAsync();
         var zoneChanged = intent?.Action == Intent.ActionTimezoneChanged;
         Task.Run(async () =>

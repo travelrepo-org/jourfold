@@ -1119,7 +1119,7 @@ public static class MorePages
         var trip = s.Trip!; var str = s.Strings;
         // Changes that could not become a version say why; they are not sent until they can.
         var state = s.HasChanges && s.VersionProblem is { } why
-            ? Ui.Columns("Auto,*", Ui.Icon("alert-triangle", 22, "Danger").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"),
+            ? Ui.Columns("Auto,*", Ui.Icon("triangle-alert", 22, "Danger").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"),
                 Ui.Text(why, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); })))
             : s.HasChanges
             ? Ui.Columns("Auto,*", Ui.Icon("pencil", 22, "Text.Muted").Margin(0, 0, 14, 0), Ui.V(2, Ui.Text(str["ChangesNotInVersion"], "strong"), Ui.Text(str["ChangesBecomeVersion"], "caption")))
@@ -1220,6 +1220,27 @@ public static class MorePages
             var kinds = Ui.Button(str[notices.HasKinds ? "NoticesKinds" : "NoticesSettings"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             kinds.Click += (_, _) => notices.OpenSettings();
             body.Children.Add(kinds);
+            // The travel day in the status bar: whether the system allows it, a way to allow it, and an example to look at.
+            if (notices.ShowsLive)
+            {
+                var live = notices.Live;
+                var state = Ui.Columns("Auto,*", Ui.Icon(live == LiveSupport.On ? "circle-check" : live == LiveSupport.Off ? "triangle-alert" : "info", 16, live == LiveSupport.On ? "Success" : live == LiveSupport.Off ? "Warning" : "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 8, 0),
+                    Hint(str[live switch { LiveSupport.On => "LiveUpdatesOn", LiveSupport.Off => "LiveUpdatesOff", _ => "LiveUpdatesNone" }]));
+                state.Tag = "live:" + live;
+                var part = Ui.V(8, Ui.Text(str["LiveUpdates"], "strong"), state);
+                if (live != LiveSupport.None && notices.LiveByMakerOnly) part.Children.Add(Hint(str["LiveUpdatesSamsung"]).Also(t => t.Tag = "live.maker"));
+                if (live == LiveSupport.Off)
+                {
+                    var allow = Ui.Button(str["LiveUpdatesAllow"], "settings", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Stretch);
+                    allow.Click += (_, _) => notices.OpenLiveSettings();
+                    part.Children.Add(allow);
+                }
+                var example = Ui.Button(str["LiveExample"], "bell", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                example.Click += async (_, _) => await s.ShowLiveExampleAsync();
+                part.Children.Add(example);
+                if (s.LiveExampleResult is { } result) part.Children.Add(Hint(result).Also(t => { t.Tag = "live.result"; AutomationProperties.SetLiveSetting(t, AutomationLiveSetting.Polite); }));
+                body.Children.Add(Ui.Divider()); body.Children.Add(part);
+            }
         }
         if (s.NoticesProblem is { } problem) body.Children.Add(Ui.Text(problem, "caption").Also(t => { t.TextWrapping = Avalonia.Media.TextWrapping.Wrap; t.Res(TextBlock.ForegroundProperty, "Danger"); }));
         return Ui.V(8, Ui.Text(str["NoticesSection"], "overline").Margin(20, 0), Ui.Card(body, 14).Margin(16, 0));

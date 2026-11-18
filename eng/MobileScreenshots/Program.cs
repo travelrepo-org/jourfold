@@ -67,7 +67,7 @@ try
         await Capture("plan-nested");
         s.ShowDate(new LocalDate(2027, 5, 14));
         await Capture("plan-flight");
-        // The day as a timetable, chosen with the switch above the date strip.
+        // The day as a timetable, chosen with the switch above it; it has no date strip.
         s.Settings.Values["plan.day"] = "timetable";
         await Capture("plan-day-timetable-arrival");
         s.ShowDate(new LocalDate(2027, 5, 16));

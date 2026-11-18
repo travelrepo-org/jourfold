@@ -28,7 +28,7 @@ public static class TodayView
     private static Control? TripErrors(MobileSession s)
     {
         if (s.TripErrors is not { Count: > 0 } errors) return null;
-        var lines = Ui.V(6, Ui.H(8, Ui.Icon("alert-triangle", 18, "Danger"), Ui.Text(s.Strings["TripHasErrors"], "strong")),
+        var lines = Ui.V(6, Ui.H(8, Ui.Icon("triangle-alert", 18, "Danger"), Ui.Text(s.Strings["TripHasErrors"], "strong")),
             Ui.Text(s.Strings["TripHasErrorsHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
         foreach (var error in errors) lines.Children.Add(Ui.Text("• " + error, "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
         return Ui.Card(lines, 14).Margin(16, 0);

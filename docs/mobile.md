@@ -328,7 +328,8 @@ allows one. Departures are announced like the other notices, and there are no ki
 
 **Live Activities.** On an iPhone with iOS 16.2 or newer the travel day is a Live Activity on the Lock Screen and in
 the Dynamic Island, with the same `LiveNotice` as Android's notification: the title and text, the vehicle, the
-countdown to the departure or arrival, the progress while under way, and "Show ticket". The compact Dynamic Island
+countdown to the departure or arrival, while under way the progress between the vehicle and a pin at the destination
+with the times of both ends, and "Show ticket". The compact Dynamic Island
 shows `LiveNotice.Chip`, the time, and from `LiveNotice.CountdownFrom` (the last hour) the time left. iOS does not wake
 Jourfold every minute, so the countdown and the progress move on by themselves (`Text(timerInterval:)`,
 `ProgressView(timerInterval:)`), and the next part of the day, such as the way to the arrival after the departure,

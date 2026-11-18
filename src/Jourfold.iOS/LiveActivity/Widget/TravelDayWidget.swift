@@ -24,16 +24,19 @@ struct TravelDayActivity: Widget {
                 DynamicIslandExpandedRegion(.trailing) {
                     Countdown(state: state).font(.title3.weight(.semibold)).padding(.trailing, 4)
                 }
-                DynamicIslandExpandedRegion(.center) {
-                    Text(state.title).font(.subheadline.weight(.semibold)).lineLimit(2)
-                }
+                // The title goes below, where it has the island's whole width: between the vehicle and the countdown
+                // the time of the arrival would be cut off.
                 DynamicIslandExpandedRegion(.bottom) {
                     VStack(alignment: .leading, spacing: 8) {
+                        Text(state.title).font(.subheadline.weight(.semibold)).lineLimit(2)
                         if !state.text.isEmpty { Text(state.text).font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
                         Journey(state: state)
                         TicketLink(state: state)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    // Clear of the island's round corners.
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 6)
                 }
             } compactLeading: {
                 Vehicle(icon: state.icon, size: 15)
@@ -147,16 +150,49 @@ struct Chip: View {
     }
 }
 
-/// The progress of a journey under way, moved on by iOS; nothing before it leaves.
+/// The way from the departure to the arrival while under way: the vehicle in a bubble at the start, a pin at the
+/// destination, the bar between them moved on by iOS, and the two times below on the phone's clock. Nothing before it
+/// leaves. A vehicle riding along the bar, as on Android, would only move when Jourfold runs, so the ends stay put.
 struct Journey: View {
     let state: TravelDayAttributes.ContentState
 
     var body: some View {
         if let from = state.from, let until = state.until, until > from {
-            ProgressView(timerInterval: from...until, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                .tint(Palette.accent)
-                .accessibilityLabel(state.progressLabel)
+            VStack(spacing: 4) {
+                HStack(spacing: 6) {
+                    Bubble(symbol: Vehicle.symbol(state.icon), filled: true)
+                    ProgressView(timerInterval: from...until, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                        .tint(Palette.accent)
+                        .accessibilityLabel(state.progressLabel)
+                    Bubble(symbol: "mappin", filled: false)
+                }
+                HStack {
+                    Text(from, style: .time)
+                    Spacer(minLength: 8)
+                    Text(until, style: .time)
+                }
+                .font(.caption2.weight(.medium))
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+                .accessibilityHidden(true)
+            }
         }
+    }
+}
+
+/// A round end of the way: the vehicle filled in the accent, the destination outlined. Decorative.
+struct Bubble: View {
+    let symbol: String
+    let filled: Bool
+
+    var body: some View {
+        Image(systemName: symbol)
+            .font(.system(size: 11, weight: .bold))
+            .foregroundStyle(filled ? Color(UIColor.systemBackground) : Palette.accent)
+            .frame(width: 24, height: 24)
+            .background(Circle().fill(filled ? Palette.accent : Palette.accent.opacity(0.18)))
+            .overlay(Circle().strokeBorder(Palette.accent, lineWidth: filled ? 0 : 1.5))
+            .accessibilityHidden(true)
     }
 }
 

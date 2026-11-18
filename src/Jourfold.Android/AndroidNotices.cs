@@ -18,7 +18,7 @@ public sealed class AndroidNotices(Context context, string language, string devi
 {
     private const int RequestCode = 4713, LiveId = 1;
     private const string LiveChannel = "travel_live", TravelDay = "travel_day", Reminders = "reminders", Deadlines = "deadlines";
-    public const string ExtraTrip = "dev.jourfold.app.trip", ExtraItem = "dev.jourfold.app.item", ExtraTicket = "dev.jourfold.app.ticket", ActionWake = "dev.jourfold.app.NOTICES";
+    public const string ExtraTrip = "dev.jourfold.app.trip", ExtraItem = "dev.jourfold.app.item", ExtraTicket = "dev.jourfold.app.ticket", ActionWake = "dev.jourfold.app.NOTICES", ActionLiveDismissed = "dev.jourfold.app.LIVE_DISMISSED", ExtraLiveKey = "dev.jourfold.app.live";
     private static TaskCompletionSource<bool>? asking;
 
     private NotificationManager Manager => (NotificationManager)context.GetSystemService(Context.NotificationService)!;
@@ -78,6 +78,9 @@ public sealed class AndroidNotices(Context context, string language, string devi
             .SetContentIntent(Open(tripFolder, live.Item, ticket: false, LiveId))!;
         var done = live.Progress(NodaTime.SystemClock.Instance.GetCurrentInstant());
         if (live.Ticket) builder.AddAction(new Notification.Action.Builder(null, Strings["ShowTicket"], Open(tripFolder, live.Item, ticket: true, LiveId + 1)).Build());
+        // Swiped away, it stays away for this part of the day; the runner hears of it through the receiver.
+        builder.SetDeleteIntent(PendingIntent.GetBroadcast(context, LiveId + 2, new Intent(context, typeof(NoticeReceiver)).SetAction(ActionLiveDismissed)!.PutExtra(ExtraLiveKey, live.Key),
+            PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent));
         // The system takes it away itself, also when the app is asleep by then.
         if (live.Lasts is { } lasts) builder.SetTimeoutAfter((long)lasts.TotalMilliseconds);
         builder.SetColor(Accent);
@@ -218,6 +221,11 @@ public sealed class NoticeReceiver : BroadcastReceiver
     public override void OnReceive(Context? context, Intent? intent)
     {
         if (MobileApp.Host is not { } host) return;
+        if (intent?.Action == AndroidNotices.ActionLiveDismissed)
+        {
+            if (intent.GetStringExtra(AndroidNotices.ExtraLiveKey) is { } key) NoticeRunner.Dismiss(host, key);
+            return;
+        }
         var pending = GoAsync();
         var zoneChanged = intent?.Action == Intent.ActionTimezoneChanged;
         Task.Run(async () =>

@@ -29,6 +29,13 @@ public sealed record LiveNotice(string Title, string Text, Instant? From, Instan
     public string? Chip { get; init; }
     public string Icon { get; init; } = "route";
 
+    /// <summary>
+    /// Which part of the travel day this is: the journey and the time it counts towards, so the countdown to a departure,
+    /// the way to the arrival and a change each have their own. A notification the user swiped away stays away for its
+    /// part (<see cref="NoticeRunner.Dismiss"/>).
+    /// </summary>
+    public string Key => Item.ToString("N") + "@" + (Until?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? "-");
+
     /// <summary>How far the journey is at <paramref name="now"/>, from 0 to 100; null before it leaves.</summary>
     public int? Progress(Instant now) => From is { } from && Until is { } until && until > from
         ? (int)Math.Clamp((now - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100) : null;

@@ -469,16 +469,13 @@ public sealed class AppShell : UserControl
         var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
         var title = Session.ProblemTitle ?? s["NotSaved"];
         var body = Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")), Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap));
-        if (Session.ProblemDetails is { } details)
+        if (Session.ProblemCanBeMailed)
         {
-            // The log's entry, to read before copying it into a report; it stays on the device unless the user pastes it.
-            var text = new SelectableTextBlock { Text = details, TextWrapping = TextWrapping.Wrap, FontSize = 12 }.Also(t => t.Res(TextBlock.ForegroundProperty, "Text.Muted"));
-            var copy = Ui.Button(s["CopyDetails"], "copy", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-            copy.Click += async (_, _) => { if (TopLevel.GetTopLevel(copy)?.Clipboard is { } clipboard) await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(clipboard, details); copy.Content = Ui.H(6, Ui.Icon("check", 15), Ui.Text(s["Copied"])); };
-            var shown = Ui.V(8, new ScrollViewer { Content = text, MaxHeight = 220 }, copy).Also(p => p.IsVisible = false);
-            var toggle = Ui.Button(s["TechnicalDetails"], "file-text", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-            toggle.Click += (_, _) => shown.IsVisible = !shown.IsVisible;
-            body.Children.Add(toggle); body.Children.Add(shown);
+            // The report opens in the user's mail app, where they see and edit everything before sending it themselves.
+            var mail = Ui.Button(s["ReportByMailPhone"], "mail", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+            mail.Click += async (_, _) => await Session.SendProblemByMailAsync();
+            body.Children.Add(mail);
+            body.Children.Add(Ui.Text(s["ReportByMailPhoneHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
         }
         body.Children.Add(Ui.Columns("*,Auto", null, close.Col(1)));
         var card = Ui.Card(body, 20)

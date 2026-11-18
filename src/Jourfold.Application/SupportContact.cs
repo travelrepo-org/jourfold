@@ -2,9 +2,8 @@ using System.Globalization;
 using System.Net.Mail;
 using System.Reflection;
 using System.Text.Json.Nodes;
-using Jourfold.Application;
 
-namespace Jourfold.Infrastructure;
+namespace Jourfold.Application;
 
 /// <summary>
 /// Where problem reports go: the public e-mail address of the GitHub account that publishes Jourfold, taken from the
@@ -25,7 +24,7 @@ public static class SupportContact
     }
 
     /// <summary>The contact address, or null when the account has none public or GitHub cannot be reached.</summary>
-    public static async Task<string?> EmailAsync(LocalStore store, HttpClient http, string? owner = null, CancellationToken ct = default)
+    public static async Task<string?> EmailAsync(IValueStore store, HttpClient http, string? owner = null, CancellationToken ct = default)
     {
         if (DateTimeOffset.TryParse(store.Get(CheckedKey), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var checkedAt) && DateTimeOffset.UtcNow - checkedAt < TimeSpan.FromDays(1))
             return store.Get(EmailKey) is { Length: > 0 } cached ? cached : null;

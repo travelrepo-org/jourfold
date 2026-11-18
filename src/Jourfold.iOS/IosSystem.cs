@@ -43,6 +43,39 @@ internal static class IosSystem
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Opens a problem report in the Mail app's compose sheet, with the attachments. Without a mail account there is no
+    /// sheet; the report then opens as a mailto: link in whichever mail app is set, without attachments.
+    /// </summary>
+    public static async Task<bool> SendMailAsync(ProblemMail mail)
+    {
+        if (!MessageUI.MFMailComposeViewController.CanSendMail || Top() is not { } top)
+        {
+            var link = "mailto:" + Uri.EscapeDataString(mail.To ?? "").Replace("%40", "@") + "?subject=" + Uri.EscapeDataString(mail.Subject) + "&body=" + Uri.EscapeDataString(mail.Body);
+            return NSUrl.FromString(link) is { } url && await UIApplication.SharedApplication.OpenUrlAsync(url, new UIApplicationOpenUrlOptions());
+        }
+        var compose = new MessageUI.MFMailComposeViewController();
+        if (mail.To is { } to) compose.SetToRecipients([to]);
+        compose.SetSubject(mail.Subject);
+        compose.SetMessageBody(mail.Body, false);
+        foreach (var path in mail.Attachments) if (NSData.FromFile(path) is { } data) compose.AddAttachmentData(data, "text/plain", Path.GetFileName(path));
+        compose.Finished += (_, e) => e.Controller.DismissViewController(true, null);
+        top.PresentViewController(compose, true, null);
+        return true;
+    }
+
+    /// <summary>What a problem report says about the device: facts any app may read, without a permission.</summary>
+    public static IReadOnlyList<(string Key, string Value)> SystemInfo()
+    {
+        var device = UIDevice.CurrentDevice; var screen = UIScreen.MainScreen;
+        return
+        [
+            ("ReportInfoDevice", device.Model),
+            ("ReportInfoSystem", device.SystemName + " " + device.SystemVersion),
+            ("ReportInfoScreen", (int)screen.NativeBounds.Width + " × " + (int)screen.NativeBounds.Height + " px, " + screen.NativeScale.ToString("0.#", CultureInfo.InvariantCulture) + "×")
+        ];
+    }
+
     /// <summary>A shared text with its title, which mail apps take as the subject, as on Android.</summary>
     private sealed class SharedText(string title, string text) : UIActivityItemSource
     {

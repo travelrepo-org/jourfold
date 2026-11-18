@@ -156,10 +156,10 @@ public sealed class DaySwipeAndLiveTests : IDisposable
     }
 
     [AvaloniaTheory]
-    [InlineData(LiveSupport.On, true, "Allowed. On a travel day", "Android marked the example as a Live Update.")]
-    [InlineData(LiveSupport.On, false, "Allowed. On a travel day", "but Android did not make it a Live Update.")]
-    [InlineData(LiveSupport.Off, false, "Turned off for Jourfold in the system settings.", "but Android did not make it a Live Update.")]
-    [InlineData(LiveSupport.None, null, "This Android version has no Live Updates.", "The example is in the notifications for a minute.")]
+    [InlineData(LiveSupport.On, true, "Allowed.", "Shown as a Live Update.")]
+    [InlineData(LiveSupport.On, false, "Allowed.", "Shown, but not as a Live Update.")]
+    [InlineData(LiveSupport.Off, false, "Turned off in the system settings.", "Shown, but not as a Live Update.")]
+    [InlineData(LiveSupport.None, null, "Not available on this Android version.", "Shown for a minute.")]
     public async Task TheSettingsSayWhetherTheTravelDayIsALiveUpdateAndShowAnExample(LiveSupport support, bool? promoted, string state, string result)
     {
         var notices = new LiveNotices(support, promoted);

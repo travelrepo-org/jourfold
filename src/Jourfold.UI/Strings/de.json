@@ -1131,7 +1131,7 @@
   "diagnostic.expense.split_people": "Niemand teilt diese Ausgabe. Wählen Sie unter „Aufteilung“ mindestens eine Person.",
   "diagnostic.expense.split_method": "Diese Ausgabe ist auf eine Weise aufgeteilt, die diese Version von Jourfold nicht kennt. Sie bleibt unverändert.",
   "diagnostic.expense.person": "Ein Anteil der Aufteilung oder eine Zurückgezahlt-Markierung nennt keine Person.",
-  "diagnostic.expense.paid-currency": "Was zurückgezahlt wurde, ist in einer anderen Währung, und es gibt keinen genauen Kurs zur neuen. Nimm die Bezahlt-Markierungen zurück, ändere die Währung und markiere sie danach wieder als bezahlt.",
+  "diagnostic.expense.paid-currency": "Was zurückgezahlt wurde, ist in einer anderen Währung, und es gibt keinen genauen Kurs zur neuen. Nehmen Sie die Bezahlt-Markierungen zurück, ändern Sie die Währung und markieren Sie sie danach wieder als bezahlt.",
   "diagnostic.expense.settled_value": "Eine Zurückgezahlt-Markierung hat keinen Betrag.",
   "diagnostic.expense.amount": "Geben Sie zuerst den Betrag der Ausgabe ein.",
   "diagnostic.expense.currency": "Geben Sie die Währung mit drei Buchstaben an, etwa EUR.",

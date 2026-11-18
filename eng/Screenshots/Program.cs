@@ -150,6 +150,9 @@ try
                 m.Selected = m.Workspace.State.Trip.Manifest; await Capture("trip-details");
                 await Dialog(() => m.SearchCommand.ExecuteAsync(null), "palette", m.Strings["Close"]);
                 m.View = "Costs"; await Dialog(() => m.PayAsync(), "pay", m.Strings["Cancel"]);
+                // The question when the price of a payment with an amount charged changes: the teamLab tickets go from 7600 to 8000 JPY.
+                var tickets = m.Workspace.State.Trip.Entities.Values.First(e => e.Type == "expense" && e.Title == "teamLab tickets");
+                await Dialog(() => m.ChangeExpenseAmountAsync(tickets.Id, new Money("8000", "JPY")), "price-question", m.Strings["Cancel"]);
                 await Dialog(() => m.Interaction.ScheduleAsync(m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Flight to Tokyo").Data["time"] as System.Text.Json.Nodes.JsonObject, start, "Asia/Tokyo"), "date-time", m.Strings["Cancel"]);
                 await Dialog(() => m.ShareCommand.ExecuteAsync(null), "share", m.Strings["Close"]);
                 var item = m.Workspace.State.Trip.Entities.Values.First(e => e.Title == "Explore Shinjuku").Copy(); item.Data["status"] = "confirmed"; await m.Workspace.EditAsync(item);

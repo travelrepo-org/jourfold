@@ -79,6 +79,9 @@ turned on online maps; it explains what is sent before that. "Where I am" asks A
 tapped and requests the location permission at that moment; the position only fills the fields.
 
 Navigate hands the place's position to the maps app; without one it searches for the address, then the name.
+Android offers the user's maps and navigation apps for the `geo:` link. iOS has no such link, so on iPhone and iPad
+Navigate opens Apple Maps, or, when Google Maps or Waze is installed, asks which of them to open
+(`Navigation.AppleApps`, checked with `canOpenURL` and the schemes in `LSApplicationQueriesSchemes`).
 
 The Map tab draws the selected day like the desktop's map (`MapSurface` in Jourfold.UI): numbered pins in the order
 of the plan, a dashed line through them and journeys as arcs. It pans with a finger and zooms with two fingers, a
@@ -329,6 +332,11 @@ allows one. iOS has no ongoing notification, so departures are announced like th
 choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
 widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
 there yet.
+
+Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
+entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel
+day channel shows them at the top of the screen. The other notices keep the normal level. A user can turn this off in
+the Settings app under Notifications, Jourfold, Time Sensitive Notifications.
 
 ## Problem reports
 

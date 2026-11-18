@@ -84,6 +84,12 @@
       </array>
     </dict>
   </array>
+  <!-- "Navigate" offers these maps apps beside Apple Maps when they are installed (Navigation.AppleApps). -->
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>comgooglemaps</string>
+    <string>waze</string>
+  </array>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <false/>
   <key>ITSAppUsesNonExemptEncryption</key>

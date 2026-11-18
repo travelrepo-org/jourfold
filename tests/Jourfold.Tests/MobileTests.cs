@@ -1343,6 +1343,24 @@ public sealed class MobileTests : IDisposable
         Assert.Equal("https://maps.apple.com/?q=1%20Chome%20Marunouchi", Navigation.Link(null, null, "Tokyo Station", "1 Chome Marunouchi", apple: true).AbsoluteUri);
     }
 
+    [Fact]
+    public void NavigateOnIosOffersTheInstalledMapsApps()
+    {
+        var apps = Navigation.AppleApps(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi");
+        Assert.Equal(["MapsApple", "MapsGoogle", "MapsWaze"], apps.Select(a => a.NameKey));
+        Assert.Equal("comgooglemaps://?q=35.6812,139.7671", apps[1].Link.OriginalString);
+        Assert.Equal("waze://?ll=35.6812,139.7671&navigate=yes", apps[2].Link.OriginalString);
+        var searched = Navigation.AppleApps(null, null, "Aachen Dom", "Domhof 1, Aachen");
+        Assert.Equal("comgooglemaps://?q=Domhof%201%2C%20Aachen", searched[1].Link.OriginalString);
+        Assert.Equal("waze://?q=Domhof%201%2C%20Aachen&navigate=yes", searched[2].Link.OriginalString);
+        // Apple Maps is always offered; the others only when installed.
+        Assert.Equal(["MapsApple"], Navigation.Choices(apps, _ => false).Select(a => a.NameKey));
+        Assert.Equal(["MapsApple", "MapsWaze"], Navigation.Choices(apps, link => link.Scheme == "waze").Select(a => a.NameKey));
+        foreach (var language in new[] { "en", "de" })
+            foreach (var key in apps.Select(a => a.NameKey).Append("NavigateWith"))
+                Assert.NotEqual(key, new Jourfold.UI.Localization(language)[key]);
+    }
+
     private sealed class MovingClock : IClock { public Instant Now { get; set; } public Instant GetCurrentInstant() => Now; }
 
     /// <summary>Notifications as iOS has them: no ongoing notification, no kinds, and the coming notices scheduled ahead.</summary>

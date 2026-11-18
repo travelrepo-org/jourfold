@@ -38,7 +38,13 @@ ends as its arrival or end, on the days between as running all day. TravelRepo's
 ## Plan, details and long press
 
 The date strip stays at the top while the day scrolls. A sideways swipe moves the day with the finger and slides the
-next one in; the strip scrolls on its own. At the end of a day, pulling on upwards lifts the page a little and fades in
+next one in; the strip scrolls on its own. The next day is drawn as soon as the finger lets go, so a second swipe
+right after the first moves on another day. The one-day time grid has no date strip: each day's head names it, the
+chosen day changes as the glide begins, a finger that touches the days again takes them from where they are, and
+nothing is drawn again when they come to rest (only near the end of a long trip's window), so one swipe follows
+another at once; the pull for the next day reads the chosen day when the pull starts (`DayPan`). A drag past a short slip that is
+still moving when the finger lets go moves at least one day, however unhurried; only one that stopped or turned back
+settles on the nearest day. At the end of a day, pulling on upwards lifts the page a little and fades in
 "Next day" with an arrow; once it turns to the accent colour, letting go opens the next day. Pulling down at the
 start of a day leads to the day before in the same way. The pull only counts when the finger is put down at the end or
 the start, so scrolling fast through a day stops there. The same works on the one-day time grid. A tap on an item opens its details at the smallest step (time, place,
@@ -211,7 +217,9 @@ the top) and under More; they are kept in `settings.json` in the app's private f
 The APK and IPA from GitHub releases ask GitHub once a day at start for the latest release, with only the app's name
 and version, and show a card above the trips when there is a newer one: "View release" opens its page, "Skip this
 version" stays quiet until the next one, and "Stop checking for updates" turns it off and says where to turn it back
-on (Settings → Updates). Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
+on (Settings → Updates). **Check now** there asks at once, also with the daily look turned off, and says under the
+button what came of it: a newer release with "View release", the latest version, or that GitHub could not be reached
+(`UpdateCheck.CheckNowAsync`); a version skipped before is offered again. Nothing is downloaded or installed. Builds from F-Droid, Google Play or the App Store never
 ask and show no such setting.
 
 Settings → About Jourfold opens a page as on the desktop: the installed version (a preview's too) with its code name,
@@ -285,12 +293,54 @@ shows what is due once, and an alarm wakes it for the next notice; it also runs 
 time zone changes (an arrival up to three hours early is shown on the zone change after landing), and after edits
 and syncs. A tap opens the plan, "Show ticket" its first ticket.
 
+**Live Updates.** On Android 16 and newer the travel day's notification asks to be a Live Update: it uses the
+progress style while a journey is under way (a bar in the accent colour with the vehicle riding along, `ic_live_*`,
+drawn by `eng/android-icons.py` from the app's transport icons), carries the short text for the status bar chip
+(`LiveNotice.Chip`: the minutes left in the last hour, as "45 min", otherwise the departure or arrival time), has no
+chronometer next to the title, and requests promotion; the manifest has `POST_PROMOTED_NOTIFICATIONS`. The system decides: it shows the
+chip only while Jourfold is not on the screen, the user can turn Live Updates off per app, and a maker's Android may
+show them elsewhere (such as Samsung's Now Bar) or not at all. Samsung's One UI 8 shows Live Updates only for
+Samsung's own apps and apps it approved, unless "Live notifications for all apps" is on in the developer options;
+on a Samsung phone the settings say so (`LiveByMakerOnly`), and the notification itself stays an ordinary one with
+progress. All of this needs "Remind me on the trip" to be on;
+allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
+(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
+example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
+`NoticeRunner` shows it in place of the travel day and wakes every ten seconds to move it on, also when Jourfold is
+asleep; at the arrival the system removes it (`setTimeoutAfter`) and a real journey comes back. A line says whether
+Android made it a Live Update (`LivePromoted`, read from the posted notification's flags). While a real journey is
+under way the notification is drawn again every minute in the last hour and otherwise as the progress moves a step,
+every one to five minutes (`LiveNotice.Redraw`). Checked on an Android 14 emulator, where it is an ongoing
+notification with countdown and moving progress, and on a Galaxy S26 Ultra with One UI's developer option on, where
+it is a pill in the status bar and the Now Bar. The pill shows only what the plan says: there are no live delays or gates.
+
+**Swiped away.** Swiping the travel day's notification away hides it for its part of the day: the countdown to a
+departure, the way to an arrival or a change each have a key (`LiveNotice.Key`, the journey and the time it counts
+towards). Android reports the swipe through the notification's delete intent; `NoticeRunner.Dismiss` writes the key
+to a file of its own (`live-dismissed.txt`, not the settings the app keeps in memory), and the runner then leaves that
+part out and wakes only for the next one, when the notification comes back. Removed by its timeout or by Jourfold, it
+does not count as swiped away.
+
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
 allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
-choose from; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
+choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
+widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
 there yet.
+
+## Problem reports
+
+An unexpected error shows "Something went wrong" and is written to `logs/errors.log` on the device. The card offers
+**Send error by e-mail**: Jourfold opens the user's mail app with a few lines to fill in and what any app may read about
+the device without a permission (app version and channel, maker and model, system and API level, build, screen size
+and density, processor, device type, language), and attaches a copy of the log (`MobileSession.SendProblemByMailAsync`).
+The user sees and edits everything in the mail app and sends it themselves; Jourfold sends nothing. The address is
+the public contact of the GitHub account that publishes Jourfold (`SupportContact`, as on the desktop), looked up
+only when the button is tapped; without one the mail opens without an address. On Android the report goes to the apps
+that take `mailto:` links (`<queries>` in the manifest), with the log through the FileProvider; on iOS to the Mail
+compose sheet, or as a `mailto:` link without attachment when no mail account is set up. Expected failures, such as a
+trip TravelRepo will not change, say why and have no button.
 
 ## Tickets
 

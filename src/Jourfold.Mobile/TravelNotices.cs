@@ -21,9 +21,50 @@ public sealed record TravelNotice(string Key, NoticeKind Kind, Instant At, strin
 /// progress to the arrival, during a change it counts down to the next departure. It ends at the arrival, which has a
 /// notice of its own. <see cref="Until"/> is where the
 /// countdown or progress goes, <see cref="From"/> where progress starts; <see cref="Changes"/> is when it looks
-/// different next.
+/// different next. <see cref="Chip"/> is the short text for the status bar, <see cref="Icon"/> the vehicle that rides
+/// along the progress, as an icon name.
 /// </summary>
-public sealed record LiveNotice(string Title, string Text, Instant? From, Instant? Until, Instant Changes, Guid Item, bool Ticket);
+public sealed record LiveNotice(string Title, string Text, Instant? From, Instant? Until, Instant Changes, Guid Item, bool Ticket, TimeSpan? Lasts = null)
+{
+    public string? Chip { get; init; }
+    public string Icon { get; init; } = "route";
+
+    /// <summary>
+    /// Which part of the travel day this is: the journey and the time it counts towards, so the countdown to a departure,
+    /// the way to the arrival and a change each have their own. A notification the user swiped away stays away for its
+    /// part (<see cref="NoticeRunner.Dismiss"/>).
+    /// </summary>
+    public string Key => Item.ToString("N") + "@" + (Until?.ToUnixTimeMilliseconds().ToString(CultureInfo.InvariantCulture) ?? "-");
+
+    /// <summary>How far the journey is at <paramref name="now"/>, from 0 to 100; null before it leaves.</summary>
+    public int? Progress(Instant now) => From is { } from && Until is { } until && until > from
+        ? (int)Math.Clamp((now - from).TotalMinutes / (until - from).TotalMinutes * 100, 0, 100) : null;
+
+    /// <summary>
+    /// When the notification is drawn again: every minute in the last hour, when the minutes left in the status bar
+    /// change, otherwise when the progress has moved on a step, at least every minute and at most every five.
+    /// </summary>
+    public Instant Redraw(Instant now)
+    {
+        if (Until is not { } until) return now + Duration.FromMinutes(5);
+        if (until - now <= Duration.FromHours(1)) return now + Duration.FromMinutes(1);
+        if (From is not { } from || until <= from) return now + Duration.FromMinutes(5);
+        var step = Duration.FromTicks((until - from).BclCompatibleTicks / 100);
+        return now + (step < Duration.FromMinutes(1) ? Duration.FromMinutes(1) : step > Duration.FromMinutes(5) ? Duration.FromMinutes(5) : step);
+    }
+
+    /// <summary>
+    /// The status bar's text: in the last hour the minutes left, as a delivery app counts down ("45 min"), before that
+    /// the time of the departure or arrival on the phone's clock.
+    /// </summary>
+    public static string ChipFor(Instant until, Instant now, DateTimeZone phone, Localization s)
+    {
+        var left = until - now;
+        return left > Duration.Zero && left <= Duration.FromHours(1)
+            ? string.Format(CultureInfo.CurrentCulture, s["LiveMinutesLeft"], (int)Math.Ceiling(left.TotalMinutes))
+            : until.InZone(phone).ToString("HH:mm", CultureInfo.InvariantCulture);
+    }
+}
 
 /// <summary>
 /// Works out the notifications of a trip from its plan alone, offline: departures, changes between journeys, arrivals
@@ -58,6 +99,7 @@ public static class TravelNotices
             {
                 var flight = item.Data["components"]?["transport"]?["type"]?.ToString() == "flight";
                 var ticket = Tickets.For(trip, item).Count > 0;
+                var icon = Visuals.TransportIcon(item.Data["components"]?["transport"]?["type"]?.ToString());
                 var into = connections.FirstOrDefault(c => c.Departing.Id == item.Id);
                 var lead = into is not null ? flight ? Duration.FromMinutes(90) : Duration.FromMinutes(30) : flight ? Duration.FromHours(3) : Duration.FromMinutes(45);
                 var at = into is not null ? Instant.Max(into.Arrival + Duration.FromMinutes(15), start - lead) : start - lead;
@@ -169,14 +211,17 @@ public static class TravelNotices
             var into = connections.FirstOrDefault(c => c.Departing.Id == item.Id);
             var opens = into?.Arrival ?? start - (flight ? Duration.FromHours(3) : Duration.FromMinutes(45));
             var ticket = Tickets.For(trip, item).Count > 0;
+            var icon = Visuals.TransportIcon(item.Data["components"]?["transport"]?["type"]?.ToString());
             var startZone = Zone(span.StartZone, trip); var endZone = Zone(span.EndZone ?? span.StartZone, trip);
             if (now < opens || now >= end) continue;
             if (now < start)
-                return into is not null
-                    ? new(Format(s["NoticeConnection"], Formats.Duration(into.Layover, s)), Join(Format(s["NoticeDeparture"], item.Title, Clock(start, startZone, phone)), Details(item, s, departure: true)), null, start, start, item.Id, ticket)
-                    : new(Format(s["NoticeDeparture"], item.Title, Clock(start, startZone, phone)), Details(item, s, departure: true), null, start, start, item.Id, ticket);
+                return (into is not null
+                    ? new LiveNotice(Format(s["NoticeConnection"], Formats.Duration(into.Layover, s)), Join(Format(s["NoticeDeparture"], item.Title, Clock(start, startZone, phone)), Details(item, s, departure: true)), null, start, start, item.Id, ticket)
+                    : new LiveNotice(Format(s["NoticeDeparture"], item.Title, Clock(start, startZone, phone)), Details(item, s, departure: true), null, start, start, item.Id, ticket))
+                    with
+                { Chip = LiveNotice.ChipFor(start, now, phone, s), Icon = icon };
             if (now < end)
-                return new(Format(s["NoticeArrives"], item.Title, Clock(end, endZone, phone)), Lines.Where(trip, item), start, end, end, item.Id, ticket);
+                return new(Format(s["NoticeArrives"], item.Title, Clock(end, endZone, phone)), Lines.Where(trip, item), start, end, end, item.Id, ticket) { Chip = LiveNotice.ChipFor(end, now, phone, s), Icon = icon };
             // Once arrived, the arrival notice says where and what comes next; a change to another journey goes on above.
         }
         return null;

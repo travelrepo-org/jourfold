@@ -468,14 +468,13 @@ public sealed class AppShell : UserControl
         var s = Session.Strings;
         var close = Ui.Button(s["Close"], null, "primary"); close.Click += (_, _) => Session.DismissProblem();
         var title = Session.ProblemTitle ?? s["NotSaved"];
-        var body = Ui.V(12, Ui.H(8, Ui.Icon("alert-triangle", 20, "Danger"), Ui.Text(title, "title")), Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap));
+        var body = Ui.V(12, Ui.H(8, Ui.Icon("triangle-alert", 20, "Danger"), Ui.Text(title, "title")), Ui.Text(problem).Also(t => t.TextWrapping = TextWrapping.Wrap));
         if (Session.ProblemCanBeMailed)
         {
             // The report opens in the user's mail app, where they see and edit everything before sending it themselves.
             var mail = Ui.Button(s["ReportByMailPhone"], "mail", "soft").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             mail.Click += async (_, _) => await Session.SendProblemByMailAsync();
             body.Children.Add(mail);
-            body.Children.Add(Ui.Text(s["ReportByMailPhoneHint"], "caption").Also(t => t.TextWrapping = TextWrapping.Wrap));
         }
         body.Children.Add(Ui.Columns("*,Auto", null, close.Col(1)));
         var card = Ui.Card(body, 20)

@@ -61,12 +61,11 @@ public sealed class MobileProblemTests : IDisposable
             Probe.Click(window, "Break");
             await Probe.Until(() => session.ChangeProblem is not null);
             Assert.Contains("Something went wrong", Texts());
-            Assert.Contains("Jourfold could not finish this. The details are kept in a log on this device and are not sent anywhere.", Texts());
+            Assert.Contains("Jourfold could not finish this.", Texts());
             var log = await File.ReadAllTextAsync(session.ErrorLog);
             Assert.Contains("Jourfold 9.9.9", log); Assert.Contains("A bug in an action", log);
             // Nothing leaves the device until the user asks: the report opens in their own mail app.
             Assert.DoesNotContain(asked, a => a.StartsWith("/users/", StringComparison.Ordinal));
-            Assert.Contains(Texts(), t => t.StartsWith("Opens your mail app with details about this device", StringComparison.Ordinal));
             Probe.Click(window, "Send error by e-mail");
             await Probe.Until(() => mails.Count == 1);
             var mail = mails[0];

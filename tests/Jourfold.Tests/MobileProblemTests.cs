@@ -49,7 +49,10 @@ public sealed class MobileProblemTests : IDisposable
     public async Task AnUnexpectedErrorIsShownAndLoggedOnTheDeviceInsteadOfEndingTheApp()
     {
         var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => tokyo, "en", new MemorySecrets(), AppVersion: "9.9.9"));
+        var mails = new List<ProblemMail>(); var attached = new List<string>(); var asked = new List<string>();
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => tokyo, "en", new MemorySecrets(), Http: new GitHubContact(asked), AppVersion: "9.9.9", Distribution: "github",
+            SendMail: mail => { mails.Add(mail); attached.AddRange(mail.Attachments.Select(File.ReadAllText)); return Task.FromResult(true); },
+            SystemInfo: () => [("ReportInfoDevice", "Example Phone 1"), ("ReportInfoSystem", "Android 16 (API 36)"), ("ReportInfoScreen", "1080 × 2400 px, 420 dpi")]));
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         try
         {
@@ -61,18 +64,54 @@ public sealed class MobileProblemTests : IDisposable
             Assert.Contains("Jourfold could not finish this. The details are kept in a log on this device and are not sent anywhere.", Texts());
             var log = await File.ReadAllTextAsync(session.ErrorLog);
             Assert.Contains("Jourfold 9.9.9", log); Assert.Contains("A bug in an action", log);
-            // The details can be read and copied for a report, but only when asked for.
-            Assert.DoesNotContain(window.GetVisualDescendants().OfType<SelectableTextBlock>(), t => t.IsEffectivelyVisible);
-            Probe.Click(window, "Technical details"); Probe.Layout();
-            var details = Assert.Single(window.GetVisualDescendants().OfType<SelectableTextBlock>(), t => t.IsEffectivelyVisible);
-            Assert.Contains("Jourfold 9.9.9", details.Text); Assert.Contains("InvalidOperationException: A bug in an action", details.Text);
-            Probe.Click(window, "Copy details");
-            Assert.Equal(details.Text, await Avalonia.Input.Platform.ClipboardExtensions.TryGetTextAsync(window.Clipboard!));
-
-            Probe.Click(window, "Close");
-            Assert.Null(session.ChangeProblem); Assert.DoesNotContain("Something went wrong", Texts());
+            // Nothing leaves the device until the user asks: the report opens in their own mail app.
+            Assert.DoesNotContain(asked, a => a.StartsWith("/users/", StringComparison.Ordinal));
+            Assert.Contains(Texts(), t => t.StartsWith("Opens your mail app with details about this device", StringComparison.Ordinal));
+            Probe.Click(window, "Send error by e-mail");
+            await Probe.Until(() => mails.Count == 1);
+            var mail = mails[0];
+            Assert.Equal(("support@example.org", "Jourfold 9.9.9: problem report"), (mail.To, mail.Subject));
+            Assert.StartsWith("What happened:", mail.Body);
+            foreach (var line in new[] { "App: Jourfold 9.9.9 (github)", "Device: Example Phone 1", "System: Android 16 (API 36)", "Screen: 1080 × 2400 px, 420 dpi", "Device type: phone", "Language: en" })
+                Assert.Contains(line, mail.Body);
+            // The log goes as an attachment, not in the text.
+            Assert.DoesNotContain("A bug in an action", mail.Body);
+            Assert.Contains(attached, a => a.Contains("InvalidOperationException: A bug in an action", StringComparison.Ordinal));
+            Assert.All(mail.Attachments, a => Assert.StartsWith(session.Host.SharedRoot, a));
+            Assert.Equal(["/users/travelrepo-org"], asked.Where(a => a.StartsWith("/users/", StringComparison.Ordinal)));
+            Assert.Null(session.ChangeProblem);
         }
         finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AProblemThatSaysWhyHasNoMailAndAPhoneWithoutMailAppSaysSo()
+    {
+        var tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 16, 1, 0)), () => tokyo, "en", new MemorySecrets(), Http: new GitHubContact([]), SendMail: _ => Task.FromResult(false)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowProblem(new TravelRepo.Core.DomainException("trip.locked", "The trip is locked."));
+            Probe.Layout();
+            Assert.False(session.ProblemCanBeMailed);
+            session.DismissProblem();
+            session.ShowProblem(new InvalidOperationException("A bug"));
+            Assert.True(session.ProblemCanBeMailed);
+            await session.SendProblemByMailAsync();
+            Assert.Equal("No mail app was found on this device.", session.ChangeProblem);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    /// <summary>GitHub's answer for the account that publishes Jourfold, with a public contact address.</summary>
+    private sealed class GitHubContact(List<string> asked) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            asked.Add(request.RequestUri!.AbsolutePath);
+            return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("""{"email":"support@example.org"}""") });
+        }
     }
 
     private sealed class FakeClock(Instant now) : IClock { public Instant GetCurrentInstant() => now; }

@@ -197,6 +197,31 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task ASwipedAwayTravelDayStaysAwayUntilItsNextPart()
+    {
+        var notices = new LiveNotices(LiveSupport.On, true);
+        var (session, window) = await OpenAsync(notices);
+        try
+        {
+            await session.SetNoticesAsync(true);
+            await session.ShowLiveExampleAsync();
+            var example = notices.Live.Last()!;
+            // Swiped away: the next runs leave it away and wake only for its next part, the arrival.
+            NoticeRunner.Dismiss(session.Host, example.Key);
+            await NoticeRunner.RunAsync(session.Host);
+            Assert.Null(notices.Live.Last());
+            Assert.Equal(example.Until, notices.Woken.Last());
+            await NoticeRunner.RunAsync(session.Host);
+            Assert.Null(notices.Live.Last());
+            // Swiping away another part of the day does not hide this one.
+            NoticeRunner.Dismiss(session.Host, Guid.NewGuid().ToString("N") + "@0");
+            await NoticeRunner.RunAsync(session.Host);
+            Assert.Equal(example.Key, notices.Live.Last()!.Key);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [Fact]
     public void TheExampleMovesOnLikeAJourneyAndIsGoneWhenItArrives()
     {

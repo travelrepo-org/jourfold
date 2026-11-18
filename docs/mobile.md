@@ -314,6 +314,13 @@ every one to five minutes (`LiveNotice.Redraw`). Checked on an Android 14 emulat
 notification with countdown and moving progress, and on a Galaxy S26 Ultra with One UI's developer option on, where
 it is a pill in the status bar and the Now Bar. The pill shows only what the plan says: there are no live delays or gates.
 
+**Swiped away.** Swiping the travel day's notification away hides it for its part of the day: the countdown to a
+departure, the way to an arrival or a change each have a key (`LiveNotice.Key`, the journey and the time it counts
+towards). Android reports the swipe through the notification's delete intent; `NoticeRunner.Dismiss` writes the key
+to a file of its own (`live-dismissed.txt`, not the settings the app keeps in memory), and the runner then leaves that
+part out and wakes only for the next one, when the notification comes back. Removed by its timeout or by Jourfold, it
+does not count as swiped away.
+
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
@@ -321,6 +328,19 @@ allows one. iOS has no ongoing notification, so departures are announced like th
 choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
 widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
 there yet.
+
+## Problem reports
+
+An unexpected error shows "Something went wrong" and is written to `logs/errors.log` on the device. The card offers
+**Send error by e-mail**: Jourfold opens the user's mail app with a few lines to fill in and what any app may read about
+the device without a permission (app version and channel, maker and model, system and API level, build, screen size
+and density, processor, device type, language), and attaches a copy of the log (`MobileSession.SendProblemByMailAsync`).
+The user sees and edits everything in the mail app and sends it themselves; Jourfold sends nothing. The address is
+the public contact of the GitHub account that publishes Jourfold (`SupportContact`, as on the desktop), looked up
+only when the button is tapped; without one the mail opens without an address. On Android the report goes to the apps
+that take `mailto:` links (`<queries>` in the manifest), with the log through the FileProvider; on iOS to the Mail
+compose sheet, or as a `mailto:` link without attachment when no mail account is set up. Expected failures, such as a
+trip TravelRepo will not change, say why and have no button.
 
 ## Tickets
 

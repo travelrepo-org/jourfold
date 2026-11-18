@@ -27,7 +27,7 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
             Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText,
-            AppVersion: InstalledVersion(), Haptic: Haptic);
+            AppVersion: InstalledVersion(), Haptic: Haptic, SendMail: SendMail, SystemInfo: SystemInfo);
         base.OnCreate();
     }
 
@@ -61,6 +61,51 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         var send = new Intent(Intent.ActionSend).SetType("text/plain")!.PutExtra(Intent.ExtraText, text)!.PutExtra(Intent.ExtraSubject, title)!;
         StartActivity(Intent.CreateChooser(send, title)!.AddFlags(ActivityFlags.NewTask));
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Opens the user's mail app with a problem report and its attachments, through the app's FileProvider. Only mail
+    /// apps are offered: those that take <c>mailto:</c> links, each given the report directly (a selector intent does
+    /// not resolve on every Android). With several, the user chooses. False when the phone has none.
+    /// </summary>
+    private Task<bool> SendMail(ProblemMail mail)
+    {
+        var mailApps = (PackageManager?.QueryIntentActivities(new Intent(Intent.ActionSendto, global::Android.Net.Uri.Parse("mailto:")), 0) ?? [])
+            .Select(r => r.ActivityInfo?.PackageName).OfType<string>().Distinct().ToList();
+        if (mailApps.Count == 0) return Task.FromResult(false);
+        var files = mail.Attachments.Select(path => AndroidX.Core.Content.FileProvider.GetUriForFile(this, PackageName + ".files", new Java.IO.File(path))!).ToList();
+        Intent Report(string app)
+        {
+            var send = new Intent(Intent.ActionSendMultiple).SetType("text/plain")!.SetPackage(app)!.PutExtra(Intent.ExtraSubject, mail.Subject)!.PutExtra(Intent.ExtraText, mail.Body)!;
+            if (mail.To is { } to) send.PutExtra(Intent.ExtraEmail, new[] { to });
+            if (files.Count > 0)
+            {
+                send.PutParcelableArrayListExtra(Intent.ExtraStream, files.Cast<IParcelable>().ToList());
+                // The read permission travels with the clip data.
+                var clip = ClipData.NewRawUri((string?)null, files[0])!; foreach (var file in files.Skip(1)) clip.AddItem(new ClipData.Item(file));
+                send.ClipData = clip;
+            }
+            return send.AddFlags(ActivityFlags.GrantReadUriPermission)!;
+        }
+        var reports = mailApps.Select(Report).Where(i => i.ResolveActivity(PackageManager!) is not null).ToList();
+        if (reports.Count == 0) return Task.FromResult(false);
+        var start = reports.Count == 1 ? reports[0] : Intent.CreateChooser(reports[0], mail.Subject)!.PutExtra(Intent.ExtraInitialIntents, reports.Skip(1).Cast<IParcelable>().ToArray());
+        try { StartActivity(start.AddFlags(ActivityFlags.NewTask | ActivityFlags.GrantReadUriPermission)); return Task.FromResult(true); }
+        catch (ActivityNotFoundException) { return Task.FromResult(false); }
+    }
+
+    /// <summary>What a problem report says about the device: facts any app may read, without a permission.</summary>
+    private IReadOnlyList<(string Key, string Value)> SystemInfo()
+    {
+        var metrics = Resources?.DisplayMetrics;
+        return
+        [
+            ("ReportInfoDevice", (Build.Manufacturer + " " + Build.Model).Trim()),
+            ("ReportInfoSystem", "Android " + Build.VERSION.Release + " (API " + (int)Build.VERSION.SdkInt + ")"),
+            ("ReportInfoBuild", Build.Display ?? ""),
+            ("ReportInfoScreen", metrics is null ? "" : metrics.WidthPixels + " × " + metrics.HeightPixels + " px, " + (int)metrics.DensityDpi + " dpi"),
+            ("ReportInfoProcessor", Build.SupportedAbis?.FirstOrDefault() ?? "")
+        ];
     }
 
     /// <summary>The system's long-press feedback, which follows the user's touch-feedback setting.</summary>

@@ -64,7 +64,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: IosSystem.OpenFileAsync,
             GitHubAppSlug: Built("GitHubAppSlug"), Locate: IosLocation.LocateAsync, Device: device, Calendar: new IosCalendar(data), Notices: notices,
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
-            AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic);
+            AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
+            SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
         notices.Start();
         zone = NSTimeZone.SystemTimeZone.Name;
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.

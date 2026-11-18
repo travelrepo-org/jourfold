@@ -127,17 +127,31 @@ public static class NoticeRunner
             // The example from the settings takes the travel day's place for its minute and moves on like a journey.
             var example = Example(settings, now, phone, strings);
             if (example is { } shownExample) live = shownExample;
-            notices.ShowLive(live?.Live, live?.Folder);
+            // Swiped away, the travel day stays away until its next part: the departure, the arrival or a change.
+            var dismissed = live is { } today && File.Exists(DismissedPath(host)) && File.ReadAllText(DismissedPath(host)).Trim() == today.Live.Key;
+            notices.ShowLive(dismissed ? null : live?.Live, dismissed ? null : live?.Folder);
             notices.Schedule(coming.OrderBy(c => c.Item1.At).ToArray());
             notices.SetTicketShortcuts(shortcuts.OrderBy(t => t.At).Take(3).Select(t => t.Shortcut).ToArray());
             // While travelling the notification is redrawn as the progress and the minutes left move on, the example every
-            // few seconds; otherwise the plan is read again twice a day.
-            var redraw = example is not null ? now + ExampleStep : live is { } shownLive ? shownLive.Live.Redraw(now) : now + Duration.FromHours(12);
+            // few seconds; swiped away, it waits for its next part; otherwise the plan is read again twice a day.
+            var redraw = dismissed ? now + Duration.FromHours(12) : example is not null ? now + ExampleStep : live is { } shownLive ? shownLive.Live.Redraw(now) : now + Duration.FromHours(12);
             var wake = new[] { next, live?.Live.Changes, redraw }.OfType<Instant>().Where(t => t > now).Min();
             notices.WakeAt(wake);
             File.WriteAllText(shownPath, JsonSerializer.Serialize(shown));
         }
         finally { Running.Release(); }
+    }
+
+    private static string DismissedPath(MobileHost host) => Path.Combine(host.DataRoot, "live-dismissed.txt");
+
+    /// <summary>
+    /// Remembers that the user swiped the travel day's notification away, for the part it showed (<see cref="LiveNotice.Key"/>).
+    /// A file of its own, so the settings the app keeps in memory do not write over it.
+    /// </summary>
+    public static void Dismiss(MobileHost host, string key)
+    {
+        try { File.WriteAllText(DismissedPath(host), key); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
     }
 
     /// <summary>The setting that holds when the example was started and from which trip, as "milliseconds|folder".</summary>

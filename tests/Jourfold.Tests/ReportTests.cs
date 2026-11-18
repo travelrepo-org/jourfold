@@ -1,6 +1,7 @@
 using System.Net;
 using Avalonia.Headless.XUnit;
 using Jourfold.Desktop;
+using Jourfold.Application;
 using Jourfold.Infrastructure;
 using TravelRepo.Git;
 using Xunit;

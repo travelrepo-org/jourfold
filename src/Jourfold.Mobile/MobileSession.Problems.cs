@@ -1,4 +1,5 @@
 using System.Text;
+using Jourfold.Application;
 using TravelRepo.Core;
 
 namespace Jourfold.Mobile;
@@ -28,17 +29,48 @@ public sealed partial class MobileSession
         if (ChangeProblem is not null) return;
         ProblemTitle = Strings[expected ? "NotSaved" : "SomethingWentWrong"];
         ChangeProblem = expected ? Strings.Error(exception) : Strings["UnexpectedErrorPhone"];
-        ProblemDetails = expected ? null : "Jourfold " + (Host.AppVersion ?? "") + " (" + Host.Device + ")\n" + exception;
+        ProblemCanBeMailed = !expected && Host.SendMail is not null;
         Changed?.Invoke();
     }
 
     /// <summary>
-    /// What went wrong in an unexpected failure, as written to the log, for the user to read and copy into a report;
-    /// nothing is sent. Null for expected failures, whose message says it all.
+    /// Whether the problem shown can be sent by e-mail (<see cref="SendProblemByMailAsync"/>): an unexpected failure,
+    /// on a device that has a mail app to hand it to. Expected failures say all there is in their message.
     /// </summary>
-    public string? ProblemDetails { get; private set; }
+    public bool ProblemCanBeMailed { get; private set; }
 
-    public void DismissProblem() { if (ChangeProblem is null) return; ChangeProblem = null; ProblemTitle = null; ProblemDetails = null; Changed?.Invoke(); }
+    public void DismissProblem() { if (ChangeProblem is null) return; ChangeProblem = null; ProblemTitle = null; ProblemCanBeMailed = false; Changed?.Invoke(); }
+
+    /// <summary>
+    /// Opens the user's mail app with a problem report: a few lines to fill in, the facts about the device the app knows
+    /// without any permission (model, system, build, screen), and a copy of the error log as attachment. The user reads,
+    /// edits and sends it there; Jourfold sends nothing. The address is the public contact of the project on GitHub,
+    /// looked up only now; without it the mail opens without one.
+    /// </summary>
+    public async Task SendProblemByMailAsync(CancellationToken ct = default)
+    {
+        if (Host.SendMail is not { } send) return;
+        var to = await SupportContact.EmailAsync(Settings, MapsHttp, ct: ct);
+        var facts = new List<(string Key, string Value)> { ("ReportInfoApp", "Jourfold " + (Host.AppVersion ?? "?") + ((Host.Distribution ?? AppDistribution.Name) is { Length: > 0 } source ? " (" + source + ")" : "")) };
+        facts.AddRange(Host.SystemInfo?.Invoke() ?? []);
+        facts.Add(("ReportInfoKind", Host.Device));
+        facts.Add(("ReportInfoLanguage", Host.Language));
+        var body = Strings["ReportTemplate"] + "\n\n" + Strings["ReportMailFacts"] + "\n" + string.Join("\n", facts.Where(f => f.Value.Length > 0).Select(f => Strings[f.Key] + ": " + f.Value));
+        // The log goes as a copy beside the other files handed to other apps, which the next one replaces.
+        if (Directory.Exists(Host.SharedRoot)) Directory.Delete(Host.SharedRoot, recursive: true);
+        Directory.CreateDirectory(Host.SharedRoot);
+        var attachments = new List<string>();
+        foreach (var log in new[] { ErrorLog + ".1", ErrorLog }.Where(File.Exists))
+        {
+            var copy = Path.Combine(Host.SharedRoot, Path.GetFileName(log) == "errors.log" ? "jourfold-errors.txt" : "jourfold-errors-older.txt");
+            File.Copy(log, copy, overwrite: true); attachments.Add(copy);
+        }
+        if (await send(new ProblemMail(to, string.Format(System.Globalization.CultureInfo.CurrentCulture, Strings["ReportSubject"], Host.AppVersion ?? ""), body, attachments)))
+        {
+            DismissProblem(); return;
+        }
+        ChangeProblem = Strings["ReportNoMailApp"]; ProblemCanBeMailed = false; Changed?.Invoke();
+    }
 
     /// <summary>
     /// Failures that come from the trip or the device rather than from a bug, such as a trip with errors that TravelRepo

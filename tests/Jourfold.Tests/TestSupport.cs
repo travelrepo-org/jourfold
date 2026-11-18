@@ -71,7 +71,9 @@ public sealed class TestInteraction : IInteraction
     }
     public Task ShareAsync(MainViewModel model) => Task.CompletedTask;
     public Task<string?> PromptAsync(string title, string initial = "", bool multiline = false) => Task.FromResult(Next(initial));
-    public Task<string?> ChooseAsync(string title, IReadOnlyList<Choice> choices) => Task.FromResult(Next(choices.FirstOrDefault()?.Id));
+    /// <summary>The title and choices of the last question asked with <see cref="ChooseAsync"/>.</summary>
+    public (string Title, IReadOnlyList<Choice> Choices)? LastChoice { get; set; }
+    public Task<string?> ChooseAsync(string title, IReadOnlyList<Choice> choices) { LastChoice = (title, choices); return Task.FromResult(Next(choices.FirstOrDefault()?.Id)); }
     public Task<bool> ConfirmAsync(string message) => Task.FromResult(true);
     public Task<bool> ConfirmAsync(string title, string message, string confirm, bool danger = false) => Task.FromResult(true);
     /// <summary>Answers the export dialog; without it the dialog's initial choices are taken.</summary>

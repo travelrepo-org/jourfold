@@ -202,6 +202,7 @@ public sealed class AppShell : UserControl
             top.ScalingChanged += (_, _) => Inset();
         }
         top.BackRequested += OnBack;
+        shown = this;
         Dispatcher.UIThread.UnhandledException += OnUnhandled;
         if (Avalonia.Application.Current?.TryGetFeature<Avalonia.Controls.ApplicationLifetimes.IActivatableLifetime>() is { } lifetime) lifetime.Deactivated += OnDeactivated;
         // Pages end above the on-screen keyboard and scroll the field being typed in into view. Sheets keep clear of
@@ -248,6 +249,7 @@ public sealed class AppShell : UserControl
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
         if (TopLevel.GetTopLevel(this) is { } top) top.BackRequested -= OnBack;
+        if (shown == this) shown = null;
         Dispatcher.UIThread.UnhandledException -= OnUnhandled;
         if (Avalonia.Application.Current?.TryGetFeature<Avalonia.Controls.ApplicationLifetimes.IActivatableLifetime>() is { } lifetime) lifetime.Deactivated -= OnDeactivated;
         base.OnDetachedFromVisualTree(e);
@@ -262,6 +264,14 @@ public sealed class AppShell : UserControl
         if (e.Handled) return;
         Session.ShowProblem(e.Exception); e.Handled = true;
     }
+
+    private static AppShell? shown;
+
+    /// <summary>
+    /// The same step back as the system's back gesture, for platforms whose system has none, such as iOS, where the
+    /// app's own swipe from the left edge calls it. At the trip list with nothing open, nothing happens.
+    /// </summary>
+    public static void GoBack() => shown?.OnBack(shown, new RoutedEventArgs());
 
     /// <summary>
     /// The system back gesture: back through the details opened from other details, then out of a page to where it was

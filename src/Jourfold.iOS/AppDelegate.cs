@@ -68,6 +68,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
         notices.Start();
         zone = NSTimeZone.SystemTimeZone.Name;
+        // Back with a swipe from the left edge, once the window is there.
+        WhenReady(_ => { IosBackGesture.Attach(); return Task.CompletedTask; });
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));
         return base.CustomizeAppBuilder(builder);
@@ -109,6 +111,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
     {
         if (e is FileActivatedEventArgs opened) { _ = ReceiveAsync(opened.Files); return; }
         if (e.Kind != ActivationKind.Background || MobileApp.Host is not { } host) return;
+        IosBackGesture.Attach();
         // Back on screen: notices may be due, and after a flight the time zone may have changed.
         var now = NSTimeZone.SystemTimeZone.Name; var changed = zone is not null && now != zone; zone = now;
         _ = IosNotices.RunAsync(host, changed);

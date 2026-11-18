@@ -577,8 +577,8 @@ deleted), and at most three such apps per device.
 passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so the project
 turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an
 iPhone: signing in with GitHub, cloning a shared trip, Today, Plan and Map, editing and sync work. Not tried on a device
-yet: notifications, the calendar and the camera beyond starting them, Live Activities (tried in the simulator only),
-and ⌘ keys on an iPad with a hardware keyboard.
+yet: notifications, the calendar and the camera beyond starting them, and ⌘ keys on an iPad with a hardware keyboard.
+The Live Activity ran on an iPhone, signed with a profile of its own for the extension (`LiveActivityProvision`).
 
 ## Screenshots
 

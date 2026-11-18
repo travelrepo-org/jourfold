@@ -335,9 +335,11 @@ Jourfold every minute, so the countdown and the progress move on by themselves (
 `ProgressView(timerInterval:)`), and the next part of the day, such as the way to the arrival after the departure,
 appears when Jourfold runs again: on screen, after edits and syncs, or in a background refresh. Without that the
 activity stays at zero after its time until iOS ends it, after eight hours at most. There is no push server; nothing
-leaves the device. A tap opens the plan (`jourfold://notice?trip=…&item=…`), "Show ticket" its ticket. An activity the
-user swiped away from the Lock Screen stays away for its part of the day (`NoticeRunner.Dismiss`), as on Android; iOS
-says so only when Jourfold runs next. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
+leaves the device. A tap opens the plan (`jourfold://notice?trip=…&item=…`), "Show ticket" its ticket. iOS reports an
+activity the user swiped away the same as one it removed itself, such as after an update of the app, so unlike
+Android it comes back the next time Jourfold runs while the journey is on; Live Activities can be turned off for
+Jourfold in the Settings app. Jourfold works the notices out once it is on screen, also after a cold start, as iOS
+starts a Live Activity only then. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
 is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and have **Show an example**; on
 an iPad or before iOS 16.2 the part is not there.
 

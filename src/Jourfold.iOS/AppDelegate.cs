@@ -67,6 +67,9 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
         notices.Start();
+        // Once on screen, the notices are worked out: a Live Activity can only start while Jourfold is in front, also
+        // after a cold start, such as after an update of the app, which ends the one before.
+        WhenReady(_ => IosNotices.RunAsync(MobileApp.Host!));
         zone = NSTimeZone.SystemTimeZone.Name;
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));

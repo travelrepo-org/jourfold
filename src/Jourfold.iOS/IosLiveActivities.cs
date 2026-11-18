@@ -30,16 +30,12 @@ internal static class IosLiveActivities
     /// <summary>Whether an activity is shown right now.</summary>
     public static bool Showing => Bridge.Value != IntPtr.Zero && SendBool(Bridge.Value, Selector.GetHandle("isShowing"));
 
-    /// <summary>
-    /// Shows, updates or (with null) ends the travel day. Returns the part of the day the user swiped away, when that is
-    /// the part asked for, so it stays away (<see cref="NoticeRunner.Dismiss"/>).
-    /// </summary>
-    public static string? Show(LiveNotice? live, string? tripFolder, Jourfold.UI.Localization strings)
+    /// <summary>Shows, updates or (with null) ends the travel day.</summary>
+    public static void Show(LiveNotice? live, string? tripFolder, Jourfold.UI.Localization strings)
     {
-        if (Bridge.Value == IntPtr.Zero) return null;
+        if (Bridge.Value == IntPtr.Zero) return;
         using var json = live is null || tripFolder is null ? null : new NSString(JsonSerializer.Serialize(Payload(live, tripFolder, strings), LiveJson.Default.LivePayload));
-        var swiped = SendString(Bridge.Value, Selector.GetHandle("show:"), json?.Handle ?? IntPtr.Zero);
-        return swiped == IntPtr.Zero ? null : Runtime.GetNSObject<NSString>(swiped)?.ToString();
+        SendVoid(Bridge.Value, Selector.GetHandle("show:"), json?.Handle ?? IntPtr.Zero);
     }
 
     /// <summary>What the activity shows, as the bridge reads it; times in seconds since 1970.</summary>
@@ -62,7 +58,7 @@ internal static class IosLiveActivities
     private static extern bool SendBool(IntPtr receiver, IntPtr selector);
 
     [DllImport("/usr/lib/libobjc.dylib", EntryPoint = "objc_msgSend")]
-    private static extern IntPtr SendString(IntPtr receiver, IntPtr selector, IntPtr argument);
+    private static extern void SendVoid(IntPtr receiver, IntPtr selector, IntPtr argument);
 }
 
 internal sealed record LivePayload(

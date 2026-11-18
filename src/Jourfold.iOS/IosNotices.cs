@@ -107,14 +107,11 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
         File.WriteAllText(ScheduledPath, JsonSerializer.Serialize(scheduled, IosJson.Default.DictionaryStringInt64));
     }
 
-    /// <summary>
-    /// The travel day as a Live Activity. A part of the day the user swiped away from the Lock Screen stays away, as on
-    /// Android; iOS only tells when Jourfold runs next.
-    /// </summary>
+    /// <summary>The travel day as a Live Activity (<see cref="IosLiveActivities"/>).</summary>
     public void ShowLive(LiveNotice? live, string? tripFolder)
     {
         var strings = new Jourfold.UI.Localization(language) { Device = device };
-        if (OnMain(() => IosLiveActivities.Show(live, tripFolder, strings)) is { } swiped && MobileApp.Host is { } host) NoticeRunner.Dismiss(host, swiped);
+        OnMain(() => { IosLiveActivities.Show(live, tripFolder, strings); return true; });
     }
 
     /// <summary>ActivityKit and UIKit are asked on the main thread; the notices may run in the background.</summary>

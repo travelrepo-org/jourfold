@@ -31,7 +31,7 @@ struct TravelDayActivity: Widget {
                         Text(state.title).font(.subheadline.weight(.semibold)).lineLimit(2)
                         if !state.text.isEmpty { Text(state.text).font(.footnote).foregroundStyle(.secondary).lineLimit(2) }
                         Journey(state: state)
-                        TicketLink(state: state)
+                        if !Journey.shows(state) { TicketLink(state: state) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     // Clear of the island's round corners.
@@ -76,7 +76,7 @@ struct LockScreen: View {
                 Countdown(state: state).font(.title3.weight(.semibold))
             }
             Journey(state: state)
-            TicketLink(state: state)
+            if !Journey.shows(state) { TicketLink(state: state) }
         }
         .padding(16)
     }
@@ -156,6 +156,12 @@ struct Chip: View {
 struct Journey: View {
     let state: TravelDayAttributes.ContentState
 
+    /// Whether the journey is under way, so the bar with the ticket between its times is shown.
+    static func shows(_ state: TravelDayAttributes.ContentState) -> Bool {
+        if let from = state.from, let until = state.until { return until > from }
+        return false
+    }
+
     var body: some View {
         if let from = state.from, let until = state.until, until > from {
             VStack(spacing: 4) {
@@ -166,15 +172,17 @@ struct Journey: View {
                         .accessibilityLabel(state.progressLabel)
                     Bubble(symbol: "mappin", filled: false)
                 }
+                // The ticket sits between the two times, so the island stays within its height.
                 HStack {
-                    Text(from, style: .time)
+                    Text(from, style: .time).accessibilityHidden(true)
                     Spacer(minLength: 8)
-                    Text(until, style: .time)
+                    TicketLink(state: state)
+                    Spacer(minLength: 8)
+                    Text(until, style: .time).accessibilityHidden(true)
                 }
                 .font(.caption2.weight(.medium))
                 .monospacedDigit()
                 .foregroundStyle(.secondary)
-                .accessibilityHidden(true)
             }
         }
     }

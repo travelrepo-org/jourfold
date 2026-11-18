@@ -1025,9 +1025,11 @@ public sealed class MobileTests : IDisposable
     public async Task AWalletPassShowsItsBarcodeBrightOnTheRoad()
     {
         var bright = new List<bool>();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 14, 9, 0)), () => Berlin, "en", new MemorySecrets(), Brightness: bright.Add));
+        // The morning of the flight home, the next plan on Today.
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 21, 0, 0)), () => Berlin, "en", new MemorySecrets(), Brightness: bright.Add));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
-        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo");
+        // A journey without a ticket of its own; the flight out has its boarding pass as PDF.
+        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight home");
         using var stream = new MemoryStream();
         using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
         using (var writer = new StreamWriter(zip.CreateEntry("pass.json").Open()))

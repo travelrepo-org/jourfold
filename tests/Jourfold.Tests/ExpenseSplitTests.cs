@@ -535,6 +535,130 @@ public sealed class ExpenseSplitTests : IDisposable
         finally { w.Close(); }
     }
 
+    /// <summary>
+    /// The sample trip "Spring in Japan", with the teamLab tickets (7600 JPY, paid by Sam) charged on an odd amount,
+    /// 46.71 EUR, and Alex's half paid back in euros.
+    /// </summary>
+    private async Task<(Entity Tickets, Entity Alex, Entity Sam)> SampleWithPaidTickets(MainViewModel m)
+    {
+        var path = Path.Combine(root, "sample");
+        await Jourfold.Application.SampleTrip.CreateAsync(path, new GitCliBackend(), new NodaTime.LocalDate(2027, 5, 14), "Test", "test@example.invalid");
+        await m.OpenAsync(path);
+        var trip = m.Trip!;
+        var alex = trip.Entities.Values.Single(e => e.Type == "person" && e.Title == "Alex"); var sam = trip.Entities.Values.Single(e => e.Type == "person" && e.Title == "Sam");
+        var tickets = Expenses.WithCharge(trip.Entities.Values.Single(e => e.Title == "teamLab tickets"), 46.71m, "EUR", new NodaTime.LocalDate(2027, 5, 2));
+        tickets = Expenses.Settle(trip with { Entities = new Dictionary<Guid, Entity>(trip.Entities) { [tickets.Id] = tickets } }, tickets, alex.Id, new NodaTime.LocalDate(2027, 5, 18), "EUR");
+        await m.Workspace!.EditAsync(tickets);
+        Assert.True(Expenses.Split(m.Trip!, m.Trip!.Find(tickets.Id)!).IsSettled);
+        return (tickets, alex, sam);
+    }
+
+    private static ExpenseSplit TicketsSplit(MainViewModel m, Guid id) => Expenses.Split(m.Trip!, m.Trip!.Find(id)!);
+
+    [AvaloniaFact]
+    public async Task ChangingThePriceOfAPaidExpenseAsksAboutTheAmountCharged()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "en");
+        var (tickets, alex, sam) = await SampleWithPaidTickets(m);
+
+        // Only the price was corrected: the card amount and Alex's payment stay, and the tickets are settled.
+        interaction.Answers.Enqueue("keep");
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("8000", "JPY"));
+        Assert.Equal(["keep", "rate", "charge"], interaction.LastChoice!.Value.Choices.Select(c => c.Id));
+        Assert.Contains("EUR 49.17", interaction.LastChoice!.Value.Choices[1].Label);
+        Assert.Equal(("8000", 46.71m), (m.Trip!.Find(tickets.Id)!.Data["amount"]!["value"]!.ToString(), Expenses.ChargeOf(m.Trip!.Find(tickets.Id)!)!.Value));
+        Assert.True(TicketsSplit(m, tickets.Id).IsSettled);
+
+        // The card charged the new price at the rate it had: 49.17 EUR, and Alex owes his half of the difference.
+        await m.UndoCommand.ExecuteAsync(null);
+        interaction.Answers.Enqueue("rate");
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("8000", "JPY"));
+        var atRate = m.Trip!.Find(tickets.Id)!;
+        Assert.Equal(49.17m, Expenses.ChargeOf(atRate)!.Value);
+        var debt = TicketsSplit(m, tickets.Id).Debts.Single(d => d.From == alex.Id && d.To == sam.Id);
+        Assert.Equal((1.22m, "EUR"), (Expenses.Convert(atRate, debt.Open, "JPY", "EUR").Amount, Expenses.Convert(atRate, debt.Open, "JPY", "EUR").Currency));
+
+        // A typed amount charged works the same way.
+        await m.UndoCommand.ExecuteAsync(null);
+        interaction.Answers.Enqueue("charge"); interaction.Answers.Enqueue("49,17");
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("8000", "JPY"));
+        Assert.Equal(49.17m, Expenses.ChargeOf(m.Trip!.Find(tickets.Id)!)!.Value);
+
+        // Cancelling, or an amount that is no number, changes nothing.
+        interaction.Answers.Enqueue(null);
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("9000", "JPY"));
+        interaction.Answers.Enqueue("charge"); interaction.Answers.Enqueue("lots");
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("9000", "JPY"));
+        Assert.Equal("8000", m.Trip!.Find(tickets.Id)!.Data["amount"]!["value"]!.ToString());
+
+        // A payment that moves to a third currency gets its own question, without the same-rate answer.
+        await m.UndoCommand.ExecuteAsync(null);
+        interaction.Answers.Enqueue("keep");
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("52.00", "USD"));
+        Assert.StartsWith("The payment is now in USD.", interaction.LastChoice!.Value.Title);
+        Assert.Equal(["keep", "charge"], interaction.LastChoice!.Value.Choices.Select(c => c.Id));
+        Assert.Equal(46.71m, Expenses.ChargeOf(m.Trip!.Find(tickets.Id)!)!.Value);
+
+        // Into the charged currency: no question, the charge goes, and what Alex paid back pays his part in euros.
+        await m.UndoCommand.ExecuteAsync(null);
+        interaction.LastChoice = null;
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("46.71", "EUR"));
+        Assert.Null(interaction.LastChoice);
+        Assert.Null(Expenses.ChargeOf(m.Trip!.Find(tickets.Id)!));
+        Assert.True(TicketsSplit(m, tickets.Id).IsSettled);
+        Assert.DoesNotContain(Expenses.Open(m.Trip!), d => d.Expense == tickets.Id);
+        // Alex and Sam then owe each other only what the other expenses of the trip say.
+        Assert.DoesNotContain(Expenses.Debts(m.Trip!), d => d.Expense == tickets.Id && !d.IsSettled);
+    }
+
+    [AvaloniaFact]
+    public async Task APaymentPaidBackInYenCannotMoveToDollarsWithoutARate()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "de");
+        var (tickets, alex, _) = await SampleWithPaidTickets(m);
+        // Alex paid back in yen this time, cash in Tokyo.
+        var inYen = Expenses.Unsettle(m.Trip!.Find(tickets.Id)!);
+        inYen = Expenses.Settle(m.Trip! with { Entities = new Dictionary<Guid, Entity>(m.Trip!.Entities) { [inYen.Id] = inYen } }, inYen, alex.Id, new NodaTime.LocalDate(2027, 5, 18));
+        await m.Workspace!.EditAsync(inYen);
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("52.00", "USD"));
+        // Refused with a message in words, and nothing changed.
+        Assert.Contains(interaction.Errors, e => e.StartsWith("Was zurückgezahlt wurde, ist in einer anderen Währung", StringComparison.Ordinal));
+        Assert.Equal("JPY", m.Trip!.Find(tickets.Id)!.Data["amount"]!["currency"]!.ToString());
+        Assert.True(TicketsSplit(m, tickets.Id).IsSettled);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("en", "No,", "stays charged")]
+    [InlineData("de", "Nein,", "bleiben abgebucht")]
+    public async Task ThePriceQuestionAppearsInTheDetails(string language, string start, string end)
+    {
+        var w = new MainWindow(); w.Model.SetPreference("Language", language); w.Model.SetPreference("Theme", "Light"); w.Show(); Dispatcher.UIThread.RunJobs();
+        var m = w.Model;
+        try
+        {
+            var (tickets, _, _) = await SampleWithPaidTickets(m); m.InboxOpen = false;
+            m.Navigate("Costs"); m.Selected = m.Trip!.Find(tickets.Id); Probe.ShowDetails(w);
+            var inspector = w.FindControl<Control>("InspectorHost")!;
+            NumericUpDown? amount = null;
+            await Probe.Until(() => (amount = Probe.All<NumericUpDown>(inspector).FirstOrDefault(n => n.Tag as string == "amount")) is not null);
+            // Leaving the field saves the amount, as when tabbing on.
+            amount!.Focus(); Probe.Layout(); amount.Value = 8000m;
+            Probe.All<Button>(inspector).First(b => b.IsEffectivelyVisible && b.Focusable).Focus(); Probe.Layout();
+            await Probe.Until(() => Probe.All<Button>(Probe.Sheet(w)).Any(b => (AutomationProperties.GetName(b) ?? "").StartsWith(start, StringComparison.Ordinal)));
+            var sheet = Probe.Sheet(w);
+            // Three answers, the second with the amount at the same rate.
+            Assert.Contains(Probe.All<Button>(sheet), b => (AutomationProperties.GetName(b) ?? "").Contains("49", StringComparison.Ordinal));
+            var keep = Probe.All<Button>(sheet).Single(b => (AutomationProperties.GetName(b) ?? "").StartsWith(start, StringComparison.Ordinal));
+            Assert.EndsWith(end, AutomationProperties.GetName(keep));
+            keep.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            await Probe.Until(() => m.Trip!.Find(tickets.Id)!.Data["amount"]!["value"]!.ToString() == "8000");
+            Assert.DoesNotContain(Expenses.Open(m.Trip!), d => d.Expense == tickets.Id);
+        }
+        finally { w.Close(); }
+    }
+
     private async Task<MainWindow> Window(string language, string theme)
     {
         var (path, p) = await Trip();

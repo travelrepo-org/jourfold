@@ -122,6 +122,48 @@ public partial class MainViewModel
         return true;
     }
 
+    /// <summary>
+    /// Changes the amount of an expense through <see cref="Expenses.WithAmount"/>. When a card charge in another
+    /// currency is recorded, it belonged to the old amount, so Jourfold asks whether it changed too: only the price was
+    /// corrected and the charge stays; the card charged the new price at the rate it had so far; or a new amount charged
+    /// is typed in. All of it is saved in one undoable step. A payment that moves to a third currency gets its own
+    /// question, without the same-rate answer. An expense now in the charged currency needs no question: the charge is
+    /// dropped and what was paid back in it becomes the paid amount. Cancelling changes nothing; cash is not asked about,
+    /// since it follows the price at its own rate.
+    /// </summary>
+    public Task ChangeExpenseAmountAsync(Guid expenseId, Money amount) => RunEditAsync(async () =>
+    {
+        if (Workspace?.State.Trip is not { } trip || trip.Find(expenseId) is not { Type: "expense" } expense) return;
+        var before = TripSummaries.Money(expense.Data["amount"]);
+        if (before is not null && before.Amount == amount.Amount && before.Currency == amount.Currency) return;
+        var changed = Expenses.WithAmount(trip, expense, amount);
+        if (Expenses.ChargeOf(expense) is { } charge && charge.Source != Expenses.Cash && before is { Amount: not 0 } && charge.Currency != amount.Currency)
+        {
+            var charged = Formats.Money(charge.Value, charge.Currency);
+            var sameCurrency = before.Currency == amount.Currency;
+            // At the rate the charge had so far (TravelRepo's rule for charges).
+            var atSameRate = Expenses.ChargeAtSameRate(expense, amount);
+            List<Choice> choices = [new("keep", string.Format(Strings["PriceChangedKeep"], charged), "check", Strings[sameCurrency ? "PriceChangedKeepHint" : "CurrencyChangedKeepHint"])];
+            if (atSameRate is { } sameRate)
+                choices.Add(new("rate", string.Format(Strings["PriceChangedSameRate"], Formats.Money(sameRate, charge.Currency)), "refresh-cw", Strings["PriceChangedSameRateHint"]));
+            choices.Add(new("charge", Strings["PriceChangedNewCharge"], "wallet", Strings["PriceChangedNewChargeHint"]));
+            var title = sameCurrency
+                ? string.Format(Strings["PriceChangedTitle"], Formats.Money(before.Amount, before.Currency), Formats.Money(amount.Amount, amount.Currency), charged)
+                : string.Format(Strings["CurrencyChangedTitle"], amount.Currency, charged);
+            var answer = await Interaction.ChooseAsync(title, choices);
+            if (answer is null) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+            var newCharge = answer == "rate" ? atSameRate : null;
+            if (answer == "charge")
+            {
+                if (await Interaction.PromptAsync(string.Format(Strings["ChargedIn"], charge.Currency), charge.Value.ToString(System.Globalization.CultureInfo.CurrentCulture)) is not { } text) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+                if (ExchangeRates.Amount(text) is not { } value || value <= 0) { Interaction.Toast(Strings["ChargedNotNumber"]); ContentChanged?.Invoke(this, EventArgs.Empty); return; }
+                newCharge = value;
+            }
+            if (newCharge is { } v) changed = Expenses.WithCharge(changed, v, charge.Currency, charge.Date ?? Today, charge.Source ?? "card");
+        }
+        await Workspace.EditAsync(changed);
+    });
+
     /// <summary>Changes the day of an amount charged, keeping the amount; for cash, the day of its rate.</summary>
     public Task SetChargeDayAsync(Guid expenseId, LocalDate day) => EditExpenseAsync(expenseId, (_, e) =>
         Expenses.ChargeOf(e) is not { } charge ? e

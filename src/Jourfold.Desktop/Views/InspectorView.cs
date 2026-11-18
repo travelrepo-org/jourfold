@@ -201,7 +201,8 @@ public static class InspectorView
                 body.Children.Add(Field(s["Related"], Related(w, e)));
                 break;
             case "expense" or "budget":
-                body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "amount", s["Amount"], e.Data["amount"])));
+                // An expense's amount may need its amount charged changed too, so the view model asks.
+                body.Children.Add(Field(s["Amount"], Editors.Money(w, e.Id, "amount", s["Amount"], e.Data["amount"], e.Type == "expense" ? amount => w.Model.ChangeExpenseAmountAsync(e.Id, amount) : null)));
                 if (e.Type == "expense")
                 {
                     // What the card booked belongs right under the amount on the bill.

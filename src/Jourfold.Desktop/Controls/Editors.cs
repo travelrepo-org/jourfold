@@ -191,7 +191,8 @@ public static class Editors
         return Ui.V(6, Ui.Columns("*,*", Ui.Field(s["Latitude"], latitude), Ui.Field(s["Longitude"], longitude).Margin(10, 0, 0, 0)), problem, tip);
     }
 
-    public static Control Money(MainWindow w, Guid id, string path, string label, JsonNode? value)
+    /// <param name="save">Saves the new amount in place of setting the path, such as an expense's, which may ask about its amount charged.</param>
+    public static Control Money(MainWindow w, Guid id, string path, string label, JsonNode? value, Func<TravelRepo.Core.Money, Task>? save = null)
     {
         var money = TripSummaries.Money(value);
         var initial = money?.Currency ?? w.Model.Store.Get("currency") ?? "EUR";
@@ -206,7 +207,7 @@ public static class Editors
             if (money is not null && money.Amount == next && money.Currency == code) return;
             // With the currency's own decimals: 3600 JPY, 12.50 EUR.
             money = new TravelRepo.Core.Money(TravelRepo.Core.Expenses.Format(next, code), code);
-            _ = w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, new JsonObject { ["value"] = money.Value, ["currency"] = code }));
+            _ = save is not null ? save(money) : w.Model.UpdateAsync(id, e => EditorModel.Set(e, path, new JsonObject { ["value"] = money.Value, ["currency"] = code }));
         }
         amount.LostFocus += (_, _) => Commit(); currency.Input.LostFocus += (_, _) => Commit();
         return Ui.Columns("*,Auto", amount, currency.Margin(8, 0, 0, 0));

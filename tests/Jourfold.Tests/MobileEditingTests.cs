@@ -149,6 +149,32 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ChangingAPaidExpenseIntoTheChargedCurrencyKeepsWhatWasPaidBack()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            // The teamLab tickets, 7600 JPY paid by Sam, charged 46.71 EUR; Alex paid back his half in euros.
+            var trip = session.Trip!;
+            var alex = trip.Entities.Values.Single(e => e.Type == "person" && e.Title == "Alex");
+            var tickets = Expenses.WithCharge(trip.Entities.Values.Single(e => e.Type == "expense" && e.Title == "teamLab tickets"), 46.71m, "EUR", new LocalDate(2027, 5, 2));
+            tickets = Expenses.Settle(trip with { Entities = new Dictionary<Guid, Entity>(trip.Entities) { [tickets.Id] = tickets } }, tickets, alex.Id, new LocalDate(2027, 5, 18), "EUR");
+            await session.SaveDetailsAsync([new TravelRepo.Repository.EntityEdit(tickets.Id, tickets)]);
+
+            // The phone writes the same data as the desktop: the payment is now in euros, and Alex's payment still pays his half.
+            session.ShowEditor(tickets.Id);
+            Field<TextBox>(window, "Amount").Text = "46,71";
+            Tap(window, "EUR");
+            Tap(window, "Save");
+            await Probe.Until(() => session.Trip!.Find(tickets.Id)!.Data["amount"]!["currency"]!.ToString() == "EUR");
+            var inEuros = session.Trip!.Find(tickets.Id)!;
+            Assert.Null(Expenses.ChargeOf(inEuros));
+            Assert.True(Expenses.Split(session.Trip!, inEuros).IsSettled);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task APaymentWithCashTakesTheRateItCostInsteadOfACharge()
     {
         var (session, window) = await OpenAsync();

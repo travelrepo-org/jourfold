@@ -1,0 +1,14 @@
+# Release notes for Jourfold 0.15.2. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.15.2
+date: 2026-11-18
+highlights:
+  - icon: wallet
+    en: "On the computer, changing the price of a payment that a card charged in another currency asks whether the amount charged changed too: it stays, it follows the new price at the same rate, or you enter it. What was paid back stays settled when only the price was corrected."
+    de: "Ändern Sie auf dem Computer den Preis einer Zahlung, die eine Karte in einer anderen Währung abgebucht hat, fragt Jourfold, ob sich auch der abgebuchte Betrag geändert hat: Er bleibt, er folgt dem neuen Preis zum bisherigen Kurs, oder Sie geben ihn ein. Was zurückgezahlt ist, bleibt beglichen, wenn nur der Preis korrigiert wurde."
+changes:
+  - en: "A payment that moves into the currency it was charged in, on the computer or the phone, keeps what was paid back. Where there is no exact rate for what was paid back, Jourfold says so instead of changing the currency."
+    de: "Eine Zahlung, die in die Währung wechselt, in der sie abgebucht wurde, behält auf dem Computer und dem Handy, was zurückgezahlt ist. Gibt es für das Zurückgezahlte keinen genauen Kurs, sagt Jourfold das, statt die Währung zu ändern."
+fixes:
+  - en: "Correcting the price of a paid payment no longer shows debts that do not exist in who owes whom, including after a correction by a cent or a yen. Uses TravelRepo 0.13.1."
+    de: "Wird der Preis einer bezahlten Zahlung korrigiert, zeigt „Wer schuldet wem“ keine Schulden mehr, die es nicht gibt, auch nach einer Korrektur um einen Cent oder Yen. Nutzt TravelRepo 0.13.1."

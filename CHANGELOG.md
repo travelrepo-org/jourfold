@@ -2,6 +2,20 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.15.2 “Unbothered Unicorn” – 2026-11-18
+
+### Highlights
+
+- On the computer, changing the price of a payment that a card charged in another currency asks whether the amount charged changed too: it stays, it follows the new price at the same rate, or you enter it. What was paid back stays settled when only the price was corrected.
+
+### Changes
+
+- A payment that moves into the currency it was charged in, on the computer or the phone, keeps what was paid back. Where there is no exact rate for what was paid back, Jourfold says so instead of changing the currency.
+
+### Fixes
+
+- Correcting the price of a paid payment no longer shows debts that do not exist in who owes whom, including after a correction by a cent or a yen. Uses TravelRepo 0.13.1.
+
 ## 0.15.1 “Unhurried Unicorn” – 2026-11-16
 
 ### Highlights

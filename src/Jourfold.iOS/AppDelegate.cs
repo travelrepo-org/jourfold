@@ -67,6 +67,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
         notices.Start();
+        // Before the window's scene connects, which may come with a quick action from the app icon.
+        IosShortcuts.Install();
         zone = NSTimeZone.SystemTimeZone.Name;
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));

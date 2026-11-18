@@ -327,8 +327,15 @@ the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
 allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
 choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
-widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
-there yet.
+widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app.
+
+The ticket shortcuts are quick actions on the app icon on iOS too (`IosShortcuts`, `UIApplication.ShortcutItems`): a
+long press on the icon lists the tickets of the next journeys, and one opens its plan and ticket. Avalonia's scene
+delegate neither answers quick actions nor passes on the one that started the app, so while the app launches Jourfold
+adds `windowScene:performActionForShortcutItem:completionHandler:` to its Objective-C class and wraps its
+`scene:willConnectToSession:options:`, whose options carry a quick action that started the app. Without that class,
+as in another version of Avalonia, the app runs as before, without shortcuts. Like on Android, the shortcuts only
+list journeys within the next day that have a ticket.
 
 ## Problem reports
 

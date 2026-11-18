@@ -4,6 +4,8 @@
     <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>
     <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <!-- IosShortcuts hands Objective-C a C# function and calls the block it gets back. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- An Apple ID without the developer program can only sign an ID of its own; pass one with
          -p:ApplicationId=dev.jourfold.app.yourname (docs/mobile.md). -->
     <ApplicationId>dev.jourfold.app</ApplicationId>

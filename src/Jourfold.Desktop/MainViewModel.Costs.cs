@@ -141,18 +141,18 @@ public partial class MainViewModel
         {
             var charged = Formats.Money(charge.Value, charge.Currency);
             var sameCurrency = before.Currency == amount.Currency;
-            // At the rate the charge had so far, rounded to the charged currency's smallest unit.
-            var atSameRate = Math.Round(charge.Value * amount.Amount / before.Amount, Expenses.MinorDigits(charge.Currency), MidpointRounding.AwayFromZero);
+            // At the rate the charge had so far (TravelRepo's rule for charges).
+            var atSameRate = Expenses.ChargeAtSameRate(expense, amount);
             List<Choice> choices = [new("keep", string.Format(Strings["PriceChangedKeep"], charged), "check", Strings[sameCurrency ? "PriceChangedKeepHint" : "CurrencyChangedKeepHint"])];
-            if (sameCurrency && atSameRate > 0 && atSameRate != charge.Value)
-                choices.Add(new("rate", string.Format(Strings["PriceChangedSameRate"], Formats.Money(atSameRate, charge.Currency)), "refresh-cw", Strings["PriceChangedSameRateHint"]));
+            if (atSameRate is { } sameRate)
+                choices.Add(new("rate", string.Format(Strings["PriceChangedSameRate"], Formats.Money(sameRate, charge.Currency)), "refresh-cw", Strings["PriceChangedSameRateHint"]));
             choices.Add(new("charge", Strings["PriceChangedNewCharge"], "wallet", Strings["PriceChangedNewChargeHint"]));
             var title = sameCurrency
                 ? string.Format(Strings["PriceChangedTitle"], Formats.Money(before.Amount, before.Currency), Formats.Money(amount.Amount, amount.Currency), charged)
                 : string.Format(Strings["CurrencyChangedTitle"], amount.Currency, charged);
             var answer = await Interaction.ChooseAsync(title, choices);
             if (answer is null) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }
-            decimal? newCharge = answer == "rate" ? atSameRate : null;
+            var newCharge = answer == "rate" ? atSameRate : null;
             if (answer == "charge")
             {
                 if (await Interaction.PromptAsync(string.Format(Strings["ChargedIn"], charge.Currency), charge.Value.ToString(System.Globalization.CultureInfo.CurrentCulture)) is not { } text) { ContentChanged?.Invoke(this, EventArgs.Empty); return; }

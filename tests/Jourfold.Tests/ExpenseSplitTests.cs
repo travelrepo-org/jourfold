@@ -612,6 +612,23 @@ public sealed class ExpenseSplitTests : IDisposable
         Assert.DoesNotContain(Expenses.Debts(m.Trip!), d => d.Expense == tickets.Id && !d.IsSettled);
     }
 
+    [AvaloniaFact]
+    public async Task APaymentPaidBackInYenCannotMoveToDollarsWithoutARate()
+    {
+        using var store = new LocalStore(Path.Combine(root, "local")); var interaction = new TestInteraction();
+        using var m = new MainViewModel(store, new GitCliBackend(), new OsSecretStore(), interaction); m.SetPreference("Language", "de");
+        var (tickets, alex, _) = await SampleWithPaidTickets(m);
+        // Alex paid back in yen this time, cash in Tokyo.
+        var inYen = Expenses.Unsettle(m.Trip!.Find(tickets.Id)!);
+        inYen = Expenses.Settle(m.Trip! with { Entities = new Dictionary<Guid, Entity>(m.Trip!.Entities) { [inYen.Id] = inYen } }, inYen, alex.Id, new NodaTime.LocalDate(2027, 5, 18));
+        await m.Workspace!.EditAsync(inYen);
+        await m.ChangeExpenseAmountAsync(tickets.Id, new Money("52.00", "USD"));
+        // Refused with a message in words, and nothing changed.
+        Assert.Contains(interaction.Errors, e => e.StartsWith("Was zurückgezahlt wurde, ist in einer anderen Währung", StringComparison.Ordinal));
+        Assert.Equal("JPY", m.Trip!.Find(tickets.Id)!.Data["amount"]!["currency"]!.ToString());
+        Assert.True(TicketsSplit(m, tickets.Id).IsSettled);
+    }
+
     [AvaloniaTheory]
     [InlineData("en", "No,", "stays charged")]
     [InlineData("de", "Nein,", "bleiben abgebucht")]

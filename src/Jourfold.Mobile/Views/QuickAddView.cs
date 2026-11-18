@@ -1046,7 +1046,8 @@ public sealed class QuickAddView
         if (PeoplePath is { } path && !created && PeopleChanged) DetailEdits.SetPeople(item, path, peopleChoice == PeopleChoice.Chosen ? people : []);
         if (kind == "expense")
         {
-            if (money is { } value) DetailEdits.SetMoney(item, "amount", value, Currency());
+            // As on the desktop: paid marks move with the amount's currency (TravelRepo's Expenses.WithAmount).
+            if (money is { } value) item = Expenses.WithAmount(trip with { Entities = new Dictionary<Guid, Entity>(trip.Entities) { [item.Id] = item } }, item, new Money(Expenses.Format(value, Currency()), Currency()));
             item.Data["estimated"] = estimated.IsChecked == true;
             var dueDay = estimated.IsChecked == true && dueDate.SelectedDate is { } picked ? LocalDate.FromDateTime(picked.Date) : (LocalDate?)null;
             if (dueDay != dueBefore || created) item = Expenses.WithDue(item, dueDay);

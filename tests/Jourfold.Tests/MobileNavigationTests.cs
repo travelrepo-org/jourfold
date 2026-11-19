@@ -72,6 +72,13 @@ public sealed class MobileNavigationTests : IDisposable
         try
         {
             var item = session.Trip!.Entities.Values.First(e => e.Type == "schedule_item");
+            // On the map a drag from the edge pans the map; with details over it, the swipe goes back again.
+            Assert.True(AppShell.EdgeSwipeGoesBack);
+            session.ShowTab(MobileTab.Map); Probe.Layout();
+            Assert.False(AppShell.EdgeSwipeGoesBack);
+            session.ShowDetails(item.Id); Probe.Layout();
+            Assert.True(AppShell.EdgeSwipeGoesBack);
+            session.CloseOverlay(); session.ShowTab(MobileTab.Today); Probe.Layout();
             Probe.Click(window, "Packing lists"); session.ShowDetails(item.Id); Probe.Layout();
             AppShell.GoBack(); Probe.Layout();
             Assert.Equal((Overlay.None, "packing"), (session.Showing, session.Page));

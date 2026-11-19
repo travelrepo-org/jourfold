@@ -127,7 +127,9 @@ Back is Android's back button or gesture. iOS has none, so on iPhone and iPad a 
 the left edge of the screen (within 24 points) does the same (`IosBackGesture`, `AppShell.GoBack`): a menu or sheet
 closes, details go back, a page goes back to where it was opened from, then to Today and to the trip list. A swipe
 that starts further in still moves the days; once the edge swipe is recognised, the touch is taken from the page, so
-the day stays. The back buttons in the app stay as they are. It is a pan that starts at the edge rather than iOS's
+the day stays. On the map with nothing over it, a drag from the edge pans the map instead
+(`AppShell.EdgeSwipeGoesBack`); its sheets and menus still close with the swipe. The back buttons in the app stay as
+they are. It is a pan that starts at the edge rather than iOS's
 edge-pan recogniser, which the simulator's touches do not trigger.
 
 ## The bar and its third button

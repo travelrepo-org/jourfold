@@ -43,7 +43,8 @@ internal static class IosBackGesture
     {
         if (recognizer is not UIPanGestureRecognizer swipe || swipe.View is not { } view) return false;
         var speed = swipe.VelocityInView(view);
-        return start <= Edge + view.SafeAreaInsets.Left && speed.X > Math.Abs(speed.Y);
+        // On the map a drag from the edge pans the map (AppShell.EdgeSwipeGoesBack).
+        return start <= Edge + view.SafeAreaInsets.Left && speed.X > Math.Abs(speed.Y) && AppShell.EdgeSwipeGoesBack;
     }
 
     private static void Swiped(UIPanGestureRecognizer swipe)

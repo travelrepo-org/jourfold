@@ -274,6 +274,13 @@ public sealed class AppShell : UserControl
     public static void GoBack() => shown?.OnBack(shown, new RoutedEventArgs());
 
     /// <summary>
+    /// Whether a swipe from the left edge goes back. Not on the map with nothing over it, where a drag from the edge
+    /// pans the map; its back button and the bar still lead away.
+    /// </summary>
+    public static bool EdgeSwipeGoesBack => shown is not { Session: var s } || !(s.Workspace is not null && s.Tab == MobileTab.Map && s.Showing == Overlay.None
+        && s.Menu is null && s.Asking is null && s.ChangeProblem is null && s.Viewing.Count == 0 && s.TaxiCard is null);
+
+    /// <summary>
     /// The system back gesture: back through the details opened from other details, then out of a page to where it was
     /// opened from, then back to Today, then back to the trip list, then out of the app.
     /// </summary>

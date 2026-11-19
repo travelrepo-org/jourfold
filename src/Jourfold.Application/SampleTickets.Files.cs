@@ -6,30 +6,6 @@ namespace Jourfold.Application;
 
 public static partial class SampleTickets
 {
-    /// <summary>The flight's boarding pass as a PDF, with a stub to tear off and a code that is not a real one.</summary>
-    public static byte[] Flight(string date) => Pdf(600, 250, page =>
-    {
-        page.Fill(0.059, 0.482, 0.478).Rect(0, 210, 600, 40);
-        page.Fill(1, 1, 1).Text("Helvetica-Bold", 14, 24, 224, "BOARDING PASS").Text("Helvetica", 10, 300, 225, "SAMPLE - NOT VALID FOR TRAVEL");
-        page.Fill(0.09, 0.145, 0.204);
-        page.Text("Helvetica", 9, 24, 186, "PASSENGERS").Text("Helvetica-Bold", 13, 24, 170, "ALEX, SAM");
-        page.Text("Helvetica-Bold", 40, 24, 112, "FRA").Text("Helvetica-Bold", 40, 250, 112, "HND");
-        page.Stroke(0.059, 0.482, 0.478).Line(130, 126, 230, 126).Line(222, 131, 230, 126).Line(222, 121, 230, 126);
-        page.Text("Helvetica", 9, 24, 96, "Frankfurt").Text("Helvetica", 9, 250, 96, "Tokyo Haneda");
-        page.Fill(0.09, 0.145, 0.204);
-        foreach (var (x, label, value) in new[] { (24.0, "FLIGHT", "LH 716"), (110.0, "DATE", date), (210.0, "DEPARTS", "13:20"), (290.0, "SEATS", "32A, 32C") })
-            page.Text("Helvetica", 9, x, 64, label).Text("Helvetica-Bold", 13, x, 48, value);
-        page.Fill(0.45, 0.5, 0.55).Text("Helvetica", 8, 24, 20, "A sample ticket of Jourfold's sample trip. Have a good flight!");
-        // The stub, behind a perforation.
-        page.Stroke(0.6, 0.65, 0.7).Dash(4, 4).Line(430, 12, 430, 202).Dash();
-        page.Fill(0.09, 0.145, 0.204).Text("Helvetica-Bold", 13, 450, 180, "LH 716").Text("Helvetica", 10, 450, 164, "FRA - HND").Text("Helvetica", 10, 450, 150, "32A, 32C");
-        // Bars that look like a code; the text below says they are none.
-        var bits = Encoding.ASCII.GetBytes("JOURFOLD SAMPLE");
-        for (var i = 0; i < 46; i++)
-            if ((bits[i % bits.Length] >> (i % 7) & 1) == 1 || i % 5 == 0) page.Rect(450 + i * 2.6, 70, i % 3 == 0 ? 1.8 : 1.1, 60);
-        page.Fill(0.45, 0.5, 0.55).Text("Helvetica", 7, 450, 58, "not a real code");
-    });
-
     /// <summary>The teamLab Planets e-ticket as a PDF, with the tip the plan's notes give.</summary>
     public static byte[] TeamLab(string date) => Pdf(420, 300, page =>
     {

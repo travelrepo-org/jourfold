@@ -131,8 +131,8 @@ public static class SampleTrip
         var deerPark = Item("Nara deer park", "planned", new JsonObject { ["precision"] = "all_day", ["date"] = start.PlusDays(6).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) }, "nature", nara);
         var homebound = Transport("Flight home", "confirmed", Exact(7, "11:15", 7, "17:05", "Asia/Tokyo", "Europe/Berlin"), "flight", kix, fra, "Lufthansa", "LH 741");
 
-        // Tickets to show at the gate, in the Live Activity and as shortcuts, in each form tickets come in: a Wallet pass,
-        // PDFs and a picture. Made for the sample (SampleTickets).
+        // Tickets to show at the gate, in the Live Activity and as shortcuts, in each form tickets come in: Wallet passes
+        // for the journeys, a PDF and a picture. Made for the sample (SampleTickets).
         void Ticket(Entity item, string name, string mediaType, byte[] bytes)
         {
             var (document, resource) = TravelRepository.PrepareDocument(bytes, name, mediaType);
@@ -146,7 +146,7 @@ public static class SampleTrip
                 .ToString("uuuu'-'MM'-'dd'T'HH':'mm':'sso<m>", CultureInfo.InvariantCulture);
         string Day(int day) => start.PlusDays(day).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
         Ticket(shinkansen, "Shinkansen to Kyoto.pkpass", Tickets.WalletPass, SampleTickets.Shinkansen("08:30", When(4, "08:30", "Asia/Tokyo")));
-        Ticket(outbound, "Boarding pass LH 716.pdf", "application/pdf", SampleTickets.Flight(Day(0)));
+        Ticket(outbound, "Boarding pass LH 716.pkpass", Tickets.WalletPass, SampleTickets.Flight(When(0, "13:20", "Europe/Berlin")));
         Ticket(planets, "teamLab Planets e-ticket.pdf", "application/pdf", SampleTickets.TeamLab(Day(2)));
         Ticket(deerPark, "Deer crackers.png", "image/png", SampleTickets.DeerCrackers());
 

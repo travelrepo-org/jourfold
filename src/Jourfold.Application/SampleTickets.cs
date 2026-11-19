@@ -6,10 +6,10 @@ namespace Jourfold.Application;
 
 /// <summary>
 /// The sample trip's tickets, in each form a ticket comes in, so the ticket buttons, the pass view and the Live
-/// Activity's "Show ticket" have something to show: a Wallet pass (.pkpass) for the Shinkansen to Kyoto, with English
-/// and German labels as real passes have, a PDF boarding pass for the flight to Tokyo, a PDF e-ticket for teamLab
-/// Planets and a picture of a voucher for deer crackers in Nara. All are clearly samples. Scanned, the pass's code
-/// says hello.
+/// Activity's "Show ticket" have something to show: Wallet passes (.pkpass) for the flight to Tokyo and the Shinkansen
+/// to Kyoto, with English and German labels as real passes have, a PDF e-ticket for teamLab Planets and a picture of a
+/// voucher for deer crackers in Nara. The journeys get passes, which the phone app shows itself; it hands PDFs to
+/// another app. All are clearly samples. Scanned, the passes' codes say hello.
 /// </summary>
 public static partial class SampleTickets
 {
@@ -34,7 +34,43 @@ public static partial class SampleTickets
         },
     }, Strings);
 
-    /// <summary>The labels in English and German, keyed as in the passes.</summary>
+    /// <summary>The flight's boarding pass for both travellers: seats 32A and 32C, the window and the aisle of one row.</summary>
+    public static byte[] Flight(string date) => Build(new JsonObject
+    {
+        ["description"] = "Flight to Tokyo",
+        ["organizationName"] = "Jourfold sample",
+        ["relevantDate"] = date,
+        ["backgroundColor"] = "rgb(23, 37, 52)",
+        ["foregroundColor"] = "rgb(255, 255, 255)",
+        ["labelColor"] = "rgb(150, 214, 203)",
+        ["barcodes"] = Code("PKBarcodeFormatQR", "Jourfold sample boarding pass, not valid for travel. Have a good flight, Alex and Sam! Seat 32A is the window."),
+        ["boardingPass"] = new JsonObject
+        {
+            ["transitType"] = "PKTransitTypeAir",
+            ["headerFields"] = Fields(("flight", "flight", "LH 716")),
+            ["primaryFields"] = Fields(("from", "Frankfurt", "FRA"), ("to", "Tokyo Haneda", "HND")),
+            ["secondaryFields"] = Fields(("passengers", "passengers", "Alex, Sam")),
+            ["auxiliaryFields"] = Fields(("boarding", "boarding", "12:40"), ("departs", "departs", "13:20"), ("seats", "seats", "32A, 32C")),
+            ["backFields"] = Fields(("sample", "sample", "sample_note")),
+        },
+    }, FlightStrings);
+
+    /// <summary>The flight's labels in English and German, keyed as in the pass.</summary>
+    private static readonly Dictionary<string, (string En, string De)> FlightStrings = new()
+    {
+        ["flight"] = ("Flight", "Flug"),
+        ["passengers"] = ("Passengers", "Reisende"),
+        ["boarding"] = ("Boarding", "Einsteigen"),
+        ["departs"] = ("Departs", "Abflug"),
+        ["seats"] = ("Seats", "Plätze"),
+        ["sample"] = ("Sample", "Beispiel"),
+        ["sample_note"] = ("This is a sample boarding pass of Jourfold's sample trip. It is not valid for travel.",
+            "Dies ist eine Beispiel-Bordkarte der Beispielreise von Jourfold. Sie gilt nicht als Flugschein."),
+        ["Flight to Tokyo"] = ("Flight to Tokyo", "Flug nach Tokyo"),
+        ["Jourfold sample"] = ("Jourfold sample", "Jourfold-Beispiel"),
+    };
+
+    /// <summary>The Shinkansen's labels in English and German, keyed as in the pass.</summary>
     private static readonly Dictionary<string, (string En, string De)> Strings = new()
     {
         ["car"] = ("Car", "Wagen"),

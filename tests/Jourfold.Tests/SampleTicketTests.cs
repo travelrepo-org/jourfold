@@ -6,8 +6,8 @@ using Xunit;
 namespace Jourfold.Tests;
 
 /// <summary>
-/// The sample trip's tickets, one in each form: a Wallet pass on the Shinkansen, PDFs for the flight and teamLab, and a
-/// picture for the deer crackers in Nara.
+/// The sample trip's tickets, one in each form: Wallet passes for the flight and the Shinkansen, a PDF for teamLab, and
+/// a picture for the deer crackers in Nara.
 /// </summary>
 public sealed class SampleTicketTests
 {
@@ -20,7 +20,7 @@ public sealed class SampleTicketTests
         foreach (var (title, file, media) in new[]
         {
             ("Shinkansen to Kyoto", "Shinkansen to Kyoto.pkpass", Tickets.WalletPass),
-            ("Flight to Tokyo", "Boarding pass LH 716.pdf", "application/pdf"),
+            ("Flight to Tokyo", "Boarding pass LH 716.pkpass", Tickets.WalletPass),
             ("teamLab Planets", "teamLab Planets e-ticket.pdf", "application/pdf"),
             ("Nara deer park", "Deer crackers.png", "image/png"),
         })
@@ -57,10 +57,21 @@ public sealed class SampleTicketTests
     }
 
     [Fact]
+    public void TheFlightIsABoardingPassThePhoneShowsItself()
+    {
+        var bytes = SampleTickets.Flight("2027-05-14T13:20:00+02:00");
+        var english = WalletPass.Read(bytes, "en")!; var german = WalletPass.Read(bytes, "de")!;
+        Assert.Equal(("Flight to Tokyo", "Flug nach Tokyo"), (english.Description, german.Description));
+        Assert.Contains(english.Fields, f => f is { Label: "Frankfurt", Value: "FRA" });
+        Assert.Contains(german.Fields, f => f is { Label: "Plätze", Value: "32A, 32C" });
+        Assert.Contains("not valid for travel", english.Barcode!.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void TheTicketsAreTheSameEachTime()
     {
         Assert.Equal(SampleTickets.DeerCrackers(), SampleTickets.DeerCrackers());
-        Assert.Equal(SampleTickets.Flight("2027-05-14"), SampleTickets.Flight("2027-05-14"));
+        Assert.Equal(SampleTickets.Flight("x"), SampleTickets.Flight("x"));
         Assert.Equal(SampleTickets.Shinkansen("08:30", "x"), SampleTickets.Shinkansen("08:30", "x"));
     }
 }

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Jourfold in the share sheet of other apps: a share extension that keeps what is shared in the app group's inbox
+       until Jourfold takes it (docs/mobile.md, "Sharing to Jourfold"). Built and embedded by Jourfold.iOS. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-ios</TargetFramework>
+    <SupportedOSPlatformVersion>15.0</SupportedOSPlatformVersion>
+    <OutputType>Library</OutputType>
+    <IsAppExtension>true</IsAppExtension>
+    <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+    <!-- The app passes its own ID and version (Jourfold.iOS.csproj); an extension's bundle ID starts with the app's. -->
+    <JourfoldApplicationId Condition="'$(JourfoldApplicationId)' == ''">dev.jourfold.app</JourfoldApplicationId>
+    <ApplicationId>$(JourfoldApplicationId).Share</ApplicationId>
+    <ApplicationTitle>Jourfold</ApplicationTitle>
+    <ApplicationDisplayVersion Condition="'$(JourfoldDisplayVersion)' != ''">$(JourfoldDisplayVersion)</ApplicationDisplayVersion>
+    <ApplicationVersion Condition="'$(JourfoldApplicationVersion)' != ''">$(JourfoldApplicationVersion)</ApplicationVersion>
+    <!-- Both runtimes in one restore, as in the app (RestoreAllRids in Jourfold.iOS.csproj). -->
+    <RuntimeIdentifiers Condition="'$(RestoreAllRids)' == 'true'">ios-arm64;iossimulator-arm64</RuntimeIdentifiers>
+    <!-- Mono's own code generator, as in the app. -->
+    <MtouchUseLlvm>false</MtouchUseLlvm>
+  </PropertyGroup>
+  <!-- The simulator needs no signing identity and signs ad hoc. -->
+  <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('iossimulator-'))">
+    <CodesignKey>-</CodesignKey>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- The app group the app reads the inbox from. -->
+    <CustomEntitlements Include="com.apple.security.application-groups" Type="StringArray" Value="group.$(JourfoldApplicationId)"/>
+    <Compile Include="../Jourfold.iOS/SharedInbox.cs" Link="SharedInbox.cs"/>
+  </ItemGroup>
+</Project>

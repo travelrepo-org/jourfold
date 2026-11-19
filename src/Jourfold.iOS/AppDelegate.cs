@@ -68,6 +68,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
         notices.Start();
         zone = NSTimeZone.SystemTimeZone.Name;
+        // What was shared to Jourfold from other apps while it was not running.
+        WhenReady(session => { TakeShared(session); return Task.CompletedTask; });
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));
         return base.CustomizeAppBuilder(builder);
@@ -112,6 +114,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // Back on screen: notices may be due, and after a flight the time zone may have changed.
         var now = NSTimeZone.SystemTimeZone.Name; var changed = zone is not null && now != zone; zone = now;
         _ = IosNotices.RunAsync(host, changed);
+        // Back from another app's share sheet: what was shared there is waiting.
+        if (MobileApp.Session is { } session) TakeShared(session);
     }
 
     /// <summary>
@@ -140,6 +144,12 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
     /// Files opened in Jourfold from another app, such as a ticket from Mail or a PDF from the share sheet. iOS hands
     /// over a copy in the app's Inbox folder, which is removed once read.
     /// </summary>
+    /// <summary>Hands what the share extension kept to the app, which asks where it belongs.</summary>
+    private static void TakeShared(MobileSession session)
+    {
+        if (IosSharedInbox.Take() is { } shared) Avalonia.Threading.Dispatcher.UIThread.Post(() => session.Receive(shared));
+    }
+
     private static async Task ReceiveAsync(IEnumerable<IStorageItem> items)
     {
         var files = new List<SharedFile>();

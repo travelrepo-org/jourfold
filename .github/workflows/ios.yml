@@ -15,9 +15,9 @@ name: iOS
 on:
   push:
     branches: [main]
-    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.iOS.Share/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
   pull_request:
-    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
+    paths: ['src/Jourfold.iOS/**', 'src/Jourfold.iOS.Share/**', 'src/Jourfold.Mobile/**', 'src/Jourfold.UI/**', 'src/Jourfold.Application/**', 'Directory.Build.props', 'eng/sdk.json', '.github/workflows/ios.yml']
   workflow_dispatch:
   workflow_call:
     inputs:

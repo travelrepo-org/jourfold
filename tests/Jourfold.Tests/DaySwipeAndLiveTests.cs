@@ -153,7 +153,7 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         public void OpenLiveSettings() => OpenedLiveSettings++;
         public bool? LivePromoted => Live.LastOrDefault() is null ? null : promoted;
         public bool LiveByMakerOnly { get; init; }
-        public string LiveTexts { get; init; } = "LiveUpdates";
+        public LiveTexts LiveTexts { get; init; } = LiveTexts.Updates;
     }
 
     [AvaloniaTheory]
@@ -161,7 +161,7 @@ public sealed class DaySwipeAndLiveTests : IDisposable
     [InlineData(LiveSupport.Off, false, "Turned off in the Settings app.", "iOS did not show it.")]
     public async Task OnAnIPhoneTheSettingsSpeakOfLiveActivitiesOnTheLockScreen(LiveSupport support, bool promoted, string state, string result)
     {
-        var notices = new LiveNotices(support, promoted) { LiveTexts = "LiveActivities" };
+        var notices = new LiveNotices(support, promoted) { LiveTexts = LiveTexts.Activities };
         var (session, window) = await OpenAsync(notices);
         try
         {
@@ -179,15 +179,13 @@ public sealed class DaySwipeAndLiveTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
-    [Theory]
-    [InlineData("LiveUpdates")]
-    [InlineData("LiveActivities")]
-    public void BothPlatformsWordTheTravelDayInEnglishAndGerman(string texts)
+    [Fact]
+    public void BothPlatformsWordTheTravelDayInEnglishAndGerman()
     {
         foreach (var language in new[] { "en", "de" })
         {
             var s = new Localization(language);
-            foreach (var key in new[] { "", "On", "Off", "None", "Allow", "Promoted", "Plain" }.Select(part => texts + part).Append("LiveTimeLeft").Append("LiveProgress"))
+            foreach (var key in LiveTexts.Updates.All.Concat(LiveTexts.Activities.All).Append("LiveTimeLeft").Append("LiveProgress"))
                 Assert.NotEqual(key, s[key]);
         }
     }

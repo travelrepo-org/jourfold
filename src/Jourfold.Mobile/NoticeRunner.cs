@@ -19,6 +19,21 @@ public enum LiveSupport
 }
 
 /// <summary>
+/// The keys of the texts about the travel day's system surface, whole so they can be searched for: its name, what the
+/// system allows, the button to allow it, and what showing the example came to.
+/// </summary>
+public sealed record LiveTexts(string Title, string On, string Off, string None, string Allow, string Promoted, string Plain)
+{
+    /// <summary>Android 16's Live Updates in the status bar.</summary>
+    public static readonly LiveTexts Updates = new("LiveUpdates", "LiveUpdatesOn", "LiveUpdatesOff", "LiveUpdatesNone", "LiveUpdatesAllow", "LiveUpdatesPromoted", "LiveUpdatesPlain");
+
+    /// <summary>iOS's Live Activities on the Lock Screen and in the Dynamic Island.</summary>
+    public static readonly LiveTexts Activities = new("LiveActivities", "LiveActivitiesOn", "LiveActivitiesOff", "LiveActivitiesNone", "LiveActivitiesAllow", "LiveActivitiesPromoted", "LiveActivitiesPlain");
+
+    public IEnumerable<string> All => [Title, On, Off, None, Allow, Promoted, Plain];
+}
+
+/// <summary>
 /// The device's notifications, as the platform shows them. Jourfold works out what to show and when to wake up again;
 /// the platform shows it and wakes the app at that time, also when it is not running.
 /// </summary>
@@ -47,10 +62,10 @@ public interface ISystemNotices
     /// <summary>Whether the system may show the travel day in the status bar as well (Android 16's Live Updates).</summary>
     LiveSupport Live => LiveSupport.None;
     /// <summary>
-    /// The start of the keys the settings word the travel day's system surface with: Android's Live Updates in the status
-    /// bar ("LiveUpdates", "LiveUpdatesOn", ...) or iOS's Live Activities on the Lock Screen ("LiveActivities", ...).
+    /// The keys the settings word the travel day's system surface with: Android's Live Updates in the status bar or
+    /// iOS's Live Activities on the Lock Screen.
     /// </summary>
-    string LiveTexts => "LiveUpdates";
+    LiveTexts LiveTexts => LiveTexts.Updates;
     /// <summary>Opens the system page where the user allows Live Updates for the app.</summary>
     void OpenLiveSettings() { }
     /// <summary>

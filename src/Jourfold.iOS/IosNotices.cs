@@ -71,7 +71,7 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
     /// <summary>The travel day is a Live Activity where iOS has them: an iPhone with iOS 16.2 or newer.</summary>
     public bool ShowsLive => Live != LiveSupport.None;
     public LiveSupport Live => OnMain(() => IosLiveActivities.Support);
-    public string LiveTexts => "LiveActivities";
+    public LiveTexts LiveTexts => LiveTexts.Activities;
     public bool? LivePromoted => Live == LiveSupport.None ? null : OnMain(() => IosLiveActivities.Showing);
 
     /// <summary>Live Activities are allowed on the app's own page in the Settings app.</summary>

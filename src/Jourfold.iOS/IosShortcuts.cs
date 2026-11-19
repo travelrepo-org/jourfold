@@ -52,9 +52,11 @@ internal static class IosShortcuts
     private static unsafe void Connect(IntPtr self, IntPtr selector, IntPtr scene, IntPtr session, IntPtr options)
     {
         ((delegate* unmanaged<IntPtr, IntPtr, IntPtr, IntPtr, IntPtr, void>)connect)(self, selector, scene, session, options);
-        // An exception must not cross into Objective-C.
+        // No exception may leave a method UIKit calls: the runtime would end the app. A shortcut that fails only opens it.
+#pragma warning disable CA1031 // The boundary to Objective-C.
         try { if (Runtime.GetNSObject<UISceneConnectionOptions>(options)?.ShortcutItem is { } item) Perform(item); }
-        catch (Exception ex) when (ex is ObjCException or InvalidCastException or ArgumentException) { }
+        catch (Exception) { }
+#pragma warning restore CA1031
     }
 
     /// <summary>A quick action while the app runs or was suspended.</summary>
@@ -62,8 +64,11 @@ internal static class IosShortcuts
     private static unsafe void Performed(IntPtr self, IntPtr selector, IntPtr scene, IntPtr item, IntPtr completion)
     {
         var handled = false;
+        // As in Connect: nothing may leave this method, and the completion handler is always called, as UIKit expects.
+#pragma warning disable CA1031 // The boundary to Objective-C.
         try { handled = Runtime.GetNSObject<UIApplicationShortcutItem>(item) is { } shortcut && Perform(shortcut); }
-        catch (Exception ex) when (ex is ObjCException or InvalidCastException or ArgumentException) { }
+        catch (Exception) { }
+#pragma warning restore CA1031
         // The completion handler is a block: its function follows the class pointer, the flags and a reserved field.
         if (completion != IntPtr.Zero) ((delegate* unmanaged<IntPtr, byte, void>)Marshal.ReadIntPtr(completion, 16))(completion, handled ? (byte)1 : (byte)0);
     }

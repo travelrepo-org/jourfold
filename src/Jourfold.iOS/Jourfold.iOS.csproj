@@ -53,9 +53,11 @@
        The extension has a bundle ID of its own (<ApplicationId>.Share) and, on a device, needs a provisioning profile
        with the app group: a signed device build includes it only with -p:ShareExtensionProvision=<profile name or
        UUID> and otherwise builds as before, where files still come in through "Open in Jourfold". Builds for the
-       simulator and unsigned builds (the workflow's IPA) always include it. -->
+       simulator always include it. Unsigned builds, such as the workflow's IPA for sideloading, include it only with
+       -p:IncludeShareExtension=true: whether a free Apple ID and the sideloading tools sign the extension and the app
+       group is not known yet, and the IPA must stay installable. -->
   <PropertyGroup>
-    <JourfoldShareExtension Condition="$(RuntimeIdentifier.StartsWith('iossimulator-')) or '$(EnableCodeSigning)' == 'false' or '$(ShareExtensionProvision)' != ''">true</JourfoldShareExtension>
+    <JourfoldShareExtension Condition="$(RuntimeIdentifier.StartsWith('iossimulator-')) or '$(IncludeShareExtension)' == 'true' or '$(ShareExtensionProvision)' != ''">true</JourfoldShareExtension>
     <!-- Restored always, also without a runtime (the workflow restores both at once), so every build finds it. -->
     <JourfoldShareExtension Condition="'$(MSBuildIsRestoring)' == 'true'">true</JourfoldShareExtension>
   </PropertyGroup>

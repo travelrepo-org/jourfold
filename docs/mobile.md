@@ -191,7 +191,11 @@ Jourfold** (`CFBundleDocumentTypes`), where iOS hands over a copy.
 
 The extension needs a provisioning profile with the app group on a device. A signed device build includes it only
 with `-p:ShareExtensionProvision=<profile>`, and without one builds the app as before, without the extension and
-without the app group. Builds for the simulator and unsigned builds (the workflow's IPA) always include it.
+without the app group. Builds for the simulator always include it. Unsigned builds, such as the workflow's IPA for
+sideloading, include it only with `-p:IncludeShareExtension=true`: whether a free Apple ID (Personal Team) and
+AltStore, SideStore and Sideloadly sign the extension and its app group is not known yet, and the IPA must stay
+installable. Until someone has tried it, the IPA from GitHub has no share extension; files still come in through
+**Open in Jourfold** there.
 
 ## Files
 

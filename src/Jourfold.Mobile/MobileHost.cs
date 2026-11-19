@@ -53,6 +53,9 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
     public string TripsRoot => Path.Combine(DataRoot, "trips");
     public string RecoveryRoot => Path.Combine(DataRoot, "recovery");
 
+    /// <summary>The system's own tab bar for phones, as on iOS; null where the shell draws its bottom bar itself.</summary>
+    public ISystemBar? Bar { get; init; }
+
     /// <summary>
     /// What an Android device would call itself, for <see cref="Device"/>: a computer-like device such as a Chromebook,
     /// a phone when it can make calls and folds or has a phone-sized built-in screen, otherwise a tablet. Tablets with a

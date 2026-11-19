@@ -31,6 +31,14 @@ public sealed class AppShell : UserControl
     private Avalonia.Controls.Platform.IInsetsManager? insets;
     private Thickness safeArea;
     private Border? bottomBar;
+    // The system's own tab bar where the platform has one (iOS): the buttons it shows and what each does, and what of
+    // the page makes room for it at the bottom.
+    private bool barWanted;
+    private SystemBarItem[] barItems = [];
+    private Action[] barActions = [];
+    private int barSelected = -1;
+    private double barHeight;
+    private (Control Target, Thickness Original)? barInset;
     // The map stays while its trip is open, so it keeps its position and tiles when the page is drawn again.
     private MapPage? map;
     // Redrawing replaces every control on the page, so a text field being typed in would lose its focus and the
@@ -109,6 +117,11 @@ public sealed class AppShell : UserControl
             lastScroll = now; scrolled += step;
             if (scrolled > ScrollDistance || (speed > ScrollSpeed && scrolled > TapSlop)) Focus(Avalonia.Input.NavigationMethod.Pointer);
         }, RoutingStrategies.Bubble, handledEventsToo: true);
+        if (session.Host.Bar is { } systemBar)
+        {
+            systemBar.Tapped += i => Dispatcher.UIThread.Post(() => { if (i < barActions.Length) { acting = true; barActions[i](); } });
+            systemBar.HeightChanged += () => Dispatcher.UIThread.Post(BarInset);
+        }
         AddHandler(KeyDownEvent, OnKey, RoutingStrategies.Bubble);
         AddHandler(KeyDownEvent, OnCommandKey, RoutingStrategies.Tunnel);
         // Enter in a one-line field sends it, as its button would, so what it added shows at once.
@@ -240,8 +253,9 @@ public sealed class AppShell : UserControl
         // The bottom bar steps aside while typing, as on other Android apps.
         keyboard = open;
         if (bottomBar is not null) bottomBar.IsVisible = !keyboard;
+        SystemBar();
         // With the bottom bar the page reaches the screen's edge; without it the safe area is already left free.
-        var edge = bottomBar is not null ? 0 : safeArea.Bottom;
+        var edge = bottomBar is not null || barWanted ? 0 : safeArea.Bottom;
         main.Margin = new Thickness(0, 0, 0, keyboard ? Math.Max(0, height - edge) : 0);
     }
 
@@ -325,7 +339,7 @@ public sealed class AppShell : UserControl
     {
         pending = false; acting = false; drawnAt = Location();
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
-        bottomBar = null;
+        bottomBar = null; barWanted = false; barInset = null;
         Inset();
         // The keyboard goes with the field typed in. Android does not always say so, for example when back leaves the
         // trip while it is up; the page would then end half way up the screen, without the bottom bar, from then on.
@@ -335,7 +349,7 @@ public sealed class AppShell : UserControl
             // The settings open from the trip list too, in the same column as under More.
             var settings = MorePages.IsAppPage(Session.Page) && Session.RemoteTrips is null ? MorePages.Build(Session, Breakpoint) : null;
             main.Child = settings is null ? TripListView.Build(Session, Breakpoint) : Breakpoint >= WidthClass.Tablet ? new Border { Child = settings, MaxWidth = 760 } : settings;
-            Overlays(docked: false); return;
+            Overlays(docked: false); SystemBar(); return;
         }
         // Ticking something off, or any change that draws the page again, leaves it where it was scrolled to. The plan
         // keeps its own place per day, and the map has none.
@@ -348,6 +362,8 @@ public sealed class AppShell : UserControl
             MobileTab.Map => Map(),
             _ => MorePages.Build(Session, Breakpoint)
         };
+        // A new page starts at its top, and so does the system's bar, at full size.
+        if (!Equals(here, pageAt)) Session.Host.Bar?.Scrolled(0, 0, 1);
         drawnPage = page; pageAt = here;
         if (scrolled is { } offset && PageScroll(page) is { } after) ScrollPlace.Set(after, () => after.Offset = offset);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
@@ -355,7 +371,18 @@ public sealed class AppShell : UserControl
         if (Session.Tab == MobileTab.More && Breakpoint >= WidthClass.Tablet) page = new Border { Child = page, MaxWidth = 760 };
         // From 840 dp the details are a fixed column next to the page instead of a sheet over it.
         var docked = Breakpoint >= WidthClass.Tablet && Session.Showing == Overlay.Details && Session.OverlayItem is { } shown && Session.Trip?.Find(shown) is not null;
-        if (Breakpoint == WidthClass.Phone)
+        if (Breakpoint == WidthClass.Phone && Session.Host.Bar is not null)
+        {
+            // The system's bar floats over the page, which scrolls on beneath it and ends with room for it.
+            main.Child = page;
+            SystemBarPlaces(); barWanted = true;
+            barInset = BarInsetTarget(page);
+            // The page scrolling under the bar lets it shrink, as in other apps.
+            if (barInset?.Target is ScrollViewer scroll)
+                scroll.ScrollChanged += (_, e) => { if (barWanted && (e.OffsetDelta.Y != 0 || e.ExtentDelta.Y != 0 || e.ViewportDelta.Y != 0)) Session.Host.Bar?.Scrolled(scroll.Offset.Y, scroll.Extent.Height, scroll.Viewport.Height); };
+            BarInset();
+        }
+        else if (Breakpoint == WidthClass.Phone)
         {
             var grid = new Grid { RowDefinitions = new RowDefinitions("*,Auto") };
             grid.Children.Add(page); grid.Children.Add(BottomBar().Row(1));
@@ -367,6 +394,7 @@ public sealed class AppShell : UserControl
             main.Child = docked ? Ui.Columns("Auto,*,400", side, page, DetailColumn()) : Ui.Columns("Auto,*", side, page);
         }
         Overlays(docked);
+        SystemBar();
         // The new page takes its scroll position before it is drawn, so its top does not flash up first.
         ScrollPlace.Settle(main);
         if ((Session.FocusDraft is { } key ? MorePages.DraftPrefix + key : refocus) is { } target)
@@ -609,8 +637,52 @@ public sealed class AppShell : UserControl
         var label = Session.Strings["QuickAdd"];
         var plus = new Button { Content = Ui.Icon("plus", 26).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("plus");
         AutomationProperties.SetName(plus, label); ToolTip.SetTip(plus, label);
-        plus.Click += (_, _) => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
+        plus.Click += (_, _) => QuickAdd();
         return plus;
+    }
+
+    /// <summary>Quick Add, ready for an expense on the costs and for a booking on the bookings.</summary>
+    private void QuickAdd() => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
+
+    /// <summary>The bottom bar's buttons for the system's bar: the same places in the same order, the plus in the middle.</summary>
+    private void SystemBarPlaces()
+    {
+        var s = Session.Strings; var places = BarPlaces();
+        PlaceEntry[] order = [places[0], places[1], default, places[2], places[3]];
+        barItems = order.Select((p, i) => i == 2 ? new SystemBarItem("plus", s["Add"], Action: true) : new SystemBarItem(p.Icon, s[p.Label])).ToArray();
+        barActions = order.Select((p, i) => i == 2 ? QuickAdd : (Action)(() => Go(p))).ToArray();
+        barSelected = Array.FindIndex(order, p => p.Label is not null && IsAt(p));
+    }
+
+    /// <summary>
+    /// Shows the system's bar where the page has it, and hides it for the keyboard, a sheet, a menu or a question,
+    /// which cover the bottom bar too.
+    /// </summary>
+    private void SystemBar()
+    {
+        if (Session.Host.Bar is not { } bar) return;
+        var covered = keyboard || sheet is not null || overlays.Children.OfType<Control>().Any(c => !c.Classes.Contains("notice"));
+        if (!barWanted || covered) { bar.Hide(); return; }
+        bar.Show(barItems, barSelected, Accent(Avalonia.Styling.ThemeVariant.Light), Accent(Avalonia.Styling.ThemeVariant.Dark));
+        static Color Accent(Avalonia.Styling.ThemeVariant theme) =>
+            Avalonia.Application.Current?.TryGetResource("Accent", theme, out var value) == true && value is ISolidColorBrush brush ? brush.Color : Colors.Teal;
+    }
+
+    /// <summary>
+    /// What of the page leaves room for the system's bar: its scrolling part, so the last line scrolls above the bar,
+    /// or else the page itself, such as the map, which then ends above it.
+    /// </summary>
+    private static (Control, Thickness) BarInsetTarget(Control page) =>
+        page is MapPage ? (page, default) : (page as ScrollViewer ?? page.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled)) is { } scroll
+            ? (scroll, scroll.Padding) : (page, page.Margin);
+
+    /// <summary>Makes room for the system's bar at the page's bottom, as far as the bar reaches up.</summary>
+    private void BarInset()
+    {
+        if (Session.Host.Bar is { Height: > 0 and var height }) barHeight = height;
+        if (barInset is not ({ } target, var original)) return;
+        var room = new Thickness(original.Left, original.Top, original.Right, original.Bottom + barHeight);
+        if (target is ScrollViewer scroll) scroll.Padding = room; else target.Margin = room;
     }
 
     /// <summary>Today, Plan, the plus, the third place (the costs unless chosen otherwise), More: the plus sits in the middle, within thumb reach.</summary>

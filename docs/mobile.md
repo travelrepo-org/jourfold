@@ -10,8 +10,8 @@ for building the iOS app.
 - `src/Jourfold.UI`: the look shared with the desktop: colour and type tokens, icons, the brand mark, covers, the
   `Ui` factory and the UI strings.
 - `src/Jourfold.Mobile`: the phone and tablet interface. `MobileSession` holds the trips on the device and the open
-  trip's day plan (TravelRepo's `TripAgenda`); `AppShell` lays out the bottom bar on phones and a rail from 600 dp;
-  the views are in `Views/`. It is plain .NET and Avalonia, with no Android or iOS code.
+  trip's day plan (TravelRepo's `TripAgenda`); `AppShell` lays out the bottom bar on phones (on iPhone the system's
+  tab bar) and a rail from 600 dp; the views are in `Views/`. It is plain .NET and Avalonia, with no Android or iOS code.
 - `src/Jourfold.Android`: the Android app. It passes the app's private folder, the built-in Git (libgit2), the clock
   and the phone's time zone to `Jourfold.Mobile` through `MobileHost`, and shows the system splash screen.
 - `src/Jourfold.iOS`: the iPhone and iPad app, doing the same with the iOS services (Keychain, EventKit, user
@@ -135,6 +135,15 @@ A page opened with that button is a place like Today: it has no way back of its 
 button is marked wherever the page was opened from. While the map is not the third button, **More** lists it, and
 back from it returns to More. The sidebar on wide screens keeps Today, Plan, Map and More, since it lists the trip's
 pages below them.
+
+On iPhone the bottom bar is iOS's own tab bar (`IosTabBar` behind `ISystemBar`, set as `MobileHost.Bar`): from iOS 26
+it floats as Liquid Glass over the page, which scrolls on beneath it and ends with room for it, and it shrinks to the
+marked place while the page is scrolled down and opens again at the top or with a tap. The plus is the middle tab,
+captioned **Add**; it opens Quick Add and is never marked. The system draws the material, the highlight of the marked
+place, VoiceOver, Larger Text and the settings Reduce Transparency, Increase Contrast and Reduce Motion. The shell
+still decides the places and which one is marked; the tab bar only reports taps, and it steps aside for the keyboard,
+sheets, menus and questions as the drawn bar does. Older iOS versions get the classic tab bar. Android, the desktop
+and the rail from 600 dp, also on the iPad, keep the bar Jourfold draws itself.
 
 ## Search
 

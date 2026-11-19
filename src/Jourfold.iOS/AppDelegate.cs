@@ -66,6 +66,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo, CanOpen: IosSystem.CanOpen);
+        // On iPhones the bottom bar is the system's own tab bar.
+        MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar() };
         notices.Start();
         // Once on screen, the notices are worked out: a Live Activity can only start while Jourfold is in front, also
         // after a cold start, such as after an update of the app, which ends the one before.

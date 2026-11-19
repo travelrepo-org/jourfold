@@ -336,7 +336,10 @@ there yet.
 Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
 entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel
 day channel shows them at the top of the screen. The other notices keep the normal level. A user can turn this off in
-the Settings app under Notifications, Jourfold, Time Sensitive Notifications.
+the Settings app under Notifications, Jourfold, Time Sensitive Notifications. The entitlement is only in builds made
+with `-p:TimeSensitiveNotices=true` and in the simulator: whether a free Apple ID (Personal Team) and AltStore,
+SideStore and Sideloadly can sign it is not known yet, so the IPA from GitHub leaves it out, and iOS shows the same
+notices at the normal level there. Once someone has installed a build with it that way, it can be on everywhere.
 
 ## Problem reports
 

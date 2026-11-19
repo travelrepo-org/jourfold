@@ -7,8 +7,5 @@
   <array>
     <string>$(AppIdentifierPrefix)$(CFBundleIdentifier)</string>
   </array>
-  <!-- Departures, changes and arrivals come through a Focus (IosNotices). -->
-  <key>com.apple.developer.usernotifications.time-sensitive</key>
-  <true/>
 </dict>
 </plist>

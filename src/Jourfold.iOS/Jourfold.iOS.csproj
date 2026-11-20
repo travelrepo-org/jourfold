@@ -38,6 +38,12 @@
   <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('iossimulator-'))">
     <CodesignKey>-</CodesignKey>
   </PropertyGroup>
+  <!-- Departures, changes and arrivals as time-sensitive notifications, which come through a Focus (IosNotices). Only
+       with -p:TimeSensitiveNotices=true (and in the simulator): whether a free Apple ID and the sideloading tools can
+       sign the entitlement is not known, and without it iOS shows them at the normal level. -->
+  <ItemGroup Condition="'$(TimeSensitiveNotices)' == 'true' or $(RuntimeIdentifier.StartsWith('iossimulator-'))">
+    <CustomEntitlements Include="com.apple.developer.usernotifications.time-sensitive" Type="Boolean" Value="true"/>
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Jourfold.Mobile/Jourfold.Mobile.csproj"/>
     <ProjectReference Include="../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj" Condition="Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>

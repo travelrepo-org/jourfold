@@ -142,6 +142,9 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
             ? NSDictionary.FromObjectsAndKeys(new NSObject[] { new NSString(trip), new NSString(item.ToString()) }, new NSObject[] { new NSString(TripKey), new NSString(ItemKey) })
             : NSDictionary.FromObjectsAndKeys(new NSObject[] { new NSString(trip) }, new NSObject[] { new NSString(TripKey) });
         if (notice.Ticket) content.CategoryIdentifier = TicketCategory;
+        // The travel day comes through a Focus, as Android's travel day channel shows it at the top of the screen; the
+        // other notices wait for the user.
+        if (notice.Kind is NoticeKind.Departure or NoticeKind.Connection or NoticeKind.Arrival) content.InterruptionLevel = UNNotificationInterruptionLevel.TimeSensitive2;
         var trigger = after is { } wait ? UNTimeIntervalNotificationTrigger.CreateTrigger(Math.Max(1, wait.TotalSeconds), false) : null;
         return UNNotificationRequest.FromIdentifier(Prefix + notice.Key, content, trigger);
     }

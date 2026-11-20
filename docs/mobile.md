@@ -79,6 +79,9 @@ turned on online maps; it explains what is sent before that. "Where I am" asks A
 tapped and requests the location permission at that moment; the position only fills the fields.
 
 Navigate hands the place's position to the maps app; without one it searches for the address, then the name.
+Android offers the user's maps and navigation apps for the `geo:` link. iOS has no such link, so on iPhone and iPad
+Navigate opens Apple Maps, or, when Google Maps or Waze is installed, asks which of them to open
+(`Navigation.AppleApps`, checked with `canOpenURL` and the schemes in `LSApplicationQueriesSchemes`).
 
 The Map tab draws the selected day like the desktop's map (`MapSurface` in Jourfold.UI): numbered pins in the order
 of the plan, a dashed line through them and journeys as arcs. It pans with a finger and zooms with two fingers, a
@@ -339,6 +342,14 @@ choose from. The Dynamic Island and the lock screen's Live Activities are not su
 widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
 there yet.
 
+Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
+entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel
+day channel shows them at the top of the screen. The other notices keep the normal level. A user can turn this off in
+the Settings app under Notifications, Jourfold, Time Sensitive Notifications. The entitlement is only in builds made
+with `-p:TimeSensitiveNotices=true` and in the simulator: whether a free Apple ID (Personal Team) and AltStore,
+SideStore and Sideloadly can sign it is not known yet, so the IPA from GitHub leaves it out, and iOS shows the same
+notices at the normal level there. Once someone has installed a build with it that way, it can be on everywhere.
+
 ## Problem reports
 
 An unexpected error shows "Something went wrong" and is written to `logs/errors.log` on the device. The card offers
@@ -542,7 +553,10 @@ git clone https://github.com/libgit2/libgit2.git /tmp/libgit2 && git -C /tmp/lib
 dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 -t:Run
 ```
 
-`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`.
+`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`. The icon has a
+dark and a tinted variant beside the light one, so it follows the home screen's Customize setting (dark, tinted and,
+since iOS 26, clear). An Icon Composer `.icon` file with layers is not used: actool of Xcode 26.6 compiles one, but
+.NET for iOS 26.5 passes only asset catalogs to actool; .NET for iOS 27 does pass it and needs Xcode 27.
 
 **On a device without the Apple Developer Program.** A free Apple ID can sign apps for its own devices, with limits:
 the app stops starting after 7 days until it is signed and installed again (the trips stay as long as the app is not

@@ -66,7 +66,7 @@ public sealed class MapPage : UserControl
         if (newSheet)
         {
             if (sheet is not null) layers.Children.Remove(sheet);
-            sheet = new Sheet(header, list, [0.1, 0.42, 0.88], 1, side, s.Strings["Map"], docked: true);
+            sheet = new Sheet(header, list, [0.1, 0.42, 0.88], 1, side, s.Strings["Map"], docked: true) { Floating = s.Host.Bar is not null };
             layers.Children.Add(sheet);
         }
         else sheet?.Replace(header, list);

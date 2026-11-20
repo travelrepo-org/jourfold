@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
@@ -153,6 +154,41 @@ public sealed class IosNativeFeelTests : IDisposable
             Probe.Layout();
             Assert.False(called);
             Assert.Contains(Probe.All<Panel>(window), p => p.Classes.Contains("menu"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task WithIosBarTheDetailsFloatBelowTheTopAndReachTheEdgesAtIt()
+    {
+        var bar = new SearchBar();
+        var (session, window) = await OpenAsync(h => h with { Bar = bar });
+        try
+        {
+            var item = session.Trip!.Entities.Values.First(e => e.Type == "schedule_item");
+            session.ShowDetails(item.Id); Probe.Layout();
+            var sheet = Probe.All<Sheet>(window).Single();
+            Assert.True(sheet.Floating);
+            var panel = (Border)sheet.Children[1];
+            Assert.Equal(new Thickness(Sheet.FloatingGap, 0, Sheet.FloatingGap, Sheet.FloatingGap), panel.Margin);
+            Assert.Equal(new CornerRadius(Sheet.FloatingRadius), panel.CornerRadius);
+            sheet.Show(2); Probe.Layout();
+            Assert.Equal(default, panel.Margin);
+            Assert.Equal(new CornerRadius(20, 20, 0, 0), panel.CornerRadius);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task WithoutIosBarSheetsKeepTheirEdges()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowDetails(session.Trip!.Entities.Values.First(e => e.Type == "schedule_item").Id); Probe.Layout();
+            var sheet = Probe.All<Sheet>(window).Single();
+            Assert.False(sheet.Floating);
+            Assert.Equal(default, ((Border)sheet.Children[1]).Margin);
         }
         finally { window.Close(); session.Dispose(); }
     }

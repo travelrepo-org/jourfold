@@ -154,6 +154,20 @@ public sealed class Sheet : Grid
         set { if (bottomInset != value) { bottomInset = value; Place(); } }
     }
 
+    /// <summary>
+    /// Whether the sheet floats above the screen's edges below its top detent, with rounded corners all round, as
+    /// iOS 26 shows its sheets; at the top detent it reaches the edges again. Off on Android.
+    /// </summary>
+    public bool Floating
+    {
+        get => floating;
+        set { if (floating != value) { floating = value; Place(); } }
+    }
+    private bool floating;
+
+    /// <summary>How far a floating sheet keeps from the screen's edges, and the radius of its corners.</summary>
+    public const double FloatingGap = 8, FloatingRadius = 32;
+
     /// <summary>Replaces what the sheet shows, keeping its detent and the scroll position.</summary>
     public void Replace(Control header, Control content)
     {
@@ -169,11 +183,15 @@ public sealed class Sheet : Grid
     private void Place()
     {
         if (Bounds.Height <= 0) return;
-        panel.Margin = new Thickness(0, 0, 0, keyboard);
-        // Above the keyboard the system's buttons are covered anyway.
-        scroll.Padding = new Thickness(0, 0, 0, keyboard > 0 ? 0 : bottomInset);
+        // Below the top detent a floating sheet keeps clear of the edges; pulled up to the top it reaches them, as iOS's
+        // own sheets do. With the keyboard up it sits on the keyboard.
+        var floats = floating && !side && keyboard == 0 && detents.Length > 1 && (dragHeight is { } dragged ? dragged < Bounds.Height * detents[^1] - 1 : detent < detents.Length - 1);
+        panel.Margin = floats ? new Thickness(FloatingGap, 0, FloatingGap, FloatingGap) : new Thickness(0, 0, 0, keyboard);
+        if (!side) panel.CornerRadius = floats ? new CornerRadius(FloatingRadius) : new CornerRadius(20, 20, 0, 0);
+        // Above the keyboard the system's buttons are covered anyway; a floating sheet already ends above part of them.
+        scroll.Padding = new Thickness(0, 0, 0, keyboard > 0 ? 0 : floats ? Math.Max(0, bottomInset - FloatingGap) : bottomInset);
         if (side) return;
-        var available = Bounds.Height - keyboard;
+        var available = Bounds.Height - keyboard - (floats ? FloatingGap : 0);
         // With the keyboard up the sheet takes the room above it.
         panel.Height = keyboard > 0 ? available * 0.96 : dragHeight ?? available * detents[detent];
         // Touch scrolling would take every drag in the content; below the top detent the drag belongs to the sheet.

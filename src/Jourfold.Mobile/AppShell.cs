@@ -510,7 +510,7 @@ public sealed class AppShell : UserControl
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);
-            if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); Inset(); }
+            if (sheet is not null) { sheet.Floating = Session.Host.Bar is not null; sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); Inset(); }
         }
         // A long-press menu sits above the page and the sheet, a question above everything else.
         foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);

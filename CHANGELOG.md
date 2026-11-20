@@ -2,6 +2,33 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.16.0 “Offbeat Otter” – 2026-11-20
+
+### Highlights
+
+- On iPhone, the travel day is a Live Activity on the Lock Screen and in the Dynamic Island, with the countdown, the way to the destination and "Show ticket". Jourfold is in other apps' share sheet for tickets, links and text, a long press on its icon lists the tickets of the next journeys, and a swipe from the left edge goes back.
+- The timetable on phones shows a second time zone in small type under each hour, such as the time at home. Tap the zone names above the hours to choose it; "Another time zone…" finds any zone in the world.
+- During the trip, the calendar leaf with today's date beside the search in the plan leads back to today, and in the timetable to the current hour.
+
+### Changes
+
+- On iPhone, the bottom bar is the system's tab bar. From iOS 26 it floats as Liquid Glass over the page and shrinks while you scroll down.
+- On Android phones and tablets, the bar marks the chosen place with a pill behind its icon, in the style of Material 3.
+- The app icon follows the home screen: on iPhone the dark, tinted and clear looks of iOS 18 and later, and on Android 13 and later the themed icons, when you turn them on. Otherwise it stays as it was.
+- On iPhone, Navigate asks whether to open Apple Maps, Google Maps or Waze when more than one of them is installed.
+- In the costs on phones and tablets, a tap on a category under "By category" lists only its payments. The category shows in the search field; tap it there to see all payments again.
+- Adding with the plus: the chosen day starts in the middle of the row of days, a journey can arrive any number of days later ("+N" beside "+2 days"), and what an expense belongs to is chosen from a list you can search.
+- Long lists to choose from on phones and tablets have a search field and stay above the keyboard.
+- On phones and tablets, a long press on a place copies its address.
+- The sample trip has tickets: Wallet passes for the flight and the Shinkansen, a PDF and an image.
+- Problem reports from an iPhone name the exact model and system build.
+- "Show an example" for Live Updates is gone from the settings; it was a tool for testing. The note about Samsung's developer option now says that it is about Samsung phones.
+
+### Fixes
+
+- Words such as "Afternoon" in the plan's time column no longer break inside the word.
+- Something shared with Jourfold while the share sheet was still open replaces what was shown there, instead of the earlier share staying.
+
 ## 0.15.2 “Unbothered Unicorn” – 2026-11-18
 
 ### Highlights

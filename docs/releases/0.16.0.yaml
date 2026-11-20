@@ -1,0 +1,42 @@
+# Release notes for Jourfold 0.16.0. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.16.0
+date: 2026-11-20
+highlights:
+  - icon: smartphone
+    en: "On iPhone, the travel day is a Live Activity on the Lock Screen and in the Dynamic Island, with the countdown, the way to the destination and \"Show ticket\". Jourfold is in other apps' share sheet for tickets, links and text, a long press on its icon lists the tickets of the next journeys, and a swipe from the left edge goes back."
+    de: "Auf dem iPhone ist der Reisetag eine Live-Aktivität auf dem Sperrbildschirm und in der Dynamic Island, mit Countdown, dem Weg zum Ziel und „Ticket zeigen“. Jourfold steht im Teilen-Menü anderer Apps für Tickets, Links und Text, langes Drücken auf das Symbol zeigt die Tickets der nächsten Fahrten, und ein Wisch vom linken Rand geht zurück."
+  - icon: clock
+    en: "The timetable on phones shows a second time zone in small type under each hour, such as the time at home. Tap the zone names above the hours to choose it; \"Another time zone…\" finds any zone in the world."
+    de: "Die Zeitleiste auf dem Handy zeigt unter jeder Stunde klein eine zweite Zeitzone, etwa die Zeit zu Hause. Tippen Sie auf die Zonennamen über den Stunden, um sie zu wählen; „Andere Zeitzone…“ findet jede Zone der Welt."
+  - icon: calendar
+    en: "During the trip, the calendar leaf with today's date beside the search in the plan leads back to today, and in the timetable to the current hour."
+    de: "Während der Reise führt das Kalenderblatt mit dem heutigen Datum neben der Suche im Plan zurück zu heute, in der Zeitleiste zur aktuellen Stunde."
+changes:
+  - en: "On iPhone, the bottom bar is the system's tab bar. From iOS 26 it floats as Liquid Glass over the page and shrinks while you scroll down."
+    de: "Auf dem iPhone ist die Leiste unten die Tab-Leiste des Systems. Ab iOS 26 schwebt sie als Liquid Glass über der Seite und wird beim Herunterscrollen kleiner."
+  - en: "On Android phones and tablets, the bar marks the chosen place with a pill behind its icon, in the style of Material 3."
+    de: "Auf Android-Handys und -Tablets markiert die Leiste den gewählten Bereich mit einer Pille hinter dem Symbol, im Stil von Material 3."
+  - en: "The app icon follows the home screen: on iPhone the dark, tinted and clear looks of iOS 18 and later, and on Android 13 and later the themed icons, when you turn them on. Otherwise it stays as it was."
+    de: "Das App-Symbol folgt dem Homescreen: auf dem iPhone den Darstellungen Dunkel, Getönt und Klar ab iOS 18, auf Android ab Version 13 den Designsymbolen, wenn Sie sie einschalten. Sonst bleibt es, wie es war."
+  - en: "On iPhone, Navigate asks whether to open Apple Maps, Google Maps or Waze when more than one of them is installed."
+    de: "Auf dem iPhone fragt Navigieren, ob Apple Karten, Google Maps oder Waze öffnen soll, wenn mehr als eine davon installiert ist."
+  - en: "In the costs on phones and tablets, a tap on a category under \"By category\" lists only its payments. The category shows in the search field; tap it there to see all payments again."
+    de: "In den Kosten auf Handys und Tablets zeigt ein Tipp auf eine Kategorie unter „Nach Kategorie“ nur deren Zahlungen. Die Kategorie steht dann im Suchfeld; ein Tipp darauf zeigt wieder alle Zahlungen."
+  - en: "Adding with the plus: the chosen day starts in the middle of the row of days, a journey can arrive any number of days later (\"+N\" beside \"+2 days\"), and what an expense belongs to is chosen from a list you can search."
+    de: "Hinzufügen mit dem Plus: Der gewählte Tag steht in der Mitte der Tagesreihe, eine Fahrt kann beliebig viele Tage später ankommen („+N“ neben „+2 Tage“), und wozu eine Ausgabe gehört, wählen Sie aus einer durchsuchbaren Liste."
+  - en: "Long lists to choose from on phones and tablets have a search field and stay above the keyboard."
+    de: "Lange Auswahllisten auf Handys und Tablets haben ein Suchfeld und bleiben über der Tastatur."
+  - en: "On phones and tablets, a long press on a place copies its address."
+    de: "Auf Handys und Tablets kopiert langes Drücken auf einen Ort seine Adresse."
+  - en: "The sample trip has tickets: Wallet passes for the flight and the Shinkansen, a PDF and an image."
+    de: "Die Beispielreise hat Tickets: Wallet-Pässe für den Flug und den Shinkansen, ein PDF und ein Bild."
+  - en: "Problem reports from an iPhone name the exact model and system build."
+    de: "Problemberichte von einem iPhone nennen das genaue Modell und den Systembuild."
+  - en: "\"Show an example\" for Live Updates is gone from the settings; it was a tool for testing. The note about Samsung's developer option now says that it is about Samsung phones."
+    de: "„Beispiel zeigen“ für Live-Updates ist aus den Einstellungen verschwunden; es war ein Werkzeug zum Testen. Der Hinweis auf die Entwickleroption von Samsung sagt jetzt, dass er Samsung-Handys betrifft."
+fixes:
+  - en: "Words such as \"Afternoon\" in the plan's time column no longer break inside the word."
+    de: "Wörter wie „Nachmittags“ in der Zeitspalte des Plans brechen nicht mehr mitten im Wort um."
+  - en: "Something shared with Jourfold while the share sheet was still open replaces what was shown there, instead of the earlier share staying."
+    de: "Was an Jourfold geteilt wird, während das Teilen-Fenster noch offen ist, ersetzt dessen Inhalt, statt dass das vorher Geteilte stehen bleibt."

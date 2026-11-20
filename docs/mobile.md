@@ -79,6 +79,9 @@ turned on online maps; it explains what is sent before that. "Where I am" asks A
 tapped and requests the location permission at that moment; the position only fills the fields.
 
 Navigate hands the place's position to the maps app; without one it searches for the address, then the name.
+Android offers the user's maps and navigation apps for the `geo:` link. iOS has no such link, so on iPhone and iPad
+Navigate opens Apple Maps, or, when Google Maps or Waze is installed, asks which of them to open
+(`Navigation.AppleApps`, checked with `canOpenURL` and the schemes in `LSApplicationQueriesSchemes`).
 
 The Map tab draws the selected day like the desktop's map (`MapSurface` in Jourfold.UI): numbered pins in the order
 of the plan, a dashed line through them and journeys as arcs. It pans with a finger and zooms with two fingers, a
@@ -122,6 +125,15 @@ With a mouse, rows, places and cards show where the pointer is (only then, so a 
 and a right click opens the same menu as a long press. A hardware keyboard has Ctrl+N for Quick Add, Ctrl+K or
 Ctrl+F for the search, Ctrl+1 to Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and
 Map, and Escape to go back.
+
+Back is Android's back button or gesture. iOS has none, so on iPhone and iPad a swipe to the right that starts at
+the left edge of the screen (within 24 points) does the same (`IosBackGesture`, `AppShell.GoBack`): a menu or sheet
+closes, details go back, a page goes back to where it was opened from, then to Today and to the trip list. A swipe
+that starts further in still moves the days; once the edge swipe is recognised, the touch is taken from the page, so
+the day stays. On the map with nothing over it, a drag from the edge pans the map instead
+(`AppShell.EdgeSwipeGoesBack`); its sheets and menus still close with the swipe. The back buttons in the app stay as
+they are. It is a pan that starts at the edge rather than iOS's
+edge-pan recogniser, which the simulator's touches do not trigger.
 
 ## The bar and its third button
 
@@ -340,10 +352,50 @@ does not count as swiped away.
 iOS does not wake apps at a set time. There `NoticeRunner` hands the coming notices (up to 60, the soonest first) to
 the system ahead (`ISystemNotices.Schedule`), and iOS shows them by itself, also when Jourfold is not running; they
 are worked out again whenever Jourfold comes on screen, after edits and syncs, and in a background refresh when iOS
-allows one. iOS has no ongoing notification, so departures are announced like the other notices, and no kinds to
-choose from. The Dynamic Island and the lock screen's Live Activities are not supported: they need an ActivityKit
-widget extension written in Swift beside the .NET app, which does not exist yet; the settings button opens Jourfold's page in the Settings app. Ticket shortcuts on the app icon are not
-there yet.
+allows one. Departures are announced like the other notices, and there are no kinds to choose from.
+
+**Live Activities.** On an iPhone with iOS 16.2 or newer the travel day is a Live Activity on the Lock Screen and in
+the Dynamic Island, with the same `LiveNotice` as Android's notification: the title and text, the vehicle, the
+countdown to the departure or arrival, while under way the progress between the vehicle and a pin at the destination
+with the times of both ends, and "Show ticket". The compact Dynamic Island
+shows `LiveNotice.Chip`, the time, and from `LiveNotice.CountdownFrom` (the last hour) the time left. iOS does not wake
+Jourfold every minute, so the countdown and the progress move on by themselves (`Text(timerInterval:)`,
+`ProgressView(timerInterval:)`), and the next part of the day, such as the way to the arrival after the departure,
+appears when Jourfold runs again: on screen, after edits and syncs, or in a background refresh. Without that the
+activity stays at zero after its time until iOS ends it, after eight hours at most. There is no push server; nothing
+leaves the device. A tap opens the plan (`jourfold://notice?trip=…&item=…`), "Show ticket" its ticket. iOS reports an
+activity the user swiped away the same as one it removed itself, such as after an update of the app, so unlike
+Android it comes back the next time Jourfold runs while the journey is on; Live Activities can be turned off for
+Jourfold in the Settings app. Jourfold works the notices out once it is on screen, also after a cold start, as iOS
+starts a Live Activity only then. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
+is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and have **Show an example**; on
+an iPad or before iOS 16.2 the part is not there.
+
+ActivityKit is Swift only, so `src/Jourfold.iOS/LiveActivity` has a small Swift bridge with an Objective-C interface
+(`JourfoldLive.framework`, called by `IosLiveActivities`) and a WidgetKit extension that draws the activity
+(`JourfoldLiveActivity.appex`, iOS 16.2 and newer); both share `TravelDayAttributes.swift`, and the texts come from
+`en.json` and `de.json` through the activity's content. `LiveActivity/build.sh` builds both with `swiftc` from the Xcode
+the build uses (target `BuildLiveActivity` in the project). The extension has a bundle ID of its own,
+`<ApplicationId>.LiveActivity`, and on a device needs a provisioning profile for it: a signed device build includes
+it only with `-p:LiveActivityProvision=path/to/profile.mobileprovision` and otherwise builds the app without Live
+Activities, as before. Builds for the simulator and unsigned builds (the workflow's IPA) always include it;
+whether sideloading tools sign the extension along with the app is not tried yet.
+
+The ticket shortcuts are quick actions on the app icon on iOS too (`IosShortcuts`, `UIApplication.ShortcutItems`): a
+long press on the icon lists the tickets of the next journeys, and one opens its plan and ticket. Avalonia's scene
+delegate neither answers quick actions nor passes on the one that started the app, so while the app launches Jourfold
+adds `windowScene:performActionForShortcutItem:completionHandler:` to its Objective-C class and wraps its
+`scene:willConnectToSession:options:`, whose options carry a quick action that started the app. Without that class,
+as in another version of Avalonia, the app runs as before, without shortcuts. Like on Android, the shortcuts only
+list journeys within the next day that have a ticket.
+
+Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
+entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel
+day channel shows them at the top of the screen. The other notices keep the normal level. A user can turn this off in
+the Settings app under Notifications, Jourfold, Time Sensitive Notifications. The entitlement is only in builds made
+with `-p:TimeSensitiveNotices=true` and in the simulator: whether a free Apple ID (Personal Team) and AltStore,
+SideStore and Sideloadly can sign it is not known yet, so the IPA from GitHub leaves it out, and iOS shows the same
+notices at the normal level there. Once someone has installed a build with it that way, it can be on everywhere.
 
 ## Problem reports
 
@@ -548,7 +600,10 @@ git clone https://github.com/libgit2/libgit2.git /tmp/libgit2 && git -C /tmp/lib
 dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 -t:Run
 ```
 
-`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`.
+`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`. The icon has a
+dark and a tinted variant beside the light one, so it follows the home screen's Customize setting (dark, tinted and,
+since iOS 26, clear). An Icon Composer `.icon` file with layers is not used: actool of Xcode 26.6 compiles one, but
+.NET for iOS 26.5 passes only asset catalogs to actool; .NET for iOS 27 does pass it and needs Xcode 27.
 
 **On a device without the Apple Developer Program.** A free Apple ID can sign apps for its own devices, with limits:
 the app stops starting after 7 days until it is signed and installed again (the trips stay as long as the app is not
@@ -569,6 +624,7 @@ passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time c
 turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an
 iPhone: signing in with GitHub, cloning a shared trip, Today, Plan and Map, editing and sync work. Not tried on a device
 yet: notifications, the calendar and the camera beyond starting them, and ⌘ keys on an iPad with a hardware keyboard.
+The Live Activity ran on an iPhone, signed with a profile of its own for the extension (`LiveActivityProvision`).
 
 ## Screenshots
 

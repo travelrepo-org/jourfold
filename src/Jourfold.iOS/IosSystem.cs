@@ -64,17 +64,39 @@ internal static class IosSystem
         return true;
     }
 
-    /// <summary>What a problem report says about the device: facts any app may read, without a permission.</summary>
+    /// <summary>Whether an installed app takes the link; iOS answers only for the schemes in LSApplicationQueriesSchemes.</summary>
+    public static bool CanOpen(Uri link) => NSUrl.FromString(link.AbsoluteUri) is { } url && UIApplication.SharedApplication.CanOpenUrl(url);
+
+    /// <summary>
+    /// What a problem report says about the device: facts any app may read, without a permission. The model is Apple's
+    /// identifier, such as "iPhone17,1", since UIDevice only says "iPhone"; the simulator names the device it plays.
+    /// </summary>
     public static IReadOnlyList<(string Key, string Value)> SystemInfo()
     {
         var device = UIDevice.CurrentDevice; var screen = UIScreen.MainScreen;
+        var model = Environment.GetEnvironmentVariable("SIMULATOR_MODEL_IDENTIFIER") is { Length: > 0 } simulated ? simulated + " (Simulator)" : Sysctl("hw.machine");
         return
         [
-            ("ReportInfoDevice", device.Model),
+            ("ReportInfoDevice", string.IsNullOrEmpty(model) ? device.Model : device.Model + " (" + model + ")"),
             ("ReportInfoSystem", device.SystemName + " " + device.SystemVersion),
-            ("ReportInfoScreen", (int)screen.NativeBounds.Width + " × " + (int)screen.NativeBounds.Height + " px, " + screen.NativeScale.ToString("0.#", CultureInfo.InvariantCulture) + "×")
+            ("ReportInfoBuild", Sysctl("kern.osversion") ?? ""),
+            ("ReportInfoScreen", (int)screen.NativeBounds.Width + " × " + (int)screen.NativeBounds.Height + " px, " + screen.NativeScale.ToString("0.#", CultureInfo.InvariantCulture) + "×"),
+            ("ReportInfoProcessor", System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString().ToLowerInvariant())
         ];
     }
+
+    /// <summary>A text the system tells any app, such as the model or the system's build; null when it does not.</summary>
+    private static string? Sysctl(string name)
+    {
+        nuint size = 0;
+        if (SysctlByName(name, IntPtr.Zero, ref size, IntPtr.Zero, 0) != 0 || size == 0) return null;
+        var buffer = System.Runtime.InteropServices.Marshal.AllocHGlobal((nint)size);
+        try { return SysctlByName(name, buffer, ref size, IntPtr.Zero, 0) == 0 ? System.Runtime.InteropServices.Marshal.PtrToStringUTF8(buffer) : null; }
+        finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(buffer); }
+    }
+
+    [System.Runtime.InteropServices.DllImport("/usr/lib/libSystem.dylib", EntryPoint = "sysctlbyname")]
+    private static extern int SysctlByName([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPUTF8Str)] string name, IntPtr value, ref nuint size, IntPtr newValue, nuint newSize);
 
     /// <summary>A shared text with its title, which mail apps take as the subject, as on Android.</summary>
     private sealed class SharedText(string title, string text) : UIActivityItemSource

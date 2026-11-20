@@ -39,7 +39,7 @@ public sealed partial class MobileSession
         await NoticeRunner.RunAsync(Host, ct: ct);
         // The system decides a moment after the notification is posted.
         await Task.Delay(TimeSpan.FromMilliseconds(600), ct);
-        LiveExampleResult = Strings[notices.LivePromoted switch { true => "LiveExamplePromoted", false when notices.Live != LiveSupport.None => "LiveExamplePlain", _ => "LiveExampleShown" }];
+        LiveExampleResult = Strings[notices.LivePromoted switch { true => notices.LiveTexts.Promoted, false when notices.Live != LiveSupport.None => notices.LiveTexts.Plain, _ => "LiveExampleShown" }];
         Changed?.Invoke();
     }
 

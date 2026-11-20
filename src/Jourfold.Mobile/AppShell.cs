@@ -371,6 +371,7 @@ public sealed class AppShell : UserControl
         pending = false; acting = false; drawnAt = Location();
         Breakpoint = Classify(Bounds.Width > 0 ? Bounds.Width : 412);
         bottomBar = null; barWanted = false; barInset = null;
+        Session.SearchInBar = Breakpoint == WidthClass.Phone && Session.Host.Bar is { SearchTab: true };
         Inset();
         // The keyboard goes with the field typed in. Android does not always say so, for example when back leaves the
         // trip while it is up; the page would then end half way up the screen, without the bottom bar, from then on.
@@ -704,14 +705,25 @@ public sealed class AppShell : UserControl
     /// <summary>Quick Add, ready for an expense on the costs and for a booking on the bookings.</summary>
     private void QuickAdd() => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
 
-    /// <summary>The bottom bar's buttons for the system's bar: the same places in the same order, the plus in the middle.</summary>
+    /// <summary>
+    /// The bottom bar's buttons for the system's bar: the same places in the same order, the plus in the middle, and the
+    /// search set apart after them where the system has a place for it.
+    /// </summary>
     private void SystemBarPlaces()
     {
         var s = Session.Strings; var places = BarPlaces();
         PlaceEntry[] order = [places[0], places[1], default, places[2], places[3]];
-        barItems = order.Select((p, i) => i == 2 ? new SystemBarItem("plus", s["Add"], Action: true) : new SystemBarItem(p.Icon, s[p.Label])).ToArray();
-        barActions = order.Select((p, i) => i == 2 ? QuickAdd : (Action)(() => Go(p))).ToArray();
-        barSelected = Array.FindIndex(order, p => p.Label is not null && IsAt(p));
+        var items = order.Select((p, i) => i == 2 ? new SystemBarItem("plus", s["Add"], Action: true) : new SystemBarItem(p.Icon, s[p.Label])).ToList();
+        var actions = order.Select((p, i) => i == 2 ? QuickAdd : (Action)(() => Go(p))).ToList();
+        var searching = Session.Tab == MobileTab.More && Session.Page == "search";
+        barSelected = searching ? -1 : Array.FindIndex(order, p => p.Label is not null && IsAt(p));
+        if (Session.SearchInBar)
+        {
+            items.Add(new SystemBarItem("search", s["Search"], Search: true));
+            actions.Add(Session.ShowSearch);
+            if (searching) barSelected = items.Count - 1;
+        }
+        barItems = [.. items]; barActions = [.. actions];
     }
 
     /// <summary>

@@ -518,8 +518,8 @@ public sealed class AppShell : UserControl
         // A file opened from the details covers the whole screen; back returns to the details.
         if (Session.Viewing.Count > 0) overlays.Children.Add(FileView.Build(Session, Session.Viewing[^1]).Classed("viewer"));
         if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
-        if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
-        if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+        if (Session.Menu is { } menu && !SystemMenu(menu)) overlays.Children.Add(Menu(menu));
+        if (Session.Asking is { } question && !SystemQuestion(question)) overlays.Children.Add(Question(question));
         if (Session.ChangeProblem is { } problem) overlays.Children.Add(Problem(problem));
     }
 
@@ -597,6 +597,45 @@ public sealed class AppShell : UserControl
         scrim.PointerPressed += (_, e) => { Session.CloseOverlay(); e.Handled = true; };
         menuPanel = panel;
         return new Panel { Children = { scrim, panel } }.Classed("menu");
+    }
+
+    // The menu or question shown in the system's own sheet now, so drawing the page again does not show it twice.
+    private object? systemDialog;
+
+    /// <summary>Shows the menu in the system's action sheet where there is one; false when the app draws it itself.</summary>
+    private bool SystemMenu(ActionMenu menu)
+    {
+        if (Session.Host.ShowMenu is not { } show || !SystemDialogs.Fits(menu)) return false;
+        if (ReferenceEquals(systemDialog, menu)) return true;
+        systemDialog = menu;
+        var entries = menu.Actions.Select(a => new SystemMenuEntry(a.Label, a.Danger)).ToArray();
+        _ = Choose();
+        return true;
+        async Task Choose()
+        {
+            var chosen = await show(new SystemMenu(menu.Title, menu.Detail, entries, Session.Strings["Cancel"]));
+            if (ReferenceEquals(systemDialog, menu)) systemDialog = null;
+            // Something else may have replaced the menu meanwhile, such as a notification opening a trip.
+            if (!ReferenceEquals(Session.Menu, menu)) return;
+            if (chosen is { } i && i >= 0 && i < menu.Actions.Count) await Session.ChooseAsync(menu.Actions[i], TopLevel.GetTopLevel(this));
+            else Session.CloseOverlay();
+        }
+    }
+
+    /// <summary>Asks the question in the system's alert where there is one; false when the app draws it itself.</summary>
+    private bool SystemQuestion(Question question)
+    {
+        if (Session.Host.Ask is not { } ask) return false;
+        if (ReferenceEquals(systemDialog, question)) return true;
+        systemDialog = question;
+        _ = Answer();
+        return true;
+        async Task Answer()
+        {
+            var yes = await ask(new SystemQuestion(question.Text, question.Detail, question.Action, question.Decline ?? Session.Strings["Cancel"]));
+            if (ReferenceEquals(systemDialog, question)) systemDialog = null;
+            if (ReferenceEquals(Session.Asking, question)) await Session.AnswerAsync(yes);
+        }
     }
 
     /// <summary>A short notice at the bottom, above the sheet and the bottom bar, that goes away by itself.</summary>

@@ -68,6 +68,15 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
     /// <summary>The system's own date picker, opened from a date field: the day shown and the field's name.</summary>
     public Func<DateTime?, string?, Task<Controls.PickedDate>>? PickDate { get; init; }
 
+    /// <summary>
+    /// The system's own action sheet for a long-press menu: the number of the chosen entry, or null when cancelled. Null
+    /// where the app draws its menus itself, as on Android.
+    /// </summary>
+    public Func<SystemMenu, Task<int?>>? ShowMenu { get; init; }
+
+    /// <summary>The system's own alert for a question: true for its action, false for the way out.</summary>
+    public Func<SystemQuestion, Task<bool>>? Ask { get; init; }
+
     /// <summary>The system's own tab bar for phones, as on iOS; null where the shell draws its bottom bar itself.</summary>
     public ISystemBar? Bar { get; init; }
 

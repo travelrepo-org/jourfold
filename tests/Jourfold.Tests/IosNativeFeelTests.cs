@@ -107,6 +107,56 @@ public sealed class IosNativeFeelTests : IDisposable
         }
         finally { window.Close(); session.Dispose(); }
     }
+    [AvaloniaFact]
+    public async Task MenusAndQuestionsUseTheSystemsSheetsAndRunWhatWasChosen()
+    {
+        SystemMenu? shownMenu = null; SystemQuestion? asked = null;
+        var (session, window) = await OpenAsync(h => h with
+        {
+            ShowMenu = m => { shownMenu = m; return Task.FromResult<int?>(1); },
+            Ask = q => { asked = q; return Task.FromResult(true); }
+        });
+        try
+        {
+            var ran = new List<string>();
+            session.ShowMenu(new ActionMenu("Senso-ji", null,
+            [
+                new MenuAction("Edit", "pencil", _ => { ran.Add("edit"); return Task.CompletedTask; }),
+                new MenuAction("Delete", "trash", _ => { ran.Add("delete"); return Task.CompletedTask; }, Danger: true)
+            ]));
+            Probe.Layout();
+            await Probe.Until(() => ran.Count == 1);
+            Assert.Equal(["delete"], ran);
+            Assert.Equal([new SystemMenuEntry("Edit"), new SystemMenuEntry("Delete", true)], shownMenu!.Entries);
+            Assert.Equal("Cancel", shownMenu.Cancel);
+            Assert.Null(session.Menu);
+            // The app draws no menu of its own as well.
+            Assert.DoesNotContain(Probe.All<Panel>(window), p => p.Classes.Contains("menu"));
+
+            session.Confirm("Remove the trip from this phone?", "Remove", () => { ran.Add("removed"); return Task.CompletedTask; }, "It stays on GitHub.");
+            Probe.Layout();
+            await Probe.Until(() => ran.Count == 2);
+            Assert.Equal(new SystemQuestion("Remove the trip from this phone?", "It stays on GitHub.", "Remove", "Cancel"), asked);
+            Assert.Null(session.Asking);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AMenuToSearchInStaysTheAppsOwn()
+    {
+        var called = false;
+        var (session, window) = await OpenAsync(h => h with { ShowMenu = _ => { called = true; return Task.FromResult<int?>(null); } });
+        try
+        {
+            session.ShowMenu(new ActionMenu("Link to", null, [new MenuAction("A", "x", _ => Task.CompletedTask)], Searchable: true));
+            Probe.Layout();
+            Assert.False(called);
+            Assert.Contains(Probe.All<Panel>(window), p => p.Classes.Contains("menu"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>A bar like iOS 26's, with a place for the search set apart.</summary>
     private sealed class SearchBar : ISystemBar
     {

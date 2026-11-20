@@ -69,7 +69,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // On iPhones the bottom bar is the system's own tab bar. Text follows Larger Text in the Settings app, also when
         // it is changed while Jourfold runs.
         MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar(), TextScale = TextScale(),
-            PickTime = IosPickers.PickTimeAsync, PickDate = IosPickers.PickDateAsync };
+            PickTime = IosPickers.PickTimeAsync, PickDate = IosPickers.PickDateAsync, ShowMenu = IosDialogs.ShowMenuAsync, Ask = IosDialogs.AskAsync };
         UIApplication.Notifications.ObserveContentSizeCategoryChanged((_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.ScaleText(TextScale())));
         notices.Start();
         // Before the window's scene connects, which may come with a quick action from the app icon.

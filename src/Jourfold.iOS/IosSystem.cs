@@ -25,7 +25,7 @@ internal static class IosSystem
     }
 
     /// <summary>On an iPad, sheets appear as a popover; this one points at the middle of the screen.</summary>
-    private static void Anchor(UIViewController sheet, UIViewController top)
+    internal static void Anchor(UIViewController sheet, UIViewController top)
     {
         if (sheet.PopoverPresentationController is not { } popover || top.View is not { } view) return;
         popover.SourceView = view;

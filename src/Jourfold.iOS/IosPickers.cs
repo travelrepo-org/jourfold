@@ -74,7 +74,7 @@ internal static class IosPickers
     }
 
     /// <summary>The app's accent colour for the chosen day and the buttons, in light and dark.</summary>
-    private static UIColor? Accent()
+    internal static UIColor? Accent()
     {
         static UIColor? Read(Avalonia.Styling.ThemeVariant theme) =>
             Avalonia.Application.Current?.TryGetResource("Accent", theme, out var value) == true && value is Avalonia.Media.ISolidColorBrush brush

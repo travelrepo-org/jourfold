@@ -106,6 +106,37 @@ public sealed class SearchAndCostsTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ACategoryTappedInByCategoryNarrowsThePaymentsUntilItsChipIsTapped()
+    {
+        var (session, window) = await OpenAsync(height: 4000);
+        try
+        {
+            session.ShowThirdPlace(); Probe.Layout();
+            var trip = session.Trip!;
+            string[] Shown() { Probe.Layout(); return Probe.All<Jourfold.UI.Icon>(window).Where(i => i.Tag is string tag && tag.StartsWith("category:", StringComparison.Ordinal)).Select(i => (string)i.Tag!).ToArray(); }
+            var all = Shown();
+            Assert.Equal(trip.Entities.Values.Count(e => e.Type == "expense"), all.Length);
+
+            // The row of Transport under "By category" lists only transport below, with a chip in the search field.
+            Probe.Click(window, "Show only payments for Transport"); Probe.Layout();
+            Assert.Equal("transport", session.CostCategory);
+            var transport = Shown();
+            Assert.NotEmpty(transport);
+            Assert.All(transport, tag => Assert.Equal("category:transport", tag));
+            Assert.Equal(all.Count(t => t == "category:transport"), transport.Length);
+            var search = Probe.All<TextBox>(window).Single(b => AutomationProperties.GetName(b) == "Search: name, category, person, place");
+            Assert.NotNull(search.InnerRightContent);
+
+            // The search still narrows within the category, and the chip lists every payment again.
+            Probe.Click(window, "Show all categories again"); Probe.Layout();
+            Assert.Null(session.CostCategory);
+            Assert.Equal(all.Length, Shown().Length);
+            Assert.Null(Probe.All<TextBox>(window).Single(b => AutomationProperties.GetName(b) == "Search: name, category, person, place").InnerRightContent);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task PaymentsShowTheirCategoryAndTheCategoriesTheirTotal()
     {
         var (session, window) = await OpenAsync(height: 4000);

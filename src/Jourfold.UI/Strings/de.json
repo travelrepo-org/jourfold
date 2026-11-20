@@ -2109,5 +2109,8 @@
   "NothingMatches": "Nichts passt zu „{0}“.",
   "MoreDaysLater": "Mehr Tage später",
   "MoreDaysPlaceholder": "+N",
-  "PlanToToday": "Zu heute und jetzt"
+  "PlanToToday": "Zu heute und jetzt",
+  "FilterByCategory": "Nur Zahlungen für {0} zeigen",
+  "AllCategoriesAgain": "Wieder alle Kategorien zeigen",
+  "NoCostsInCategory": "Keine Zahlung für {0}."
 }

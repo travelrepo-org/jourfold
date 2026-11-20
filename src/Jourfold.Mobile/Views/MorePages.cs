@@ -63,7 +63,7 @@ public static class MorePages
     /// <summary>Rows of a cost group with room around them, where a row brought no margin of its own.</summary>
     private static IReadOnlyList<Control> Padded(IReadOnlyList<Control> rows)
     {
-        foreach (var row in rows) if (row.Margin == default) row.Margin = new Thickness(16, 10);
+        foreach (var row in rows) if (row.Margin == default && !row.Classes.Contains("row")) row.Margin = new Thickness(16, 10);
         return rows;
     }
 
@@ -586,19 +586,27 @@ public static class MorePages
         var none = Ui.Text("", "caption").Margin(20, 0);
         void Show(string? query)
         {
-            var found = payments.Where(x => Jourfold.UI.CostTexts.Matches(x.Texts, query)).ToArray();
+            var found = payments.Where(x => Jourfold.UI.CostTexts.Matches(x.Texts, query) && (s.CostCategory is not { } only || string.Equals(ExpenseCategories.Of(trip, x.Expense), only, StringComparison.CurrentCultureIgnoreCase))).ToArray();
             var dated = found.Where(x => x.Day is not null).OrderByDescending(x => x.Day).ThenBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
             var undated = found.Where(x => x.Day is null).OrderBy(x => x.Expense.Title, StringComparer.CurrentCulture).ToArray();
             foreach (var row in payments.Where(x => x.Row.IsValueCreated)) Ui.Detach(row.Row.Value);
-            none.Text = found.Length == 0 && !string.IsNullOrWhiteSpace(query) ? string.Format(CultureInfo.CurrentCulture, str["NoCostsFound"], query!.Trim()) : "";
+            none.Text = found.Length > 0 ? "" : !string.IsNullOrWhiteSpace(query) ? string.Format(CultureInfo.CurrentCulture, str["NoCostsFound"], query!.Trim())
+                : s.CostCategory is { } empty ? string.Format(CultureInfo.CurrentCulture, str["NoCostsInCategory"], Jourfold.UI.CostTexts.Category(str, empty)) : "";
             none.IsVisible = none.Text.Length > 0;
             results.Content = Ui.V(16,
                 dated.Length == 0 ? null : Group(str["ByDate"], dated.Select(x => x.Row.Value).ToArray()),
                 undated.Length == 0 ? null : Group(str["WithoutDay"], undated.Select(x => x.Row.Value).ToArray()));
         }
         Show(s.Drafts.GetValueOrDefault("costs.search"));
+        var search = expenses.Length == 0 ? null : CostSearch(s, Show);
+        // A category was just chosen: the list it narrows comes into view, starting at the search with its chip.
+        if (search is not null && s.CostListWanted)
+        {
+            s.CostListWanted = false;
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => search.BringIntoView(), Avalonia.Threading.DispatcherPriority.Background);
+        }
         return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, add, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
-            expenses.Length == 0 ? null : CostSearch(s, Show), none, results,
+            search, none, results,
             Ui.Columns("Auto,*", Ui.Icon("info", 13, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 6, 0), Ui.Text(str["NoAutoConversion"], "caption")).Margin(20, 0));
     }
 
@@ -670,6 +678,16 @@ public static class MorePages
         var str = s.Strings;
         var box = new TextBox { Text = query ?? "", PlaceholderText = str["SearchCosts"], InnerLeftContent = Ui.Icon("search", 16, "Text.Subtle").Margin(12, 0, 0, 0), MinHeight = 48, Name = MorePages.DraftPrefix + "costs.search" };
         AutomationProperties.SetName(box, str["SearchCosts"]);
+        // The category chosen in "By category" sits in the field as a chip; tapping it lists all payments again.
+        if (s.CostCategory is { } only)
+        {
+            var name = Jourfold.UI.CostTexts.Category(str, only);
+            var chip = Ui.Choice(name, Jourfold.UI.CostTexts.CategoryIcon(only), true, "chip").Also(c => { c.MinHeight = 32; c.Padding = new Thickness(10, 2); c.Margin = new Thickness(4, 4, 6, 4); });
+            if (chip.Content is Panel content) content.Children.Add(Ui.Icon("x", 14).Margin(4, 0, 0, 0));
+            AutomationProperties.SetName(chip, str["AllCategoriesAgain"]); ToolTip.SetTip(chip, str["AllCategoriesAgain"]);
+            chip.Click += (_, _) => s.FilterCosts(null);
+            box.InnerRightContent = chip;
+        }
         Avalonia.Threading.DispatcherTimer? pause = null;
         box.TextChanged += (_, _) =>
         {
@@ -819,8 +837,20 @@ public static class MorePages
             {
                 var ratio = sum == 0 ? 0 : (double)(t.Amount / sum);
                 var amount = (t.Estimated ? "≈ " : "") + Formats.Money(t.Amount, t.Currency) + " · " + ratio.ToString("P0", CultureInfo.CurrentCulture);
-                return (Control)Ui.Columns("Auto,*", Ui.Icon(Jourfold.UI.CostTexts.CategoryIcon(t.Category), 18, "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
-                    Ui.V(4, Ui.Text(Jourfold.UI.CostTexts.Category(str, t.Category)), Ui.Text(amount, "caption"), Ui.ShareBar(ratio)));
+                var name = Jourfold.UI.CostTexts.Category(str, t.Category);
+                // A tap lists only this category's payments below; the chosen one is marked, and a second tap shows all.
+                var chosen = string.Equals(t.Category, s.CostCategory, StringComparison.CurrentCultureIgnoreCase);
+                var row = new ChoiceButton
+                {
+                    IsSelected = chosen,
+                    Content = Ui.Columns("Auto,*,Auto", Ui.Icon(Jourfold.UI.CostTexts.CategoryIcon(t.Category), 18, chosen ? "Accent" : "Text.Muted").Also(i => i.VerticalAlignment = VerticalAlignment.Top).Margin(0, 2, 12, 0),
+                        Ui.V(4, chosen ? Ui.Text(name, "strong") : Ui.Text(name), Ui.Text(amount, "caption"), Ui.ShareBar(ratio)),
+                        Ui.Icon(chosen ? "x" : "chevron-right", 16, "Text.Subtle").Also(i => i.VerticalAlignment = VerticalAlignment.Center).Margin(12, 0, 0, 0))
+                }.Classed("row");
+                if (chosen) row.Res(Button.BackgroundProperty, "Accent.Soft");
+                AutomationProperties.SetName(row, chosen ? str["AllCategoriesAgain"] : string.Format(CultureInfo.CurrentCulture, str["FilterByCategory"], name));
+                row.Click += (_, _) => s.FilterCosts(t.Category);
+                return (Control)row;
             }));
         }
         return Group(str["ByCategory"], Padded(rows));

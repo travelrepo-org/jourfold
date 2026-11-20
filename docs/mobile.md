@@ -533,7 +533,10 @@ git clone https://github.com/libgit2/libgit2.git /tmp/libgit2 && git -C /tmp/lib
 dotnet build src/Jourfold.iOS -c Debug -r iossimulator-arm64 -t:Run
 ```
 
-`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`.
+`eng/ios-icons.py` makes the app icon and the launch screen's mark from `assets/branding/mark.svg`. The icon has a
+dark and a tinted variant beside the light one, so it follows the home screen's Customize setting (dark, tinted and,
+since iOS 26, clear). An Icon Composer `.icon` file with layers is not used: actool of Xcode 26.6 compiles one, but
+.NET for iOS 26.5 passes only asset catalogs to actool; .NET for iOS 27 does pass it and needs Xcode 27.
 
 **On a device without the Apple Developer Program.** A free Apple ID can sign apps for its own devices, with limits:
 the app stops starting after 7 days until it is signed and installed again (the trips stay as long as the app is not

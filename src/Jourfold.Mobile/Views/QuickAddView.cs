@@ -899,9 +899,9 @@ public sealed class QuickAddView
         }
         // Longer journeys, such as by ship: a pill to type the days in. Typing does not draw the form again, so the
         // keyboard stays; the chips follow what is typed.
-        var more = new TextBox { Text = arrivalDays > 2 ? arrivalDays.ToString(CultureInfo.CurrentCulture) : "", PlaceholderText = str["MoreDaysPlaceholder"], MinWidth = 64, MaxWidth = 96, MinHeight = 36, CornerRadius = new CornerRadius(999), Padding = new Thickness(12, 6), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, MaxLength = 3 }.Classed("chip-field");
+        var more = new TextBox { Text = arrivalDays > 2 ? arrivalDays.ToString(CultureInfo.CurrentCulture) : "", PlaceholderText = str["MoreDaysPlaceholder"], MinWidth = 64, MaxWidth = 96, MinHeight = 36, CornerRadius = new CornerRadius(999), Padding = new Thickness(arrivalDays > 2 ? 1 : 12, 6, 12, 6), HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center, MaxLength = 3 }.Classed("chip-field");
         if (arrivalDays > 2) more.Classes.Add("selected");
-        more.InnerLeftContent = Ui.Text("+").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(10, 0, 0, 0); t.IsVisible = arrivalDays > 2; });
+        more.InnerLeftContent = Ui.Text("+").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(12, 0, 0, 0); t.IsVisible = arrivalDays > 2; });
         Avalonia.Input.TextInput.TextInputOptions.SetContentType(more, Avalonia.Input.TextInput.TextInputContentType.Digits);
         AutomationProperties.SetName(more, str["MoreDaysLater"]);
         more.TextChanged += (_, _) =>
@@ -910,7 +910,8 @@ public sealed class QuickAddView
             arrivalDays = n;
             for (var i = 0; i < chips.Count; i++) chips[i].IsSelected = i == n;
             more.Classes.Set("selected", n > 2);
-            if (more.InnerLeftContent is Control plus) plus.IsVisible = true;
+            // "+5": the plus sits right before the number.
+            if (more.InnerLeftContent is Control plus) { plus.IsVisible = true; more.Padding = new Thickness(1, 6, 12, 6); }
         };
         days.Children.Add(more);
         var zones = Ui.Flow(6);

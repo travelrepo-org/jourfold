@@ -193,6 +193,49 @@ public sealed class IosNativeFeelTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    [AvaloniaFact]
+    public async Task PullingTodayDownSyncsASharedTripAndTheResultIsFelt()
+    {
+        var git = new GitCliBackend();
+        var shared = Path.Combine(root, "shared.git"); Directory.CreateDirectory(shared);
+        Assert.Equal(0, (await git.ExecuteAsync(shared, ["init", "--bare", "-b", "main"])).ExitCode);
+        var settings = Path.Combine(root, "alex"); Directory.CreateDirectory(settings);
+        File.WriteAllText(Path.Combine(settings, "settings.json"), """{ "Name": "Alex", "Email": "alex@example.invalid" }""");
+        var felt = new List<Feel>();
+        var session = new MobileSession(new MobileHost(settings, git, NodaTime.SystemClock.Instance, () => Tokyo, "en", new MemorySecrets()) { Feel = felt.Add });
+        var path = await session.CreateSampleAsync(new LocalDate(2027, 5, 14));
+        await session.OpenAsync(path); await session.Workspace!.Git.AddRemoteAsync("origin", shared);
+        await session.OpenAsync(path);
+        await Probe.Until(() => !session.Syncing, 10000);
+        felt.Clear();
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            Probe.Layout();
+            var refresh = Probe.All<RefreshContainer>(window).Single();
+            refresh.RequestRefresh();
+            await Probe.Until(() => felt.Count > 0, 10000);
+            Assert.Equal([Feel.Success], felt);
+            Assert.Null(session.SyncProblem);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ATripOnlyOnThePhoneHasNothingToPullAndChangingTheDayIsFelt()
+    {
+        var felt = new List<Feel>();
+        var (session, window) = await OpenAsync(h => h with { Feel = felt.Add });
+        try
+        {
+            Assert.Empty(Probe.All<RefreshContainer>(window));
+            session.ShowTab(MobileTab.Plan); Probe.Layout();
+            session.StepDay(1); session.StepDay(-1); session.ShowDate(session.SelectedDate);
+            Assert.Equal([Feel.Selection, Feel.Selection], felt);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     /// <summary>A bar like iOS 26's, with a place for the search set apart.</summary>
     private sealed class SearchBar : ISystemBar
     {

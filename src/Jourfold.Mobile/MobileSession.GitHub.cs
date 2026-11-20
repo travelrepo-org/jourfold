@@ -245,6 +245,8 @@ public sealed partial class MobileSession
         {
             Syncing = false;
             if (Workspace == workspace) await RefreshVersionsAsync(ct);
+            // Felt when the user asked for it, such as by pulling the page down; a sync in the background stays quiet.
+            if (!quiet) Host.Feel?.Invoke(SyncProblem is null ? Feel.Success : Feel.Warning);
             Changed?.Invoke();
         }
     }

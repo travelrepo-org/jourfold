@@ -69,7 +69,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // On iPhones the bottom bar is the system's own tab bar. Text follows Larger Text in the Settings app, also when
         // it is changed while Jourfold runs.
         MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar(), TextScale = TextScale(),
-            PickTime = IosPickers.PickTimeAsync, PickDate = IosPickers.PickDateAsync, ShowMenu = IosDialogs.ShowMenuAsync, Ask = IosDialogs.AskAsync };
+            PickTime = IosPickers.PickTimeAsync, PickDate = IosPickers.PickDateAsync, ShowMenu = IosDialogs.ShowMenuAsync, Ask = IosDialogs.AskAsync, Feel = Felt };
         UIApplication.Notifications.ObserveContentSizeCategoryChanged((_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.ScaleText(TextScale())));
         notices.Start();
         // Before the window's scene connects, which may come with a quick action from the app icon.
@@ -120,6 +120,22 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             if (IosSystem.Top()?.View is { } view) UIImpactFeedbackGenerator.GetFeedbackGenerator(UIImpactFeedbackStyle.Medium, view).ImpactOccurred();
         }
         else new UIImpactFeedbackGenerator(UIImpactFeedbackStyle.Medium).ImpactOccurred();
+    }
+
+    /// <summary>The light vibration iOS apps give when a choice moves on, or something worked or did not.</summary>
+    private static void Felt(Feel feel)
+    {
+        var view = IosSystem.Top()?.View;
+        // From iOS 17.5 a generator belongs to the view it is felt in.
+        var attached = view is not null && OperatingSystem.IsIOSVersionAtLeast(17, 5);
+        if (feel == Feel.Selection)
+        {
+            var selection = attached ? UISelectionFeedbackGenerator.GetFeedbackGenerator(view!) : new UISelectionFeedbackGenerator();
+            selection.SelectionChanged();
+            return;
+        }
+        var notification = attached ? UINotificationFeedbackGenerator.GetFeedbackGenerator(view!) : new UINotificationFeedbackGenerator();
+        notification.NotificationOccurred(feel == Feel.Success ? UINotificationFeedbackType.Success : UINotificationFeedbackType.Warning);
     }
 
     private void OnActivated(object? sender, ActivatedEventArgs e)

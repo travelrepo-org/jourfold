@@ -403,7 +403,11 @@ public sealed partial class MobileSession : IDisposable
     /// </summary>
     public string? VersionProblem { get; private set; }
 
-    public void ShowDate(LocalDate date) { SelectedDate = date; SelectedItem = null; Changed?.Invoke(); }
+    public void ShowDate(LocalDate date)
+    {
+        if (date != SelectedDate) Host.Feel?.Invoke(Feel.Selection);
+        SelectedDate = date; SelectedItem = null; Changed?.Invoke();
+    }
     /// <summary>
     /// Follows the day the timetable glided to, without drawing the plan again: the strip of days is already there, and
     /// switching to the list or coming back opens at this day.
@@ -574,6 +578,7 @@ public sealed partial class MobileSession : IDisposable
                 if (changed.Id == main.Id) edits[0] = new(main.Id, changed); else edits.Add(new(changed.Id, changed));
         }
         await workspace.ApplyAsync([.. edits], ct); NoteChange();
+        Host.Feel?.Invoke(Feel.Success);
         Showing = Overlay.None; OverlayItem = null;
         if (draft.Date is { } day && Agenda.Find(day) is not null) SelectedDate = day;
         Changed?.Invoke();

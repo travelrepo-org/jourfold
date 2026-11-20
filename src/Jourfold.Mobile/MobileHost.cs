@@ -44,6 +44,9 @@ namespace Jourfold.Mobile;
 /// A problem report the user sends from their own mail app: <see cref="To"/> may be unknown, the body can be edited
 /// there before sending, and the attachments are files under <see cref="MobileHost.SharedRoot"/>.
 /// </summary>
+/// <summary>What a short, light vibration says: a choice moved on, something worked, or it did not.</summary>
+public enum Feel { Selection, Success, Warning }
+
 public sealed record ProblemMail(string? To, string Subject, string Body, IReadOnlyList<string> Attachments);
 
 public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, Func<DateTimeZone> PhoneZone, string Language, ISecretStore Secrets, HttpMessageHandler? Http = null, string? GitHubClientId = null, Func<string, string, Task<bool>>? OpenFile = null, string? GitHubAppSlug = null, Func<CancellationToken, Task<(double Latitude, double Longitude)?>>? Locate = null, string Device = "phone", ISystemCalendar? Calendar = null, ISystemNotices? Notices = null, Action<bool>? Brightness = null, Func<CancellationToken, Task<SharedFile?>>? TakePhoto = null, Func<string, string, Task>? ShareText = null, string? AppVersion = null, Action? Haptic = null, string? Distribution = null, Func<ProblemMail, Task<bool>>? SendMail = null, Func<IReadOnlyList<(string Key, string Value)>>? SystemInfo = null, Func<Uri, bool>? CanOpen = null)
@@ -76,6 +79,12 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
 
     /// <summary>The system's own alert for a question: true for its action, false for the way out.</summary>
     public Func<SystemQuestion, Task<bool>>? Ask { get; init; }
+
+    /// <summary>
+    /// A light vibration that goes with what happened, as iOS apps give one when the day changes or a save or sync
+    /// worked; null where the platform has none, or keeps vibrations for long presses, as Android does.
+    /// </summary>
+    public Action<Feel>? Feel { get; init; }
 
     /// <summary>The system's own tab bar for phones, as on iOS; null where the shell draws its bottom bar itself.</summary>
     public ISystemBar? Bar { get; init; }

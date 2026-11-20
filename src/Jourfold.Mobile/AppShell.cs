@@ -396,6 +396,8 @@ public sealed class AppShell : UserControl
         };
         // A new page starts at its top, and so does the system's bar, at full size.
         if (!Equals(here, pageAt)) Session.Host.Bar?.Scrolled(0, 0, 1);
+        // Pulling Today down brings a shared trip in step, as in other apps. The plan keeps the pull for the day before.
+        if (Session.Tab == MobileTab.Today && Session.Remote is not null && page is ScrollViewer) page = PullToSync(page);
         drawnPage = page; pageAt = here;
         if (scrolled is { } offset && PageScroll(page) is { } after) ScrollPlace.Set(after, () => after.Offset = offset);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
@@ -447,6 +449,20 @@ public sealed class AppShell : UserControl
                 }, TimeSpan.FromMilliseconds(150));
             }, DispatcherPriority.Loaded);
         }
+    }
+
+    /// <summary>Lets the page be pulled down to sync, with the system's spinner while it runs.</summary>
+    private Control PullToSync(Control page)
+    {
+        var refresh = new RefreshContainer { Content = page };
+        AutomationProperties.SetName(refresh, Session.Strings["SyncNow"]);
+        refresh.RefreshRequested += async (_, e) =>
+        {
+            var deferral = e.GetDeferral();
+            try { await Session.SyncAsync(quiet: false); }
+            finally { deferral.Complete(); }
+        };
+        return refresh;
     }
 
     /// <summary>The scrolling part of a page: the page itself, or the first one inside it.</summary>

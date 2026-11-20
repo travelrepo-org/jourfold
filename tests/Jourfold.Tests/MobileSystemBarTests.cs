@@ -146,4 +146,53 @@ public sealed class MobileSystemBarTests : IDisposable
         }
         finally { window.Close(); session.Dispose(); }
     }
+
+    /// <summary>
+    /// Every page on the phone, scrolled to its end, leaves nothing to tap under the bar that floats over it: what
+    /// scrolls ends with room for the bar, and what stays put, such as the timetable's nights band, ends above it.
+    /// A page that forgets this fails here.
+    /// </summary>
+    [AvaloniaFact]
+    public async Task NothingToTapStaysUnderTheBarOnAnyPage()
+    {
+        var (session, window, bar) = await OpenAsync();
+        try
+        {
+            var pages = new (string Name, Action Show)[]
+            {
+                ("today", () => session.ShowTab(MobileTab.Today)),
+                ("plan list", () => session.ShowTab(MobileTab.Plan)),
+                ("plan timetable", () => { session.Settings.Values["plan.day"] = "timetable"; session.ShowTab(MobileTab.Today); session.ShowTab(MobileTab.Plan); }),
+                ("map", () => session.ShowTab(MobileTab.Map)),
+                ("more", () => session.ShowTab(MobileTab.More)),
+            }.Concat(new[] { "trip", "bookings", "tasks", "packing", "converter", "places", "files", "costs", "search", "pay", "travellers", "sync", "settings", "about" }
+                .Select(page => (page, (Action)(() => { session.ShowTab(MobileTab.More); session.ShowPage(page); })))).ToArray();
+            foreach (var (name, show) in pages)
+            {
+                show(); Probe.Layout();
+                Assert.True(bar.Visible, name + ": the bar is shown");
+                foreach (var scroll in Probe.All<ScrollViewer>(window))
+                    scroll.Offset = new Avalonia.Vector(scroll.Offset.X, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
+                Probe.Layout();
+                var top = window.Bounds.Height - bar.Height;
+                foreach (var control in Probe.All<Control>(window).Where(c => c is Button or TextBox or Avalonia.Controls.Primitives.ToggleButton or Slider or ComboBox or DatePicker && c.IsEffectivelyVisible
+                    // A scroll bar's own arrows run the page's full height; the page scrolls under the bar on purpose.
+                    && !Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(c).Any(a => a is Avalonia.Controls.Primitives.ScrollBar)))
+                    if (Shown(control, window) is { } shown)
+                        Assert.True(shown.Bottom <= top + 0.5, $"{name}: {Avalonia.Automation.AutomationProperties.GetName(control)} ({control.GetType().Name}) ends at {shown.Bottom}, under the bar from {top}");
+            }
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    /// <summary>The part of a control on screen, cut by whatever around it clips, such as a scrolling page; null when none.</summary>
+    private static Avalonia.Rect? Shown(Control control, Window window)
+    {
+        if (Avalonia.VisualExtensions.TransformToVisual(control, window) is not { } toWindow) return null;
+        var rect = new Avalonia.Rect(control.Bounds.Size).TransformToAABB(toWindow);
+        foreach (var around in Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(control).OfType<Avalonia.Visual>())
+            if (around.ClipToBounds && Avalonia.VisualExtensions.TransformToVisual(around, window) is { } clip)
+                rect = rect.Intersect(new Avalonia.Rect(around.Bounds.Size).TransformToAABB(clip));
+        return rect.Width > 0.5 && rect.Height > 0.5 ? rect : null;
+    }
 }

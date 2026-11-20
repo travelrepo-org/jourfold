@@ -59,6 +59,21 @@
   <array>
     <string>fetch</string>
   </array>
+  <!-- The travel day as a Live Activity on the Lock Screen and in the Dynamic Island (IosLiveActivities); a tap on it
+       opens the plan through the app's URL scheme. -->
+  <key>NSSupportsLiveActivities</key>
+  <true/>
+  <key>CFBundleURLTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleURLName</key>
+      <string>dev.jourfold.app</string>
+      <key>CFBundleURLSchemes</key>
+      <array>
+        <string>jourfold</string>
+      </array>
+    </dict>
+  </array>
   <key>BGTaskSchedulerPermittedIdentifiers</key>
   <array>
     <string>dev.jourfold.app.notices</string>
@@ -83,6 +98,12 @@
         <string>public.plain-text</string>
       </array>
     </dict>
+  </array>
+  <!-- "Navigate" offers these maps apps beside Apple Maps when they are installed (Navigation.AppleApps). -->
+  <key>LSApplicationQueriesSchemes</key>
+  <array>
+    <string>comgooglemaps</string>
+    <string>waze</string>
   </array>
   <key>LSSupportsOpeningDocumentsInPlace</key>
   <false/>

@@ -64,6 +64,35 @@ public sealed class MobileNavigationTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
+    /// <summary>iOS's swipe from the left edge takes the same steps back as Android's back.</summary>
+    [AvaloniaFact]
+    public async Task TheSwipeFromTheEdgeGoesBackLikeTheSystemBack()
+    {
+        var (session, window) = await OpenAsync(new LocalDate(2027, 6, 1));
+        try
+        {
+            var item = session.Trip!.Entities.Values.First(e => e.Type == "schedule_item");
+            // On the map a drag from the edge pans the map; with details over it, the swipe goes back again.
+            Assert.True(AppShell.EdgeSwipeGoesBack);
+            session.ShowTab(MobileTab.Map); Probe.Layout();
+            Assert.False(AppShell.EdgeSwipeGoesBack);
+            session.ShowDetails(item.Id); Probe.Layout();
+            Assert.True(AppShell.EdgeSwipeGoesBack);
+            session.CloseOverlay(); session.ShowTab(MobileTab.Today); Probe.Layout();
+            Probe.Click(window, "Packing lists"); session.ShowDetails(item.Id); Probe.Layout();
+            AppShell.GoBack(); Probe.Layout();
+            Assert.Equal((Overlay.None, "packing"), (session.Showing, session.Page));
+            AppShell.GoBack(); Probe.Layout();
+            Assert.Equal((MobileTab.Today, (string?)null), (session.Tab, session.Page));
+            AppShell.GoBack(); Probe.Layout();
+            Assert.Null(session.Workspace);
+            // At the trip list there is nowhere further back.
+            AppShell.GoBack(); Probe.Layout();
+            Assert.Null(session.Workspace);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [AvaloniaFact]
     public async Task ABookingOpensFromItsStayAndBackReturnsWhileCloseCloses()
     {

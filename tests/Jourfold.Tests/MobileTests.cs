@@ -1025,9 +1025,11 @@ public sealed class MobileTests : IDisposable
     public async Task AWalletPassShowsItsBarcodeBrightOnTheRoad()
     {
         var bright = new List<bool>();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 14, 9, 0)), () => Berlin, "en", new MemorySecrets(), Brightness: bright.Add));
+        // The morning of the flight home, the next plan on Today.
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(Instant.FromUtc(2027, 5, 21, 0, 0)), () => Berlin, "en", new MemorySecrets(), Brightness: bright.Add));
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
-        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight to Tokyo");
+        // A journey without a ticket of its own; the flight out has its boarding pass already.
+        var flight = session.Trip!.Entities.Values.First(e => e.Title == "Flight home");
         using var stream = new MemoryStream();
         using (var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
         using (var writer = new StreamWriter(zip.CreateEntry("pass.json").Open()))
@@ -1341,6 +1343,24 @@ public sealed class MobileTests : IDisposable
         Assert.Equal("geo:35.6812,139.7671?q=35.6812,139.7671(Tokyo%20Station)", Navigation.Link(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi", apple: false).AbsoluteUri);
         Assert.Equal("https://maps.apple.com/?ll=35.6812,139.7671&q=Tokyo%20Station", Navigation.Link(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi", apple: true).AbsoluteUri);
         Assert.Equal("https://maps.apple.com/?q=1%20Chome%20Marunouchi", Navigation.Link(null, null, "Tokyo Station", "1 Chome Marunouchi", apple: true).AbsoluteUri);
+    }
+
+    [Fact]
+    public void NavigateOnIosOffersTheInstalledMapsApps()
+    {
+        var apps = Navigation.AppleApps(35.6812, 139.7671, "Tokyo Station", "1 Chome Marunouchi");
+        Assert.Equal(["MapsApple", "MapsGoogle", "MapsWaze"], apps.Select(a => a.NameKey));
+        Assert.Equal("comgooglemaps://?q=35.6812,139.7671", apps[1].Link.OriginalString);
+        Assert.Equal("waze://?ll=35.6812,139.7671&navigate=yes", apps[2].Link.OriginalString);
+        var searched = Navigation.AppleApps(null, null, "Aachen Dom", "Domhof 1, Aachen");
+        Assert.Equal("comgooglemaps://?q=Domhof%201%2C%20Aachen", searched[1].Link.OriginalString);
+        Assert.Equal("waze://?q=Domhof%201%2C%20Aachen&navigate=yes", searched[2].Link.OriginalString);
+        // Apple Maps is always offered; the others only when installed.
+        Assert.Equal(["MapsApple"], Navigation.Choices(apps, _ => false).Select(a => a.NameKey));
+        Assert.Equal(["MapsApple", "MapsWaze"], Navigation.Choices(apps, link => link.Scheme == "waze").Select(a => a.NameKey));
+        foreach (var language in new[] { "en", "de" })
+            foreach (var key in apps.Select(a => a.NameKey).Append("NavigateWith"))
+                Assert.NotEqual(key, new Jourfold.UI.Localization(language)[key]);
     }
 
     private sealed class MovingClock : IClock { public Instant Now { get; set; } public Instant GetCurrentInstant() => Now; }

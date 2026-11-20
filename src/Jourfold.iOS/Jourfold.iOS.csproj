@@ -40,6 +40,12 @@
   <PropertyGroup Condition="$(RuntimeIdentifier.StartsWith('iossimulator-'))">
     <CodesignKey>-</CodesignKey>
   </PropertyGroup>
+  <!-- Departures, changes and arrivals as time-sensitive notifications, which come through a Focus (IosNotices). Only
+       with -p:TimeSensitiveNotices=true (and in the simulator): whether a free Apple ID and the sideloading tools can
+       sign the entitlement is not known, and without it iOS shows them at the normal level. -->
+  <ItemGroup Condition="'$(TimeSensitiveNotices)' == 'true' or $(RuntimeIdentifier.StartsWith('iossimulator-'))">
+    <CustomEntitlements Include="com.apple.developer.usernotifications.time-sensitive" Type="Boolean" Value="true"/>
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../Jourfold.Mobile/Jourfold.Mobile.csproj"/>
     <ProjectReference Include="../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj" Condition="Exists('../../../travelrepo/src/TravelRepo.Git.LibGit2/TravelRepo.Git.LibGit2.csproj')"/>
@@ -54,6 +60,29 @@
   <!-- Without libgit2 the app would build and then close on launch, so the build stops instead. -->
   <Target Name="RequireLibgit2" BeforeTargets="Build" Condition="!Exists('$(Libgit2Ios)/git2.xcframework')">
     <Error Text="git2.xcframework is missing in $(Libgit2Ios). Build it with ../travelrepo/eng/build-libgit2-ios.sh (see docs/mobile.md)."/>
+  </Target>
+  <!-- The travel day as a Live Activity (IosLiveActivities). LiveActivity/build.sh builds the Swift bridge
+       (JourfoldLive.framework) and the widget extension that draws it (JourfoldLiveActivity.appex) with the Xcode the
+       build uses. The extension needs a provisioning profile of its own for <ApplicationId>.LiveActivity on a device:
+       signed device builds include it only when given one with -p:LiveActivityProvision=path/to/profile.mobileprovision
+       (docs/mobile.md); without it the app runs as before, without Live Activities. -->
+  <PropertyGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <LiveActivityOut>$(MSBuildProjectDirectory)/$(BaseIntermediateOutputPath)live-activity/$(Configuration)/$(RuntimeIdentifier)</LiveActivityOut>
+    <LiveActivitySdk Condition="$(RuntimeIdentifier.StartsWith('iossimulator-'))">iphonesimulator</LiveActivitySdk>
+    <LiveActivitySdk Condition="'$(LiveActivitySdk)' == ''">iphoneos</LiveActivitySdk>
+    <LiveActivityWidget Condition="'$(LiveActivityWidget)' == '' And ('$(LiveActivitySdk)' == 'iphonesimulator' Or '$(EnableCodeSigning)' == 'false' Or '$(LiveActivityProvision)' != '')">true</LiveActivityWidget>
+    <LiveActivityWidget Condition="'$(LiveActivityWidget)' == ''">false</LiveActivityWidget>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(RuntimeIdentifier)' != ''">
+    <NativeReference Include="$(LiveActivityOut)/JourfoldLive.framework" Kind="Framework"/>
+    <AdditionalAppExtensions Include="$(LiveActivityOut)" Condition="'$(LiveActivityWidget)' == 'true'">
+      <Name>JourfoldLiveActivity</Name>
+      <BuildOutput>widget</BuildOutput>
+      <CodesignEntitlements>$(LiveActivityOut)/widget/JourfoldLiveActivity.entitlements</CodesignEntitlements>
+    </AdditionalAppExtensions>
+  </ItemGroup>
+  <Target Name="BuildLiveActivity" BeforeTargets="PrepareForBuild" Condition="'$(RuntimeIdentifier)' != ''">
+    <Exec Command="sh &quot;$(MSBuildProjectDirectory)/LiveActivity/build.sh&quot; $(LiveActivitySdk) &quot;$(LiveActivityOut)&quot; $(ApplicationId) $(ApplicationDisplayVersion) $(ApplicationVersion) $(LiveActivityWidget) &quot;$(LiveActivityProvision)&quot;"/>
   </Target>
   <ItemGroup><Using Include="Jourfold.UI"/></ItemGroup>
 </Project>

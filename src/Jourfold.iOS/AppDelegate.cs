@@ -65,11 +65,16 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             GitHubAppSlug: Built("GitHubAppSlug"), Locate: IosLocation.LocateAsync, Device: device, Calendar: new IosCalendar(data), Notices: notices,
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
-            SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo);
+            SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo, CanOpen: IosSystem.CanOpen);
         notices.Start();
         // Before the window's scene connects, which may come with a quick action from the app icon.
         IosShortcuts.Install();
+        // Once on screen, the notices are worked out: a Live Activity can only start while Jourfold is in front, also
+        // after a cold start, such as after an update of the app, which ends the one before.
+        WhenReady(_ => IosNotices.RunAsync(MobileApp.Host!));
         zone = NSTimeZone.SystemTimeZone.Name;
+        // Back with a swipe from the left edge, once the window is there.
+        WhenReady(_ => { IosBackGesture.Attach(); return Task.CompletedTask; });
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));
         return base.CustomizeAppBuilder(builder);
@@ -110,10 +115,26 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
     private void OnActivated(object? sender, ActivatedEventArgs e)
     {
         if (e is FileActivatedEventArgs opened) { _ = ReceiveAsync(opened.Files); return; }
+        if (e is ProtocolActivatedEventArgs { Uri: { } uri }) { OpenLink(uri); return; }
         if (e.Kind != ActivationKind.Background || MobileApp.Host is not { } host) return;
+        IosBackGesture.Attach();
         // Back on screen: notices may be due, and after a flight the time zone may have changed.
         var now = NSTimeZone.SystemTimeZone.Name; var changed = zone is not null && now != zone; zone = now;
         _ = IosNotices.RunAsync(host, changed);
+    }
+
+    /// <summary>
+    /// A tap on the Live Activity: jourfold://notice?trip=folder&amp;item=id opens the plan, with &amp;ticket=1 its ticket.
+    /// </summary>
+    private static void OpenLink(Uri uri)
+    {
+        if (uri.Scheme != IosNotices.Scheme || uri.Host != "notice" || MobileApp.Host is not { } host) return;
+        var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+        // Only a trip's folder name, never a path: the link may come from anywhere.
+        if (query["trip"] is not { Length: > 0 } trip || trip != Path.GetFileName(trip) || trip is "." or "..") return;
+        var item = Guid.TryParse(query["item"], out var id) ? id : (Guid?)null;
+        var ticket = query["ticket"] == "1";
+        WhenReady(session => session.OpenNoticeAsync(Path.Combine(host.TripsRoot, trip), item, ticket));
     }
 
     /// <summary>

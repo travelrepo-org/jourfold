@@ -3,18 +3,30 @@
 
 Usage: python3 eng/ios-icons.py assets/branding/mark.svg src/Jourfold.iOS/Assets.xcassets
 
-Needs cairosvg and Pillow. The app icon is a single 1024 px image, which Xcode scales for every size; iOS rounds its
-corners itself and does not allow transparency, so the mark sits on white, at the same share of the icon as on
-Android's adaptive icon. The launch screen shows the mark at 100 points on the app background, light or deep navy, as
-Android's starting screen does.
+Needs cairosvg and Pillow. The app icon is a 1024 px image, which Xcode scales for every size; iOS rounds its corners
+itself. The light icon may not be transparent, so the mark sits on white, at the same share of the icon as on Android's
+adaptive icon. Since iOS 18 the home screen can also show icons dark or tinted, and since iOS 26 clear, which iOS
+derives from these two:
+
+- dark: the mark in the colours of the dark lockup (navy becomes #EDF7FA) on a transparent ground, which iOS fills with
+  its dark background;
+- tinted: the mark in grey on a transparent ground; iOS takes the brightness as the strength of the tint.
+
+The white wave and pin are holes in the mark in both, as they show the ground in the light icon, so they stay visible
+where the navy part turns light. Icon Composer's .icon files would be the alternative: actool of Xcode 26.6 compiles
+them, but .NET for iOS 26.5 passes only asset catalogs to it; .NET for iOS 27 does, and it needs Xcode 27.
+
+The launch screen shows the mark at 100 points on the app background, light or deep navy, as Android's starting screen
+does.
 """
 import io
 import json
+import re
 import sys
 from pathlib import Path
 
 import cairosvg
-from PIL import Image
+from PIL import Image, ImageChops
 
 source, catalog = Path(sys.argv[1]), Path(sys.argv[2])
 svg = source.read_bytes()
@@ -32,11 +44,53 @@ def write(folder, contents):
 info = {'author': 'eng/ios-icons.py', 'version': 1}
 write(catalog, {'info': info})
 
-icon = Image.new('RGB', (1024, 1024), 'white')
+def render(document, pixels):
+    return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=document, output_width=pixels, output_height=pixels))).convert('RGBA')
+
+
+def recolour(colours):
+    """The mark with its fills replaced and its white details left out, and the details alone."""
+    text = svg.decode('utf-8')
+    details = re.findall(r'<path fill="#fff"[^>]*/>', text)
+    body = text
+    for detail in details:
+        body = body.replace(detail, '')
+    for old, new in colours.items():
+        body = body.replace(f'fill="{old}"', f'fill="{new}"')
+    return body.encode('utf-8'), re.sub(r'(<svg[^>]*>).*(</svg>)', lambda m: m[1] + ''.join(details) + m[2], text, flags=re.S).encode('utf-8')
+
+
+def cut_out(colours, pixels):
+    body, details = recolour(colours)
+    image = render(body, pixels)
+    holes = render(details, pixels).getchannel('A')
+    image.putalpha(ImageChops.subtract(image.getchannel('A'), holes))
+    return image
+
+
 inner = round(1024 * 58 / 108)
-icon.paste(mark(inner), ((1024 - inner) // 2,) * 2, mark(inner))
-write(catalog / 'AppIcon.appiconset', {'images': [{'filename': 'AppIcon.png', 'idiom': 'universal', 'platform': 'ios', 'size': '1024x1024'}], 'info': info})
-icon.save(catalog / 'AppIcon.appiconset' / 'AppIcon.png', optimize=True)
+offset = ((1024 - inner) // 2,) * 2
+icon = Image.new('RGB', (1024, 1024), 'white')
+icon.paste(mark(inner), offset, mark(inner))
+
+# The colours of assets/branding/lockup-dark.svg.
+dark = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+dark.alpha_composite(cut_out({'#103b5c': '#edf7fa'}, inner), offset)
+
+# Three greys, so the three parts stay apart when iOS tints them.
+tinted = Image.new('RGBA', (1024, 1024), (0, 0, 0, 0))
+tinted.alpha_composite(cut_out({'#103b5c': '#ffffff', '#45c4af': '#c4c4c4', '#1593a5': '#8c8c8c'}, inner), offset)
+
+icons = [('AppIcon.png', icon, None), ('AppIcon-Dark.png', dark, 'dark'), ('AppIcon-Tinted.png', tinted, 'tinted')]
+images = []
+for name, image, appearance in icons:
+    entry = {'filename': name, 'idiom': 'universal', 'platform': 'ios', 'size': '1024x1024'}
+    if appearance:
+        entry = {'appearances': [{'appearance': 'luminosity', 'value': appearance}], **entry}
+    images.append(entry)
+write(catalog / 'AppIcon.appiconset', {'images': images, 'info': info})
+for name, image, _ in icons:
+    image.save(catalog / 'AppIcon.appiconset' / name, optimize=True)
 
 images = []
 for scale in (1, 2, 3):

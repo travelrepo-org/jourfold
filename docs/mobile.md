@@ -645,4 +645,8 @@ dotnet run --project eng/MobileScreenshots -c Release -- artifacts/mobile-screen
 ```
 
 The launcher icon and splash drawable are generated from `assets/branding/mark.svg` with
-`python3 eng/android-icons.py assets/branding/mark.svg src/Jourfold.Android/Resources`.
+`python3 eng/android-icons.py assets/branding/mark.svg src/Jourfold.Android/Resources`. The script also draws the
+themed icon (`ic_launcher_monochrome`, the adaptive icon's `<monochrome>` layer), which needs cairosvg and Pillow: on
+Android 13 and newer with "Themed icons" turned on, the home screen tints it in its own colours, as other apps' icons.
+The mark's three parts keep three strengths, and the road and pin are left out, as in iOS's tinted icon. Without the
+setting, and on Android 10 to 12, the coloured icon stays.

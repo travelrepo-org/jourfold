@@ -599,11 +599,23 @@ public static class MorePages
         }
         Show(s.Drafts.GetValueOrDefault("costs.search"));
         var search = expenses.Length == 0 ? null : CostSearch(s, Show);
-        // A category was just chosen: the list it narrows comes into view, starting at the search with its chip.
+        // A category was just chosen: the list it narrows comes into view, starting at the search with its chip at the
+        // top. That waits for the page to be laid out, after the shell has put it back where it was scrolled to; the
+        // page may be drawn more than once before, so only the one laid out takes the wish.
         if (search is not null && s.CostListWanted)
         {
-            s.CostListWanted = false;
-            Avalonia.Threading.Dispatcher.UIThread.Post(() => search.BringIntoView(), Avalonia.Threading.DispatcherPriority.Background);
+            void ToList(object? sender, EventArgs e)
+            {
+                if (search.Bounds.Height <= 0 || Avalonia.VisualTree.VisualExtensions.FindAncestorOfType<ScrollViewer>(search) is not { } page) return;
+                search.LayoutUpdated -= ToList;
+                if (!s.CostListWanted) return;
+                s.CostListWanted = false;
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    if (search.TranslatePoint(default, page) is { } at) page.Offset = new Vector(page.Offset.X, Math.Max(0, page.Offset.Y + at.Y - 12));
+                }, Avalonia.Threading.DispatcherPriority.Background);
+            }
+            search.LayoutUpdated += ToList;
         }
         return Frame(s, str["Costs"], upgrade, TripTotal(s), tiles, add, Balances(s), StillToPay(s), BudgetGroup(s), ByCategory(s),
             search, none, results,

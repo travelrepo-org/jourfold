@@ -137,6 +137,27 @@ public sealed class SearchAndCostsTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ACategoryTappedOnAPhoneScrollsToItsPaymentsWithTheSearchOnTop()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowThirdPlace(); Probe.Layout();
+            var row = Probe.Button(window, "Show only payments for Activities");
+            row.BringIntoView(); Probe.Layout();
+            row.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));
+            TextBox Search() => Probe.All<TextBox>(window).Single(b => AutomationProperties.GetName(b) == "Search: name, category, person, place");
+            // The page moves on to the narrowed list: its search, with the category's chip, at the top, or the whole of it
+            // above the bar when the list is too short for that.
+            bool Shown(TextBox search) => search.GetVisualAncestors().OfType<ScrollViewer>().First() is var page && search.TranslatePoint(default, page) is { Y: >= 0 } at
+                && (at.Y < 40 || page.Offset.Y >= page.Extent.Height - page.Viewport.Height - 1) && at.Y + search.Bounds.Height <= page.Viewport.Height;
+            await Probe.Until(() => Shown(Search()));
+            Assert.NotNull(Search().InnerRightContent);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task PaymentsShowTheirCategoryAndTheCategoriesTheirTotal()
     {
         var (session, window) = await OpenAsync(height: 4000);

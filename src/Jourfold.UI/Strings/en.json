@@ -2108,5 +2108,6 @@
   "SearchList": "Search",
   "NothingMatches": "Nothing fits “{0}”.",
   "MoreDaysLater": "More days later",
-  "MoreDaysPlaceholder": "+N"
+  "MoreDaysPlaceholder": "+N",
+  "PlanToToday": "Go to today and now"
 }

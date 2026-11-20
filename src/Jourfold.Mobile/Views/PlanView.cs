@@ -80,7 +80,16 @@ public static class PlanView
             chip.Click += (_, _) => { s.Settings.Values[key] = value; s.Settings.Save(); s.ShowDate(s.SelectedDate); };
             return chip;
         }
-        return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
+        // While the trip is on: back to today, and in the timetable to the hour before now, from wherever the plan is.
+        Button? today = null;
+        if (s.Agenda.Find(s.PhoneToday) is not null)
+        {
+            today = Ui.Choice(s.Strings["Today"], "locate-fixed", false, "chip");
+            Avalonia.Automation.AutomationProperties.SetName(today, s.Strings["PlanToToday"]);
+            ToolTip.SetTip(today, s.Strings["PlanToToday"]);
+            today.Click += (_, _) => { TimetableView.ToNow(); s.ShowDate(s.PhoneToday); };
+        }
+        return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"), today);
     }
 
     /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>

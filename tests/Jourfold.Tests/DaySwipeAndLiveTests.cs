@@ -197,6 +197,47 @@ public sealed class DaySwipeAndLiveTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TodayLeadsThePlanBackToTodayAndTheTimetableToNow()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            // The list, on another day of the trip.
+            session.ShowTab(MobileTab.Plan);
+            session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            Probe.Click(window, "Go to today and now"); Probe.Layout();
+            Assert.Equal(session.PhoneToday, session.SelectedDate);
+
+            // The timetable, scrolled to the night: back to the hour before now (10:40, so from 09:00).
+            session.Settings.Values["plan.day"] = "timetable";
+            session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            var grid = Probe.All<ScrollViewer>(window).First(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled && v.Extent.Height > 1000);
+            grid.Offset = new Avalonia.Vector(0, grid.Extent.Height - grid.Viewport.Height); Probe.Layout();
+            Probe.Click(window, "Go to today and now"); Probe.Layout(); Probe.Layout();
+            Assert.Equal(session.PhoneToday, session.SelectedDate);
+            grid = Probe.All<ScrollViewer>(window).First(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled && v.Extent.Height > 1000);
+            Assert.InRange(grid.Offset.Y, 1, grid.Extent.Height - grid.Viewport.Height - 1);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task BeforeTheTripThePlanHasNoTodayButton()
+    {
+        var root2 = Path.Combine(Path.GetTempPath(), "jourfold-today-" + Guid.NewGuid());
+        var now = new LocalDateTime(2027, 4, 1, 10, 0).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root2, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowTab(MobileTab.Plan); Probe.Layout();
+            Assert.DoesNotContain(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Go to today and now");
+        }
+        finally { window.Close(); session.Dispose(); TestFiles.Delete(root2); }
+    }
+
+    [AvaloniaFact]
     public async Task OnlyBuildsWithDebugToolsOfferTheExample()
     {
         var (session, window) = await OpenAsync(new LiveNotices(LiveSupport.On, true), debugTools: false);

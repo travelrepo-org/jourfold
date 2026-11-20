@@ -28,6 +28,9 @@ public static class TimetableView
     private static double kept;
 
     /// <summary>How many days fit into <paramref name="width"/> pixels, from three to seven, an odd number so one is in the middle.</summary>
+    /// <summary>The next timetable opens at the hour before now on today, not where the last one was scrolled to.</summary>
+    public static void ToNow() => placeOf = default;
+
     public static int Columns(double width) { var n = Math.Clamp((int)((width - Gutter - 32) / MinColumn), 3, 7); return n % 2 == 0 ? n - 1 : n; }
 
     /// <summary>How many days the strip holds at most; a longer trip shows this many around the chosen day.</summary>

@@ -226,8 +226,9 @@ public static class Lines
     /// <param name="second">The start in the second time zone the user chose, quieter than the rest; see <see cref="TimeText.Second"/>.</param>
     public static Control TimeColumn(ClockText time, LineState state, string? second = null)
     {
-        // Words such as "Afternoon" or "All day" are set smaller so they fit the narrow column.
-        var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Ui.Text(time.Start, "small", "strong"),
+        // Words such as "Afternoon" or "All day" are set smaller, and shrink further rather than break inside a word
+        // where they are still too wide for the narrow column, as "Nachmittags" is.
+        var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Word(time.Start),
             time.End is { } end ? Ui.Text(end, "small", "muted") : null,
             time.Zone is { } zone ? Ui.Text(zone, "small", "muted").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis) : null,
             second is null ? null : Ui.Text(second, "small").Also(t => { t.Res(TextBlock.ForegroundProperty, "Accent"); t.Opacity = 0.8; }).Margin(0, 2, 0, 0));
@@ -235,6 +236,14 @@ public static class Lines
         column.VerticalAlignment = VerticalAlignment.Top; column.Margin = new Thickness(0, 10, 8, 0);
         return column;
     }
+
+    private static Control Word(string text) => new Viewbox
+    {
+        Stretch = Stretch.Uniform,
+        StretchDirection = StretchDirection.DownOnly,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Child = Ui.Text(text, "small", "strong").Also(t => t.TextWrapping = TextWrapping.NoWrap),
+    };
 
     /// <summary>
     /// The line under a day's title that says which clock its times follow. A tap chooses a second time zone, shown

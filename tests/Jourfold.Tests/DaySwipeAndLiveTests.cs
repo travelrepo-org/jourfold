@@ -113,14 +113,31 @@ public sealed class DaySwipeAndLiveTests : IDisposable
 
             // A short swipe that is still moving when the finger lets go goes on a day, however unhurried; a drag that
             // stops and turns back a little before letting go stays on the day.
-            await Task.Delay(TimeSpan.FromMilliseconds(800));
+            // About 0.45 px/ms: well under a flick, yet far above the least speed. A busy test machine can stretch the
+            // pauses between the moves so far that the finger is in truth no longer moving when it lets go; such a try
+            // shows nothing and is made again. A try whose pauses stayed short has to move on.
             var before = session.SelectedDate;
-            window.MouseDown(new Point(300, 600), MouseButton.Left);
-            // About 0.45 px/ms: well under a flick, yet far enough above the least speed that a slow test machine, whose
-            // delays stretch, still lets go while moving.
-            for (var step = 1; step <= 10; step++) { await Task.Delay(20); window.MouseMove(new Point(300 - 9 * step, 602)); }
-            window.MouseUp(new Point(210, 602), MouseButton.Left);
-            Assert.True(session.SelectedDate > before, "An unhurried short swipe did not move on.");
+            var moved = false;
+            var longest = TimeSpan.Zero;
+            for (var attempt = 1; attempt <= 3 && !moved; attempt++)
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(800));
+                before = session.SelectedDate;
+                var clock = System.Diagnostics.Stopwatch.StartNew();
+                var last = clock.Elapsed;
+                longest = TimeSpan.Zero;
+                window.MouseDown(new Point(300, 600), MouseButton.Left);
+                for (var step = 1; step <= 10; step++)
+                {
+                    await Task.Delay(20); window.MouseMove(new Point(300 - 9 * step, 602));
+                    var now = clock.Elapsed; if (now - last > longest) longest = now - last; last = now;
+                }
+                window.MouseUp(new Point(210, 602), MouseButton.Left);
+                moved = session.SelectedDate > before;
+                // 9 px in this long is still well above the least speed.
+                if (longest < TimeSpan.FromMilliseconds(60)) break;
+            }
+            Assert.True(moved, $"An unhurried short swipe did not move on (longest pause between moves {longest.TotalMilliseconds:0} ms).");
             await Task.Delay(TimeSpan.FromMilliseconds(800));
             before = session.SelectedDate;
             window.MouseDown(new Point(300, 600), MouseButton.Left);

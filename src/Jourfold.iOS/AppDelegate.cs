@@ -66,6 +66,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo, CanOpen: IosSystem.CanOpen);
+        // On iPhones the bottom bar is the system's own tab bar.
+        MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar() };
         notices.Start();
         // Before the window's scene connects, which may come with a quick action from the app icon.
         IosShortcuts.Install();

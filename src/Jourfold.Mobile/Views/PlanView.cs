@@ -103,6 +103,8 @@ public static class PlanView
         var pan = TimetableView.Pan(s, area, width > 0 ? width : 400, PhoneDayShare, window);
         var (header, allDay, grid, nights) = TimetableView.Parts(s, window.Days, pan);
         area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), PullForDay(s, grid).Row(2), nights.Row(3) } };
+        // The nights band below the grid stays above a bar that floats over the page.
+        area.Classes.Add(AppShell.AboveBar);
         return new Grid
         {
             RowDefinitions = new RowDefinitions("Auto,Auto,*"),

@@ -2104,5 +2104,7 @@
   "LiveActivitiesNone": "Not available on this device.",
   "LiveActivitiesAllow": "Allow in the Settings app",
   "LiveActivitiesPromoted": "Shown as a Live Activity. Lock the iPhone or leave Jourfold to see it.",
-  "LiveActivitiesPlain": "iOS did not show it. Live Activities may be turned off for Jourfold."
+  "LiveActivitiesPlain": "iOS did not show it. Live Activities may be turned off for Jourfold.",
+  "SearchList": "Search",
+  "NothingMatches": "Nothing fits “{0}”."
 }

@@ -616,7 +616,7 @@ public sealed class QuickAddView
         }
         var add = Ui.Button(str["LinkPlan"], "link", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         add.Click += (_, _) => s.ShowMenu(new ActionMenu(str["LinkPlan"], null, Plans(e => !plans.Contains(e.Id))
-            .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray()));
+            .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray(), Searchable: true));
         list.Children.Add(add);
         return list;
     }
@@ -808,18 +808,24 @@ public sealed class QuickAddView
         rest.Children.Add(Ui.Text(f.IsWholeTrip ? str["BudgetWholeTripHint"] : str["BudgetLimitedHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
     }
 
-    /// <summary>The plan or booking an expense belongs to, with buttons to choose another or none.</summary>
+    /// <summary>
+    /// The plan or booking an expense belongs to, shown as a booking shows its plans: a line with its day and a button
+    /// to take it away, or a button to choose one from a menu that can be searched. An expense belongs to one.
+    /// </summary>
     private Control RelatedControls()
     {
         var str = s.Strings; var trip = s.Trip!;
-        var current = related is { } id ? trip.Find(id) : null;
-        var choose = Ui.Button(current?.Title ?? str["LinkPlanOrBooking"], current is null ? "link" : "pencil", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        if (related is { } id && trip.Find(id) is { } current)
+        {
+            var clear = Ui.IconButton("x", str["RemoveLink"]); clear.Click += (_, _) => { related = null; Render(); };
+            var booking = current.Type == "booking";
+            return Ui.Columns("Auto,*,Auto", Ui.Icon(booking ? "ticket" : "calendar", 16, "Text.Muted").Margin(0, 0, 10, 0), Ui.V(0, Ui.Text(current.Title), !booking && PlanDay(id) is { } when ? Ui.Text(when, "caption") : null), clear);
+        }
+        var choose = Ui.Button(str["LinkPlanOrBooking"], "link", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         choose.Click += (_, _) => s.ShowMenu(new ActionMenu(str["BelongsTo"], null, Plans(_ => true)
             .Concat(trip.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => e.Title, StringComparer.CurrentCulture))
-            .Where(e => e.Id != related).Select(e => new MenuAction(e.Type == "booking" ? e.Title : Label(e), e.Type == "booking" ? "ticket" : "calendar", _ => { related = e.Id; Render(); return Task.CompletedTask; })).ToArray()));
-        if (current is null) return choose;
-        var clear = Ui.IconButton("x", str["RemoveLink"]); clear.Click += (_, _) => { related = null; Render(); };
-        return Ui.Columns("*,Auto", choose, clear);
+            .Select(e => new MenuAction(e.Type == "booking" ? e.Title : Label(e), e.Type == "booking" ? "ticket" : "calendar", _ => { related = e.Id; Render(); return Task.CompletedTask; })).ToArray(), Searchable: true));
+        return choose;
     }
 
     /// <summary>The trip's plans in time order, those without a day last; groups and their steps alike.</summary>

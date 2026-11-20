@@ -85,6 +85,33 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task WhatAnExpenseBelongsToIsFoundBySearchingAndShownAsALine()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("expense");
+            Tap(window, "Link to a plan or booking");
+            // The menu lists every plan and booking; its field narrows them, regardless of case.
+            var search = Probe.All<TextBox>(window).Single(b => b.Classes.Contains("menu-search"));
+            Assert.True(session.Menu!.Searchable);
+            search.Text = "TEAMLAB"; Probe.Layout();
+            var shown = Probe.All<Button>(window).Where(b => b.Classes.Contains("row") && b.IsEffectivelyVisible).Select(b => AutomationProperties.GetName(b)).ToArray();
+            Assert.NotEmpty(shown);
+            Assert.All(shown, name => Assert.Contains("teamLab", name, StringComparison.Ordinal));
+            search.Text = "zzz"; Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Nothing fits “zzz”." && t.IsEffectivelyVisible);
+            await PickAsync(session, "teamLab Planets");
+            Probe.Layout();
+            // Chosen, it is a line with its day and a button to take it away, as a booking lists its plans.
+            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "teamLab Planets");
+            Tap(window, "Remove the link");
+            Assert.NotNull(Probe.Button(Form(window), "Link to a plan or booking"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task AnExpenseSaysWhoPaidInWhichCurrencyAndWhatItBelongsTo()
     {
         var (session, window) = await OpenAsync();

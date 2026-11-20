@@ -44,6 +44,9 @@ public sealed class AppShell : UserControl
     // Redrawing replaces every control on the page, so a text field being typed in would lose its focus and the
     // keyboard would close. While someone types, redraws that only refresh data wait until the field is left.
     private bool pending, acting, keyboard;
+    private double keyboardHeight;
+    // The menu shown now, which moves above the keyboard while its search field is typed in.
+    private Border? menuPanel;
     // A field that was sent with Enter gets the focus back once the page shows what it added.
     private string? refocus;
     private object? drawnAt;
@@ -252,8 +255,15 @@ public sealed class AppShell : UserControl
     private void Keyboard(bool open, double height)
     {
         // The bottom bar steps aside while typing, as on other Android apps.
-        keyboard = open;
+        keyboard = open; keyboardHeight = open ? height : 0;
         if (bottomBar is not null) bottomBar.IsVisible = !keyboard;
+        // A menu being searched in moves up with the keyboard.
+        if (menuPanel is { } panel)
+        {
+            var phone = Breakpoint == WidthClass.Phone;
+            panel.Margin = phone ? new Thickness(0, 0, 0, keyboardHeight) : new Thickness(24, 24, 24, 24 + keyboardHeight);
+            panel.MaxHeight = Math.Max(240, (Bounds.Height - keyboardHeight) * 0.8);
+        }
         SystemBar();
         // With the bottom bar the page reaches the screen's edge; without it the safe area is already left free.
         var edge = bottomBar is not null || barWanted ? 0 : safeArea.Bottom;
@@ -501,6 +511,7 @@ public sealed class AppShell : UserControl
         }
         // A long-press menu sits above the page and the sheet, a question above everything else.
         foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);
+        menuPanel = null;
         // A file opened from the details covers the whole screen; back returns to the details.
         if (Session.Viewing.Count > 0) overlays.Children.Add(FileView.Build(Session, Session.Viewing[^1]).Classed("viewer"));
         if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
@@ -535,29 +546,53 @@ public sealed class AppShell : UserControl
     /// <summary>A long-press menu: a list of actions from the bottom on phones, a card in the middle on wider screens.</summary>
     private Control Menu(ActionMenu menu)
     {
-        var list = Ui.V(0, Ui.V(2, Ui.Text(menu.Title, "title"), menu.Detail is { } detail ? Ui.Text(detail, "caption") : null).Margin(20, 16, 20, 8));
+        var list = Ui.V(0);
+        var rows = new List<(Button Row, string Label)>();
         foreach (var action in menu.Actions)
         {
             var row = new Button { Content = Ui.Columns("Auto,*", Ui.Icon(action.Icon, 20, action.Danger ? "Danger" : "Text.Muted").Margin(0, 0, 16, 0), Ui.Text(action.Label).Also(t => { if (action.Danger) t.Res(TextBlock.ForegroundProperty, "Danger"); })) }.Classed("row");
             AutomationProperties.SetName(row, action.Label);
             row.Click += async (_, _) => await Session.ChooseAsync(action, TopLevel.GetTopLevel(this));
-            list.Children.Add(row);
+            list.Children.Add(row); rows.Add((row, action.Label));
+        }
+        var head = Ui.V(8, Ui.V(2, Ui.Text(menu.Title, "title"), menu.Detail is { } detail ? Ui.Text(detail, "caption") : null).Margin(20, 16, 20, 0));
+        // Choosing from many, such as the trip's plans and bookings: a field narrows the list, by any part of an entry,
+        // regardless of case and accents. It stays above the entries, which scroll beneath it.
+        if (menu.Searchable || menu.Actions.Count >= 12)
+        {
+            var str = Session.Strings;
+            var search = new TextBox { PlaceholderText = str["SearchList"], InnerLeftContent = Ui.Icon("search", 16, "Text.Subtle").Margin(12, 0, 0, 0), MinHeight = 44 }.Classed("menu-search");
+            AutomationProperties.SetName(search, str["SearchList"]);
+            var none = Ui.Text("", "caption").Margin(20, 8);
+            none.IsVisible = false;
+            var compare = System.Globalization.CultureInfo.CurrentCulture.CompareInfo;
+            search.TextChanged += (_, _) =>
+            {
+                var query = (search.Text ?? "").Trim();
+                foreach (var (row, label) in rows) row.IsVisible = query.Length == 0 || compare.IndexOf(label, query, System.Globalization.CompareOptions.IgnoreCase | System.Globalization.CompareOptions.IgnoreNonSpace) >= 0;
+                none.IsVisible = query.Length > 0 && rows.All(r => !r.Row.IsVisible);
+                none.Text = none.IsVisible ? string.Format(System.Globalization.CultureInfo.CurrentCulture, str["NothingMatches"], query) : "";
+            };
+            head.Children.Add(search.Margin(16, 0));
+            list.Children.Add(none);
         }
         var phone = Breakpoint == WidthClass.Phone;
         var panel = new Border
         {
-            Child = new ScrollViewer { Content = list },
+            Child = new Grid { RowDefinitions = new RowDefinitions("Auto,*"), Children = { head.Margin(0, 0, 0, 8), new ScrollViewer { Content = list }.Row(1) } },
             CornerRadius = phone ? new CornerRadius(20, 20, 0, 0) : new CornerRadius(16),
             Padding = new Thickness(0, 0, 0, phone ? 12 + safeArea.Bottom : 12),
-            MaxHeight = Math.Max(240, Bounds.Height * 0.8),
+            MaxHeight = Math.Max(240, (Bounds.Height - keyboardHeight) * 0.8),
             MaxWidth = phone ? double.PositiveInfinity : 420,
             VerticalAlignment = phone ? VerticalAlignment.Bottom : VerticalAlignment.Center,
-            Margin = phone ? default : new Thickness(24),
+            // Above the keyboard while its search field is typed in.
+            Margin = phone ? new Thickness(0, 0, 0, keyboardHeight) : new Thickness(24, 24, 24, 24 + keyboardHeight),
             BoxShadow = BoxShadows.Parse("0 -2 16 0 #26000000")
         }.Res(Border.BackgroundProperty, "Bg.Surface");
         AutomationProperties.SetName(panel, menu.Title);
         var scrim = new Border { Background = new SolidColorBrush(Colors.Black, 0.32) };
         scrim.PointerPressed += (_, e) => { Session.CloseOverlay(); e.Handled = true; };
+        menuPanel = panel;
         return new Panel { Children = { scrim, panel } }.Classed("menu");
     }
 

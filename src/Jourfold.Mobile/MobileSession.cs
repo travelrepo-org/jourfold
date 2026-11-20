@@ -26,7 +26,11 @@ public sealed record MenuAction(string Label, string Icon, Func<Avalonia.Control
 public sealed record ShownFile(string Name, string MediaType, byte[] Bytes);
 
 /// <summary>The menu a long press opens, with what it is for as its title.</summary>
-public sealed record ActionMenu(string Title, string? Detail, IReadOnlyList<MenuAction> Actions);
+/// <param name="Searchable">
+/// Whether a field above the entries narrows them as one types, for menus that choose from the trip's plans, bookings
+/// or time zones. Long menus have it anyway.
+/// </param>
+public sealed record ActionMenu(string Title, string? Detail, IReadOnlyList<MenuAction> Actions, bool Searchable = false);
 
 /// <summary>
 /// What the phone app shows and where the user is: the trips on this device, the open trip with its day plan, the tab,

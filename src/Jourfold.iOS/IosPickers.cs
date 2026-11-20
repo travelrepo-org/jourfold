@@ -68,7 +68,7 @@ internal static class IosPickers
             presentation.PrefersGrabberVisible = true;
         }
         if (sheet.PresentationController is { } controller) controller.Delegate = new Dismissal(answer);
-        if (Accent() is { } accent) sheet.View!.TintColor = accent;
+        if (Accent() is { } accent) { sheet.View!.TintColor = accent; sheet.NavigationBar.TintColor = accent; picker.TintColor = accent; }
         top.PresentViewController(sheet, true, null);
         return answer.Task;
     }

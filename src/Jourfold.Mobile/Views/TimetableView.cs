@@ -154,7 +154,7 @@ public static class TimetableView
             axis.Children.Add(Ui.Text(hour.ToString("00", CultureInfo.InvariantCulture) + ":00", "small", "muted").Also(t => { Canvas.SetTop(t, y - 8); Canvas.SetLeft(t, 8); }));
             var hourAt = reference.Day.Date.AtMidnight().PlusHours(hour).InZoneLeniently(reference.Zone).ToInstant();
             if (TimeText.Second(hourAt, reference.Day.Date, s.SecondZone, reference.Zone) is { } second)
-                axis.Children.Add(Ui.Text(second, "caption").Also(t => { t.FontSize = 10; t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); t.Tag = "second-hour"; Canvas.SetTop(t, y + 6); Canvas.SetLeft(t, 8); }));
+                axis.Children.Add(Ui.Text(second, "caption").Also(t => { t.FontSize = TextScale.Size(10); t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); t.Tag = "second-hour"; Canvas.SetTop(t, y + 6); Canvas.SetLeft(t, 8); }));
             grid.Children.Insert(0, new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, y, 0, 0), IsHitTestVisible = false }.Res(Border.BackgroundProperty, "Line").Also(b => Grid.SetColumnSpan(b, 2)));
         }
         grid.Children.Add(axis);
@@ -203,7 +203,7 @@ public static class TimetableView
     {
         var noon = day.At(new LocalTime(12, 0)).InZoneLeniently(zone).ToInstant();
         var names = Ui.V(0, Ui.Text(TimeText.Abbreviation(zone, noon), "small", "muted"));
-        if (s.SecondZone is { } second && second.Id != zone.Id) names.Children.Add(Ui.Text(TimeText.Abbreviation(second, noon), "caption").Also(t => { t.FontSize = 10; t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); }));
+        if (s.SecondZone is { } second && second.Id != zone.Id) names.Children.Add(Ui.Text(TimeText.Abbreviation(second, noon), "caption").Also(t => { t.FontSize = TextScale.Size(10); t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); }));
         var button = new Button { Content = Ui.H(2, names, Ui.Icon("chevron-down", 12, "Text.Subtle")), Padding = new Thickness(8, 2, 2, 2), MinHeight = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Left }.Classed("zone-corner");
         var label = s.SecondZone is { } chosen ? string.Format(CultureInfo.CurrentCulture, s.Strings["SecondTimeOf"], TimeText.Place(chosen)) : s.Strings["ChooseSecondTime"];
         AutomationProperties.SetName(button, label); ToolTip.SetTip(button, label);
@@ -279,7 +279,7 @@ public static class TimetableView
         var compact = height < 44 || strip;
         var title = Ui.Text((continued ? "↳ " : "") + item.Title, "strong").Also(t =>
         {
-            t.FontSize = 12.5; t.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap; t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxHeight = Math.Max(16, height - 24);
+            t.FontSize = TextScale.Size(12.5); t.TextWrapping = compact ? TextWrapping.NoWrap : TextWrapping.Wrap; t.TextTrimming = TextTrimming.CharacterEllipsis; t.MaxHeight = Math.Max(16, height - 24);
             if (status == "cancelled") t.TextDecorations = TextDecorations.Strikethrough;
         });
         var time = Ui.Text(timeText, "small").Also(t => { t.FontWeight = FontWeight.SemiBold; t.TextTrimming = TextTrimming.CharacterEllipsis; t.Res(TextBlock.ForegroundProperty, key + ".Fg"); });
@@ -374,7 +374,7 @@ public static class TimetableView
             if (columns.Length == 0) continue;
             var item = stay.Item; var status = item.Data["status"]?.ToString();
             var count = stay.Nights == 1 ? str["OneNight"] : string.Format(CultureInfo.CurrentCulture, str["NightsCount"], stay.Nights);
-            var title = Ui.Text(item.Title, "strong").Also(t => { t.FontSize = 12; t.TextTrimming = TextTrimming.CharacterEllipsis; t.TextWrapping = TextWrapping.NoWrap; if (status == "cancelled") t.TextDecorations = TextDecorations.Strikethrough; });
+            var title = Ui.Text(item.Title, "strong").Also(t => { t.FontSize = TextScale.Size(12); t.TextTrimming = TextTrimming.CharacterEllipsis; t.TextWrapping = TextWrapping.NoWrap; if (status == "cancelled") t.TextDecorations = TextDecorations.Strikethrough; });
             var body = Ui.Columns("Auto,*,Auto,Auto", Ui.Icon("bed-double", 13, "Kind.Accommodation.Fg"), title.Margin(6, 0), Ui.Text(count, "small", "muted").Also(t => t.TextWrapping = TextWrapping.NoWrap),
                 status is "confirmed" or "completed" ? Ui.Icon("circle-check", 12, "Success").Margin(6, 0, 0, 0) : null);
             var border = new Border { Height = 30, CornerRadius = new CornerRadius(6), Padding = new Thickness(8, 2, 6, 2), BorderThickness = new Thickness(1), Child = body, ClipToBounds = true }
@@ -407,7 +407,7 @@ public static class TimetableView
         }
         var band = new Grid { ColumnDefinitions = new ColumnDefinitions(Gutter.ToString(CultureInfo.InvariantCulture) + ",*"), Children = { days(lanes).Col(1) } };
         // The name fits the time column in one line, also a long one such as "Ganztägig".
-        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.FontSize = 10.5; t.TextWrapping = TextWrapping.NoWrap; t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 5, 0); }));
+        band.Children.Add(Ui.Text(name, "small", "muted").Also(t => { t.FontSize = TextScale.Size(10.5); t.TextWrapping = TextWrapping.NoWrap; t.TextAlignment = TextAlignment.Right; t.Margin = new Thickness(0, 9, 5, 0); }));
         return new Border { Child = band, Padding = new Thickness(0, 4), BorderThickness = top ? new Thickness(0, 1, 0, 1) : new Thickness(0, 1, 0, 0) }.Res(Border.BorderBrushProperty, "Line").Res(Border.BackgroundProperty, "Bg.Surface");
     }
 

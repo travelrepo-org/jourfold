@@ -73,6 +73,8 @@ public sealed class AppShell : UserControl
         }
         Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<DatePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
         Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<TimePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
+        // Where the system has its own date and time pickers, the fields open those instead.
+        SystemPickers.Install();
     }
 
     public AppShell(MobileSession session)
@@ -683,7 +685,7 @@ public sealed class AppShell : UserControl
         var chosen = IsAt(place);
         var pill = new Border { Width = 56, Height = 32, CornerRadius = new CornerRadius(16), HorizontalAlignment = HorizontalAlignment.Center, Child = Ui.Icon(place.Icon, 24, chosen ? "Accent.SoftText" : null).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("indicator");
         if (chosen) pill.Res(Border.BackgroundProperty, "Accent.Soft");
-        var button = new ChoiceButton { IsSelected = chosen, Content = Ui.V(4, pill, Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
+        var button = new ChoiceButton { IsSelected = chosen, Content = Ui.V(4, pill, Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = TextScale.Size(12); })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
         ToolTip.SetTip(button, text + " (" + Shortcut(number.ToString(CultureInfo.InvariantCulture)) + ")");
         button.Click += (_, _) => Go(place);

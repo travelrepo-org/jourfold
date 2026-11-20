@@ -66,8 +66,11 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             Brightness: IosSystem.Bright, TakePhoto: IosSystem.HasCamera ? IosSystem.TakePhotoAsync : null, ShareText: IosSystem.ShareTextAsync,
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo, CanOpen: IosSystem.CanOpen);
-        // On iPhones the bottom bar is the system's own tab bar.
-        MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar() };
+        // On iPhones the bottom bar is the system's own tab bar. Text follows Larger Text in the Settings app, also when
+        // it is changed while Jourfold runs.
+        MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar(), TextScale = TextScale(),
+            PickTime = IosPickers.PickTimeAsync, PickDate = IosPickers.PickDateAsync };
+        UIApplication.Notifications.ObserveContentSizeCategoryChanged((_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => MobileApp.ScaleText(TextScale())));
         notices.Start();
         // Before the window's scene connects, which may come with a quick action from the app icon.
         IosShortcuts.Install();
@@ -104,6 +107,9 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         public Task<GitResult> ExecuteAsync(string directory, IReadOnlyList<string> arguments, string? input = null, CancellationToken cancellationToken = default) =>
             Task.FromException<GitResult>(new TravelRepo.Core.DomainException("git.library_missing", "This build of Jourfold has no Git library."));
     }
+
+    /// <summary>How much larger than standard the user wants text, from the Settings app's Text Size or Larger Text.</summary>
+    private static double TextScale() => Jourfold.Mobile.TextScale.FromIosCategory(UIApplication.SharedApplication.PreferredContentSizeCategory?.ToString());
 
     /// <summary>The short tap felt when a long press is reached, as on Android.</summary>
     private static void Haptic()

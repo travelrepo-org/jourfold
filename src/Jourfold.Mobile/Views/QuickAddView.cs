@@ -33,7 +33,7 @@ public sealed class QuickAddView
     private readonly Guid? into;
     private string kind = "activity";
     private LocalDate? day;
-    private readonly TextBox title = new() { FontSize = 18 };
+    private readonly TextBox title = new() { FontSize = TextScale.Size(18) };
     private readonly TimePicker start = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly TimePicker end = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly AutoCompleteBox place = new() { FilterMode = AutoCompleteFilterMode.ContainsOrdinal, MinimumPrefixLength = 1 };

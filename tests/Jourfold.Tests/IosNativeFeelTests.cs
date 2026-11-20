@@ -1,0 +1,116 @@
+using Avalonia.Controls;
+using Avalonia.Headless.XUnit;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+using Jourfold.Mobile;
+using Jourfold.Mobile.Controls;
+using NodaTime;
+using TravelRepo.Git;
+using Xunit;
+namespace Jourfold.Tests;
+
+/// <summary>
+/// The phone app on iOS feels like an iOS app: text follows Larger Text, and date and time fields open the system's
+/// own pickers.
+/// </summary>
+public sealed class IosNativeFeelTests : IDisposable
+{
+    private readonly string root = Path.Combine(Path.GetTempPath(), "jourfold-ios-feel-" + Guid.NewGuid());
+    public void Dispose() { TestFiles.Delete(root); TextScale.Apply(new ResourceDictionary(), 1); }
+    private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
+
+    private async Task<(MobileSession Session, Window Window)> OpenAsync(Func<MobileHost, MobileHost>? change = null)
+    {
+        var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
+        var host = new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets());
+        var session = new MobileSession(change?.Invoke(host) ?? host);
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        Probe.Layout();
+        return (session, window);
+    }
+
+    [Fact]
+    public void LargerTextScalesTheThemesSizesWithinBounds()
+    {
+        var resources = new ResourceDictionary();
+        TextScale.Apply(resources, TextScale.FromIosCategory("UICTContentSizeCategoryXXXL"));
+        Assert.Equal(23 / 17.0, TextScale.Factor, 3);
+        Assert.Equal(Math.Round(15 * 23 / 17.0, 1), (double)resources["Size.Body"]!);
+        Assert.Equal(Math.Round(13 * 23 / 17.0, 1), (double)resources["Size.Caption"]!);
+        Assert.Equal((double)resources["Size.Body"]!, (double)resources["ControlContentThemeFontSize"]!);
+        // The largest accessibility sizes stop where fixed parts still hold their text; the standard is unchanged.
+        TextScale.Apply(resources, TextScale.FromIosCategory("UICTContentSizeCategoryAccessibilityXXXL"));
+        Assert.Equal(TextScale.Largest, TextScale.Factor);
+        TextScale.Apply(resources, TextScale.FromIosCategory("UICTContentSizeCategoryL"));
+        Assert.Equal(15d, (double)resources["Size.Body"]!);
+        Assert.Equal(1d, TextScale.FromIosCategory(null));
+    }
+
+    [AvaloniaFact]
+    public async Task SizesSetInCodeFollowLargerTextWhenThePageIsDrawnAgain()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            Assert.Equal(18, window.GetVisualDescendants().OfType<TextBox>().First(t => t.IsVisible).FontSize);
+            session.CloseOverlay(); Probe.Layout();
+            TextScale.Apply(new ResourceDictionary(), 1.3);
+            session.ShowQuickAdd(); Probe.Layout();
+            Assert.Equal(Math.Round(18 * 1.3, 1), window.GetVisualDescendants().OfType<TextBox>().First(t => t.IsVisible).FontSize);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task ATimeFieldOpensTheSystemsPickerAndTakesWhatWasChosen()
+    {
+        var asked = new List<(TimeSpan? Shown, int Steps)>();
+        var answer = new PickedTime(true, new TimeSpan(14, 30, 0));
+        var (session, window) = await OpenAsync(h => h.WithPickers(
+            (shown, steps, _) => { asked.Add((shown, steps)); return Task.FromResult(answer); },
+            (_, _) => Task.FromResult(new PickedDate(true, new DateTime(2027, 5, 20)))));
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            var start = window.GetVisualDescendants().OfType<TimePicker>().First(p => p.IsVisible);
+            var button = start.GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button)); Probe.Layout();
+            await Probe.Until(() => start.SelectedTime is not null);
+            Assert.Equal(new TimeSpan(14, 30, 0), start.SelectedTime);
+            Assert.Equal(5, Assert.Single(asked).Steps);
+            // Avalonia's own wheels did not open as well.
+            Assert.DoesNotContain(start.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Popup>(), p => p.IsOpen);
+            // Cancelling keeps what the field had.
+            answer = default;
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button)); Probe.Layout();
+            await Probe.Until(() => asked.Count == 2);
+            Probe.Layout();
+            Assert.Equal(new TimeSpan(14, 30, 0), start.SelectedTime);
+            Assert.Equal(new TimeSpan(14, 30, 0), asked[1].Shown);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task WithoutSystemPickersTheFieldsKeepTheirOwnWheels()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd(); Probe.Layout();
+            var start = window.GetVisualDescendants().OfType<TimePicker>().First(p => p.IsVisible);
+            var button = start.GetVisualDescendants().OfType<Button>().First();
+            button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button)); Probe.Layout();
+            Assert.Contains(start.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Popup>(), p => p.IsOpen);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+}
+
+internal static class PickerHosts
+{
+    public static MobileHost WithPickers(this MobileHost host, Func<TimeSpan?, int, string?, Task<PickedTime>> time, Func<DateTime?, string?, Task<PickedDate>> date) =>
+        host with { PickTime = time, PickDate = date };
+}

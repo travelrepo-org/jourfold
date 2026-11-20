@@ -53,6 +53,21 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
     public string TripsRoot => Path.Combine(DataRoot, "trips");
     public string RecoveryRoot => Path.Combine(DataRoot, "recovery");
 
+    /// <summary>
+    /// How much larger the device shows text than at its standard setting, such as Larger Text on iOS (1 there); null
+    /// where the platform scales text itself. Later changes go to <see cref="MobileApp.ScaleText"/>.
+    /// </summary>
+    public double? TextScale { get; init; }
+
+    /// <summary>
+    /// The system's own time picker, opened from a time field: the time shown, the minute steps and the field's name.
+    /// Null where the app's own wheels are used, as on Android.
+    /// </summary>
+    public Func<TimeSpan?, int, string?, Task<Controls.PickedTime>>? PickTime { get; init; }
+
+    /// <summary>The system's own date picker, opened from a date field: the day shown and the field's name.</summary>
+    public Func<DateTime?, string?, Task<Controls.PickedDate>>? PickDate { get; init; }
+
     /// <summary>The system's own tab bar for phones, as on iOS; null where the shell draws its bottom bar itself.</summary>
     public ISystemBar? Bar { get; init; }
 

@@ -85,6 +85,26 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ANewPlanShowsItsDayInTheMiddleOfTheRowOfDays()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var days = session.Agenda.Days;
+            session.ShowDate(days[^2].Date);
+            session.ShowQuickAdd(); Probe.Layout(); Probe.Layout();
+            var label = days[^2].Date.ToString("ddd d", System.Globalization.CultureInfo.GetCultureInfo("en"));
+            var chip = Probe.All<Button>(Form(window)).Single(b => b.Classes.Contains("selected") && Probe.All<TextBlock>(b).Any(x => x.Text == label));
+            var row = chip.FindAncestorOfType<ScrollViewer>()!;
+            Assert.True(row.Offset.X > 0);
+            // In the middle, or as far as the row goes when the day is near its end.
+            var middle = chip.Bounds.X + chip.Bounds.Width / 2 - row.Offset.X;
+            Assert.True(Math.Abs(middle - row.Viewport.Width / 2) < 2 || Math.Abs(row.Offset.X - (row.Extent.Width - row.Viewport.Width)) < 1, $"middle {middle} of {row.Viewport.Width}, offset {row.Offset.X}");
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task WhatAnExpenseBelongsToIsFoundBySearchingAndShownAsALine()
     {
         var (session, window) = await OpenAsync();

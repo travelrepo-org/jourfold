@@ -76,6 +76,8 @@ public sealed class QuickAddView
     // An expense: still estimated, and the plan or booking it belongs to.
     private readonly ToggleSwitch estimated = new();
     private Guid? related, relatedBefore;
+    // Where the row of days was scrolled to, kept while the form is drawn again; null until it first shows.
+    private double? daysOffset;
     // An expense's category, who shares it and what the card booked in the trip's currency, with how they were.
     private string? category, categoryBefore;
     // The category the title of a new expense suggests while it is typed ("Taxi" is transport); kept unless another is chosen.
@@ -925,17 +927,35 @@ public sealed class QuickAddView
         return s.Trip!.Entities.Values.FirstOrDefault(p => p.Type == "place" && string.Equals(p.Title, text, StringComparison.CurrentCultureIgnoreCase)) is { } known ? PlaceChoice.Existing(known.Id) : PlaceChoice.Create(text);
     }
 
+    /// <summary>
+    /// The trip's days as chips. The chosen day starts in the middle of the row, so a plan added from a later day shows
+    /// its day at once; after that the row stays where the user scrolled it, also when the form is drawn again.
+    /// </summary>
     private Control Days()
     {
         var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
         var chips = Ui.H(6);
+        Button? chosenChip = null;
         foreach (var d in s.Agenda.Days)
         {
             var chip = Chip(d.Date.ToString("ddd d", culture), null, d.Date == day, "chip"); var chosen = d.Date;
             chip.Click += (_, _) => { day = day == chosen ? null : chosen; Render(); };
             chips.Children.Add(chip);
+            if (d.Date == day) chosenChip = chip;
         }
-        return new ScrollViewer { Content = chips, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var scroll = new ScrollViewer { Content = chips, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        void Place()
+        {
+            if (scroll.Viewport.Width <= 0) return;
+            var most = Math.Max(0, scroll.Extent.Width - scroll.Viewport.Width);
+            var x = daysOffset ?? (chosenChip is null ? 0 : chosenChip.Bounds.X + chosenChip.Bounds.Width / 2 - scroll.Viewport.Width / 2);
+            scroll.Offset = new Avalonia.Vector(Math.Clamp(x, 0, most), 0);
+            daysOffset = scroll.Offset.X;
+            scroll.ScrollChanged += (_, _) => daysOffset = scroll.Offset.X;
+        }
+        var placed = false;
+        scroll.LayoutUpdated += (_, _) => { if (!placed && scroll.Viewport.Width > 0) { placed = true; Place(); } };
+        return scroll;
     }
 
     private async Task SubmitAsync(Button add)

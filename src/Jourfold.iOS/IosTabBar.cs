@@ -61,10 +61,7 @@ internal sealed class IosTabBar : ISystemBar
 
     [System.Runtime.Versioning.SupportedOSPlatform("ios18.0")]
     private UITab[] Tabs(IReadOnlyList<SystemBarItem> items) =>
-        items.Select((item, i) => item.Search ? new UISearchTab(_ => new Page(this)) { Title = item.Label } : new UITab(item.Label, Image(item).Normal, "place" + i, _ => new Page(this))).ToArray();
-
-    /// <summary>From iOS 26 the search is a place of the bar, set apart at its end.</summary>
-    public bool SearchTab => OperatingSystem.IsIOSVersionAtLeast(26);
+        items.Select((item, i) => new UITab(item.Label, Image(item).Normal, "place" + i, _ => new Page(this))).ToArray();
 
     /// <summary>
     /// Lets the marked page's invisible scroll view feel the finger on Avalonia's view, as its own drag: the tab bar
@@ -177,7 +174,6 @@ internal sealed class IosTabBar : ISystemBar
             "square-check" => ["checkmark.square"],
             "backpack" => ["backpack", "bag"],
             "ellipsis" => ["ellipsis"],
-            "search" => ["magnifyingglass"],
             _ => ["circle"]
         };
         var normal = names.Select(n => (Name: n, Image: UIImage.GetSystemImage(n))).FirstOrDefault(x => x.Image is not null);

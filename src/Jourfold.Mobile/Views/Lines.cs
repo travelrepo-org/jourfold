@@ -52,19 +52,14 @@ public static class Lines
         var meta = string.Join(" · ", new[] { Formats.DateRange(start, end), Names(people, s) }.Where(t => t.Length > 0));
         var back = Ui.IconButton("chevron-left", s.Strings["Trips"]); back.Click += (_, _) => s.Close();
         // The search is one tap away on every tab.
-        // The search is one tap away on every tab: here, or in the system's bar where it has a place for it.
-        Button? search = null;
-        if (!s.SearchInBar)
-        {
-            search = Ui.IconButton("search", s.Strings["SearchTrip"]); search.Click += (_, _) => s.ShowSearch();
-            ToolTip.SetTip(search, s.Strings["SearchTrip"] + " (" + AppShell.Shortcut("K") + ")");
-        }
+        var search = Ui.IconButton("search", s.Strings["SearchTrip"]); search.Click += (_, _) => s.ShowSearch();
+        ToolTip.SetTip(search, s.Strings["SearchTrip"] + " (" + AppShell.Shortcut("K") + ")");
         // With the system's bar, as on iPhones, the buttons at the top are round, as iOS draws its own.
         if (s.Host.Bar is not null) foreach (var button in new[] { back, action as Button, search }) button?.Classes.Add("round");
         return Ui.Columns("Auto,Auto,*,Auto,Auto", back.Margin(0, 0, s.Host.Bar is null ? 0 : 8, 0),
             Covers.Thumbnail(s.Workspace?.Repository, trip, 44, 44, 10).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(trip.Manifest.Title, "title"), Ui.Line(meta.Length > 0 ? meta : s.Strings["NoDatesYet"], "caption")),
-            action?.Margin(8, 0, 0, 0), search?.Margin(action is null ? 8 : 6, 0, 0, 0)).Margin(4, 6, 8, 6);
+            action?.Margin(8, 0, 0, 0), search.Margin(action is null ? 8 : s.Host.Bar is null ? 0 : 6, 0, 0, 0)).Margin(4, 6, 8, 6);
     }
 
     /// <summary>"Alex and Sam", "Alex, Sam and Kim".</summary>

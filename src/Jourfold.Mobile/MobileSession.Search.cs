@@ -12,12 +12,6 @@ public sealed partial class MobileSession
     public const string SearchDraft = "search";
 
     /// <summary>Opens the search with its field ready to type in; back returns to where it was opened from.</summary>
-    /// <summary>
-    /// Whether the search is a place of the system's bar, as on iPhones with iOS 26, so the page's top leaves its
-    /// button out. The shell sets it before it draws the page.
-    /// </summary>
-    public bool SearchInBar { get; set; }
-
     public void ShowSearch()
     {
         if (Workspace is null) return;

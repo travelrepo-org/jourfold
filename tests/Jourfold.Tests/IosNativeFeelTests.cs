@@ -161,7 +161,7 @@ public sealed class IosNativeFeelTests : IDisposable
     [AvaloniaFact]
     public async Task WithIosBarTheDetailsFloatBelowTheTopAndReachTheEdgesAtIt()
     {
-        var bar = new SearchBar();
+        var bar = new IosBar();
         var (session, window) = await OpenAsync(h => h with { Bar = bar });
         try
         {
@@ -236,13 +236,12 @@ public sealed class IosNativeFeelTests : IDisposable
         finally { window.Close(); session.Dispose(); }
     }
 
-    /// <summary>A bar like iOS 26's, with a place for the search set apart.</summary>
-    private sealed class SearchBar : ISystemBar
+    /// <summary>A bar like iOS's, which the shell shows instead of drawing its own.</summary>
+    private sealed class IosBar : ISystemBar
     {
         public IReadOnlyList<SystemBarItem> Items { get; private set; } = [];
         public int Selected { get; private set; } = -1;
         public double Height => 98;
-        public bool SearchTab => true;
         public event Action<int>? Tapped;
         public event Action? HeightChanged { add { } remove { } }
         public void Show(IReadOnlyList<SystemBarItem> items, int selected, Avalonia.Media.Color lightAccent, Avalonia.Media.Color darkAccent) { Items = items; Selected = selected; }
@@ -252,32 +251,22 @@ public sealed class IosNativeFeelTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task OnIos26TheSearchIsAPlaceOfTheBarInsteadOfAButtonAtTheTop()
+    public async Task WithIosBarTheTopsButtonsAreRoundAndTheSearchStaysThere()
     {
-        var bar = new SearchBar();
-        var (session, window) = await OpenAsync(h => h with { Bar = bar });
+        var (session, window) = await OpenAsync(h => h with { Bar = new IosBar() });
         try
         {
-            Assert.Equal(["Today", "Plan", "Add", "Costs", "More", "Search"], bar.Items.Select(i => i.Label).ToArray());
-            Assert.True(bar.Items[^1].Search);
-            // The top keeps its way back, round as iOS draws it, and has no search of its own.
-            Assert.DoesNotContain(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Search the trip");
             Assert.Contains("round", Probe.All<Button>(window).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Trips").Classes);
-            bar.Tap(bar.Items.Count - 1); Probe.Layout();
-            Assert.Equal("search", session.Page);
-            Assert.Equal(bar.Items.Count - 1, bar.Selected);
-            bar.Tap(0); Probe.Layout();
-            Assert.Equal(MobileTab.Today, session.Tab);
-            Assert.Equal(0, bar.Selected);
+            Assert.Contains("round", Probe.All<Button>(window).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Search the trip").Classes);
         }
         finally { window.Close(); session.Dispose(); }
     }
 
     [AvaloniaFact]
-    public async Task WithoutThePlaceTheSearchStaysAtTheTop()
+    public async Task WithoutIosBarTheTopsButtonsStayPlain()
     {
         var (session, window) = await OpenAsync();
-        try { Assert.Contains(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Search the trip"); }
+        try { Assert.DoesNotContain("round", Probe.All<Button>(window).First(b => Avalonia.Automation.AutomationProperties.GetName(b) == "Search the trip").Classes); }
         finally { window.Close(); session.Dispose(); }
     }
 }

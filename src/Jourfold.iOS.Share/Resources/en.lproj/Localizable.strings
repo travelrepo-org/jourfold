@@ -1,0 +1,6 @@
+/* The share extension's card in another app's share sheet. */
+"Saving" = "Keeping it for Jourfold…";
+"Kept" = "Kept for Jourfold. Open Jourfold to choose the trip and the plan it belongs to.";
+"Nothing" = "There is nothing here that Jourfold can take: files, links and text.";
+"Failed" = "Jourfold could not keep it. Open Jourfold once and try again.";
+"Done" = "Done";

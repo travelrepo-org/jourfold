@@ -318,7 +318,9 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>Where the user is. When it changes, the page is drawn at once, even while someone types.</summary>
-    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking, Session.Menu, Session.Viewing.Count, Session.FileProblem, Session.TaxiCard);
+    private object Location() => (Session.Workspace, Session.Tab, Session.Page, Session.Showing, Session.OverlayItem, Session.SelectedDate, Session.RemoteTrips, Session.SignInCode, Session.Asking, Session.Menu, Session.Viewing.Count, Session.FileProblem, Session.TaxiCard,
+        // Something shared anew while the share sheet is open, such as from iOS's share extension on coming back.
+        Session.Incoming);
 
     /// <summary>Whether a text field on the page has the focus. Sheets are not redrawn while they are open.</summary>
     private bool Typing() => TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox box && Avalonia.VisualTree.VisualExtensions.GetVisualAncestors(box).Contains(main);

@@ -1,0 +1,6 @@
+/* Die Karte der Erweiterung im Teilen-Menü einer anderen App. */
+"Saving" = "Wird für Jourfold aufbewahrt …";
+"Kept" = "Für Jourfold aufbewahrt. Öffnen Sie Jourfold, um die Reise und den Plan zu wählen, zu dem es gehört.";
+"Nothing" = "Hier ist nichts, was Jourfold aufnehmen kann: Dateien, Links und Text.";
+"Failed" = "Jourfold konnte es nicht aufbewahren. Öffnen Sie Jourfold einmal und versuchen Sie es erneut.";
+"Done" = "Fertig";

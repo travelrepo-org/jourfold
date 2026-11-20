@@ -190,9 +190,24 @@ the name or address of its places, and a booking by its title, reference and pro
 During the trip the list starts at today, with **Whole trip** to show the days before; a search always looks through
 the whole trip.
 
-On iPhone and iPad, tickets, PDFs, e-mails, images and text files come in through **Open in Jourfold** or Jourfold in
-the share sheet's row of apps (`CFBundleDocumentTypes`); iOS hands over a copy. Places and text from other apps need
-a share extension of their own, which the iOS app does not have yet.
+On iPhone and iPad, Jourfold is in the share sheet of other apps through a share extension (`src/Jourfold.iOS.Share`,
+a .NET app extension with a bundle ID of its own, `<ApplicationId>.Share`). It takes what Android's share intent
+takes: files (tickets, PDFs, e-mails, images, up to ten), a link such as a place from a maps app, and text. An
+extension cannot open its app, so it keeps what was shared in an inbox in the app group the two share
+(`group.<ApplicationId>`, `SharedInbox`): each share a folder with its files as they came and the text, marked as
+complete once written. It shows a card that says so and closes with **Done**; it reads, sends and changes nothing
+else. The next time Jourfold comes on screen it takes the inbox, oldest first, and goes on as on Android
+(`IosSharedInbox`): with a trip open the share sheet opens, otherwise the trip list asks for the trip; text only
+goes with a share without files. Tickets, PDFs, e-mails, images and text files also still come in through **Open in
+Jourfold** (`CFBundleDocumentTypes`), where iOS hands over a copy.
+
+The extension needs a provisioning profile with the app group on a device. A signed device build includes it only
+with `-p:ShareExtensionProvision=<profile>`, and without one builds the app as before, without the extension and
+without the app group. Builds for the simulator always include it. Unsigned builds, such as the workflow's IPA for
+sideloading, include it only with `-p:IncludeShareExtension=true`: whether a free Apple ID (Personal Team) and
+AltStore, SideStore and Sideloadly sign the extension and its app group is not known yet, and the IPA must stay
+installable. Until someone has tried it, the IPA from GitHub has no share extension; files still come in through
+**Open in Jourfold** there.
 
 ## Files
 

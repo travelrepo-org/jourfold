@@ -221,6 +221,9 @@
           "TravelRepo.Providers.Weather": "[0.7.0, )"
         }
       },
+      "jourfold.ios.share": {
+        "type": "Project"
+      },
       "jourfold.mobile": {
         "type": "Project",
         "dependencies": {

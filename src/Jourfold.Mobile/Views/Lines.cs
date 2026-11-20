@@ -248,14 +248,33 @@ public static class Lines
         return button;
     }
 
-    /// <summary>The trip's time zones and the phone's to choose the second time from, and a way to turn it off.</summary>
-    private static ActionMenu ZoneMenu(MobileSession s, DateTimeZone primary)
+    /// <summary>
+    /// The trip's time zones and the phone's to choose the second time from, any other zone in the world, and a way to
+    /// turn it off.
+    /// </summary>
+    internal static ActionMenu ZoneMenu(MobileSession s, DateTimeZone primary)
     {
-        var actions = s.ZoneChoices.Where(z => z.Id != primary.Id).Select(zone =>
+        var choices = s.ZoneChoices.Concat(s.SecondZone is { } chosen ? [chosen] : []).DistinctBy(z => z.Id).Where(z => z.Id != primary.Id);
+        var actions = choices.Select(zone =>
             new MenuAction(TimeText.Place(zone), zone.Id == s.SecondZone?.Id ? "check" : "clock", _ => { s.SetSecondZone(zone.Id); return Task.CompletedTask; })).ToList();
+        actions.Add(new MenuAction(s.Strings["OtherZone"], "globe", _ => { s.ShowMenu(AllZones(s, primary)); return Task.CompletedTask; }));
         if (s.SecondZone is not null) actions.Add(new MenuAction(s.Strings["NoSecondTime"], "x", _ => { s.SetSecondZone(null); return Task.CompletedTask; }));
         return new ActionMenu(s.Strings["SecondTime"], s.Strings["SecondTimeHint"], actions);
     }
+
+    /// <summary>Every place-named zone of the time zone database, by its place, to search through.</summary>
+    private static ActionMenu AllZones(MobileSession s, DateTimeZone primary)
+    {
+        var zones = TimeZoneNames.Value.Where(z => z.Id != primary.Id).Select(z =>
+            new MenuAction(z.Label, z.Id == s.SecondZone?.Id ? "check" : "clock", _ => { s.SetSecondZone(z.Id); return Task.CompletedTask; })).ToArray();
+        return new ActionMenu(s.Strings["AllZones"], null, zones, Searchable: true);
+    }
+
+    /// <summary>The zones named after a place ("Europe/Berlin", not "Etc/GMT+1" or old aliases), as "Berlin (Europe)".</summary>
+    private static readonly Lazy<(string Id, string Label)[]> TimeZoneNames = new(() =>
+        NodaTime.TimeZones.TzdbDateTimeZoneSource.Default.ZoneLocations?.Select(l => l.ZoneId).Distinct()
+            .Select(id => (Id: id, Label: TimeText.Place(DateTimeZoneProviders.Tzdb[id]) + " (" + id.Split('/')[0].Replace('_', ' ') + ")"))
+            .OrderBy(z => z.Label, StringComparer.CurrentCulture).ToArray() ?? []);
 
     public static string DayTitle(LocalDate date, MobileSession s) => date.ToString(s.Strings["DayTitleFormat"], CultureInfo.GetCultureInfo(s.Strings.Language));
     /// <summary>How long a journey takes from departure to arrival, across time zones; null for anything else.</summary>

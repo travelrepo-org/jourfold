@@ -374,7 +374,7 @@ public sealed class MobileEditingTests : IDisposable
             var more = Field<TextBox>(window, "More days later");
             more.Text = "5"; Probe.Layout();
             Assert.Same(more, Field<TextBox>(window, "More days later"));
-            Assert.True(more.Classes.Contains("selected"));
+            Assert.Contains("selected", more.Classes);
             Assert.DoesNotContain(Probe.All<ChoiceButton>(Form(window)), c => c.IsSelected && Probe.All<TextBlock>(c).Any(x => x.Text is "Same day" or "+1 day" or "+2 days"));
             Tap(window, "Add");
             await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Slow boat"));

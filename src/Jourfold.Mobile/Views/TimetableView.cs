@@ -145,13 +145,20 @@ public static class TimetableView
         var lanes = new Grid { ColumnDefinitions = new ColumnDefinitions(spec), Height = height };
         var grid = Frame(lanes); grid.Height = height;
         var axis = new Canvas();
+        // The second time zone, when one is chosen, quieter under each hour: read on the chosen day (or the first shown)
+        // in that day's zone, with +1 or −1 when it is another day there.
+        var reference = columns.FirstOrDefault(c => c.Day.Date == s.SelectedDate) is { Day: not null } chosen ? chosen : columns[0];
         for (var hour = from; hour <= to; hour++)
         {
             var y = Top + (hour - from) * HourHeight;
             axis.Children.Add(Ui.Text(hour.ToString("00", CultureInfo.InvariantCulture) + ":00", "small", "muted").Also(t => { Canvas.SetTop(t, y - 8); Canvas.SetLeft(t, 8); }));
+            var hourAt = reference.Day.Date.AtMidnight().PlusHours(hour).InZoneLeniently(reference.Zone).ToInstant();
+            if (TimeText.Second(hourAt, reference.Day.Date, s.SecondZone, reference.Zone) is { } second)
+                axis.Children.Add(Ui.Text(second, "caption").Also(t => { t.FontSize = 10; t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); t.Tag = "second-hour"; Canvas.SetTop(t, y + 6); Canvas.SetLeft(t, 8); }));
             grid.Children.Insert(0, new Border { Height = 1, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, y, 0, 0), IsHitTestVisible = false }.Res(Border.BackgroundProperty, "Line").Also(b => Grid.SetColumnSpan(b, 2)));
         }
         grid.Children.Add(axis);
+        header.Children.Add(Corner(s, reference.Zone, reference.Day.Date));
         var tripZone = ScheduleQueries.TripZone(s.Trip!);
         var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
         for (var i = 0; i < columns.Length; i++)
@@ -186,6 +193,22 @@ public static class TimetableView
         scroll.ScrollChanged += (_, _) => { if (placed) kept = scroll.Offset.Y; };
         Controls.ScrollPlace.Set(scroll, () => { if (target > 0) scroll.Offset = new Vector(0, target); kept = scroll.Offset.Y; placed = true; });
         return (header, Band(s.Strings["AllDay"], AllDay(s, shown), spec, Days, top: true), scroll, Band(s.Strings["NightsBand"], Nights(s, shown), spec, Days, top: false));
+    }
+
+    /// <summary>
+    /// Above the hours: the short name of the zone they are in, and of the second time under it when one is chosen. A tap
+    /// chooses the second time, from the trip's zones or any other, or turns it off.
+    /// </summary>
+    private static Control Corner(MobileSession s, DateTimeZone zone, LocalDate day)
+    {
+        var noon = day.At(new LocalTime(12, 0)).InZoneLeniently(zone).ToInstant();
+        var names = Ui.V(0, Ui.Text(TimeText.Abbreviation(zone, noon), "small", "muted"));
+        if (s.SecondZone is { } second && second.Id != zone.Id) names.Children.Add(Ui.Text(TimeText.Abbreviation(second, noon), "caption").Also(t => { t.FontSize = 10; t.Res(TextBlock.ForegroundProperty, "Text.Subtle"); }));
+        var button = new Button { Content = Ui.H(2, names, Ui.Icon("chevron-down", 12, "Text.Subtle")), Padding = new Thickness(8, 2, 2, 2), MinHeight = 0, Background = Brushes.Transparent, BorderThickness = new Thickness(0), VerticalAlignment = VerticalAlignment.Bottom, HorizontalAlignment = HorizontalAlignment.Left }.Classed("zone-corner");
+        var label = s.SecondZone is { } chosen ? string.Format(CultureInfo.CurrentCulture, s.Strings["SecondTimeOf"], TimeText.Place(chosen)) : s.Strings["ChooseSecondTime"];
+        AutomationProperties.SetName(button, label); ToolTip.SetTip(button, label);
+        button.Click += (_, _) => s.ShowMenu(Lines.ZoneMenu(s, zone));
+        return button;
     }
 
     /// <summary>The zone where the day's own first line starts; a journey continuing from the day before does not count.</summary>

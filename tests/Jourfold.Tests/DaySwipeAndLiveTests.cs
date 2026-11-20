@@ -238,6 +238,38 @@ public sealed class DaySwipeAndLiveTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheTimetableShowsTheSecondTimeUnderEachHourAndAnyZoneCanBeChosen()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.Settings.Values["plan.day"] = "timetable";
+            session.ShowTab(MobileTab.Plan); Probe.Layout();
+            string[] Seconds() { Probe.Layout(); return Probe.All<TextBlock>(window).Where(x => x.Tag as string == "second-hour").Select(x => x.Text!).ToArray(); }
+            Assert.Empty(Seconds());
+
+            // The corner above the hours chooses it; besides the trip's zones, any zone in the world can be searched.
+            Probe.Click(window, "Choose a second time"); Probe.Layout();
+            Assert.Contains(session.Menu!.Actions, a => a.Label == "Another time zone…");
+            await session.ChooseAsync(session.Menu!.Actions.Single(a => a.Label == "Another time zone…"), null); Probe.Layout();
+            Assert.True(session.Menu!.Searchable);
+            await session.ChooseAsync(session.Menu!.Actions.Single(a => a.Label == "Auckland (Pacific)"), null); Probe.Layout();
+            Assert.Equal("Pacific/Auckland", session.SecondZone!.Id);
+
+            // Tokyo is UTC+9 in May, Auckland UTC+12: three hours ahead, the evening already the next day.
+            var seconds = Seconds();
+            Assert.Contains("03:00", seconds);
+            Assert.Contains("00:00 +1", seconds);
+            Assert.NotNull(Probe.Button(window, "Second time: Auckland. Choose another"));
+
+            // The same choice shows in the list, and "No second time" takes it away everywhere.
+            session.SetSecondZone(null); Probe.Layout();
+            Assert.Empty(Seconds());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task OnlyBuildsWithDebugToolsOfferTheExample()
     {
         var (session, window) = await OpenAsync(new LiveNotices(LiveSupport.On, true), debugTools: false);

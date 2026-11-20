@@ -26,9 +26,12 @@ abbreviation ("Berlin: 01:30 (Wed)"). A journey across zones always names both p
 rules and `MobileTests` checks them.
 
 A tap on that line chooses a second time zone for the trip, from the phone's zone and the zones of the trip and its
-items. Its times then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day),
-and not where both zones show the same time. It replaces the other zone's time inside the cards ("Berlin: 02:00"),
-which only shows while no second time is chosen. The choice stays on this phone, per trip. Dark mode uses the design
+items, or under **Another time zone…** any zone named after a place, which a field above the list searches. Its times
+then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day), and not where both
+zones show the same time. It replaces the other zone's time inside the cards ("Berlin: 02:00"), which only shows while
+no second time is chosen. The timetable shows it under each hour of its time column, read on the chosen day in that
+day's zone; the corner above the hours names both zones by their short names ("JST", "CEST") and chooses the second
+time as well. The choice stays on this phone, per trip. Dark mode uses the design
 spec's navy tokens, which `Jourfold.UI` shares with the desktop.
 
 An item that runs past midnight, such as a night flight, appears again on the days after it starts: on the day it

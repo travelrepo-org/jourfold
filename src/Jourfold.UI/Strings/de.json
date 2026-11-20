@@ -2112,5 +2112,9 @@
   "PlanToToday": "Zu heute und jetzt",
   "FilterByCategory": "Nur Zahlungen für {0} zeigen",
   "AllCategoriesAgain": "Wieder alle Kategorien zeigen",
-  "NoCostsInCategory": "Keine Zahlung für {0}."
+  "NoCostsInCategory": "Keine Zahlung für {0}.",
+  "OtherZone": "Andere Zeitzone…",
+  "AllZones": "Alle Zeitzonen",
+  "SecondTimeOf": "Zweite Zeit: {0}. Andere wählen",
+  "ChooseSecondTime": "Zweite Zeit wählen"
 }

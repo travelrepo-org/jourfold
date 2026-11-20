@@ -52,7 +52,7 @@ public static class PlanView
     {
         if (Timetable(s, width, height))
         {
-            return TimetableView.Build(s, pixels, Lines.TripHeader(s), Modes(s, "plan.mode", timetable: true));
+            return TimetableView.Build(s, pixels, Header(s), Modes(s, "plan.mode", timetable: true));
         }
         var day = s.Agenda.Find(s.SelectedDate) ?? s.Agenda.Days.FirstOrDefault();
         var key = Offers(width, height) ? "plan.mode" : "plan.day";
@@ -60,7 +60,7 @@ public static class PlanView
         var strip = new Border { Child = DateStrip(s), ZIndex = 1, RenderTransform = new TranslateTransform(), Padding = new Thickness(0, 4, 0, 6) }
             .Res(Border.BackgroundProperty, "Bg.App").Res(Border.BorderBrushProperty, "Line");
         var content = day is null ? Ui.Text(s.Strings["NothingPlanned"], "muted").Margin(16, 8) : Day(s, day);
-        var page = Ui.V(6, Lines.TripHeader(s), Modes(s, key, timetable: false).Margin(16, 0, 16, 4), strip, content);
+        var page = Ui.V(6, Header(s), Modes(s, key, timetable: false).Margin(16, 0, 16, 4), strip, content);
         page.Margin = new Thickness(0, 0, 0, 24);
         var scroll = new ScrollViewer { Content = page, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
         Sticky(s, scroll, strip, day?.Date);
@@ -80,16 +80,31 @@ public static class PlanView
             chip.Click += (_, _) => { s.Settings.Values[key] = value; s.Settings.Save(); s.ShowDate(s.SelectedDate); };
             return chip;
         }
-        // While the trip is on: back to today, and in the timetable to the hour before now, from wherever the plan is.
-        Button? today = null;
-        if (s.Agenda.Find(s.PhoneToday) is not null)
+        return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"));
+    }
+
+    /// <summary>
+    /// The plan's header: the trip's, with a calendar leaf showing today's day beside the search, as calendars have it.
+    /// While the trip is on, it leads back to today, and in the timetable to the hour before now.
+    /// </summary>
+    private static Control Header(MobileSession s)
+    {
+        if (s.Agenda.Find(s.PhoneToday) is null) return Lines.TripHeader(s);
+        var number = new TextBlock
         {
-            today = Ui.Choice(s.Strings["Today"], "locate-fixed", false, "chip");
-            Avalonia.Automation.AutomationProperties.SetName(today, s.Strings["PlanToToday"]);
-            ToolTip.SetTip(today, s.Strings["PlanToToday"]);
-            today.Click += (_, _) => { TimetableView.ToNow(); s.ShowDate(s.PhoneToday); };
-        }
-        return Ui.H(8, Mode("PlanList", "list", !timetable, "list"), Mode("PlanTimetable", "calendar-days", timetable, "timetable"), today);
+            Text = s.PhoneToday.Day.ToString(CultureInfo.InvariantCulture),
+            FontSize = 9,
+            FontWeight = FontWeight.Bold,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Top,
+            Margin = new Thickness(0, 7.5, 0, 0),
+            LineHeight = 12,
+        };
+        var today = new Button { Content = new Panel { Width = 22, Height = 22, Children = { Ui.Icon("calendar", 22), number } } }.Classed("icon");
+        Avalonia.Automation.AutomationProperties.SetName(today, s.Strings["PlanToToday"]);
+        ToolTip.SetTip(today, s.Strings["PlanToToday"]);
+        today.Click += (_, _) => { TimetableView.ToNow(); s.ShowDate(s.PhoneToday); };
+        return Lines.TripHeader(s, today);
     }
 
     /// <summary>The part of the width the phone's day takes; the day before and after show at the edges.</summary>
@@ -117,7 +132,7 @@ public static class PlanView
         return new Grid
         {
             RowDefinitions = new RowDefinitions("Auto,Auto,*"),
-            Children = { Lines.TripHeader(s), modes.Margin(16, 6, 16, 4).Row(1), area.Row(2) },
+            Children = { Header(s), modes.Margin(16, 6, 16, 4).Row(1), area.Row(2) },
         };
     }
 

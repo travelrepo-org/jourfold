@@ -205,6 +205,8 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             // The list, on another day of the trip.
             session.ShowTab(MobileTab.Plan);
             session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            // A calendar leaf in the header, beside the search, shows today's day as calendars do.
+            Assert.Contains(Probe.All<TextBlock>(Probe.Button(window, "Go to today and now")), t => t.Text == session.PhoneToday.Day.ToString(System.Globalization.CultureInfo.InvariantCulture));
             Probe.Click(window, "Go to today and now"); Probe.Layout();
             Assert.Equal(session.PhoneToday, session.SelectedDate);
 

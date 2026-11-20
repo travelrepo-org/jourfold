@@ -44,7 +44,8 @@ public static class Lines
         return marked;
     }
 
-    public static Control TripHeader(MobileSession s)
+    /// <param name="action">A button of the page shown before the search, such as the plan's way back to today.</param>
+    public static Control TripHeader(MobileSession s, Control? action = null)
     {
         var trip = s.Trip!; var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
@@ -53,10 +54,10 @@ public static class Lines
         // The search is one tap away on every tab.
         var search = Ui.IconButton("search", s.Strings["SearchTrip"]); search.Click += (_, _) => s.ShowSearch();
         ToolTip.SetTip(search, s.Strings["SearchTrip"] + " (" + AppShell.Shortcut("K") + ")");
-        return Ui.Columns("Auto,Auto,*,Auto", back,
+        return Ui.Columns("Auto,Auto,*,Auto,Auto", back,
             Covers.Thumbnail(s.Workspace?.Repository, trip, 44, 44, 10).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(trip.Manifest.Title, "title"), Ui.Line(meta.Length > 0 ? meta : s.Strings["NoDatesYet"], "caption")),
-            search.Margin(8, 0, 0, 0)).Margin(4, 6, 8, 6);
+            action?.Margin(8, 0, 0, 0), search.Margin(action is null ? 8 : 0, 0, 0, 0)).Margin(4, 6, 8, 6);
     }
 
     /// <summary>"Alex and Sam", "Alex, Sam and Kim".</summary>

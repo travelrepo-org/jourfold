@@ -132,11 +132,8 @@ public sealed class IosNotices(string dataRoot, string language, string device) 
         BGTaskScheduler.Shared.Submit(new BGAppRefreshTaskRequest(RefreshTask) { EarliestBeginDate = NSDate.FromTimeIntervalSince1970(when.ToUnixTimeMilliseconds() / 1000.0) }, out _);
     }
 
-    /// <summary>
-    /// Not on iOS yet: Avalonia's window scene does not pass on taps on the icon's quick actions, so a ticket shortcut
-    /// could only open the app.
-    /// </summary>
-    public void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets) { }
+    /// <summary>The tickets of the next journeys as quick actions on the app icon (<see cref="IosShortcuts"/>).</summary>
+    public void SetTicketShortcuts(IReadOnlyList<TicketShortcut> tickets) => IosShortcuts.Set(tickets);
 
     // While Jourfold is open, its notices still appear as banners.
     public override void WillPresentNotification(UNUserNotificationCenter center, UNNotification notification, Action<UNNotificationPresentationOptions> completionHandler) =>

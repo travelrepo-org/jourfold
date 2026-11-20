@@ -126,6 +126,15 @@ and a right click opens the same menu as a long press. A hardware keyboard has C
 Ctrl+F for the search, Ctrl+1 to Ctrl+4 for the four places, the arrow keys for the previous and next day in Plan and
 Map, and Escape to go back.
 
+Back is Android's back button or gesture. iOS has none, so on iPhone and iPad a swipe to the right that starts at
+the left edge of the screen (within 24 points) does the same (`IosBackGesture`, `AppShell.GoBack`): a menu or sheet
+closes, details go back, a page goes back to where it was opened from, then to Today and to the trip list. A swipe
+that starts further in still moves the days; once the edge swipe is recognised, the touch is taken from the page, so
+the day stays. On the map with nothing over it, a drag from the edge pans the map instead
+(`AppShell.EdgeSwipeGoesBack`); its sheets and menus still close with the swipe. The back buttons in the app stay as
+they are. It is a pan that starts at the edge rather than iOS's
+edge-pan recogniser, which the simulator's touches do not trigger.
+
 ## The bar and its third button
 
 The bottom bar, and the rail from 600 dp, has Today, Plan, the plus and More in fixed places. The button between the
@@ -364,8 +373,15 @@ the build uses (target `BuildLiveActivity` in the project). The extension has a 
 `<ApplicationId>.LiveActivity`, and on a device needs a provisioning profile for it: a signed device build includes
 it only with `-p:LiveActivityProvision=path/to/profile.mobileprovision` and otherwise builds the app without Live
 Activities, as before. Builds for the simulator and unsigned builds (the workflow's IPA) always include it;
-whether sideloading tools sign the extension along with the app is not tried yet. Ticket shortcuts on the app icon are not
-there yet.
+whether sideloading tools sign the extension along with the app is not tried yet.
+
+The ticket shortcuts are quick actions on the app icon on iOS too (`IosShortcuts`, `UIApplication.ShortcutItems`): a
+long press on the icon lists the tickets of the next journeys, and one opens its plan and ticket. Avalonia's scene
+delegate neither answers quick actions nor passes on the one that started the app, so while the app launches Jourfold
+adds `windowScene:performActionForShortcutItem:completionHandler:` to its Objective-C class and wraps its
+`scene:willConnectToSession:options:`, whose options carry a quick action that started the app. Without that class,
+as in another version of Avalonia, the app runs as before, without shortcuts. Like on Android, the shortcuts only
+list journeys within the next day that have a ticket.
 
 Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
 entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel

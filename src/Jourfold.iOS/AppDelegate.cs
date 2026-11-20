@@ -69,10 +69,14 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         // On iPhones the bottom bar is the system's own tab bar.
         MobileApp.Host = MobileApp.Host with { Bar = new IosTabBar() };
         notices.Start();
+        // Before the window's scene connects, which may come with a quick action from the app icon.
+        IosShortcuts.Install();
         // Once on screen, the notices are worked out: a Live Activity can only start while Jourfold is in front, also
         // after a cold start, such as after an update of the app, which ends the one before.
         WhenReady(_ => IosNotices.RunAsync(MobileApp.Host!));
         zone = NSTimeZone.SystemTimeZone.Name;
+        // Back with a swipe from the left edge, once the window is there.
+        WhenReady(_ => { IosBackGesture.Attach(); return Task.CompletedTask; });
         // The build's smoke test on the simulator starts with the sample trip open, which needs Git to work.
         if (NSProcessInfo.ProcessInfo.Arguments.Contains("--open-sample")) WhenReady(async session => await session.OpenAsync(await session.CreateSampleAsync()));
         return base.CustomizeAppBuilder(builder);
@@ -115,6 +119,7 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
         if (e is FileActivatedEventArgs opened) { _ = ReceiveAsync(opened.Files); return; }
         if (e is ProtocolActivatedEventArgs { Uri: { } uri }) { OpenLink(uri); return; }
         if (e.Kind != ActivationKind.Background || MobileApp.Host is not { } host) return;
+        IosBackGesture.Attach();
         // Back on screen: notices may be due, and after a flight the time zone may have changed.
         var now = NSTimeZone.SystemTimeZone.Name; var changed = zone is not null && now != zone; zone = now;
         _ = IosNotices.RunAsync(host, changed);

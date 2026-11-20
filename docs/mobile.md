@@ -341,8 +341,8 @@ Samsung's own apps and apps it approved, unless "Live notifications for all apps
 on a Samsung phone the settings say so (`LiveByMakerOnly`), and the notification itself stays an ordinary one with
 progress. All of this needs "Remind me on the trip" to be on;
 allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
-(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
-example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
+(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and, in builds with
+`-p:JourfoldDebugTools=true` only, have **Show an example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
 `NoticeRunner` shows it in place of the travel day and wakes every ten seconds to move it on, also when Jourfold is
 asleep; at the arrival the system removes it (`setTimeoutAfter`) and a real journey comes back. A line says whether
 Android made it a Live Update (`LivePromoted`, read from the posted notification's flags). While a real journey is
@@ -377,7 +377,7 @@ activity the user swiped away the same as one it removed itself, such as after a
 Android it comes back the next time Jourfold runs while the journey is on; Live Activities can be turned off for
 Jourfold in the Settings app. Jourfold works the notices out once it is on screen, also after a cold start, as iOS
 starts a Live Activity only then. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
-is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and have **Show an example**; on
+is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and, in builds with `-p:JourfoldDebugTools=true`, have **Show an example**; on
 an iPad or before iOS 16.2 the part is not there.
 
 ActivityKit is Swift only, so `src/Jourfold.iOS/LiveActivity` has a small Swift bridge with an Objective-C interface

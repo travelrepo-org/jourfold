@@ -23,10 +23,10 @@ public sealed class DaySwipeAndLiveTests : IDisposable
 
     private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
 
-    private async Task<(MobileSession Session, Window Window)> OpenAsync(ISystemNotices? notices = null)
+    private async Task<(MobileSession Session, Window Window)> OpenAsync(ISystemNotices? notices = null, bool debugTools = true)
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(), Notices: notices));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(), Notices: notices) { DebugTools = debugTools });
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         Probe.Layout();
@@ -192,6 +192,22 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             await Probe.Until(() => session.LiveExampleResult is not null);
             Probe.Layout();
             Assert.Contains(Probe.All<TextBlock>(window), t => t.Tag as string == "live.result" && t.Text!.StartsWith(result, StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task OnlyBuildsWithDebugToolsOfferTheExample()
+    {
+        var (session, window) = await OpenAsync(new LiveNotices(LiveSupport.On, true), debugTools: false);
+        try
+        {
+            session.ShowPage("settings");
+            await session.SetNoticesAsync(true); Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Live Update in the status bar");
+            Assert.DoesNotContain(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Show an example");
+            // Not a Samsung phone: no word about Samsung's developer options.
+            Assert.DoesNotContain(Probe.All<TextBlock>(window), t => t.Tag as string == "live.maker");
         }
         finally { window.Close(); session.Dispose(); }
     }

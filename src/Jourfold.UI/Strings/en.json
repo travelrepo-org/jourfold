@@ -2088,7 +2088,7 @@
   "LiveUpdatesOff": "Turned off in the system settings.",
   "LiveUpdatesNone": "Not available on this Android version.",
   "LiveUpdatesAllow": "Allow in the system settings",
-  "LiveUpdatesSamsung": "On Samsung phones, turn on “Live notifications for all apps” in the developer options.",
+  "LiveUpdatesSamsung": "This Samsung phone shows Live Updates only for apps Samsung approved. Turn on “Live notifications for all apps” in the developer options.",
   "LiveExample": "Show an example",
   "LiveExampleJourney": "Train to Kyoto",
   "LiveMinutesLeft": "{0} min",

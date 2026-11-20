@@ -1221,7 +1221,7 @@ public static class MorePages
             var kinds = Ui.Button(str[notices.HasKinds ? "NoticesKinds" : "NoticesSettings"], "settings", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
             kinds.Click += (_, _) => notices.OpenSettings();
             body.Children.Add(kinds);
-            // The travel day in the status bar: whether the system allows it, a way to allow it, and an example to look at.
+            // The travel day in the status bar: whether the system allows it and a way to allow it.
             if (notices.ShowsLive)
             {
                 var live = notices.Live;
@@ -1236,10 +1236,14 @@ public static class MorePages
                     allow.Click += (_, _) => notices.OpenLiveSettings();
                     part.Children.Add(allow);
                 }
-                var example = Ui.Button(str["LiveExample"], "bell", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
-                example.Click += async (_, _) => await s.ShowLiveExampleAsync();
-                part.Children.Add(example);
-                if (s.LiveExampleResult is { } result) part.Children.Add(Hint(result).Also(t => { t.Tag = "live.result"; AutomationProperties.SetLiveSetting(t, AutomationLiveSetting.Polite); }));
+                // The example is a tool for testing, only in builds made with -p:JourfoldDebugTools=true.
+                if (s.Host.DebugTools)
+                {
+                    var example = Ui.Button(str["LiveExample"], "bell", "ghost").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+                    example.Click += async (_, _) => await s.ShowLiveExampleAsync();
+                    part.Children.Add(example);
+                    if (s.LiveExampleResult is { } result) part.Children.Add(Hint(result).Also(t => { t.Tag = "live.result"; AutomationProperties.SetLiveSetting(t, AutomationLiveSetting.Polite); }));
+                }
                 body.Children.Add(Ui.Divider()); body.Children.Add(part);
             }
         }

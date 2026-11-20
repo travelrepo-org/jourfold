@@ -24,6 +24,8 @@ Each release also has a code name, an alliterative adjective and animal such as 
 
 Builds say where they are handed out with the MSBuild property (or environment variable) `JourfoldDistribution`. The release workflows set `github` for the desktop packages, the APK and the IPA attached to GitHub releases; only those look for newer releases (see [Settings and privacy](user-guide.md#settings-and-privacy)). A build for a store, which updates the app itself, sets the store's name instead, such as `fdroid`, `play` or `appstore`, and never looks. Builds without the property, such as one from source, do not look either.
 
+Builds for testing can turn on tools for developers and testers with the MSBuild property (or environment variable) `JourfoldDebugTools=true`. Today that is **Show an example** in the phone's notification settings, which shows the travel day's Live Update (Android) or Live Activity (iPhone) for a minute. Every other build, releases included, leaves these tools out, and the release workflows never set the property.
+
 To release, set `Version` on `main`, then publish a GitHub release with the tag `v<Version>`; title and notes may stay empty. The release workflow first makes it a pre-release, names it after its code name when it has no title, then checks the tag, builds against the TravelRepo tag `v<TravelRepoVersion>` and attaches the packages; see [installing Jourfold](install.md#for-maintainers).
 
 ## Local state

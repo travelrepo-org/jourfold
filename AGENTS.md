@@ -192,6 +192,10 @@ A fix or feature pull request never changes the version and never adds release n
 - Anything that can count as a patch stays a patch (0.x.y+1); a new minor version only when the change clearly is one, and only after asking.
 - Every release has at least one highlight in its notes, in English and German where the repository has both.
 
+## Debug tools
+
+Buttons and pages that only help developers and testers, such as showing an example notification or Live Update at once, appear only in builds made with `-p:JourfoldDebugTools=true`. Check `MobileHost.DebugTools` (or `Jourfold.Application.DebugTools.InBuild` outside the mobile app) before showing them. Default builds and releases never show them, and release workflows never set the property. Tests that use such a tool turn it on for their host. The README and `docs/development.md` describe the property; keep them in step when a tool is added.
+
 ## README
 
 Keep the README concise and factual.

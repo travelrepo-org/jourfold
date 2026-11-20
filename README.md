@@ -63,6 +63,8 @@ dotnet test Jourfold.sln
 dotnet run --project src/Jourfold.Desktop
 ```
 
+Builds for testing can show tools for developers and testers, such as a button that shows an example of the travel day's Live Update at once. They are off in every build, releases included, unless it is made with `-p:JourfoldDebugTools=true` (or the environment variable `JourfoldDebugTools=true`), for example `dotnet publish src/Jourfold.Android -c Release -r android-arm64 -p:JourfoldDebugTools=true`.
+
 See [build and test instructions](docs/development.md), [release smoke checklist](docs/release-smoke.md), [provider setup](docs/providers.md) and [plugin API](docs/plugins.md).
 
 This is an implementation build, not an accepted v1 release. [Acceptance status](docs/acceptance.md) records what has been verified and what remains.

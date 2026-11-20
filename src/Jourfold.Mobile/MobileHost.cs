@@ -57,6 +57,12 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
     public ISystemBar? Bar { get; init; }
 
     /// <summary>
+    /// Whether the app shows tools for developers and testers, such as the example of the travel day's Live Update. From
+    /// the build (<see cref="Jourfold.Application.DebugTools"/>); tests turn it on themselves.
+    /// </summary>
+    public bool DebugTools { get; init; } = Jourfold.Application.DebugTools.InBuild;
+
+    /// <summary>
     /// What an Android device would call itself, for <see cref="Device"/>: a computer-like device such as a Chromebook,
     /// a phone when it can make calls and folds or has a phone-sized built-in screen, otherwise a tablet. Tablets with a
     /// SIM can often make calls too, which is why calls alone do not decide. The built-in screen counts, not the window,

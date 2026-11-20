@@ -39,6 +39,16 @@ public static class AppDistribution
 }
 
 /// <summary>
+/// Whether this build shows tools for developers and testers, such as a button that shows an example of the travel
+/// day's Live Update at once. Only builds made with <c>-p:JourfoldDebugTools=true</c> (or the environment variable of
+/// that name) have them; releases and ordinary builds from source do not.
+/// </summary>
+public static class DebugTools
+{
+    public static bool InBuild { get; } = typeof(DebugTools).Assembly.GetCustomAttributes<AssemblyMetadataAttribute>().Any(a => a.Key == "DebugTools" && a.Value == "true");
+}
+
+/// <summary>
 /// Tells about a newer Jourfold on GitHub. On by default in GitHub builds and off in one tap, from Settings or from the
 /// notice itself; store builds never look. At most once a day it asks GitHub for the latest full release, sending
 /// nothing but the app's name and version; pre-releases are not offered. Offline or on any error nothing happens and

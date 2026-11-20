@@ -2088,7 +2088,7 @@
   "LiveUpdatesOff": "In den Systemeinstellungen ausgeschaltet.",
   "LiveUpdatesNone": "Auf dieser Android-Version nicht verfügbar.",
   "LiveUpdatesAllow": "In den Systemeinstellungen erlauben",
-  "LiveUpdatesSamsung": "Schalten Sie auf Samsung-Handys in den Entwickleroptionen „Live-Benachrichtigungen für alle Apps“ ein.",
+  "LiveUpdatesSamsung": "Dieses Samsung-Handy zeigt Live-Updates nur für von Samsung freigegebene Apps. Schalten Sie in den Entwickleroptionen „Live-Benachrichtigungen für alle Apps“ ein.",
   "LiveExample": "Beispiel zeigen",
   "LiveExampleJourney": "Zug nach Kyoto",
   "LiveMinutesLeft": "{0} Min",

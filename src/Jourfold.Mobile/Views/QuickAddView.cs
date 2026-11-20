@@ -889,13 +889,30 @@ public sealed class QuickAddView
     {
         var str = s.Strings;
         var days = Ui.Flow(6);
+        var chips = new List<ChoiceButton>();
         for (var i = 0; i <= 2; i++)
         {
             var offset = i;
             var chip = Chip(i == 0 ? str["SameDay"] : i == 1 ? str["OneDayLater"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
             chip.Click += (_, _) => { arrivalDays = offset; Render(); };
-            days.Children.Add(chip);
+            days.Children.Add(chip); chips.Add(chip);
         }
+        // Longer journeys, such as by ship: a pill to type the days in. Typing does not draw the form again, so the
+        // keyboard stays; the chips follow what is typed.
+        var more = new TextBox { Text = arrivalDays > 2 ? arrivalDays.ToString(CultureInfo.CurrentCulture) : "", PlaceholderText = str["MoreDaysPlaceholder"], MinWidth = 64, MaxWidth = 96, MinHeight = 36, CornerRadius = new CornerRadius(999), Padding = new Thickness(12, 6), HorizontalContentAlignment = HorizontalAlignment.Center, VerticalContentAlignment = VerticalAlignment.Center, MaxLength = 3 }.Classed("chip-field");
+        if (arrivalDays > 2) more.Classes.Add("selected");
+        more.InnerLeftContent = Ui.Text("+").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(10, 0, 0, 0); t.IsVisible = arrivalDays > 2; });
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(more, Avalonia.Input.TextInput.TextInputContentType.Digits);
+        AutomationProperties.SetName(more, str["MoreDaysLater"]);
+        more.TextChanged += (_, _) =>
+        {
+            if (!int.TryParse(more.Text, NumberStyles.None, CultureInfo.CurrentCulture, out var n) || n < 1) return;
+            arrivalDays = n;
+            for (var i = 0; i < chips.Count; i++) chips[i].IsSelected = i == n;
+            more.Classes.Set("selected", n > 2);
+            if (more.InnerLeftContent is Control plus) plus.IsVisible = true;
+        };
+        days.Children.Add(more);
         var zones = Ui.Flow(6);
         foreach (var zone in ArrivalZones())
         {

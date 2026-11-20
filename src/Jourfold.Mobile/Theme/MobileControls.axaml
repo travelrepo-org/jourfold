@@ -59,6 +59,9 @@
   <Style Selector="Button.fresh"><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="8,4"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
   <Style Selector="Button.chip"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="36"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.chip.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
+  <!-- A pill to type in beside chips, such as the days after a journey's departure it arrives. -->
+  <Style Selector="TextBox.chip-field"><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="TextBox.chip-field.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
 
   <!-- Bottom bar: four places and the plus in the middle. -->
   <Style Selector="Button.tab"><Setter Property="Padding" Value="0,6,0,6"/><Setter Property="MinHeight" Value="64"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="Medium"/></Style>

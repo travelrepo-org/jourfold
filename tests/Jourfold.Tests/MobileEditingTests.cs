@@ -360,6 +360,37 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task AJourneyCanArriveMoreThanTwoDaysLater()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("transport");
+            Field<TextBox>(window, "Title").Text = "Slow boat";
+            var times = Probe.All<TimePicker>(Form(window)).ToArray();
+            times[0].SelectedTime = new TimeSpan(10, 0, 0);
+            times[1].SelectedTime = new TimeSpan(16, 0, 0);
+            // +5 typed into the pill beside "+2 days"; the chips give up their mark without the form being drawn again.
+            var more = Field<TextBox>(window, "More days later");
+            more.Text = "5"; Probe.Layout();
+            Assert.Same(more, Field<TextBox>(window, "More days later"));
+            Assert.True(more.Classes.Contains("selected"));
+            Assert.DoesNotContain(Probe.All<ChoiceButton>(Form(window)), c => c.IsSelected && Probe.All<TextBlock>(c).Any(x => x.Text is "Same day" or "+1 day" or "+2 days"));
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Slow boat"));
+            var boat = session.Trip!.Entities.Values.Single(e => e.Title == "Slow boat");
+            var start = NodaTime.Text.LocalDateTimePattern.GeneralIso.Parse(boat.Data["time"]!["start"]!["local"]!.ToString()).Value;
+            var end = NodaTime.Text.LocalDateTimePattern.GeneralIso.Parse(boat.Data["time"]!["end"]!["local"]!.ToString()).Value;
+            Assert.Equal(start.Date.PlusDays(5), end.Date);
+
+            // Opened again, the pill shows the five days.
+            session.ShowEditor(boat.Id); Probe.Layout();
+            Assert.Equal("5", Field<TextBox>(window, "More days later").Text);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task TheRateOfTheLastCashIsOfferedAndTheCalculatorWorksOutTheWithdrawal()
     {
         var (session, window) = await OpenAsync();

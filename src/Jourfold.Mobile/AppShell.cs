@@ -669,11 +669,19 @@ public sealed class AppShell : UserControl
     }
 
     /// <summary>
-    /// What of the page leaves room for the system's bar: its scrolling part, so the last line scrolls above the bar,
-    /// or else the page itself, such as the map, which then ends above it.
+    /// The class of a part of a page that ends above the system's bar as a whole, such as a timetable with the nights
+    /// band below its scrolling grid, which would otherwise lie under the bar.
+    /// </summary>
+    public const string AboveBar = "above-bar";
+
+    /// <summary>
+    /// What of the page leaves room for the system's bar: a part marked <see cref="AboveBar"/>, else its scrolling
+    /// part, so the last line scrolls above the bar, or else the page itself, such as the map, which then ends above it.
     /// </summary>
     private static (Control, Thickness) BarInsetTarget(Control page) =>
-        page is MapPage ? (page, default) : (page as ScrollViewer ?? page.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled)) is { } scroll
+        page is MapPage ? (page, default)
+        : (page.Classes.Contains(AboveBar) ? page : page.GetLogicalDescendants().OfType<Control>().FirstOrDefault(c => c.Classes.Contains(AboveBar))) is { } part ? (part, part.Margin)
+        : (page as ScrollViewer ?? page.GetLogicalDescendants().OfType<ScrollViewer>().FirstOrDefault(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled)) is { } scroll
             ? (scroll, scroll.Padding) : (page, page.Margin);
 
     /// <summary>Makes room for the system's bar at the page's bottom, as far as the bar reaches up.</summary>

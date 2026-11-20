@@ -107,6 +107,8 @@ public static class TimetableView
         // One row for the trip, the days shown and the switch, so the grid gets the height.
         layout.Children.Add(Ui.Columns("Auto,*,Auto", leading, Ui.H(4, earlier, later, range.Margin(8, 0, 0, 0)).Also(h => h.VerticalAlignment = VerticalAlignment.Center).Margin(leading is null ? 12 : 16, 0, 12, 0).Col(1), trailing?.Also(t => t.VerticalAlignment = VerticalAlignment.Center).Col(2)).Margin(0, 0, 12, 6));
         area.Child = new Grid { RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"), Children = { header, allDay.Row(1), scroll.Row(2), nights.Row(3) } };
+        // The nights band below the grid stays above a bar that floats over the page.
+        area.Classes.Add(AppShell.AboveBar);
         layout.Children.Add(area.Row(1));
         return layout;
     }

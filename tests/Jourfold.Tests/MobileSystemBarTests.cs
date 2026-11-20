@@ -106,6 +106,23 @@ public sealed class MobileSystemBarTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TheOneDayTimetableEndsAboveTheBarWithItsNightsBand()
+    {
+        var (session, window, bar) = await OpenAsync();
+        try
+        {
+            session.Settings.Values["plan.day"] = "timetable";
+            bar.Tap(1);
+            // The whole timetable, the nights band below its grid included, ends above the bar; the grid itself gets
+            // no extra room, or the band would lie under the bar where it cannot be tapped.
+            var area = Probe.All<Control>(window).Single(c => c.Classes.Contains(AppShell.AboveBar));
+            Assert.Equal(bar.Covers, area.Margin.Bottom);
+            Assert.All(Probe.All<ScrollViewer>(area), s => Assert.True(s.Padding.Bottom < bar.Covers));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task GermanLabelsAreShort()
     {
         var (session, window, bar) = await OpenAsync("de");

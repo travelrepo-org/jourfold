@@ -50,8 +50,7 @@ internal sealed class IosTabBar : ISystemBar
         {
             shown = items;
             // From iOS 18 as tabs, which iOS 26 shrinks while scrolling; before that as tab bar items.
-            if (OperatingSystem.IsIOSVersionAtLeast(18))
-                controller.SetTabs(items.Select((item, i) => new UITab(item.Label, Image(item).Normal, "place" + i, _ => new Page(this))).ToArray(), false);
+            if (OperatingSystem.IsIOSVersionAtLeast(18)) controller.SetTabs(Tabs(items), false);
             else controller.SetViewControllers(items.Select((item, i) => (UIViewController)new Page(this) { TabBarItem = new UITabBarItem(item.Label, Image(item).Normal, Image(item).Chosen) { Tag = i } }).ToArray(), false);
         }
         if (OperatingSystem.IsIOSVersionAtLeast(18)) { if (selected >= 0 && selected < controller.Tabs.Length && controller.SelectedTab != controller.Tabs[selected]) controller.SelectedTab = controller.Tabs[selected]; }
@@ -59,6 +58,10 @@ internal sealed class IosTabBar : ISystemBar
         Follow();
         if (overlay!.Hidden) { overlay.Hidden = false; Measured(); }
     }
+
+    [System.Runtime.Versioning.SupportedOSPlatform("ios18.0")]
+    private UITab[] Tabs(IReadOnlyList<SystemBarItem> items) =>
+        items.Select((item, i) => new UITab(item.Label, Image(item).Normal, "place" + i, _ => new Page(this))).ToArray();
 
     /// <summary>
     /// Lets the marked page's invisible scroll view feel the finger on Avalonia's view, as its own drag: the tab bar
@@ -203,6 +206,7 @@ internal sealed class IosTabBar : ISystemBar
             return !bar.shown[index].Action;
         }
 
+        [System.Runtime.Versioning.SupportedOSPlatform("ios18.0")]
         public override bool ShouldSelectTab(UITabBarController tabBarController, UITab tab)
         {
             var index = Array.IndexOf(tabBarController.Tabs, tab);
@@ -219,7 +223,7 @@ internal sealed class IosTabBar : ISystemBar
         /// The page itself: an empty, clear scroll view that follows the Avalonia page's scrolling, so the tab bar
         /// shrinks and grows with it. Nothing of it shows, and Avalonia keeps the touches.
         /// </summary>
-        public UIScrollView Proxy { get; } = new()
+        public UIScrollView Proxy { get; } = new Follower()
         {
             BackgroundColor = UIColor.Clear, ScrollsToTop = false,
             ShowsVerticalScrollIndicator = false, ShowsHorizontalScrollIndicator = false, AccessibilityElementsHidden = true
@@ -236,6 +240,16 @@ internal sealed class IosTabBar : ISystemBar
             base.ViewSafeAreaInsetsDidChange();
             bar.Measured();
         }
+    }
+
+    /// <summary>
+    /// The empty page's scroll view. Its drag listens on Avalonia's view beside every other gesture there, such as the
+    /// swipe from the edge that goes back, and never keeps one of them from starting.
+    /// </summary>
+    private sealed class Follower : UIScrollView
+    {
+        [Foundation.Export("gestureRecognizer:shouldRecognizeSimultaneouslyWithGestureRecognizer:")]
+        public bool RecognizeTogether(UIGestureRecognizer gesture, UIGestureRecognizer other) => true;
     }
 
     /// <summary>Holds the tab bar's controller over Avalonia's view and lets every touch beside the bar through to it.</summary>

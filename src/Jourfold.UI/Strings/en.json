@@ -2093,7 +2093,16 @@
   "LiveExampleJourney": "Train to Kyoto",
   "LiveMinutesLeft": "{0} min",
   "LiveExampleText": "Example · Platform 4 · Coach 7, seat 52",
-  "LiveExamplePromoted": "Shown as a Live Update. Leave Jourfold to see it.",
-  "LiveExamplePlain": "Shown, but not as a Live Update.",
-  "LiveExampleShown": "Shown for a minute."
+  "LiveUpdatesPromoted": "Shown as a Live Update. Leave Jourfold to see it.",
+  "LiveUpdatesPlain": "Shown, but not as a Live Update.",
+  "LiveExampleShown": "Shown for a minute.",
+  "LiveTimeLeft": "Time left",
+  "LiveProgress": "Progress to the arrival",
+  "LiveActivities": "Live Activity on the Lock Screen",
+  "LiveActivitiesOn": "Allowed. The Lock Screen and the Dynamic Island show your next departure or arrival.",
+  "LiveActivitiesOff": "Turned off in the Settings app.",
+  "LiveActivitiesNone": "Not available on this device.",
+  "LiveActivitiesAllow": "Allow in the Settings app",
+  "LiveActivitiesPromoted": "Shown as a Live Activity. Lock the iPhone or leave Jourfold to see it.",
+  "LiveActivitiesPlain": "iOS did not show it. Live Activities may be turned off for Jourfold."
 }

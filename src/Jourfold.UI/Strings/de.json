@@ -2093,7 +2093,16 @@
   "LiveExampleJourney": "Zug nach Kyoto",
   "LiveMinutesLeft": "{0} Min",
   "LiveExampleText": "Beispiel · Gleis 4 · Wagen 7, Platz 52",
-  "LiveExamplePromoted": "Als Live-Update angezeigt. Verlassen Sie Jourfold, um es zu sehen.",
-  "LiveExamplePlain": "Angezeigt, aber nicht als Live-Update.",
-  "LiveExampleShown": "Eine Minute lang angezeigt."
+  "LiveUpdatesPromoted": "Als Live-Update angezeigt. Verlassen Sie Jourfold, um es zu sehen.",
+  "LiveUpdatesPlain": "Angezeigt, aber nicht als Live-Update.",
+  "LiveExampleShown": "Eine Minute lang angezeigt.",
+  "LiveTimeLeft": "Verbleibende Zeit",
+  "LiveProgress": "Fortschritt bis zur Ankunft",
+  "LiveActivities": "Live-Aktivität auf dem Sperrbildschirm",
+  "LiveActivitiesOn": "Erlaubt. Sperrbildschirm und Dynamic Island zeigen Ihre nächste Abfahrt oder Ankunft.",
+  "LiveActivitiesOff": "In der Einstellungen-App ausgeschaltet.",
+  "LiveActivitiesNone": "Auf diesem Gerät nicht verfügbar.",
+  "LiveActivitiesAllow": "In der Einstellungen-App erlauben",
+  "LiveActivitiesPromoted": "Als Live-Aktivität angezeigt. Sperren Sie das iPhone oder verlassen Sie Jourfold, um sie zu sehen.",
+  "LiveActivitiesPlain": "iOS hat sie nicht angezeigt. Vielleicht sind Live-Aktivitäten für Jourfold ausgeschaltet."
 }

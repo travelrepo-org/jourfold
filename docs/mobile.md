@@ -364,8 +364,15 @@ the build uses (target `BuildLiveActivity` in the project). The extension has a 
 `<ApplicationId>.LiveActivity`, and on a device needs a provisioning profile for it: a signed device build includes
 it only with `-p:LiveActivityProvision=path/to/profile.mobileprovision` and otherwise builds the app without Live
 Activities, as before. Builds for the simulator and unsigned builds (the workflow's IPA) always include it;
-whether sideloading tools sign the extension along with the app is not tried yet. Ticket shortcuts on the app icon are not
-there yet.
+whether sideloading tools sign the extension along with the app is not tried yet.
+
+The ticket shortcuts are quick actions on the app icon on iOS too (`IosShortcuts`, `UIApplication.ShortcutItems`): a
+long press on the icon lists the tickets of the next journeys, and one opens its plan and ticket. Avalonia's scene
+delegate neither answers quick actions nor passes on the one that started the app, so while the app launches Jourfold
+adds `windowScene:performActionForShortcutItem:completionHandler:` to its Objective-C class and wraps its
+`scene:willConnectToSession:options:`, whose options carry a quick action that started the app. Without that class,
+as in another version of Avalonia, the app runs as before, without shortcuts. Like on Android, the shortcuts only
+list journeys within the next day that have a ticket.
 
 Departures, changes and arrivals are time-sensitive notifications on iOS (`InterruptionLevel.TimeSensitive`, with the
 entitlement `com.apple.developer.usernotifications.time-sensitive`): they come through a Focus, as Android's travel

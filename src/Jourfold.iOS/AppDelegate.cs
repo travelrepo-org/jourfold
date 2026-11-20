@@ -67,6 +67,8 @@ public sealed class AppDelegate : AvaloniaAppDelegate<MobileApp>
             AppVersion: NSBundle.MainBundle.ObjectForInfoDictionary("CFBundleShortVersionString")?.ToString(), Haptic: Haptic,
             SendMail: IosSystem.SendMailAsync, SystemInfo: IosSystem.SystemInfo, CanOpen: IosSystem.CanOpen);
         notices.Start();
+        // Before the window's scene connects, which may come with a quick action from the app icon.
+        IosShortcuts.Install();
         // Once on screen, the notices are worked out: a Live Activity can only start while Jourfold is in front, also
         // after a cold start, such as after an update of the app, which ends the one before.
         WhenReady(_ => IosNotices.RunAsync(MobileApp.Host!));

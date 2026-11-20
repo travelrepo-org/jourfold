@@ -644,7 +644,11 @@ public sealed class AppShell : UserControl
     private Button Place(PlaceEntry place, int number)
     {
         var s = Session.Strings; var text = s[place.Label];
-        var button = new ChoiceButton { IsSelected = IsAt(place), Content = Ui.V(3, Ui.Icon(place.Icon, 22).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center), Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
+        // As in Material 3 Expressive: the chosen place's icon sits in a pill, so it shows without relying on colour.
+        var chosen = IsAt(place);
+        var pill = new Border { Width = 56, Height = 32, CornerRadius = new CornerRadius(16), HorizontalAlignment = HorizontalAlignment.Center, Child = Ui.Icon(place.Icon, 24, chosen ? "Accent.SoftText" : null).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("indicator");
+        if (chosen) pill.Res(Border.BackgroundProperty, "Accent.Soft");
+        var button = new ChoiceButton { IsSelected = chosen, Content = Ui.V(4, pill, Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
         ToolTip.SetTip(button, text + " (" + Shortcut(number.ToString(CultureInfo.InvariantCulture)) + ")");
         button.Click += (_, _) => Go(place);
@@ -719,10 +723,11 @@ public sealed class AppShell : UserControl
         var places = BarPlaces();
         grid.Children.Add(Place(places[0], 1).Col(0));
         grid.Children.Add(Place(places[1], 2).Col(1));
-        grid.Children.Add(Plus().Margin(8, 4).Col(2));
+        grid.Children.Add(Plus().Also(p => p.VerticalAlignment = VerticalAlignment.Center).Margin(8, 4).Col(2));
         grid.Children.Add(Place(places[2], 3).Col(3));
         grid.Children.Add(Place(places[3], 4).Col(4));
-        return bottomBar = new Border { Child = grid, BorderThickness = new Thickness(0, 1, 0, 0), Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
+        // No line above it; the bar's surface sets it apart from the page.
+        return bottomBar = new Border { Child = grid, Padding = new Thickness(0, 0, 0, safeArea.Bottom), IsVisible = !keyboard }.Classed("bar");
     }
 
     /// <summary>

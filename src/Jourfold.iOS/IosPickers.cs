@@ -90,7 +90,8 @@ internal static class IosPickers
             base.ViewDidLoad();
             View!.BackgroundColor = UIColor.SystemBackground;
             NavigationItem.LeftBarButtonItem = new UIBarButtonItem(UIBarButtonSystemItem.Cancel, (_, _) => Close(false));
-            NavigationItem.RightBarButtonItem = new UIBarButtonItem(UIBarButtonSystemItem.Done, (_, _) => Close(true));
+            // iOS 26 draws Done filled in the item's own tint, not the bar's.
+            NavigationItem.RightBarButtonItem = new UIBarButtonItem(UIBarButtonSystemItem.Done, (_, _) => Close(true)) { TintColor = Accent() };
             picker.TranslatesAutoresizingMaskIntoConstraints = false;
             View.AddSubview(picker);
             var guide = View.SafeAreaLayoutGuide;

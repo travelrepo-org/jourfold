@@ -18,7 +18,22 @@ public sealed class MobileApp : Avalonia.Application
     /// <summary>The session once the app has started, for actions that arrive before, such as a tapped notification.</summary>
     public static Task<MobileSession> Ready => ready.Task;
 
-    public override void Initialize() => AvaloniaXamlLoader.Load(this);
+    public override void Initialize()
+    {
+        AvaloniaXamlLoader.Load(this);
+        if (Host?.TextScale is { } scale) TextScale.Apply(Resources, scale);
+    }
+
+    /// <summary>
+    /// The device's text size changed while the app runs, such as Larger Text on iOS: the theme's sizes follow at once
+    /// and the page is drawn again for the sizes set in code.
+    /// </summary>
+    public static void ScaleText(double factor)
+    {
+        if (Current is not { } app) return;
+        TextScale.Apply(app.Resources, factor);
+        Session?.Redraw();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {

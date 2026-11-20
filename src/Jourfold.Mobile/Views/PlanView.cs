@@ -93,7 +93,7 @@ public static class PlanView
         var number = new TextBlock
         {
             Text = s.PhoneToday.Day.ToString(CultureInfo.InvariantCulture),
-            FontSize = 9,
+            FontSize = TextScale.Size(9),
             FontWeight = FontWeight.Bold,
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Top,

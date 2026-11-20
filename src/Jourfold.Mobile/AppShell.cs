@@ -73,6 +73,8 @@ public sealed class AppShell : UserControl
         }
         Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<DatePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
         Avalonia.Input.InputElement.PointerPressedEvent.AddClassHandler<TimePickerPresenter>(KeepTouch, RoutingStrategies.Bubble, handledEventsToo: true);
+        // Where the system has its own date and time pickers, the fields open those instead.
+        SystemPickers.Install();
     }
 
     public AppShell(MobileSession session)
@@ -393,6 +395,8 @@ public sealed class AppShell : UserControl
         };
         // A new page starts at its top, and so does the system's bar, at full size.
         if (!Equals(here, pageAt)) Session.Host.Bar?.Scrolled(0, 0, 1);
+        // Pulling Today down brings a shared trip in step, as in other apps. The plan keeps the pull for the day before.
+        if (Session.Tab == MobileTab.Today && Session.Remote is not null && page is ScrollViewer) page = PullToSync(page);
         drawnPage = page; pageAt = here;
         if (scrolled is { } offset && PageScroll(page) is { } after) ScrollPlace.Set(after, () => after.Offset = offset);
         // Lists and forms under More read better in a column than across a wide screen. The column is as wide on every
@@ -444,6 +448,20 @@ public sealed class AppShell : UserControl
                 }, TimeSpan.FromMilliseconds(150));
             }, DispatcherPriority.Loaded);
         }
+    }
+
+    /// <summary>Lets the page be pulled down to sync, with the system's spinner while it runs.</summary>
+    private Control PullToSync(Control page)
+    {
+        var refresh = new RefreshContainer { Content = page };
+        AutomationProperties.SetName(refresh, Session.Strings["SyncNow"]);
+        refresh.RefreshRequested += async (_, e) =>
+        {
+            var deferral = e.GetDeferral();
+            try { await Session.SyncAsync(quiet: false); }
+            finally { deferral.Complete(); }
+        };
+        return refresh;
     }
 
     /// <summary>The scrolling part of a page: the page itself, or the first one inside it.</summary>
@@ -507,7 +525,7 @@ public sealed class AppShell : UserControl
                 _ => null
             };
             sheetFor = (want, Session.OverlayItem);
-            if (sheet is not null) { sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); Inset(); }
+            if (sheet is not null) { sheet.Floating = Session.Host.Bar is not null; sheet.Closed += OnSheetClosed; overlays.Children.Insert(0, sheet); Inset(); }
         }
         // A long-press menu sits above the page and the sheet, a question above everything else.
         foreach (var old in overlays.Children.OfType<Control>().Where(b => b.Classes.Contains("question") || b.Classes.Contains("menu") || b.Classes.Contains("viewer")).ToArray()) overlays.Children.Remove(old);
@@ -515,8 +533,8 @@ public sealed class AppShell : UserControl
         // A file opened from the details covers the whole screen; back returns to the details.
         if (Session.Viewing.Count > 0) overlays.Children.Add(FileView.Build(Session, Session.Viewing[^1]).Classed("viewer"));
         if (Session.TaxiCard is { } taxi && Session.Trip?.Find(taxi) is { } taxiPlace) overlays.Children.Add(TaxiCardView.Build(Session, taxiPlace).Classed("viewer"));
-        if (Session.Menu is { } menu) overlays.Children.Add(Menu(menu));
-        if (Session.Asking is { } question) overlays.Children.Add(Question(question));
+        if (Session.Menu is { } menu && !SystemMenu(menu)) overlays.Children.Add(Menu(menu));
+        if (Session.Asking is { } question && !SystemQuestion(question)) overlays.Children.Add(Question(question));
         if (Session.ChangeProblem is { } problem) overlays.Children.Add(Problem(problem));
     }
 
@@ -594,6 +612,45 @@ public sealed class AppShell : UserControl
         scrim.PointerPressed += (_, e) => { Session.CloseOverlay(); e.Handled = true; };
         menuPanel = panel;
         return new Panel { Children = { scrim, panel } }.Classed("menu");
+    }
+
+    // The menu or question shown in the system's own sheet now, so drawing the page again does not show it twice.
+    private object? systemDialog;
+
+    /// <summary>Shows the menu in the system's action sheet where there is one; false when the app draws it itself.</summary>
+    private bool SystemMenu(ActionMenu menu)
+    {
+        if (Session.Host.ShowMenu is not { } show || !SystemDialogs.Fits(menu)) return false;
+        if (ReferenceEquals(systemDialog, menu)) return true;
+        systemDialog = menu;
+        var entries = menu.Actions.Select(a => new SystemMenuEntry(a.Label, a.Danger)).ToArray();
+        _ = Choose();
+        return true;
+        async Task Choose()
+        {
+            var chosen = await show(new SystemMenu(menu.Title, menu.Detail, entries, Session.Strings["Cancel"]));
+            if (ReferenceEquals(systemDialog, menu)) systemDialog = null;
+            // Something else may have replaced the menu meanwhile, such as a notification opening a trip.
+            if (!ReferenceEquals(Session.Menu, menu)) return;
+            if (chosen is { } i && i >= 0 && i < menu.Actions.Count) await Session.ChooseAsync(menu.Actions[i], TopLevel.GetTopLevel(this));
+            else Session.CloseOverlay();
+        }
+    }
+
+    /// <summary>Asks the question in the system's alert where there is one; false when the app draws it itself.</summary>
+    private bool SystemQuestion(Question question)
+    {
+        if (Session.Host.Ask is not { } ask) return false;
+        if (ReferenceEquals(systemDialog, question)) return true;
+        systemDialog = question;
+        _ = Answer();
+        return true;
+        async Task Answer()
+        {
+            var yes = await ask(new SystemQuestion(question.Text, question.Detail, question.Action, question.Decline ?? Session.Strings["Cancel"]));
+            if (ReferenceEquals(systemDialog, question)) systemDialog = null;
+            if (ReferenceEquals(Session.Asking, question)) await Session.AnswerAsync(yes);
+        }
     }
 
     /// <summary>A short notice at the bottom, above the sheet and the bottom bar, that goes away by itself.</summary>
@@ -683,7 +740,7 @@ public sealed class AppShell : UserControl
         var chosen = IsAt(place);
         var pill = new Border { Width = 56, Height = 32, CornerRadius = new CornerRadius(16), HorizontalAlignment = HorizontalAlignment.Center, Child = Ui.Icon(place.Icon, 24, chosen ? "Accent.SoftText" : null).Also(i => i.HorizontalAlignment = HorizontalAlignment.Center) }.Classed("indicator");
         if (chosen) pill.Res(Border.BackgroundProperty, "Accent.Soft");
-        var button = new ChoiceButton { IsSelected = chosen, Content = Ui.V(4, pill, Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = 12; })) }.Classed("tab");
+        var button = new ChoiceButton { IsSelected = chosen, Content = Ui.V(4, pill, Ui.Line(text).Also(t => { t.HorizontalAlignment = HorizontalAlignment.Center; t.FontSize = TextScale.Size(12); })) }.Classed("tab");
         AutomationProperties.SetName(button, text);
         ToolTip.SetTip(button, text + " (" + Shortcut(number.ToString(CultureInfo.InvariantCulture)) + ")");
         button.Click += (_, _) => Go(place);
@@ -702,7 +759,10 @@ public sealed class AppShell : UserControl
     /// <summary>Quick Add, ready for an expense on the costs and for a booking on the bookings.</summary>
     private void QuickAdd() => Session.ShowQuickAdd(Session.Page switch { "costs" => "expense", "bookings" => "booking", _ => null });
 
-    /// <summary>The bottom bar's buttons for the system's bar: the same places in the same order, the plus in the middle.</summary>
+    /// <summary>
+    /// The bottom bar's buttons for the system's bar: the same places in the same order, the plus in the middle. iOS
+    /// shows five at most and counts a search tab among them, so the search stays at the page's top.
+    /// </summary>
     private void SystemBarPlaces()
     {
         var s = Session.Strings; var places = BarPlaces();

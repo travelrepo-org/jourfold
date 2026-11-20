@@ -489,10 +489,10 @@ public static class MorePages
         var home = rates.Currencies.Contains(s.TripCurrencyCode) ? s.TripCurrencyCode : "EUR";
         var to = Pick("converter.to", home);
         var from = Pick("converter.from", currencies.FirstOrDefault(c => c != to) ?? (to == "USD" ? "EUR" : "USD"));
-        var amount = Draft(s, "converter.amount", new TextBox { Text = s.Drafts.GetValueOrDefault("converter.amount") ?? "100", FontSize = 28 });
+        var amount = Draft(s, "converter.amount", new TextBox { Text = s.Drafts.GetValueOrDefault("converter.amount") ?? "100", FontSize = TextScale.Size(28) });
         Avalonia.Input.TextInput.TextInputOptions.SetContentType(amount, Avalonia.Input.TextInput.TextInputContentType.Number);
         AutomationProperties.SetName(amount, str["Amount"]);
-        var result = Ui.Text("", "h1").Also(t => t.FontSize = 32);
+        var result = Ui.Text("", "h1").Also(t => t.FontSize = TextScale.Size(32));
         void Show()
         {
             result.Text = ExchangeRates.Amount(amount.Text) is { } value && rates.Convert(value, from, to) is { } converted
@@ -1490,7 +1490,7 @@ public static class MorePages
     {
         using var stream = typeof(MorePages).Assembly.GetManifestResourceStream(resource);
         var text = stream is null ? "" : new StreamReader(stream).ReadToEnd();
-        return Frame(s, title, new SelectableTextBlock { Text = text, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontFamily = Avalonia.Media.FontFamily.Parse("monospace"), FontSize = 12, Margin = new Thickness(20, 0) });
+        return Frame(s, title, new SelectableTextBlock { Text = text, TextWrapping = Avalonia.Media.TextWrapping.Wrap, FontFamily = Avalonia.Media.FontFamily.Parse("monospace"), FontSize = TextScale.Size(12), Margin = new Thickness(20, 0) });
     }
 
     /// <summary>Where the trips' calendars go, when that is online: said before the calendar is turned on, too.</summary>

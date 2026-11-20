@@ -2088,7 +2088,7 @@
   "LiveUpdatesOff": "In den Systemeinstellungen ausgeschaltet.",
   "LiveUpdatesNone": "Auf dieser Android-Version nicht verfügbar.",
   "LiveUpdatesAllow": "In den Systemeinstellungen erlauben",
-  "LiveUpdatesSamsung": "Schalten Sie auf Samsung-Handys in den Entwickleroptionen „Live-Benachrichtigungen für alle Apps“ ein.",
+  "LiveUpdatesSamsung": "Dieses Samsung-Handy zeigt Live-Updates nur für von Samsung freigegebene Apps. Schalten Sie in den Entwickleroptionen „Live-Benachrichtigungen für alle Apps“ ein.",
   "LiveExample": "Beispiel zeigen",
   "LiveExampleJourney": "Zug nach Kyoto",
   "LiveMinutesLeft": "{0} Min",
@@ -2104,5 +2104,17 @@
   "LiveActivitiesNone": "Auf diesem Gerät nicht verfügbar.",
   "LiveActivitiesAllow": "In der Einstellungen-App erlauben",
   "LiveActivitiesPromoted": "Als Live-Aktivität angezeigt. Sperren Sie das iPhone oder verlassen Sie Jourfold, um sie zu sehen.",
-  "LiveActivitiesPlain": "iOS hat sie nicht angezeigt. Vielleicht sind Live-Aktivitäten für Jourfold ausgeschaltet."
+  "LiveActivitiesPlain": "iOS hat sie nicht angezeigt. Vielleicht sind Live-Aktivitäten für Jourfold ausgeschaltet.",
+  "SearchList": "Suchen",
+  "NothingMatches": "Nichts passt zu „{0}“.",
+  "MoreDaysLater": "Mehr Tage später",
+  "MoreDaysPlaceholder": "+N",
+  "PlanToToday": "Zu heute und jetzt",
+  "FilterByCategory": "Nur Zahlungen für {0} zeigen",
+  "AllCategoriesAgain": "Wieder alle Kategorien zeigen",
+  "NoCostsInCategory": "Keine Zahlung für {0}.",
+  "OtherZone": "Andere Zeitzone…",
+  "AllZones": "Alle Zeitzonen",
+  "SecondTimeOf": "Zweite Zeit: {0}. Andere wählen",
+  "ChooseSecondTime": "Zweite Zeit wählen"
 }

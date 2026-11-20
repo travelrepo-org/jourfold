@@ -30,5 +30,9 @@
          then tell about newer releases; a store's own name, such as fdroid or play, for builds a store updates. Builds
          without it never look for new versions. -->
     <AssemblyMetadata Include="Distribution" Value="$(JourfoldDistribution)" Condition="'$(JourfoldDistribution)' != ''" />
+    <!-- Tools for developers and testers, such as showing an example of the travel day's Live Update or Live Activity
+         at once. Off in every build unless it is made with -p:JourfoldDebugTools=true (or the environment variable of
+         that name); releases never set it. -->
+    <AssemblyMetadata Include="DebugTools" Value="true" Condition="'$(JourfoldDebugTools)' == 'true'" />
   </ItemGroup>
 </Project>

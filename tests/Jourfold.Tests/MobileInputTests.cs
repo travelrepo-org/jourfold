@@ -38,6 +38,25 @@ public sealed class MobileInputTests : IDisposable
 
     private static void DrawAgain(MobileSession session) { session.Redraw(); Probe.Layout(); }
 
+    [AvaloniaTheory]
+    [InlineData("en", "Afternoon")]
+    [InlineData("de", "Nachmittags")]
+    public async Task APartOfTheDayFitsItsTimeColumnOnOneLine(string language, string word)
+    {
+        var (session, window) = await OpenAsync(language);
+        try
+        {
+            session.ShowTab(MobileTab.Plan); session.ShowDate(new LocalDate(2027, 5, 18)); Probe.Layout();
+            var label = Probe.All<TextBlock>(window).First(t => t.Text == word);
+            Assert.Single(label.TextLayout.TextLines);
+            // Made smaller where it is too wide, it ends inside the column, before the card.
+            var left = label.TranslatePoint(default, window)!.Value.X;
+            var right = label.TranslatePoint(new Point(label.Bounds.Width, 0), window)!.Value.X;
+            Assert.True(right - left <= 56.5, $"{word} is {right - left} wide");
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
     [AvaloniaFact]
     public async Task ALongPressOnAPlaceCopiesItsAddressAndATapStillOpensIt()
     {

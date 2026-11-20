@@ -2088,7 +2088,7 @@
   "LiveUpdatesOff": "Turned off in the system settings.",
   "LiveUpdatesNone": "Not available on this Android version.",
   "LiveUpdatesAllow": "Allow in the system settings",
-  "LiveUpdatesSamsung": "On Samsung phones, turn on “Live notifications for all apps” in the developer options.",
+  "LiveUpdatesSamsung": "This Samsung phone shows Live Updates only for apps Samsung approved. Turn on “Live notifications for all apps” in the developer options.",
   "LiveExample": "Show an example",
   "LiveExampleJourney": "Train to Kyoto",
   "LiveMinutesLeft": "{0} min",
@@ -2104,5 +2104,17 @@
   "LiveActivitiesNone": "Not available on this device.",
   "LiveActivitiesAllow": "Allow in the Settings app",
   "LiveActivitiesPromoted": "Shown as a Live Activity. Lock the iPhone or leave Jourfold to see it.",
-  "LiveActivitiesPlain": "iOS did not show it. Live Activities may be turned off for Jourfold."
+  "LiveActivitiesPlain": "iOS did not show it. Live Activities may be turned off for Jourfold.",
+  "SearchList": "Search",
+  "NothingMatches": "Nothing fits “{0}”.",
+  "MoreDaysLater": "More days later",
+  "MoreDaysPlaceholder": "+N",
+  "PlanToToday": "Go to today and now",
+  "FilterByCategory": "Show only payments for {0}",
+  "AllCategoriesAgain": "Show all categories again",
+  "NoCostsInCategory": "No payment for {0}.",
+  "OtherZone": "Another time zone…",
+  "AllZones": "All time zones",
+  "SecondTimeOf": "Second time: {0}. Choose another",
+  "ChooseSecondTime": "Choose a second time"
 }

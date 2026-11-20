@@ -76,6 +76,8 @@ public sealed class QuickAddView
     // An expense: still estimated, and the plan or booking it belongs to.
     private readonly ToggleSwitch estimated = new();
     private Guid? related, relatedBefore;
+    // Where the row of days was scrolled to, kept while the form is drawn again; null until it first shows.
+    private double? daysOffset;
     // An expense's category, who shares it and what the card booked in the trip's currency, with how they were.
     private string? category, categoryBefore;
     // The category the title of a new expense suggests while it is typed ("Taxi" is transport); kept unless another is chosen.
@@ -616,7 +618,7 @@ public sealed class QuickAddView
         }
         var add = Ui.Button(str["LinkPlan"], "link", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         add.Click += (_, _) => s.ShowMenu(new ActionMenu(str["LinkPlan"], null, Plans(e => !plans.Contains(e.Id))
-            .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray()));
+            .Select(e => new MenuAction(Label(e), "calendar", _ => { plans.Add(e.Id); Render(); return Task.CompletedTask; })).ToArray(), Searchable: true));
         list.Children.Add(add);
         return list;
     }
@@ -808,18 +810,24 @@ public sealed class QuickAddView
         rest.Children.Add(Ui.Text(f.IsWholeTrip ? str["BudgetWholeTripHint"] : str["BudgetLimitedHint"], "caption").Also(t => t.TextWrapping = Avalonia.Media.TextWrapping.Wrap));
     }
 
-    /// <summary>The plan or booking an expense belongs to, with buttons to choose another or none.</summary>
+    /// <summary>
+    /// The plan or booking an expense belongs to, shown as a booking shows its plans: a line with its day and a button
+    /// to take it away, or a button to choose one from a menu that can be searched. An expense belongs to one.
+    /// </summary>
     private Control RelatedControls()
     {
         var str = s.Strings; var trip = s.Trip!;
-        var current = related is { } id ? trip.Find(id) : null;
-        var choose = Ui.Button(current?.Title ?? str["LinkPlanOrBooking"], current is null ? "link" : "pencil", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
+        if (related is { } id && trip.Find(id) is { } current)
+        {
+            var clear = Ui.IconButton("x", str["RemoveLink"]); clear.Click += (_, _) => { related = null; Render(); };
+            var booking = current.Type == "booking";
+            return Ui.Columns("Auto,*,Auto", Ui.Icon(booking ? "ticket" : "calendar", 16, "Text.Muted").Margin(0, 0, 10, 0), Ui.V(0, Ui.Text(current.Title), !booking && PlanDay(id) is { } when ? Ui.Text(when, "caption") : null), clear);
+        }
+        var choose = Ui.Button(str["LinkPlanOrBooking"], "link", "ghost", "compact").Also(b => b.HorizontalAlignment = HorizontalAlignment.Left);
         choose.Click += (_, _) => s.ShowMenu(new ActionMenu(str["BelongsTo"], null, Plans(_ => true)
             .Concat(trip.Entities.Values.Where(e => e.Type == "booking").OrderBy(e => e.Title, StringComparer.CurrentCulture))
-            .Where(e => e.Id != related).Select(e => new MenuAction(e.Type == "booking" ? e.Title : Label(e), e.Type == "booking" ? "ticket" : "calendar", _ => { related = e.Id; Render(); return Task.CompletedTask; })).ToArray()));
-        if (current is null) return choose;
-        var clear = Ui.IconButton("x", str["RemoveLink"]); clear.Click += (_, _) => { related = null; Render(); };
-        return Ui.Columns("*,Auto", choose, clear);
+            .Select(e => new MenuAction(e.Type == "booking" ? e.Title : Label(e), e.Type == "booking" ? "ticket" : "calendar", _ => { related = e.Id; Render(); return Task.CompletedTask; })).ToArray(), Searchable: true));
+        return choose;
     }
 
     /// <summary>The trip's plans in time order, those without a day last; groups and their steps alike.</summary>
@@ -881,13 +889,31 @@ public sealed class QuickAddView
     {
         var str = s.Strings;
         var days = Ui.Flow(6);
+        var chips = new List<ChoiceButton>();
         for (var i = 0; i <= 2; i++)
         {
             var offset = i;
             var chip = Chip(i == 0 ? str["SameDay"] : i == 1 ? str["OneDayLater"] : string.Format(CultureInfo.CurrentCulture, str["DaysLater"], i), null, i == arrivalDays, "chip");
             chip.Click += (_, _) => { arrivalDays = offset; Render(); };
-            days.Children.Add(chip);
+            days.Children.Add(chip); chips.Add(chip);
         }
+        // Longer journeys, such as by ship: a pill to type the days in. Typing does not draw the form again, so the
+        // keyboard stays; the chips follow what is typed.
+        var more = new TextBox { Text = arrivalDays > 2 ? arrivalDays.ToString(CultureInfo.CurrentCulture) : "", PlaceholderText = str["MoreDaysPlaceholder"], MinWidth = 64, MaxWidth = 96, MinHeight = 36, CornerRadius = new CornerRadius(999), Padding = new Thickness(arrivalDays > 2 ? 1 : 12, 6, 12, 6), HorizontalContentAlignment = HorizontalAlignment.Left, VerticalContentAlignment = VerticalAlignment.Center, MaxLength = 3 }.Classed("chip-field");
+        if (arrivalDays > 2) more.Classes.Add("selected");
+        more.InnerLeftContent = Ui.Text("+").Also(t => { t.VerticalAlignment = VerticalAlignment.Center; t.Margin = new Thickness(12, 0, 0, 0); t.IsVisible = arrivalDays > 2; });
+        Avalonia.Input.TextInput.TextInputOptions.SetContentType(more, Avalonia.Input.TextInput.TextInputContentType.Digits);
+        AutomationProperties.SetName(more, str["MoreDaysLater"]);
+        more.TextChanged += (_, _) =>
+        {
+            if (!int.TryParse(more.Text, NumberStyles.None, CultureInfo.CurrentCulture, out var n) || n < 1) return;
+            arrivalDays = n;
+            for (var i = 0; i < chips.Count; i++) chips[i].IsSelected = i == n;
+            more.Classes.Set("selected", n > 2);
+            // "+5": the plus sits right before the number.
+            if (more.InnerLeftContent is Control plus) { plus.IsVisible = true; more.Padding = new Thickness(1, 6, 12, 6); }
+        };
+        days.Children.Add(more);
         var zones = Ui.Flow(6);
         foreach (var zone in ArrivalZones())
         {
@@ -919,17 +945,35 @@ public sealed class QuickAddView
         return s.Trip!.Entities.Values.FirstOrDefault(p => p.Type == "place" && string.Equals(p.Title, text, StringComparison.CurrentCultureIgnoreCase)) is { } known ? PlaceChoice.Existing(known.Id) : PlaceChoice.Create(text);
     }
 
+    /// <summary>
+    /// The trip's days as chips. The chosen day starts in the middle of the row, so a plan added from a later day shows
+    /// its day at once; after that the row stays where the user scrolled it, also when the form is drawn again.
+    /// </summary>
     private Control Days()
     {
         var culture = CultureInfo.GetCultureInfo(s.Strings.Language);
         var chips = Ui.H(6);
+        Button? chosenChip = null;
         foreach (var d in s.Agenda.Days)
         {
             var chip = Chip(d.Date.ToString("ddd d", culture), null, d.Date == day, "chip"); var chosen = d.Date;
             chip.Click += (_, _) => { day = day == chosen ? null : chosen; Render(); };
             chips.Children.Add(chip);
+            if (d.Date == day) chosenChip = chip;
         }
-        return new ScrollViewer { Content = chips, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        var scroll = new ScrollViewer { Content = chips, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Hidden, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+        void Place()
+        {
+            if (scroll.Viewport.Width <= 0) return;
+            var most = Math.Max(0, scroll.Extent.Width - scroll.Viewport.Width);
+            var x = daysOffset ?? (chosenChip is null ? 0 : chosenChip.Bounds.X + chosenChip.Bounds.Width / 2 - scroll.Viewport.Width / 2);
+            scroll.Offset = new Avalonia.Vector(Math.Clamp(x, 0, most), 0);
+            daysOffset = scroll.Offset.X;
+            scroll.ScrollChanged += (_, _) => daysOffset = scroll.Offset.X;
+        }
+        var placed = false;
+        scroll.LayoutUpdated += (_, _) => { if (!placed && scroll.Viewport.Width > 0) { placed = true; Place(); } };
+        return scroll;
     }
 
     private async Task SubmitAsync(Button add)

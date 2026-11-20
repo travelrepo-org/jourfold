@@ -7,6 +7,11 @@ Android vector drawables take the same path syntax as SVG, so the mark is copied
 adaptive-icon canvas, scaled to stay inside the 66 dp area that every launcher mask keeps. The notification icon is
 the mark's silhouette in white on a 24 dp canvas, as Android draws status bar icons in one colour.
 
+The themed icon (Android 13 and newer, when "Themed icons" is on) is ic_launcher_monochrome: the mark's three parts in
+three strengths, with the road and the pin left out, as iOS's tinted icon (eng/ios-icons.py). Android uses only its
+alpha and tints it in the colours of the home screen; older versions, and the home screen without themed icons, keep
+the coloured icon. It is drawn with cairosvg and Pillow, which only this part needs.
+
 The vehicles that ride along the travel day's progress bar (ic_live_*) are the app's own transport icons from
 src/Jourfold.UI/Theme/Icons.axaml, drawn white on a disc in Jourfold's accent colour, so they stand out on light and
 dark notifications alike.
@@ -47,8 +52,44 @@ drawable = f'''<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
   <background android:drawable="@color/launcher_background"/>
   <foreground android:drawable="@drawable/ic_launcher_foreground"/>
+  <monochrome android:drawable="@drawable/ic_launcher_monochrome"/>
 </adaptive-icon>
 ''', encoding='utf-8')
+
+
+def monochrome(pixels):
+    """The mark for themed icons: white whose alpha is the strength of each part, the white details cut out."""
+    import io
+    import cairosvg
+    from PIL import Image, ImageChops
+    text = source.read_text(encoding='utf-8')
+    details = re.findall(r'<path fill="#fff"[^>]*/>', text)
+    body = text
+    for detail in details:
+        body = body.replace(detail, '')
+    # Three strengths, so the parts stay apart once tinted, as on iOS.
+    for old, new in {'#103b5c': '#ffffff', '#45c4af': '#c4c4c4', '#1593a5': '#8c8c8c'}.items():
+        body = body.replace(f'fill="{old}"', f'fill="{new}"')
+    holes_svg = re.sub(r'(<svg[^>]*>).*(</svg>)', lambda m: m[1] + ''.join(details) + m[2], text, flags=re.S)
+
+    def render(document):
+        return Image.open(io.BytesIO(cairosvg.svg2png(bytestring=document.encode('utf-8'), output_width=pixels, output_height=pixels))).convert('RGBA')
+    image = render(body)
+    alpha = ImageChops.multiply(image.convert('L'), image.getchannel('A'))
+    alpha = ImageChops.subtract(alpha, render(holes_svg).getchannel('A'))
+    mark = Image.new('RGBA', (pixels, pixels), (255, 255, 255, 0))
+    mark.putalpha(alpha)
+    return mark
+
+
+# 108 dp at xxxhdpi (4 px per dp), the mark at the size and place of the coloured foreground.
+from PIL import Image  # noqa: E402
+canvas = Image.new('RGBA', (432, 432), (255, 255, 255, 0))
+inner = round(size * 4)
+canvas.alpha_composite(monochrome(inner), (round(offset * 4),) * 2)
+(target / 'drawable-xxxhdpi').mkdir(parents=True, exist_ok=True)
+canvas.save(target / 'drawable-xxxhdpi' / 'ic_launcher_monochrome.png', optimize=True)
+
 silhouette = [f'    <path android:fillColor="#FFFFFF" android:pathData="{p.get("d")}"/>' for p in root.iter(SVG + 'path')
               if p.get('fill', '#000000').lower() not in ('#fff', 'white')]
 small = 22.0 / box

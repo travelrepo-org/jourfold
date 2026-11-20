@@ -23,10 +23,10 @@ public sealed class DaySwipeAndLiveTests : IDisposable
 
     private static readonly DateTimeZone Tokyo = DateTimeZoneProviders.Tzdb["Asia/Tokyo"];
 
-    private async Task<(MobileSession Session, Window Window)> OpenAsync(ISystemNotices? notices = null)
+    private async Task<(MobileSession Session, Window Window)> OpenAsync(ISystemNotices? notices = null, bool debugTools = true)
     {
         var now = new LocalDateTime(2027, 5, 16, 10, 40).InZoneStrictly(Tokyo).ToInstant();
-        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(), Notices: notices));
+        var session = new MobileSession(new MobileHost(root, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets(), Notices: notices) { DebugTools = debugTools });
         await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
         var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
         Probe.Layout();
@@ -192,6 +192,97 @@ public sealed class DaySwipeAndLiveTests : IDisposable
             await Probe.Until(() => session.LiveExampleResult is not null);
             Probe.Layout();
             Assert.Contains(Probe.All<TextBlock>(window), t => t.Tag as string == "live.result" && t.Text!.StartsWith(result, StringComparison.Ordinal));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task TodayLeadsThePlanBackToTodayAndTheTimetableToNow()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            // The list, on another day of the trip.
+            session.ShowTab(MobileTab.Plan);
+            session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            // A calendar leaf in the header, beside the search, shows today's day as calendars do.
+            Assert.Contains(Probe.All<TextBlock>(Probe.Button(window, "Go to today and now")), t => t.Text == session.PhoneToday.Day.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Probe.Click(window, "Go to today and now"); Probe.Layout();
+            Assert.Equal(session.PhoneToday, session.SelectedDate);
+
+            // The timetable, scrolled to the night: back to the hour before now (10:40, so from 09:00).
+            session.Settings.Values["plan.day"] = "timetable";
+            session.ShowDate(session.Agenda.Days[^1].Date); Probe.Layout();
+            var grid = Probe.All<ScrollViewer>(window).First(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled && v.Extent.Height > 1000);
+            grid.Offset = new Avalonia.Vector(0, grid.Extent.Height - grid.Viewport.Height); Probe.Layout();
+            Probe.Click(window, "Go to today and now"); Probe.Layout(); Probe.Layout();
+            Assert.Equal(session.PhoneToday, session.SelectedDate);
+            grid = Probe.All<ScrollViewer>(window).First(v => v.VerticalScrollBarVisibility != Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled && v.Extent.Height > 1000);
+            Assert.InRange(grid.Offset.Y, 1, grid.Extent.Height - grid.Viewport.Height - 1);
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task BeforeTheTripThePlanHasNoTodayButton()
+    {
+        var root2 = Path.Combine(Path.GetTempPath(), "jourfold-today-" + Guid.NewGuid());
+        var now = new LocalDateTime(2027, 4, 1, 10, 0).InZoneStrictly(Tokyo).ToInstant();
+        var session = new MobileSession(new MobileHost(root2, new GitCliBackend(), new FakeClock(now), () => Tokyo, "en", new MemorySecrets()));
+        await session.OpenAsync(await session.CreateSampleAsync(new LocalDate(2027, 5, 14)));
+        var window = new Window { Width = 412, Height = 915, Content = new AppShell(session) }; window.Show();
+        try
+        {
+            session.ShowTab(MobileTab.Plan); Probe.Layout();
+            Assert.DoesNotContain(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Go to today and now");
+        }
+        finally { window.Close(); session.Dispose(); TestFiles.Delete(root2); }
+    }
+
+    [AvaloniaFact]
+    public async Task TheTimetableShowsTheSecondTimeUnderEachHourAndAnyZoneCanBeChosen()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.Settings.Values["plan.day"] = "timetable";
+            session.ShowTab(MobileTab.Plan); Probe.Layout();
+            string[] Seconds() { Probe.Layout(); return Probe.All<TextBlock>(window).Where(x => x.Tag as string == "second-hour").Select(x => x.Text!).ToArray(); }
+            Assert.Empty(Seconds());
+
+            // The corner above the hours chooses it; besides the trip's zones, any zone in the world can be searched.
+            Probe.Click(window, "Choose a second time"); Probe.Layout();
+            Assert.Contains(session.Menu!.Actions, a => a.Label == "Another time zone…");
+            await session.ChooseAsync(session.Menu!.Actions.Single(a => a.Label == "Another time zone…"), null); Probe.Layout();
+            Assert.True(session.Menu!.Searchable);
+            await session.ChooseAsync(session.Menu!.Actions.Single(a => a.Label == "Auckland (Pacific)"), null); Probe.Layout();
+            Assert.Equal("Pacific/Auckland", session.SecondZone!.Id);
+
+            // Tokyo is UTC+9 in May, Auckland UTC+12: three hours ahead, the evening already the next day.
+            var seconds = Seconds();
+            Assert.Contains("03:00", seconds);
+            Assert.Contains("00:00 +1", seconds);
+            Assert.NotNull(Probe.Button(window, "Second time: Auckland. Choose another"));
+
+            // The same choice shows in the list, and "No second time" takes it away everywhere.
+            session.SetSecondZone(null); Probe.Layout();
+            Assert.Empty(Seconds());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task OnlyBuildsWithDebugToolsOfferTheExample()
+    {
+        var (session, window) = await OpenAsync(new LiveNotices(LiveSupport.On, true), debugTools: false);
+        try
+        {
+            session.ShowPage("settings");
+            await session.SetNoticesAsync(true); Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Live Update in the status bar");
+            Assert.DoesNotContain(Probe.All<Button>(window), b => Avalonia.Automation.AutomationProperties.GetName(b) == "Show an example");
+            // Not a Samsung phone: no word about Samsung's developer options.
+            Assert.DoesNotContain(Probe.All<TextBlock>(window), t => t.Tag as string == "live.maker");
         }
         finally { window.Close(); session.Dispose(); }
     }

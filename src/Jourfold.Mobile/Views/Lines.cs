@@ -44,7 +44,8 @@ public static class Lines
         return marked;
     }
 
-    public static Control TripHeader(MobileSession s)
+    /// <param name="action">A button of the page shown before the search, such as the plan's way back to today.</param>
+    public static Control TripHeader(MobileSession s, Control? action = null)
     {
         var trip = s.Trip!; var (start, end) = TripQueries.EffectiveDates(trip);
         var people = trip.Entities.Values.Where(e => e.Type == "person").Select(p => p.Title).Order(StringComparer.CurrentCulture).ToArray();
@@ -53,10 +54,10 @@ public static class Lines
         // The search is one tap away on every tab.
         var search = Ui.IconButton("search", s.Strings["SearchTrip"]); search.Click += (_, _) => s.ShowSearch();
         ToolTip.SetTip(search, s.Strings["SearchTrip"] + " (" + AppShell.Shortcut("K") + ")");
-        return Ui.Columns("Auto,Auto,*,Auto", back,
+        return Ui.Columns("Auto,Auto,*,Auto,Auto", back,
             Covers.Thumbnail(s.Workspace?.Repository, trip, 44, 44, 10).Margin(0, 0, 12, 0),
             Ui.V(1, Ui.Line(trip.Manifest.Title, "title"), Ui.Line(meta.Length > 0 ? meta : s.Strings["NoDatesYet"], "caption")),
-            search.Margin(8, 0, 0, 0)).Margin(4, 6, 8, 6);
+            action?.Margin(8, 0, 0, 0), search.Margin(action is null ? 8 : 0, 0, 0, 0)).Margin(4, 6, 8, 6);
     }
 
     /// <summary>"Alex and Sam", "Alex, Sam and Kim".</summary>
@@ -225,8 +226,9 @@ public static class Lines
     /// <param name="second">The start in the second time zone the user chose, quieter than the rest; see <see cref="TimeText.Second"/>.</param>
     public static Control TimeColumn(ClockText time, LineState state, string? second = null)
     {
-        // Words such as "Afternoon" or "All day" are set smaller so they fit the narrow column.
-        var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Ui.Text(time.Start, "small", "strong"),
+        // Words such as "Afternoon" or "All day" are set smaller, and shrink further rather than break inside a word
+        // where they are still too wide for the narrow column, as "Nachmittags" is.
+        var column = Ui.V(1, time.Start.Any(char.IsDigit) ? Ui.Text(time.Start, "time") : Word(time.Start),
             time.End is { } end ? Ui.Text(end, "small", "muted") : null,
             time.Zone is { } zone ? Ui.Text(zone, "small", "muted").Also(t => t.TextTrimming = TextTrimming.CharacterEllipsis) : null,
             second is null ? null : Ui.Text(second, "small").Also(t => { t.Res(TextBlock.ForegroundProperty, "Accent"); t.Opacity = 0.8; }).Margin(0, 2, 0, 0));
@@ -234,6 +236,14 @@ public static class Lines
         column.VerticalAlignment = VerticalAlignment.Top; column.Margin = new Thickness(0, 10, 8, 0);
         return column;
     }
+
+    private static Control Word(string text) => new Viewbox
+    {
+        Stretch = Stretch.Uniform,
+        StretchDirection = StretchDirection.DownOnly,
+        HorizontalAlignment = HorizontalAlignment.Left,
+        Child = Ui.Text(text, "small", "strong").Also(t => t.TextWrapping = TextWrapping.NoWrap),
+    };
 
     /// <summary>
     /// The line under a day's title that says which clock its times follow. A tap chooses a second time zone, shown
@@ -248,14 +258,33 @@ public static class Lines
         return button;
     }
 
-    /// <summary>The trip's time zones and the phone's to choose the second time from, and a way to turn it off.</summary>
-    private static ActionMenu ZoneMenu(MobileSession s, DateTimeZone primary)
+    /// <summary>
+    /// The trip's time zones and the phone's to choose the second time from, any other zone in the world, and a way to
+    /// turn it off.
+    /// </summary>
+    internal static ActionMenu ZoneMenu(MobileSession s, DateTimeZone primary)
     {
-        var actions = s.ZoneChoices.Where(z => z.Id != primary.Id).Select(zone =>
+        var choices = s.ZoneChoices.Concat(s.SecondZone is { } chosen ? [chosen] : []).DistinctBy(z => z.Id).Where(z => z.Id != primary.Id);
+        var actions = choices.Select(zone =>
             new MenuAction(TimeText.Place(zone), zone.Id == s.SecondZone?.Id ? "check" : "clock", _ => { s.SetSecondZone(zone.Id); return Task.CompletedTask; })).ToList();
+        actions.Add(new MenuAction(s.Strings["OtherZone"], "globe", _ => { s.ShowMenu(AllZones(s, primary)); return Task.CompletedTask; }));
         if (s.SecondZone is not null) actions.Add(new MenuAction(s.Strings["NoSecondTime"], "x", _ => { s.SetSecondZone(null); return Task.CompletedTask; }));
         return new ActionMenu(s.Strings["SecondTime"], s.Strings["SecondTimeHint"], actions);
     }
+
+    /// <summary>Every place-named zone of the time zone database, by its place, to search through.</summary>
+    private static ActionMenu AllZones(MobileSession s, DateTimeZone primary)
+    {
+        var zones = TimeZoneNames.Value.Where(z => z.Id != primary.Id).Select(z =>
+            new MenuAction(z.Label, z.Id == s.SecondZone?.Id ? "check" : "clock", _ => { s.SetSecondZone(z.Id); return Task.CompletedTask; })).ToArray();
+        return new ActionMenu(s.Strings["AllZones"], null, zones, Searchable: true);
+    }
+
+    /// <summary>The zones named after a place ("Europe/Berlin", not "Etc/GMT+1" or old aliases), as "Berlin (Europe)".</summary>
+    private static readonly Lazy<(string Id, string Label)[]> TimeZoneNames = new(() =>
+        NodaTime.TimeZones.TzdbDateTimeZoneSource.Default.ZoneLocations?.Select(l => l.ZoneId).Distinct()
+            .Select(id => (Id: id, Label: TimeText.Place(DateTimeZoneProviders.Tzdb[id]) + " (" + id.Split('/')[0].Replace('_', ' ') + ")"))
+            .OrderBy(z => z.Label, StringComparer.CurrentCulture).ToArray() ?? []);
 
     public static string DayTitle(LocalDate date, MobileSession s) => date.ToString(s.Strings["DayTitleFormat"], CultureInfo.GetCultureInfo(s.Strings.Language));
     /// <summary>How long a journey takes from departure to arrival, across time zones; null for anything else.</summary>

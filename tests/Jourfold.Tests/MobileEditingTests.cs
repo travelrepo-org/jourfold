@@ -85,6 +85,53 @@ public sealed class MobileEditingTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task ANewPlanShowsItsDayInTheMiddleOfTheRowOfDays()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            var days = session.Agenda.Days;
+            session.ShowDate(days[^2].Date);
+            session.ShowQuickAdd(); Probe.Layout(); Probe.Layout();
+            var label = days[^2].Date.ToString("ddd d", System.Globalization.CultureInfo.GetCultureInfo("en"));
+            var chip = Probe.All<Button>(Form(window)).Single(b => b.Classes.Contains("selected") && Probe.All<TextBlock>(b).Any(x => x.Text == label));
+            var row = chip.FindAncestorOfType<ScrollViewer>()!;
+            Assert.True(row.Offset.X > 0);
+            // In the middle, or as far as the row goes when the day is near its end.
+            var middle = chip.Bounds.X + chip.Bounds.Width / 2 - row.Offset.X;
+            Assert.True(Math.Abs(middle - row.Viewport.Width / 2) < 2 || Math.Abs(row.Offset.X - (row.Extent.Width - row.Viewport.Width)) < 1, $"middle {middle} of {row.Viewport.Width}, offset {row.Offset.X}");
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task WhatAnExpenseBelongsToIsFoundBySearchingAndShownAsALine()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("expense");
+            Tap(window, "Link to a plan or booking");
+            // The menu lists every plan and booking; its field narrows them, regardless of case.
+            var search = Probe.All<TextBox>(window).Single(b => b.Classes.Contains("menu-search"));
+            Assert.True(session.Menu!.Searchable);
+            search.Text = "TEAMLAB"; Probe.Layout();
+            var shown = Probe.All<Button>(window).Where(b => b.Classes.Contains("row") && b.IsEffectivelyVisible).Select(b => AutomationProperties.GetName(b)).ToArray();
+            Assert.NotEmpty(shown);
+            Assert.All(shown, name => Assert.Contains("teamLab", name, StringComparison.Ordinal));
+            search.Text = "zzz"; Probe.Layout();
+            Assert.Contains(Probe.All<TextBlock>(window), t => t.Text == "Nothing fits “zzz”." && t.IsEffectivelyVisible);
+            await PickAsync(session, "teamLab Planets");
+            Probe.Layout();
+            // Chosen, it is a line with its day and a button to take it away, as a booking lists its plans.
+            Assert.Contains(Probe.All<TextBlock>(Form(window)), t => t.Text == "teamLab Planets");
+            Tap(window, "Remove the link");
+            Assert.NotNull(Probe.Button(Form(window), "Link to a plan or booking"));
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
     public async Task AnExpenseSaysWhoPaidInWhichCurrencyAndWhatItBelongsTo()
     {
         var (session, window) = await OpenAsync();
@@ -308,6 +355,37 @@ public sealed class MobileEditingTests : IDisposable
             var bus = session.Trip!.Entities.Values.Single(e => e.Title == "Night bus");
             Assert.Equal("Europe/Berlin", bus.Data["time"]?["start"]?["timezone"]?.ToString());
             Assert.EndsWith("T22:00:00", bus.Data["time"]?["start"]?["local"]?.ToString());
+        }
+        finally { window.Close(); session.Dispose(); }
+    }
+
+    [AvaloniaFact]
+    public async Task AJourneyCanArriveMoreThanTwoDaysLater()
+    {
+        var (session, window) = await OpenAsync();
+        try
+        {
+            session.ShowQuickAdd("transport");
+            Field<TextBox>(window, "Title").Text = "Slow boat";
+            var times = Probe.All<TimePicker>(Form(window)).ToArray();
+            times[0].SelectedTime = new TimeSpan(10, 0, 0);
+            times[1].SelectedTime = new TimeSpan(16, 0, 0);
+            // +5 typed into the pill beside "+2 days"; the chips give up their mark without the form being drawn again.
+            var more = Field<TextBox>(window, "More days later");
+            more.Text = "5"; Probe.Layout();
+            Assert.Same(more, Field<TextBox>(window, "More days later"));
+            Assert.Contains("selected", more.Classes);
+            Assert.DoesNotContain(Probe.All<ChoiceButton>(Form(window)), c => c.IsSelected && Probe.All<TextBlock>(c).Any(x => x.Text is "Same day" or "+1 day" or "+2 days"));
+            Tap(window, "Add");
+            await Probe.Until(() => session.Trip!.Entities.Values.Any(e => e.Title == "Slow boat"));
+            var boat = session.Trip!.Entities.Values.Single(e => e.Title == "Slow boat");
+            var start = NodaTime.Text.LocalDateTimePattern.GeneralIso.Parse(boat.Data["time"]!["start"]!["local"]!.ToString()).Value;
+            var end = NodaTime.Text.LocalDateTimePattern.GeneralIso.Parse(boat.Data["time"]!["end"]!["local"]!.ToString()).Value;
+            Assert.Equal(start.Date.PlusDays(5), end.Date);
+
+            // Opened again, the pill shows the five days.
+            session.ShowEditor(boat.Id); Probe.Layout();
+            Assert.Equal("5", Field<TextBox>(window, "More days later").Text);
         }
         finally { window.Close(); session.Dispose(); }
     }

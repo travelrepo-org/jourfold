@@ -173,6 +173,20 @@ public sealed partial class MobileSession
         Changed?.Invoke();
     }
 
+    /// <summary>The category the costs page lists the payments of, chosen in "By category"; null for all.</summary>
+    public string? CostCategory { get; private set; }
+
+    /// <summary>Whether the costs page should bring its list into view once drawn, after a category was chosen.</summary>
+    internal bool CostListWanted { get; set; }
+
+    /// <summary>Lists only the payments of <paramref name="category"/>, or all again for null or the one chosen now.</summary>
+    public void FilterCosts(string? category)
+    {
+        CostCategory = category is null || string.Equals(category, CostCategory, StringComparison.CurrentCultureIgnoreCase) ? null : category;
+        CostListWanted = CostCategory is not null;
+        Changed?.Invoke();
+    }
+
     /// <summary>The booking or plan a new expense from Quick Add belongs to; cleared when Quick Add closes.</summary>
     public Guid? QuickAddRelated { get; private set; }
     /// <summary>Whether a new expense from Quick Add is still to pay.</summary>

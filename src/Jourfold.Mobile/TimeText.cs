@@ -43,6 +43,21 @@ public static class TimeText
         return Clock(there) + (there.Date > here ? " +1" : there.Date < here ? " −1" : "");
     }
 
+    /// <summary>
+    /// The time in <paramref name="second"/> at <paramref name="at"/>, read on <paramref name="day"/> in
+    /// <paramref name="primary"/>, with +1 or −1 when it falls on another day there; null where both clocks agree.
+    /// </summary>
+    public static string? Second(Instant at, LocalDate day, DateTimeZone? second, DateTimeZone primary)
+    {
+        if (second is null || Same(second, primary, at)) return null;
+        var there = at.InZone(second);
+        return Clock(there) + (there.Date > day ? " +1" : there.Date < day ? " −1" : "");
+    }
+
+    /// <summary>The short name a zone has at an instant, such as "CET" or "JST", or its offset where it has none.</summary>
+    public static string Abbreviation(DateTimeZone zone, Instant at) => zone.GetZoneInterval(at).Name is { Length: > 0 and <= 5 } name && !name.StartsWith('+') && !name.StartsWith('-')
+        ? name : "UTC" + zone.GetUtcOffset(at).ToString("m", CultureInfo.InvariantCulture);
+
     /// <summary>The place a zone is named after, such as "Berlin" or "Toronto".</summary>
     public static string Place(DateTimeZone zone) => zone.Id is "UTC" or "Etc/UTC" ? "UTC" : Formats.ZoneName(zone.Id);
 

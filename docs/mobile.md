@@ -26,9 +26,12 @@ abbreviation ("Berlin: 01:30 (Wed)"). A journey across zones always names both p
 rules and `MobileTests` checks them.
 
 A tap on that line chooses a second time zone for the trip, from the phone's zone and the zones of the trip and its
-items. Its times then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day),
-and not where both zones show the same time. It replaces the other zone's time inside the cards ("Berlin: 02:00"),
-which only shows while no second time is chosen. The choice stays on this phone, per trip. Dark mode uses the design
+items, or under **Another time zone…** any zone named after a place, which a field above the list searches. Its times
+then stand quieter under every time in Today and Plan ("01:30", "18:00 +1" when it is another day), and not where both
+zones show the same time. It replaces the other zone's time inside the cards ("Berlin: 02:00"), which only shows while
+no second time is chosen. The timetable shows it under each hour of its time column, read on the chosen day in that
+day's zone; the corner above the hours names both zones by their short names ("JST", "CEST") and chooses the second
+time as well. The choice stays on this phone, per trip. Dark mode uses the design
 spec's navy tokens, which `Jourfold.UI` shares with the desktop.
 
 An item that runs past midnight, such as a night flight, appears again on the days after it starts: on the day it
@@ -341,8 +344,8 @@ Samsung's own apps and apps it approved, unless "Live notifications for all apps
 on a Samsung phone the settings say so (`LiveByMakerOnly`), and the notification itself stays an ordinary one with
 progress. All of this needs "Remind me on the trip" to be on;
 allowing notifications in the system alone shows nothing. Under that switch the settings say what the system allows
-(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and have **Show an
-example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
+(`ISystemNotices.Live`), offer the system page when Live Updates are turned off for Jourfold, and, in builds with
+`-p:JourfoldDebugTools=true` only, have **Show an example**: a train half way there that arrives in a minute. The start is kept in the settings (`live.example`), and
 `NoticeRunner` shows it in place of the travel day and wakes every ten seconds to move it on, also when Jourfold is
 asleep; at the arrival the system removes it (`setTimeoutAfter`) and a real journey comes back. A line says whether
 Android made it a Live Update (`LivePromoted`, read from the posted notification's flags). While a real journey is
@@ -377,7 +380,7 @@ activity the user swiped away the same as one it removed itself, such as after a
 Android it comes back the next time Jourfold runs while the journey is on; Live Activities can be turned off for
 Jourfold in the Settings app. Jourfold works the notices out once it is on screen, also after a cold start, as iOS
 starts a Live Activity only then. The settings word it as a Live Activity (`ISystemNotices.LiveTexts`), say when it
-is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and have **Show an example**; on
+is turned off for Jourfold, open Jourfold's page in the Settings app to allow it, and, in builds with `-p:JourfoldDebugTools=true`, have **Show an example**; on
 an iPad or before iOS 16.2 the part is not there.
 
 ActivityKit is Swift only, so `src/Jourfold.iOS/LiveActivity` has a small Swift bridge with an Objective-C interface
@@ -645,4 +648,8 @@ dotnet run --project eng/MobileScreenshots -c Release -- artifacts/mobile-screen
 ```
 
 The launcher icon and splash drawable are generated from `assets/branding/mark.svg` with
-`python3 eng/android-icons.py assets/branding/mark.svg src/Jourfold.Android/Resources`.
+`python3 eng/android-icons.py assets/branding/mark.svg src/Jourfold.Android/Resources`. The script also draws the
+themed icon (`ic_launcher_monochrome`, the adaptive icon's `<monochrome>` layer), which needs cairosvg and Pillow: on
+Android 13 and newer with "Themed icons" turned on, the home screen tints it in its own colours, as other apps' icons.
+The mark's three parts keep three strengths, and the road and pin are left out, as in iOS's tinted icon. Without the
+setting, and on Android 10 to 12, the coloured icon stays.

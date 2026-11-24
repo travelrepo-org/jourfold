@@ -20,10 +20,10 @@ public static class TaxiCardView
         var local = Places.LocalName(place); var localAddress = Places.LocalAddress(place);
         var body = Ui.V(18,
             Ui.Text(str["TaxiCardHint"], "overline"),
-            Ui.Text(local ?? place.Title, "h1").Also(t => { t.FontSize = 40; t.TextWrapping = TextWrapping.Wrap; }),
-            (localAddress ?? Places.Address(place)) is { } shown ? new SelectableTextBlock { Text = shown, FontSize = 28, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap } : null,
+            Ui.Text(local ?? place.Title, "h1").Also(t => { t.FontSize = TextScale.Size(40); t.TextWrapping = TextWrapping.Wrap; }),
+            (localAddress ?? Places.Address(place)) is { } shown ? new SelectableTextBlock { Text = shown, FontSize = TextScale.Size(28), FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap } : null,
             local is not null || localAddress is not null ? Ui.V(4, Ui.Text(place.Title, "strong"), Places.Address(place) is { } usual ? Ui.Text(usual, "muted").Also(t => t.TextWrapping = TextWrapping.Wrap) : null) : null,
-            Places.Contact(place)?.Phone is { Length: > 0 } phone ? new SelectableTextBlock { Text = phone, FontSize = 22 } : null);
+            Places.Contact(place)?.Phone is { Length: > 0 } phone ? new SelectableTextBlock { Text = phone, FontSize = TextScale.Size(22) } : null);
         var layout = new Grid { RowDefinitions = new RowDefinitions("Auto,*") };
         layout.Children.Add(Ui.Columns("Auto,*", back, Ui.Line(str["TaxiCard"], "title").Margin(4, 0)).Margin(4, 6, 8, 6));
         layout.Children.Add(new ScrollViewer { Content = body.Margin(20, 8, 20, 32), HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled }.Row(1));

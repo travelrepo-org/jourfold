@@ -1,27 +1,28 @@
 <!--
   Touch styles for phones and tablets. Same class names as the desktop's Controls.axaml where the meaning is the same,
-  sized for fingers: body text 15 to 16, nothing below 12, targets at least 48 by 48. Colours come from Jourfold.UI tokens.
+  sized for fingers: body text 15 to 16, nothing below 12 at the standard text size; sizes are resources that follow the
+  device's text size (TextScale), targets at least 48 by 48. Colours come from Jourfold.UI tokens.
 -->
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
   <Style Selector="UserControl.shell, TopLevel">
     <Setter Property="FontFamily" Value="{StaticResource Font.Ui}"/>
-    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="FontSize" Value="{DynamicResource Size.Body}"/>
     <Setter Property="Foreground" Value="{DynamicResource Text}"/>
   </Style>
   <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="None"/></Style>
 
   <!-- Typography -->
-  <Style Selector="TextBlock.h1"><Setter Property="FontSize" Value="24"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.4"/></Style>
-  <Style Selector="TextBlock.h2"><Setter Property="FontSize" Value="20"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.3"/></Style>
-  <Style Selector="TextBlock.h3"><Setter Property="FontSize" Value="17"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
-  <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="16"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.h1"><Setter Property="FontSize" Value="{DynamicResource Size.H1}"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.4"/></Style>
+  <Style Selector="TextBlock.h2"><Setter Property="FontSize" Value="{DynamicResource Size.H2}"/><Setter Property="FontWeight" Value="Bold"/><Setter Property="LetterSpacing" Value="-0.3"/></Style>
+  <Style Selector="TextBlock.h3"><Setter Property="FontSize" Value="{DynamicResource Size.H3}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
+  <Style Selector="TextBlock.title"><Setter Property="FontSize" Value="{DynamicResource Size.Title}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   <Style Selector="TextBlock.strong"><Setter Property="FontWeight" Value="SemiBold"/></Style>
-  <Style Selector="TextBlock.caption"><Setter Property="FontSize" Value="13"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
-  <Style Selector="TextBlock.small"><Setter Property="FontSize" Value="12"/></Style>
+  <Style Selector="TextBlock.caption"><Setter Property="FontSize" Value="{DynamicResource Size.Caption}"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
+  <Style Selector="TextBlock.small"><Setter Property="FontSize" Value="{DynamicResource Size.Small}"/></Style>
   <Style Selector="TextBlock.muted"><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
   <Style Selector="TextBlock.subtle"><Setter Property="Foreground" Value="{DynamicResource Text.Subtle}"/></Style>
-  <Style Selector="TextBlock.time"><Setter Property="FontSize" Value="14"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontFeatures" Value="+tnum"/></Style>
-  <Style Selector="TextBlock.overline"><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="LetterSpacing" Value="0.4"/><Setter Property="Foreground" Value="{DynamicResource Text.Subtle}"/></Style>
+  <Style Selector="TextBlock.time"><Setter Property="FontSize" Value="{DynamicResource Size.Time}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="FontFeatures" Value="+tnum"/></Style>
+  <Style Selector="TextBlock.overline"><Setter Property="FontSize" Value="{DynamicResource Size.Small}"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="LetterSpacing" Value="0.4"/><Setter Property="Foreground" Value="{DynamicResource Text.Subtle}"/></Style>
   <Style Selector="TextBlock.accent"><Setter Property="Foreground" Value="{DynamicResource Accent}"/></Style>
   <Style Selector="TextBlock.now"><Setter Property="Foreground" Value="{DynamicResource NowLine}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
 
@@ -40,7 +41,7 @@
     <Setter Property="CornerRadius" Value="8"/>
     <Setter Property="Padding" Value="14,10"/>
     <Setter Property="MinHeight" Value="48"/>
-    <Setter Property="FontSize" Value="15"/>
+    <Setter Property="FontSize" Value="{DynamicResource Size.Body}"/>
     <Setter Property="FontWeight" Value="SemiBold"/>
     <Setter Property="VerticalContentAlignment" Value="Center"/>
   </Style>
@@ -52,19 +53,23 @@
   <Style Selector="Button.soft"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.ghost, Button.icon, Button.row, Button.tab, Button.card, Button.date"><Setter Property="Background" Value="Transparent"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.icon"><Setter Property="Padding" Value="12"/><Setter Property="MinWidth" Value="48"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/></Style>
+  <!-- With iOS's own bar the top's buttons are round and filled, as iOS 26 draws its toolbar buttons. -->
+  <Style Selector="Button.icon.round"><Setter Property="Width" Value="44"/><Setter Property="Height" Value="44"/><Setter Property="MinWidth" Value="44"/><Setter Property="MinHeight" Value="44"/><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="22"/><Setter Property="VerticalAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
+  <Style Selector="Button.icon.round:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/></Style>
+  <Style Selector="Button.icon.round:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource Bg.Muted}"/></Style>
   <Style Selector="Button.row"><Setter Property="Padding" Value="16,12"/><Setter Property="CornerRadius" Value="0"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
   <Style Selector="Button.card"><Setter Property="Padding" Value="0"/><Setter Property="CornerRadius" Value="12"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="FontWeight" Value="Normal"/></Style>
   <Style Selector="Button.card:pressed /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="Transparent"/></Style>
   <!-- When data was fetched, next to it (Lines.Fetched): quiet, the size of a caption. -->
   <Style Selector="Button.fresh"><Setter Property="MinHeight" Value="36"/><Setter Property="Padding" Value="8,4"/><Setter Property="FontWeight" Value="Normal"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
-  <Style Selector="Button.chip"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="36"/><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="Button.chip"><Setter Property="CornerRadius" Value="999"/><Setter Property="Padding" Value="12,6"/><Setter Property="MinHeight" Value="36"/><Setter Property="FontSize" Value="{DynamicResource Size.Chip}"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="Button.chip.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
   <!-- A pill to type in beside chips, such as the days after a journey's departure it arrives. -->
-  <Style Selector="TextBox.chip-field"><Setter Property="FontSize" Value="14"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
+  <Style Selector="TextBox.chip-field"><Setter Property="FontSize" Value="{DynamicResource Size.Chip}"/><Setter Property="Background" Value="{DynamicResource Bg.Subtle}"/><Setter Property="BorderBrush" Value="Transparent"/></Style>
   <Style Selector="TextBox.chip-field.selected"><Setter Property="Background" Value="{DynamicResource Accent.Soft}"/><Setter Property="Foreground" Value="{DynamicResource Accent.SoftText}"/><Setter Property="BorderBrush" Value="{DynamicResource Accent}"/></Style>
 
   <!-- Bottom bar: four places and the plus in the middle. -->
-  <Style Selector="Button.tab"><Setter Property="Padding" Value="0,6,0,6"/><Setter Property="MinHeight" Value="64"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="FontSize" Value="12"/><Setter Property="FontWeight" Value="Medium"/></Style>
+  <Style Selector="Button.tab"><Setter Property="Padding" Value="0,6,0,6"/><Setter Property="MinHeight" Value="64"/><Setter Property="HorizontalAlignment" Value="Stretch"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Foreground" Value="{DynamicResource Text.Muted}"/><Setter Property="FontSize" Value="{DynamicResource Size.Tab}"/><Setter Property="FontWeight" Value="Medium"/></Style>
   <Style Selector="Button.tab.selected"><Setter Property="Foreground" Value="{DynamicResource Accent}"/><Setter Property="FontWeight" Value="SemiBold"/></Style>
   <!-- The plus is a Material 3 Expressive FAB: a rounded square in the accent. -->
   <Style Selector="Button.plus"><Setter Property="Width" Value="56"/><Setter Property="Height" Value="56"/><Setter Property="CornerRadius" Value="16"/><Setter Property="Padding" Value="0"/><Setter Property="HorizontalContentAlignment" Value="Center"/><Setter Property="Background" Value="{DynamicResource Accent}"/><Setter Property="Foreground" Value="{DynamicResource Text.OnAccent}"/><Setter Property="BorderBrush" Value="{DynamicResource Bg.Surface}"/><Setter Property="BorderThickness" Value="0"/></Style>

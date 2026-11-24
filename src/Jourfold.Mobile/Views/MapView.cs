@@ -66,7 +66,7 @@ public sealed class MapPage : UserControl
         if (newSheet)
         {
             if (sheet is not null) layers.Children.Remove(sheet);
-            sheet = new Sheet(header, list, [0.1, 0.42, 0.88], 1, side, s.Strings["Map"], docked: true);
+            sheet = new Sheet(header, list, [0.1, 0.42, 0.88], 1, side, s.Strings["Map"], docked: true) { Floating = s.Host.Bar is not null };
             layers.Children.Add(sheet);
         }
         else sheet?.Replace(header, list);
@@ -204,7 +204,7 @@ public sealed class MapPage : UserControl
         if (online)
         {
             var provider = s.MapProvider;
-            var credit = Ui.Button(provider.Attribution, null, "link"); credit.FontSize = 11;
+            var credit = Ui.Button(provider.Attribution, null, "link"); credit.FontSize = TextScale.Size(11);
             credit.Click += async (_, _) => { if (TopLevel.GetTopLevel(credit)?.Launcher is { } launcher) await launcher.LaunchUriAsync(new Uri(provider.AttributionUrl)); };
             overlay.Children.Add(new Border { Child = credit, Padding = new Thickness(8, 2), CornerRadius = new CornerRadius(6), HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 76, 64, 0) }
                 .Res(Border.BackgroundProperty, "Bg.Surface"));

@@ -631,6 +631,23 @@ deleted), and at most three such apps per device.
   and install it: `jourfold-<version>-ios-unsigned.ipa` from a release, or for changes not released yet the IPA the
   workflow keeps for each run. SideStore renews the signature on the device every 7 days.
 
+**What iOS draws itself.** On iPhones the bottom bar is iOS's own tab bar (`IosTabBar`). The shared app also hands
+these to the system through `MobileHost`, so VoiceOver, Larger Text and the system's language come with them; Android
+keeps the app's own:
+
+- Text follows Larger Text in the Settings app, also while the app runs (`TextScale`): the theme's sizes are the
+  `Size.*` resources and sizes set in code go through `TextScale.Size`. Only text grows, up to 1.65 times the
+  standard, where the date strip and the timetable's rows still hold it.
+- Date and time fields open `UIDatePicker` in a sheet with Cancel and Done (`SystemPickers`, `IosPickers`).
+- Long-press menus are action sheets and questions are alerts (`IosDialogs`). Menus with a search field or twelve
+  entries and more stay the app's own.
+- Sheets float 8 from the screen's edges below their top detent, as iOS 26 shows its own.
+- The buttons at the trip's top are round. The search stays there: an iPhone's tab bar shows five tabs at most and
+  counts a search tab among them, and the four places and the plus already fill it.
+- Changing the day, adding from Quick Add and a sync the user asked for give a light haptic (`Feel`).
+
+Today of a shared trip can be pulled down to sync on every phone.
+
 **On a device.** The simulator runs .NET with a just-in-time compiler; a device compiles ahead of time. LibGit2Sharp
 passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so the project
 turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an

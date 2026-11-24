@@ -1,0 +1,19 @@
+# Release notes for Jourfold 0.16.1. "highlights" appear once in the app after the update; all sections go into
+# CHANGELOG.md and the GitHub release. English is required; other languages fall back to English.
+version: 0.16.1
+date: 2026-11-25
+highlights:
+  - icon: refresh-cw
+    en: "On phones and tablets, pull Today down to sync a shared trip."
+    de: "Auf Handys und Tablets ziehen Sie „Heute“ nach unten, um eine geteilte Reise zu synchronisieren."
+  - icon: smartphone
+    en: "On iPhone, text follows the size you set under Larger Text, also while Jourfold is open. Date and time fields open iOS's own pickers, long-press menus are action sheets, and questions are alerts."
+    de: "Auf dem iPhone folgt die Schrift der Größe, die Sie unter „Größerer Text“ einstellen, auch während Jourfold offen ist. Datums- und Zeitfelder öffnen die Auswahl von iOS, Menüs nach langem Drücken erscheinen als Aktionsblatt und Fragen als Hinweisfenster."
+changes:
+  - en: "On iPhone, sheets float above the screen's edges with rounded corners until they are pulled up all the way, the buttons at the top are round, and changing the day, saving and a sync you asked for give a light vibration."
+    de: "Auf dem iPhone schweben Blätter mit runden Ecken über dem Bildschirmrand, bis sie ganz hochgezogen sind, die Knöpfe oben sind rund, und ein Tagwechsel, das Speichern und ein Synchronisieren, das Sie angestoßen haben, geben eine leichte Vibration."
+  - en: "The Android app is smaller, because the parts of TravelRepo it does not use are left out. Uses TravelRepo 0.14.0."
+    de: "Die Android-App ist kleiner, weil die Teile von TravelRepo, die sie nicht nutzt, wegfallen. Nutzt TravelRepo 0.14.0."
+fixes:
+  - en: "The packages for Windows, macOS and Linux bring .NET runtime 10.0.15. The runtime before it, 10.0.12, is affected by a security issue in its Brotli decoder (GHSA-p3jp-9v83-76w9)."
+    de: "Die Pakete für Windows, macOS und Linux bringen die .NET-Laufzeit 10.0.15 mit. Die bisherige, 10.0.12, ist von einer Sicherheitslücke in ihrem Brotli-Decoder betroffen (GHSA-p3jp-9v83-76w9)."

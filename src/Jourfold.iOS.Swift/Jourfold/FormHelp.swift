@@ -60,6 +60,7 @@ struct PendingFilesSection: View {
 
     /// Puts the files with what was just added; one that fails is said, the others still go.
     static func attach(_ files: [PendingFile], to id: UUID, _ bridge: TravelRepoBridge) async {
+        TestReport.note("attaching \(files.count) files")
         for file in files {
             do { try await bridge.importFile(file.data, name: file.name, mediaType: file.type, attachTo: id) }
             catch { bridge.store.problem = TravelRepoBridge.message(error) }

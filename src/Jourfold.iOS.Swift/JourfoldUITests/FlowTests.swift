@@ -140,6 +140,23 @@ final class QuickAddTests: JourfoldTest {
         XCTAssertTrue(app.navigationBars["Photo.jpg"].waitForExistence(timeout: 8))
     }
 
+    /// Needs "Ticket Nara.pdf" in the simulator's Files; skipped without it.
+    func testPdfWhileAddingAJourney() throws {
+        open(["-sheet", "transport"])
+        type("Title, e.g. Train to Nara", "Train to Nara\n")
+        tap("Choose a file"); sleep(4)
+        let file = app.cells.matching(NSPredicate(format: "label CONTAINS 'Ticket Nara'")).firstMatch
+        if !file.waitForExistence(timeout: 6), app.buttons["Browse"].firstMatch.exists { app.buttons["Browse"].firstMatch.tap(); sleep(2) }
+        if !file.exists { let here = app.cells.matching(NSPredicate(format: "label CONTAINS 'On My'")).firstMatch; if here.exists { here.tap(); sleep(2) } }
+        try XCTSkipUnless(file.exists, "no Ticket Nara.pdf in Files")
+        file.tap(); sleep(2)
+        if app.buttons["Open"].exists { app.buttons["Open"].tap() }
+        find(anything("Ticket Nara.pdf")); done(); sleep(3)
+        open(["-tab", "plan", "-day", "1"], reset: false); tap("Train to Nara")
+        find(button("Show ticket")).tap()
+        XCTAssertTrue(app.navigationBars["Ticket Nara.pdf"].waitForExistence(timeout: 8))
+    }
+
     func testTask() {
         open(["-sheet", "task"])
         type("What needs doing?", "Buy a phrase book"); tap("For"); tap("Sam"); app.navigationBars.buttons.firstMatch.tap(); shows("Sam"); done()

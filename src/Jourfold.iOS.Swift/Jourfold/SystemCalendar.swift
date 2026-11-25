@@ -28,7 +28,10 @@ enum SystemCalendar {
         problem = nil
         var keep: Set<String> = []
         for trip in trips {
-            guard let bridge = TravelRepoBridge.all[trip.id], let all = try? await entries(bridge) else { continue }
+            guard let bridge = TravelRepoBridge.all[trip.id], let all = try? await entries(bridge) else {
+                // Could not be read just now, such as while syncing: its calendars stay as they are.
+                keep.formUnion(known.filter { $0.key.hasPrefix(trip.id.uuidString) }.map(\.value)); continue
+            }
             do {
                 // All in one, or one calendar per kind of plan; kinds without entries get none.
                 for group in byKind ? groups : [""] {
@@ -40,6 +43,8 @@ enum SystemCalendar {
                 }
             } catch { problem = error.localizedDescription }
         }
+        // A newer update took over.
+        guard !Task.isCancelled else { return }
         for (_, id) in known where !keep.contains(id) { if let c = store.calendar(withIdentifier: id) { try? store.removeCalendar(c, commit: true) } }
         known = known.filter { keep.contains($0.value) }
         TestReport.note("calendar written, \(keep.count) calendars, problem \(problem != nil)")

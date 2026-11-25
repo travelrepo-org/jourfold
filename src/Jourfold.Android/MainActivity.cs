@@ -27,7 +27,8 @@ public sealed class JourfoldApplication : AvaloniaAndroidApplication<MobileApp>
         MobileApp.Host = new MobileHost(FilesDir!.AbsolutePath, new LibGit2Backend(new GitHubCredentialBroker(secrets)), NodaTime.SystemClock.Instance,
             () => DateTimeZoneProviders.Tzdb.GetSystemDefault(), language, secrets, GitHubClientId: Built("GitHubClientId"), OpenFile: OpenFile, GitHubAppSlug: Built("GitHubAppSlug"),
             Locate: AndroidLocation.LocateAsync, Device: Device(), Calendar: new AndroidCalendar(this), Notices: new AndroidNotices(this, language, Device()), Brightness: Bright, TakePhoto: MainActivity.TakePhotoAsync, ShareText: ShareText,
-            AppVersion: InstalledVersion(), Haptic: Haptic, SendMail: SendMail, SystemInfo: SystemInfo);
+            AppVersion: InstalledVersion(), Haptic: Haptic, SendMail: SendMail, SystemInfo: SystemInfo)
+        { PickTime = AndroidPickers.PickTimeAsync, PickDate = AndroidPickers.PickDateAsync };
         base.OnCreate();
     }
 

@@ -64,7 +64,7 @@ public sealed record MobileHost(string DataRoot, IGitBackend Git, IClock Clock, 
 
     /// <summary>
     /// The system's own time picker, opened from a time field: the time shown, the minute steps and the field's name.
-    /// Null where the app's own wheels are used, as on Android.
+    /// Null where the app's own wheels are used, as in tests.
     /// </summary>
     public Func<TimeSpan?, int, string?, Task<Controls.PickedTime>>? PickTime { get; init; }
 

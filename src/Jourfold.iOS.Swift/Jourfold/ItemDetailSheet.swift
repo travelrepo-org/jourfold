@@ -101,6 +101,12 @@ struct ItemDetailSheet: View {
                 }
                 .padding(.vertical, 4)
             }
+            if Tickets.of(tripID, item.id) != nil {
+                Section {
+                    Button { Tickets.show(tripID, item.id) } label: { HStack(spacing: 8) { Image(systemName: "ticket"); Text("Show ticket") }.frame(maxWidth: .infinity) }
+                        .buttonStyle(.bordered).font(.jf(.callout, .semibold)).controlSize(.large).listRowBackground(Color.clear).listRowInsets(EdgeInsets())
+                }
+            }
             Section {
                 if let place {
                     FlexStack {

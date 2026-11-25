@@ -403,7 +403,7 @@ struct ShareOnGitHubSheet: View {
             }
             .onAppear { if name.isEmpty { name = TripLibrary.folder(of: tripID)?.lastPathComponent ?? "trip" } }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
     }
 
     private func share() async {

@@ -36,6 +36,8 @@ struct PlanEditor: View {
     /// Once what the form starts with has been drawn, so only the person's own changes move other fields.
     @State private var ready = false
     @State private var busy = false
+    @State private var tried = false
+    @State private var files: [PendingFile] = []
     @State private var newPlace: WritableKeyPath<Form, UUID?>?
     @State private var problem: String?
 
@@ -49,6 +51,7 @@ struct PlanEditor: View {
             if let trip {
                 Section {
                     TextField(shape == .stay ? "Name of the hotel or flat" : shape == .journey ? "Title, e.g. Train to Nara" : "What are you planning?", text: $f.title)
+                    Missing(text: "Give it a name.", when: tried && untitled)
                     if shape == .activity { Picker("Kind", selection: $f.category) { Text("Not set").tag(""); ForEach(Self.categories, id: \.0) { key, kind in Label { Text(kind.label) } icon: { Image(systemName: kind.symbol) }.tag(key) } } }
                     if shape == .journey { Picker("By", selection: $f.mode) { ForEach(Self.modes, id: \.0) { key, label, symbol in Label { Text(label) } icon: { Image(systemName: symbol) }.tag(key) } } }
                     Picker("Status", selection: $f.status) { ForEach(Self.statuses, id: \.0) { Text($0.1).tag($0.0) } }
@@ -87,6 +90,7 @@ struct PlanEditor: View {
                         ForEach(trip.people) { p in Toggle(isOn: Binding(get: { f.people.contains(p.id) }, set: { if $0 { f.people.insert(p.id) } else { f.people.remove(p.id) } })) { HStack { PersonAvatar(person: p, size: 24).accessibilityHidden(true); Text(p.name) } } }
                     }
                 } header: { Overline(shape == .stay ? "Guests" : "Who goes") }
+                if itemID == nil { PendingFilesSection(files: $files) }
                 JFSection("Notes") { TextField("Notes", text: $f.notes, axis: .vertical).lineLimit(2...10) }
                 if let problem { Section { Text(problem).foregroundStyle(Color.jfDanger) } }
             }
@@ -97,7 +101,7 @@ struct PlanEditor: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             if itemID != nil || done == nil { ToolbarItem(placement: .cancellationAction) { Button(role: .cancel) { dismiss() } } }
-            ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { Task { await save() } }.disabled(busy || f.title.trimmingCharacters(in: .whitespaces).isEmpty) }
+            ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { Task { await save() } }.disabled(busy) }
         }
         .sheet(isPresented: Binding(get: { newPlace != nil }, set: { if !$0 { newPlace = nil } })) {
             let before = Set(trip?.places.map(\.id) ?? []), path = newPlace
@@ -108,6 +112,9 @@ struct PlanEditor: View {
         .onAppear(perform: load)
         .onChange(of: f.from) { old, new in if ready, itemID == nil, let z = trip?.place(new)?.zone { f.startZone = z } }
         .onChange(of: f.to) { old, new in if ready, itemID == nil, let z = trip?.place(new)?.zone { f.endZone = z } }
+        // The clock time that was entered stays when the place, and with it the zone, changes.
+        .onChange(of: f.startZone) { old, new in if ready { let moved = Self.sameClock(f.start, old, new); if shape != .journey || f.endZone == old { f.endZone = new }; f.start = moved } }
+        .onChange(of: f.endZone) { old, new in if ready, shape == .journey { f.end = Self.sameClock(f.end, old, new) } }
         .onChange(of: f.start) { old, new in if ready, f.end < new || (itemID == nil && f.end.timeIntervalSince(old) > 0) { f.end = f.end.addingTimeInterval(new.timeIntervalSince(old)) } }
     }
 
@@ -115,7 +122,7 @@ struct PlanEditor: View {
 
     @ViewBuilder
     private func timeFields(_ trip: Trip) -> some View {
-        let sz = TimeZone(identifier: f.startZone) ?? trip.calendar.timeZone, ez = TimeZone(identifier: f.endZone) ?? sz
+        let sz = TimeZone(identifier: f.startZone) ?? trip.calendar.timeZone, ez = shape == .journey ? TimeZone(identifier: f.endZone) ?? sz : sz
         Section {
             if shape == .activity {
                 Picker("When", selection: $f.precision) { ForEach(Precision.allCases.filter { $0 != .window || start.precision == $0.rawValue }, id: \.rawValue) { Text($0.label).tag($0.rawValue) } }
@@ -136,8 +143,18 @@ struct PlanEditor: View {
                 }
             }
         } header: { Overline("When") } footer: {
+            VStack(alignment: .leading, spacing: 6) {
+            if f.precision == Precision.exact.rawValue {
+                if sz.secondsFromGMT(for: f.start) != TimeZone.current.secondsFromGMT(for: f.start) {
+                    Label("Times in \(Fmt.city(sz)), where it is now \(Fmt.shortDay(store.now, sz)), \(Fmt.time(store.now, sz)).", systemImage: "globe").foregroundStyle(Color.jfMuted)
+                }
+                if itemID == nil, f.start < store.now.addingTimeInterval(-60) {
+                    Label("This time has already passed.", systemImage: "exclamationmark.triangle").foregroundStyle(Color.jfWarning)
+                }
+            }
             if shape == .journey, f.hasEnd, f.end > f.start { Text("Travel time \(Fmt.duration(f.end.timeIntervalSince(f.start)))") }
             else if f.precision == Precision.none.rawValue { Text("Saved without a time. Move it into a day later.") }
+            }
         }
     }
 
@@ -205,6 +222,13 @@ struct PlanEditor: View {
         if let w = Self.instant(to) { f.end = w.0; f.endZone = w.1; f.hasEnd = true } else { f.endZone = f.startZone; f.hasEnd = false; f.end = f.start.addingTimeInterval(3600) }
     }
 
+    /// The moment at which clocks in another zone show what they show in this one.
+    static func sameClock(_ date: Date, _ from: String, _ to: String) -> Date {
+        guard let a = TimeZone(identifier: from), let b = TimeZone(identifier: to), a != b else { return date }
+        var x = Calendar(identifier: .gregorian), y = x; x.timeZone = a; y.timeZone = b
+        return y.date(from: x.dateComponents([.year, .month, .day, .hour, .minute], from: date)) ?? date
+    }
+
     static func instant(_ v: JSONValue?) -> (Date, String)? {
         guard let text = v?["local"]?.string, let zone = v?["timezone"]?.string else { return nil }
         let d = DateFormatter(); d.locale = Locale(identifier: "en_US_POSIX"); d.timeZone = TimeZone(identifier: zone); d.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
@@ -235,7 +259,10 @@ struct PlanEditor: View {
         return v
     }
 
+    private var untitled: Bool { f.title.trimmingCharacters(in: .whitespaces).isEmpty }
+
     private func save() async {
+        guard !untitled else { withAnimation { tried = true }; UINotificationFeedbackGenerator().notificationOccurred(.warning); return }
         guard let bridge, let trip = store.trips.first(where: { $0.id == tripID }) else { return }
         if f.hasEnd, shape != .activity || ["exact", "approximate", "window"].contains(f.precision), f.end < f.start { problem = String(localized: "The end is before the start."); return }
         for t in [f.windowFrom, f.windowUntil, f.latestOut] where !t.isEmpty && t.range(of: "^([01][0-9]|2[0-3]):[0-5][0-9]$", options: .regularExpression) == nil { problem = String(localized: "Write hours like 15:00."); return }
@@ -310,6 +337,7 @@ struct PlanEditor: View {
             store.update(tripID, "Notes") { t in if let i = t.items.firstIndex(where: { $0.id == id }) { t.items[i].notes = f.notes } }
             await bridge.flush()
         }
+        if let id = made.flatMap(UUID.init(uuidString:)), !files.isEmpty { await PendingFilesSection.attach(files, to: id, bridge); files = [] }
         UINotificationFeedbackGenerator().notificationOccurred(ok ? .success : .warning)
         if ok { if let done { done() } else { dismiss() } }
     }
@@ -321,10 +349,12 @@ struct ItemEditor: View {
     let original: PlanItem
     var body: some View { NavigationStack { PlanEditor(tripID: tripID, itemID: original.id) } }
 
-    /// For a plan without a time: 10:00 on the trip's first day that is not over yet, or on the day the plan shows.
+    /// For a plan without a time: during the trip the next quarter of an hour, when that is still today; else 10:00 on the trip's first day that is not over yet, or on the day the plan shows.
     @MainActor static func defaultStart(_ tripID: UUID) -> Date {
         guard let store = TravelRepoBridge.all[tripID]?.store, let trip = store.trips.first(where: { $0.id == tripID }) else { return Date() }
         let day = trip.days.first { $0.addingTimeInterval(86400) > store.now } ?? trip.days.first ?? Date()
-        return trip.calendar.date(byAdding: .hour, value: 10, to: day) ?? day
+        let ten = trip.calendar.date(byAdding: .hour, value: 10, to: day) ?? day
+        let next = Date(timeIntervalSince1970: (store.now.timeIntervalSince1970 / 900).rounded(.up) * 900)
+        return ten < store.now && trip.calendar.isDate(next, inSameDayAs: day) ? next : ten
     }
 }

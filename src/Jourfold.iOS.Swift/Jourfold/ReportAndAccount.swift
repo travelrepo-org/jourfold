@@ -149,16 +149,19 @@ struct AccountSection: View {
                     Text("Enter this code on GitHub:").font(.jf(.callout))
                     Text(code).font(.system(size: 32, weight: .bold, design: .monospaced)).textSelection(.enabled)
                         .accessibilityLabel(Text(code.map { String($0) }.joined(separator: " ")))
-                    HStack {
+                    VStack(spacing: 10) {
                         Button { UIPasteboard.general.string = code; openURL(account.verification ?? URL(string: "https://github.com/login/device")!) } label: {
-                            Label("Copy and open GitHub", systemImage: "arrow.up.right.square")
+                            HStack(spacing: 8) { Image(systemName: "doc.on.clipboard"); Text("Copy code and open GitHub") }.frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.borderedProminent).foregroundStyle(Color.jfOnAccent)
-                        Button("Cancel") { account.cancel() }.buttonStyle(.bordered)
+                        Button { account.cancel() } label: { Text("Cancel").frame(maxWidth: .infinity) }.buttonStyle(.bordered)
                     }
+                    .font(.jf(.callout, .semibold)).controlSize(.large)
                     HStack(spacing: 8) { ProgressView(); Text("Waiting for GitHub…").font(.jf(.footnote)).foregroundStyle(Color.jfMuted) }
                 }
                 .padding(.vertical, 4)
+            } else if account.waiting {
+                HStack(spacing: 10) { ProgressView(); Text("Asking GitHub for a code…").foregroundStyle(Color.jfMuted) }
             } else {
                 Button { Task { await account.start() } } label: { Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark") }
                 if let failure = account.failure { Text(failure).font(.jf(.footnote)).foregroundStyle(.red) }

@@ -243,7 +243,7 @@ struct ExpenseEditor: View {
             if !patch.isEmpty { _ = try await bridge.session.call("update_entity", ["id": .string(TravelRepoBridge.key(id)), "changes": .object(patch)]) }
             if splitChanged {
                 var arguments: [String: JSONValue] = ["expense": .string(TravelRepoBridge.key(id)), "method": .string(method), "people": .array(people.map { .string(TravelRepoBridge.key($0.id)) })]
-                if method != "equal" { arguments["values"] = .array(people.map { .string(values[$0.id] ?? "0") }) }
+                if method != "equal" { arguments["values"] = .array(people.map { .string((values[$0.id] ?? "0").amountText) }) }
                 _ = try await bridge.session.call("split_expense", arguments)
             }
         }

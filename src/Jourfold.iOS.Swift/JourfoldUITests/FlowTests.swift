@@ -98,7 +98,7 @@ final class QuickAddTests: JourfoldTest {
         let values = app.textFields.matching(NSPredicate(format: "value == '15' OR value == '10'"))
         find(values.element(boundBy: 0)).coordinate(withNormalizedOffset: .init(dx: 0.97, dy: 0.5)).tap(); values.element(boundBy: 0).typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "10")
         find(anything("The split does not add up yet."))
-        XCTAssertFalse(app.buttons["Done"].firstMatch.isEnabled)
+        done(); sleep(1); XCTAssertTrue(app.buttons["Done"].firstMatch.exists, "added although the split does not add up")
         find(values.element(boundBy: 1)).coordinate(withNormalizedOffset: .init(dx: 0.97, dy: 0.5)).tap(); values.element(boundBy: 1).typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "20")
         done()
         tab("Costs"); tap("Street food tour")
@@ -120,6 +120,24 @@ final class QuickAddTests: JourfoldTest {
         done()
         page("Bookings"); tap("Kaiseki dinner")
         shows("KD-77"); shows("Example Kitchen"); shows("120")
+    }
+
+    func testMissingIsMarked() {
+        open(["-sheet", "expense"])
+        type("Amount", "12,5"); done()
+        shows("Say what it was for."); XCTAssertFalse(anything("Enter the amount.").exists)
+        type("What for?", "Tea\n"); done()
+        tab("Costs"); tap("Tea"); shows("€12.50")
+    }
+
+    func testFileWhileAddingAJourney() {
+        open(["-sheet", "transport"])
+        type("Title, e.g. Train to Nara", "Train to Nara\n")
+        shows("Times in Tokyo")
+        tap("Choose a photo"); pickPhoto(); find(anything("Photo.jpg")); done(); sleep(3)
+        open(["-tab", "plan", "-day", "1"], reset: false); tap("Train to Nara")
+        find(button("Show ticket")).tap()
+        XCTAssertTrue(app.navigationBars["Photo.jpg"].waitForExistence(timeout: 8))
     }
 
     func testTask() {

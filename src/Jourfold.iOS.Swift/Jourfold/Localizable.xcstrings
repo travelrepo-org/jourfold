@@ -1702,6 +1702,16 @@
         }
       }
     },
+    "Asking GitHub for a code…": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "GitHub wird nach einem Code gefragt …"
+          }
+        }
+      }
+    },
     "Asks %@ where the short link leads. Nothing else is sent.": {
       "localizations": {
         "de": {
@@ -2382,6 +2392,16 @@
         }
       }
     },
+    "Choose who shares it.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wählen Sie, wer sich beteiligt."
+          }
+        }
+      }
+    },
     "Choose who you are to tick off your own things": {
       "localizations": {
         "de": {
@@ -2612,12 +2632,12 @@
         }
       }
     },
-    "Copy and open GitHub": {
+    "Copy code and open GitHub": {
       "localizations": {
         "de": {
           "stringUnit": {
             "state": "translated",
-            "value": "Kopieren und GitHub öffnen"
+            "value": "Code kopieren und GitHub öffnen"
           }
         }
       }
@@ -3078,6 +3098,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ende"
+          }
+        }
+      }
+    },
+    "Enter the amount.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie den Betrag ein."
           }
         }
       }
@@ -3618,6 +3648,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "GitHub schickt eine Einladung zum Repository der Reise."
+          }
+        }
+      }
+    },
+    "Give it a name.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie einen Namen ein."
           }
         }
       }
@@ -6418,6 +6458,16 @@
         }
       }
     },
+    "Remove %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ entfernen"
+          }
+        }
+      }
+    },
     "Remove from this phone": {
       "localizations": {
         "de": {
@@ -6634,6 +6684,46 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wird ohne Zeit gespeichert. Verschieben Sie ihn später in einen Tag."
+          }
+        }
+      }
+    },
+    "Say what is booked.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie an, was gebucht ist."
+          }
+        }
+      }
+    },
+    "Say what it was for.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie an, wofür es war."
+          }
+        }
+      }
+    },
+    "Say what needs doing.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie an, was zu tun ist."
+          }
+        }
+      }
+    },
+    "Say what to pack.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geben Sie an, was eingepackt werden soll."
           }
         }
       }
@@ -8088,6 +8178,16 @@
         }
       }
     },
+    "This time has already passed.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dieser Zeitpunkt ist schon vorbei."
+          }
+        }
+      }
+    },
     "This trip has costs in the form older versions of Jourfold saved. Jourfold can bring them up to date. Nothing that was paid, owed or paid back changes:": {
       "localizations": {
         "de": {
@@ -8214,6 +8314,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Zeiten in %@"
+          }
+        }
+      }
+    },
+    "Times in %@, where it is now %@, %@.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeiten in %1$@, dort ist es gerade %2$@, %3$@ Uhr."
           }
         }
       }

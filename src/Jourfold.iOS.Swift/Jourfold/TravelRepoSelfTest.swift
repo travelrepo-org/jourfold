@@ -227,6 +227,9 @@ extension SelfTest {
             check("barcodes of tickets", ["PKBarcodeFormatQR", "PKBarcodeFormatAztec", "PKBarcodeFormatPDF417", "PKBarcodeFormatCode128"].allSatisfy { BarcodeImage.make("M1ALEX/EXAMPLE FRAHND", format: $0, encoding: "iso-8859-1") != nil } && BarcodeImage.make("x", format: "other", encoding: "") == nil)
             let photo = UIGraphicsImageRenderer(size: .init(width: 3000, height: 2000)).image { _ in }
             check("a photo of a receipt is made smaller", CameraButton.jpeg(photo).flatMap(UIImage.init(data:))?.size.width == 1600)
+            let berlin = Calendar(identifier: .gregorian).date(from: DateComponents(timeZone: TimeZone(identifier: "Europe/Berlin"), year: 2027, month: 1, day: 8, hour: 13, minute: 20))!
+            check("the clock time stays when the zone changes", PlanEditor.sameClock(berlin, "Europe/Berlin", "Asia/Tokyo") == berlin.addingTimeInterval(-8 * 3600) && PlanEditor.sameClock(berlin, "Europe/Berlin", "Europe/Berlin") == berlin)
+            check("amounts with a comma", "12,50 ".amountText == "12.50")
             check("newer versions", Updates.compare("0.17.0", "0.16.1") > 0 && Updates.compare("0.16.1", "0.16.1") == 0 && Updates.compare("0.9.0", "0.10.0") < 0 && Updates.compare("x", "0.1.0") < 0)
             check("links that only the maps service knows", ShortLink("https://maps.app.goo.gl/abc") != nil && ShortLink("https://maps.apple.com/?ll=35.0036,135.7788") == nil && ShortLink("https://example.com/x") == nil)
             check("maps apps get the position", Maps.others(Place(id: UUID(), name: "Nara Park", latitude: 34.6851, longitude: 135.843, zone: "Asia/Tokyo", address: "")).map(\.link.absoluteString) == ["comgooglemaps://?q=34.685100,135.843000", "waze://?ll=34.685100,135.843000&navigate=yes"])

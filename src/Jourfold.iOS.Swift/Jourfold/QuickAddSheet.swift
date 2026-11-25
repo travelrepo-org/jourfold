@@ -147,6 +147,9 @@ struct QuickAddForm: View {
     @State private var people: Set<UUID> = []
     @State private var chosen = false
     @State private var method = "equal"
+    /// After the first try to add, what is missing is marked.
+    @State private var tried = false
+    @State private var files: [PendingFile] = []
     @State private var values: [UUID: String] = [:]
     @State private var belongsTo = ""
     @State private var charged = ""
@@ -191,7 +194,7 @@ struct QuickAddForm: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(String(localized: kind.label))
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { if kind != .document { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { Task { await add(trip) } }.disabled(busy || !canAdd) } } }
+        .toolbar { if kind != .document { ToolbarItem(placement: .confirmationAction) { Button(role: .confirm) { Task { await add(trip) } }.disabled(busy) } } }
         .onAppear {
             guard !loaded else { return }
             loaded = true; focused = !DebugTools.flag("prefill")
@@ -204,6 +207,7 @@ struct QuickAddForm: View {
 
     private var value: Decimal? { Decimal(string: amount.replacingOccurrences(of: ",", with: "."), locale: Locale(identifier: "en_US_POSIX")) }
     private var code: String { let o = otherCurrency.uppercased(); return o.count == 3 ? o : currency }
+    private var untitled: Bool { title.trimmingCharacters(in: .whitespaces).isEmpty }
     private var canAdd: Bool {
         guard !title.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
         return kind != .expense || (value != nil && !people.isEmpty && splitComplete && (!withCash || cash.complete))
@@ -233,9 +237,11 @@ struct QuickAddForm: View {
     @ViewBuilder private func expenseFields(_ trip: Trip) -> some View {
         Section {
             TextField("Amount", text: $amount).decimalKeyboard().font(.jf(.title2, .semibold)).focused($focused)
+            Missing(text: "Enter the amount.", when: tried && value == nil)
             Picker("Currency", selection: $currency) { ForEach(RecentCurrencies.list(trip), id: \.self) { Text($0) } }
             TextField("Other currency, such as CAD", text: $otherCurrency).textInputAutocapitalization(.characters).autocorrectionDisabled()
             TextField("What for?", text: $title)
+            Missing(text: "Say what it was for.", when: tried && untitled)
             CategoryField(tripID: tripID, category: $category, empty: "From the plan or title")
         }
         Section {
@@ -258,6 +264,7 @@ struct QuickAddForm: View {
                 }
                 if !splitComplete { Label("The split does not add up yet.", systemImage: "exclamationmark.triangle").font(.jf(.footnote)).foregroundStyle(Color.jfWarning); if let rest { Text(rest).font(.jf(.footnote).monospacedDigit()).foregroundStyle(Color.jfMuted) } }
             }
+            Missing(text: "Choose who shares it.", when: tried && people.isEmpty)
         } header: { Overline("Shared by") }
         Section {
             Picker("Belongs to", selection: $belongsTo) {
@@ -284,6 +291,7 @@ struct QuickAddForm: View {
     @ViewBuilder private func bookingFields(_ trip: Trip) -> some View {
         Section {
             TextField("What is booked?", text: $title).focused($focused)
+            Missing(text: "Say what is booked.", when: tried && untitled)
             TextField("Provider", text: $provider)
             TextField("Booking reference", text: $reference).textInputAutocapitalization(.characters).autocorrectionDisabled()
             Picker("Status", selection: $status) { ForEach(["idea", "pending", "reserved", "confirmed", "cancelled"], id: \.self) { Text(BookingsView.status($0)).tag($0) } }
@@ -295,11 +303,13 @@ struct QuickAddForm: View {
         } footer: { Footnote("A booking has no price of its own; what it costs are its payments.") }
         Section { PeopleRow(title: "Travellers", people: trip.people, chosen: $people) }
         Section { PlanRows(trip: trip, chosen: $linked) } header: { Overline("Plans it covers") }
+        PendingFilesSection(files: $files)
     }
 
     @ViewBuilder private func taskFields(_ trip: Trip) -> some View {
         Section {
             TextField("What needs doing?", text: $title).focused($focused)
+            Missing(text: "Say what needs doing.", when: tried && untitled)
             OptionalDateRows(add: "Add a due date", title: "Due", remove: "Remove the due date", has: $hasDay, date: $day, parts: .date)
         }
         Section { PeopleRow(title: "For", people: trip.people, chosen: $people) }
@@ -308,6 +318,7 @@ struct QuickAddForm: View {
     @ViewBuilder private func packingFields(_ trip: Trip) -> some View {
         Section {
             TextField("What to pack?", text: $title).focused($focused)
+            Missing(text: "Say what to pack.", when: tried && untitled)
             TextField("Group", text: $group)
             TextField("Quantity", text: $quantity)
             if trip.packing.count > 1 { Picker("List", selection: $list) { ForEach(trip.packing) { Text($0.title).tag(UUID?.some($0.id)) } } }
@@ -316,6 +327,11 @@ struct QuickAddForm: View {
     }
 
     private func add(_ trip: Trip) async {
+        guard canAdd else {
+            withAnimation { tried = true }
+            UINotificationFeedbackGenerator().notificationOccurred(.warning)
+            return
+        }
         guard let bridge = TravelRepoBridge.all[tripID] else { return }
         busy = true; defer { busy = false }
         let name = title.trimmingCharacters(in: .whitespaces)
@@ -327,7 +343,7 @@ struct QuickAddForm: View {
         let ok = await bridge.changeCosts {
             switch kind {
             case .expense:
-                var a: [String: JSONValue] = ["title": .string(name), "amount": .string(amount), "currency": .string(code), "estimated": .bool(planned), "paid_by": ids(payers, trip)]
+                var a: [String: JSONValue] = ["title": .string(name), "amount": .string(amount.amountText), "currency": .string(code), "estimated": .bool(planned), "paid_by": ids(payers, trip)]
                 if !belongsTo.isEmpty { a["belongs_to"] = .string(belongsTo) }
                 if !category.isEmpty { a["category"] = .string(category) }
                 if hasDay { a[planned ? "due" : "date"] = .string(iso(day, trip)) }
@@ -338,12 +354,12 @@ struct QuickAddForm: View {
                 if method != "equal" || people != Set(trip.people.map(\.id)) {
                     let who = trip.people.filter { people.contains($0.id) }
                     var s: [String: JSONValue] = ["expense": .string(id), "method": .string(method), "people": ids(people, trip)]
-                    if method != "equal" { s["values"] = .array(who.map { .string(values[$0.id] ?? "0") }) }
+                    if method != "equal" { s["values"] = .array(who.map { .string((values[$0.id] ?? "0").amountText) }) }
                     _ = try await bridge.session.call("split_expense", s)
                 }
                 if let receipt { _ = try await bridge.session.importDocument(receipt, name: String(localized: "Receipt") + ".jpg", mediaType: "image/jpeg", attachTo: id) }
                 if !planned, code != trip.currency, withCash { _ = try await bridge.session.call("set_cash", cash.arguments(for: id)) }
-                else if !planned, code != trip.currency, !charged.isEmpty { _ = try await bridge.session.call("set_charged", ["expense": .string(id), "amount": .string(charged), "currency": .string(trip.currency)]) }
+                else if !planned, code != trip.currency, !charged.isEmpty { _ = try await bridge.session.call("set_charged", ["expense": .string(id), "amount": .string(charged.amountText), "currency": .string(trip.currency)]) }
             case .booking:
                 var d: [String: JSONValue] = ["title": .string(name), "status": .string(status), "travelers": ids(people, trip)]
                 if !provider.isEmpty { d["provider"] = ["name": .string(provider)] }
@@ -352,8 +368,9 @@ struct QuickAddForm: View {
                 let r = try await bridge.session.call("create_entity", ["type": "booking", "data": .object(d)])
                 created = true
                 guard let id = r["id"]?.string ?? r["entity"]?["id"]?.string else { return }
+                if let made = UUID(uuidString: id) { await PendingFilesSection.attach(files, to: made, bridge) }
                 if !linked.isEmpty { _ = try await bridge.session.call("link_booking", ["booking": .string(id), "items": .array(linked.map { .string(TravelRepoBridge.key($0)) })]) }
-                if !amount.isEmpty { _ = try await bridge.session.call("add_expense", ["title": .string(name), "amount": .string(amount), "currency": .string(currency), "estimated": true, "belongs_to": .string(id)]) }
+                if !amount.isEmpty { _ = try await bridge.session.call("add_expense", ["title": .string(name), "amount": .string(amount.amountText), "currency": .string(currency), "estimated": true, "belongs_to": .string(id)]) }
             case .task:
                 var d: [String: JSONValue] = ["title": .string(name), "status": "open", "assigned_to": ids(people, trip)]
                 if hasDay { d["due"] = ["date": .string(iso(day, trip))] }

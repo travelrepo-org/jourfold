@@ -298,7 +298,7 @@ struct PaymentSheet: View {
     private func save() async {
         guard let bridge = TravelRepoBridge.all[tripID] else { return }
         busy = true; defer { busy = false }
-        var a: [String: JSONValue] = ["title": .string(title), "amount": .string(amount), "currency": .string(currency), "belongs_to": .string(related), "estimated": .bool(planned)]
+        var a: [String: JSONValue] = ["title": .string(title), "amount": .string(amount.amountText), "currency": .string(currency), "belongs_to": .string(related), "estimated": .bool(planned)]
         if !planned, let payer { a["paid_by"] = [.string(TravelRepoBridge.key(payer))] }
         if planned, hasDue { let c = Calendar.current.dateComponents([.year, .month, .day], from: due); a["due"] = .string(String(format: "%04d-%02d-%02d", c.year!, c.month!, c.day!)) }
         if await bridge.changeCosts({ _ = try await bridge.session.call("add_expense", a) }) { dismiss() }
@@ -687,7 +687,7 @@ struct BudgetEditor: View {
     private func save() async {
         guard let bridge = TravelRepoBridge.all[tripID] else { return }
         busy = true; defer { busy = false }
-        var a: [String: JSONValue] = ["title": .string(title), "amount": .string(amount)]
+        var a: [String: JSONValue] = ["title": .string(title), "amount": .string(amount.amountText)]
         if let budgetID { a["id"] = .string(budgetID) }
         if !collection.isEmpty { a["collection"] = .string(collection) }
         if !category.isEmpty { a["category"] = .string(category) }

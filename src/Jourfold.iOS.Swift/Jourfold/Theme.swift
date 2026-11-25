@@ -202,7 +202,7 @@ struct JFList<Content: View>: View {
 struct JFForm<Content: View>: View {
     @ViewBuilder var content: Content
     var body: some View {
-        Form { Group { content }.listRowBackground(Color.jfSurface) }
+        Form { Group { content }.listRowBackground(Color.jfSurface) }.scrollBounceBehavior(.basedOnSize)
     }
 }
 

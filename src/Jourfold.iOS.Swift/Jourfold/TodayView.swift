@@ -193,6 +193,11 @@ struct NextCard: View {
                         .buttonStyle(.bordered)
                         .buttonBorderShape(.circle)
                 }
+                if Tickets.of(trip.id, item.id) != nil {
+                    Button { Tickets.show(trip.id, item.id) } label: { Label("Show ticket", systemImage: "ticket").labelStyle(.iconOnly) }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.circle)
+                }
                 Button { nav.detail = item.id } label: { Label("Details", systemImage: "info").labelStyle(.iconOnly) }
                     .buttonStyle(.bordered)
                     .buttonBorderShape(.circle)

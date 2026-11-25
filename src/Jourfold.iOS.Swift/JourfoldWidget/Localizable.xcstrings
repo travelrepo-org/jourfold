@@ -1,0 +1,449 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "%@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@"
+          }
+        }
+      }
+    },
+    "%@ left": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch %@ übrig"
+          }
+        }
+      }
+    },
+    "%@ over budget": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ über dem Budget"
+          }
+        }
+      }
+    },
+    "%@ paid": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ bezahlt"
+          }
+        }
+      }
+    },
+    "%@ → %@": {
+      "shouldTranslate": false
+    },
+    "%lld percent used": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld Prozent verbraucht"
+          }
+        }
+      }
+    },
+    "%lld%%": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %%"
+          }
+        }
+      }
+    },
+    "Add to": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hinzufügen zu"
+          }
+        }
+      }
+    },
+    "Add to Jourfold": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Jourfold hinzufügen"
+          }
+        }
+      }
+    },
+    "All trips": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Alle Reisen"
+          }
+        }
+      }
+    },
+    "Bookings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buchungen"
+          }
+        }
+      }
+    },
+    "Check-in": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in"
+          }
+        }
+      }
+    },
+    "Check-in: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-in: %@"
+          }
+        }
+      }
+    },
+    "Check-out": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-out"
+          }
+        }
+      }
+    },
+    "Check-out tomorrow": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-out morgen"
+          }
+        }
+      }
+    },
+    "Check-out: %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Check-out: %@"
+          }
+        }
+      }
+    },
+    "Costs and budgets": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Kosten und Budgets"
+          }
+        }
+      }
+    },
+    "Jourfold adds it the next time you open the app. Nothing leaves this phone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold fügt es beim nächsten Öffnen der App hinzu. Nichts verlässt dieses Telefon."
+          }
+        }
+      }
+    },
+    "New place": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Ort"
+          }
+        }
+      }
+    },
+    "Next": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Als Nächstes"
+          }
+        }
+      }
+    },
+    "Next plans": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nächste Pläne"
+          }
+        }
+      }
+    },
+    "No budget yet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch kein Budget"
+          }
+        }
+      }
+    },
+    "No costs yet": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Noch keine Kosten"
+          }
+        }
+      }
+    },
+    "Notes of the trip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notizen der Reise"
+          }
+        }
+      }
+    },
+    "Nothing more today": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute nichts mehr"
+          }
+        }
+      }
+    },
+    "Nothing planned": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nichts geplant"
+          }
+        }
+      }
+    },
+    "Only today": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nur heute"
+          }
+        }
+      }
+    },
+    "Open Jourfold once, then trips appear here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnen Sie Jourfold einmal, dann erscheinen hier die Reisen."
+          }
+        }
+      }
+    },
+    "Plans": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pläne"
+          }
+        }
+      }
+    },
+    "Search the plans and bookings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pläne und Buchungen durchsuchen"
+          }
+        }
+      }
+    },
+    "Shared": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geteilt"
+          }
+        }
+      }
+    },
+    "Shows": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zeigt"
+          }
+        }
+      }
+    },
+    "The next plans": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die nächsten Pläne"
+          }
+        }
+      }
+    },
+    "Today": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Heute"
+          }
+        }
+      }
+    },
+    "Trip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reise"
+          }
+        }
+      }
+    },
+    "What comes next, of all trips or one.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was als Nächstes kommt, für alle Reisen oder eine."
+          }
+        }
+      }
+    },
+    "What the trip has cost and what is left of its budgets.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Was die Reise gekostet hat und was von den Budgets übrig ist."
+          }
+        }
+      }
+    },
+    "Which plans the widget shows.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welche Pläne das Widget zeigt."
+          }
+        }
+      }
+    },
+    "Which trip the widget shows.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Welche Reise das Widget zeigt."
+          }
+        }
+      }
+    },
+    "Whole trip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ganze Reise"
+          }
+        }
+      }
+    },
+    "You get %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie bekommen %@"
+          }
+        }
+      }
+    },
+    "You owe %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sie schulden %@"
+          }
+        }
+      }
+    },
+    "paid": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "bezahlt"
+          }
+        }
+      }
+    },
+    "still to pay": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "noch zu zahlen"
+          }
+        }
+      }
+    },
+    "–": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "–"
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

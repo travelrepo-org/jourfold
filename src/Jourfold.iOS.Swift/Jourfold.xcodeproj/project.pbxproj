@@ -1,0 +1,401 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		B10000000000000000000010 /* JourfoldWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B10000000000000000000001 /* JourfoldWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		D10000000000000000000010 /* JourfoldShare.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = D10000000000000000000001 /* JourfoldShare.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		E20000000000000000000001 /* TravelRepoKit in Frameworks */ = {isa = PBXBuildFile; productRef = E20000000000000000000002 /* TravelRepoKit */; };
+		E20000000000000000000005 /* git2.xcframework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E20000000000000000000004 /* git2.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		C10000000000000000000011 = {isa = PBXContainerItemProxy; containerPortal = A1000000000000000000000A; proxyType = 1; remoteGlobalIDString = A10000000000000000000006; remoteInfo = Jourfold; };
+		B10000000000000000000011 = {isa = PBXContainerItemProxy; containerPortal = A1000000000000000000000A; proxyType = 1; remoteGlobalIDString = B10000000000000000000006; remoteInfo = JourfoldWidget; };
+		D10000000000000000000011 = {isa = PBXContainerItemProxy; containerPortal = A1000000000000000000000A; proxyType = 1; remoteGlobalIDString = D10000000000000000000006; remoteInfo = JourfoldShare; };
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		B10000000000000000000012 /* Embed Foundation Extensions */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 13; files = (B10000000000000000000010, D10000000000000000000010); name = "Embed Foundation Extensions"; runOnlyForDeploymentPostprocessing = 0; };
+		E20000000000000000000006 /* Embed Frameworks */ = {isa = PBXCopyFilesBuildPhase; buildActionMask = 2147483647; dstPath = ""; dstSubfolderSpec = 10; files = (E20000000000000000000005 /* git2.xcframework in Embed Frameworks */, ); name = "Embed Frameworks"; runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		B10000000000000000000001 /* JourfoldWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = JourfoldWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		C10000000000000000000001 /* JourfoldUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = JourfoldUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D10000000000000000000001 /* JourfoldShare.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = JourfoldShare.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B10000000000000000000013 /* WidgetInfo.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = WidgetInfo.plist; sourceTree = "<group>"; };
+		A10000000000000000000001 /* Jourfold.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Jourfold.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E20000000000000000000004 /* git2.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = git2.xcframework; path = Frameworks/git2.xcframework; sourceTree = SOURCE_ROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		A10000000000000000000002 /* Jourfold */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Jourfold; sourceTree = "<group>"; };
+		B10000000000000000000002 /* JourfoldWidget */ = {isa = PBXFileSystemSynchronizedRootGroup; path = JourfoldWidget; sourceTree = "<group>"; };
+		C10000000000000000000002 /* JourfoldUITests */ = {isa = PBXFileSystemSynchronizedRootGroup; path = JourfoldUITests; sourceTree = "<group>"; };
+		D10000000000000000000002 /* JourfoldShare */ = {isa = PBXFileSystemSynchronizedRootGroup; path = JourfoldShare; sourceTree = "<group>"; };
+		B10000000000000000000003 /* Shared */ = {isa = PBXFileSystemSynchronizedRootGroup; path = Shared; sourceTree = "<group>"; };
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A10000000000000000000003 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (E20000000000000000000001 /* TravelRepoKit in Frameworks */, ); runOnlyForDeploymentPostprocessing = 0; };
+		C10000000000000000000004 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D10000000000000000000004 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000004 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A10000000000000000000004 = {isa = PBXGroup; children = (A10000000000000000000002 /* Jourfold */, E20000000000000000000004 /* git2.xcframework */, B10000000000000000000003 /* Shared */, B10000000000000000000002 /* JourfoldWidget */, C10000000000000000000002 /* JourfoldUITests */, D10000000000000000000002 /* JourfoldShare */, B10000000000000000000013 /* WidgetInfo.plist */, A10000000000000000000005 /* Products */); sourceTree = "<group>"; };
+		A10000000000000000000005 /* Products */ = {isa = PBXGroup; children = (A10000000000000000000001 /* Jourfold.app */, B10000000000000000000001 /* JourfoldWidget.appex */, C10000000000000000000001 /* JourfoldUITests.xctest */, D10000000000000000000001 /* JourfoldShare.appex */); name = Products; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A10000000000000000000006 /* Jourfold */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A10000000000000000000007;
+			buildPhases = (A10000000000000000000008 /* Sources */, A10000000000000000000003 /* Frameworks */, A10000000000000000000009 /* Resources */, B10000000000000000000012 /* Embed Foundation Extensions */, E20000000000000000000006 /* Embed Frameworks */);
+			buildRules = ();
+			dependencies = (B10000000000000000000014, D10000000000000000000014);
+			fileSystemSynchronizedGroups = (A10000000000000000000002 /* Jourfold */, B10000000000000000000003 /* Shared */);
+			name = Jourfold;
+			packageProductDependencies = (E20000000000000000000002 /* TravelRepoKit */, );
+			productName = Jourfold;
+			productReference = A10000000000000000000001 /* Jourfold.app */;
+			productType = "com.apple.product-type.application";
+		};
+		B10000000000000000000006 /* JourfoldWidget */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B10000000000000000000007;
+			buildPhases = (B10000000000000000000008 /* Sources */, B10000000000000000000004 /* Frameworks */, B10000000000000000000009 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (B10000000000000000000002 /* JourfoldWidget */, B10000000000000000000003 /* Shared */);
+			name = JourfoldWidget;
+			packageProductDependencies = ();
+			productName = JourfoldWidget;
+			productReference = B10000000000000000000001 /* JourfoldWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		C10000000000000000000006 /* JourfoldUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C10000000000000000000007;
+			buildPhases = (C10000000000000000000008 /* Sources */, C10000000000000000000004 /* Frameworks */, C10000000000000000000009 /* Resources */);
+			buildRules = ();
+			dependencies = (C10000000000000000000014);
+			fileSystemSynchronizedGroups = (C10000000000000000000002 /* JourfoldUITests */);
+			name = JourfoldUITests;
+			packageProductDependencies = ();
+			productName = JourfoldUITests;
+			productReference = C10000000000000000000001 /* JourfoldUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+		D10000000000000000000006 /* JourfoldShare */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D10000000000000000000007;
+			buildPhases = (D10000000000000000000008 /* Sources */, D10000000000000000000004 /* Frameworks */, D10000000000000000000009 /* Resources */);
+			buildRules = ();
+			dependencies = ();
+			fileSystemSynchronizedGroups = (D10000000000000000000002 /* JourfoldShare */, B10000000000000000000003 /* Shared */);
+			name = JourfoldShare;
+			packageProductDependencies = ();
+			productName = JourfoldShare;
+			productReference = D10000000000000000000001 /* JourfoldShare.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A1000000000000000000000A /* Project object */ = {
+			isa = PBXProject;
+			attributes = {BuildIndependentTargetsInParallel = 1; LastSwiftUpdateCheck = 2660; LastUpgradeCheck = 2660; TargetAttributes = {A10000000000000000000006 = {CreatedOnToolsVersion = 26.6; }; }; };
+			buildConfigurationList = A1000000000000000000000B;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, de, Base);
+			mainGroup = A10000000000000000000004;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (E20000000000000000000007 /* XCRemoteSwiftPackageReference "travelrepo" */, );
+			preferredProjectObjectVersion = 77;
+			productRefGroup = A10000000000000000000005 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A10000000000000000000006 /* Jourfold */, B10000000000000000000006 /* JourfoldWidget */, C10000000000000000000006 /* JourfoldUITests */, D10000000000000000000006 /* JourfoldShare */);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A10000000000000000000009 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000009 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C10000000000000000000009 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D10000000000000000000009 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A10000000000000000000008 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		B10000000000000000000008 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		C10000000000000000000008 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		D10000000000000000000008 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B10000000000000000000014 = {isa = PBXTargetDependency; target = B10000000000000000000006 /* JourfoldWidget */; targetProxy = B10000000000000000000011; };
+		C10000000000000000000014 = {isa = PBXTargetDependency; target = A10000000000000000000006 /* Jourfold */; targetProxy = C10000000000000000000011; };
+		D10000000000000000000014 = {isa = PBXTargetDependency; target = D10000000000000000000006 /* JourfoldShare */; targetProxy = D10000000000000000000011; };
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A1000000000000000000000C /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				JF_APP_GROUP = "group.$(JF_BUNDLE_ID)";
+				JF_APP_NAME = "Jourfold Preview";
+				JF_BUNDLE_ID = dev.jourfold.app.preview;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				JF_VERSION = 0.0.0;
+				JF_BUILD = 1;
+				JF_DEBUG_TOOLS = "";
+				JF_DISTRIBUTION = "";
+				JF_GITHUB_APP_SLUG = "";
+				JF_GITHUB_CLIENT_ID = "";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A1000000000000000000000D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				JF_APP_GROUP = "group.$(JF_BUNDLE_ID)";
+				JF_APP_NAME = "Jourfold Preview";
+				JF_BUNDLE_ID = dev.jourfold.app.preview;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
+				JF_VERSION = 0.0.0;
+				JF_BUILD = 1;
+				JF_DEBUG_TOOLS = "";
+				JF_DISTRIBUTION = "";
+				JF_GITHUB_APP_SLUG = "";
+				JF_GITHUB_CLIENT_ID = "";
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AppInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Shows your trips' plans in the Calendar app, one calendar per trip.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Scans tickets and confirmations into the trip's files.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Shows where you are on the trip map.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				MARKETING_VERSION = "$(JF_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = App.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = AppInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Shows your trips' plans in the Calendar app, one calendar per trip.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Scans tickets and confirmations into the trip's files.";
+				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Shows where you are on the trip map.";
+				INFOPLIST_KEY_NSSupportsLiveActivities = YES;
+				MARKETING_VERSION = "$(JF_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		B1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "$(JF_VERSION)";
+				CODE_SIGN_ENTITLEMENTS = Widget.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		B1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "$(JF_VERSION)";
+				CODE_SIGN_ENTITLEMENTS = Widget.entitlements;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).widget";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		C1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Jourfold;
+			};
+			name = Debug;
+		};
+		C1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).uitests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Jourfold;
+			};
+			name = Release;
+		};
+		D1000000000000000000000E /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Share.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "$(JF_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D1000000000000000000000F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Share.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = "$(JF_BUILD)";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = ShareInfo.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "$(JF_APP_NAME)";
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				MARKETING_VERSION = "$(JF_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(JF_BUNDLE_ID).share";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) $(JF_DEBUG_TOOLS)";
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A10000000000000000000007 = {isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000E /* Debug */, A1000000000000000000000F /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A1000000000000000000000B = {isa = XCConfigurationList; buildConfigurations = (A1000000000000000000000C /* Debug */, A1000000000000000000000D /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		B10000000000000000000007 = {isa = XCConfigurationList; buildConfigurations = (B1000000000000000000000E /* Debug */, B1000000000000000000000F /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		C10000000000000000000007 = {isa = XCConfigurationList; buildConfigurations = (C1000000000000000000000E /* Debug */, C1000000000000000000000F /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		D10000000000000000000007 = {isa = XCConfigurationList; buildConfigurations = (D1000000000000000000000E /* Debug */, D1000000000000000000000F /* Release */); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		E20000000000000000000007 /* XCRemoteSwiftPackageReference "travelrepo" */ = {isa = XCRemoteSwiftPackageReference; repositoryURL = "https://github.com/travelrepo-org/travelrepo"; requirement = {kind = upToNextMinorVersion; minimumVersion = 0.14.0; }; };
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		E20000000000000000000002 /* TravelRepoKit */ = {isa = XCSwiftPackageProductDependency; package = E20000000000000000000007 /* XCRemoteSwiftPackageReference "travelrepo" */; productName = TravelRepoKit; };
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A1000000000000000000000A /* Project object */;
+}

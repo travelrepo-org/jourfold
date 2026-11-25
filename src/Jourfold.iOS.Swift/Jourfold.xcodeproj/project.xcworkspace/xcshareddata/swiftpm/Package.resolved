@@ -1,0 +1,15 @@
+{
+  "originHash" : "c265f35a8bc11bead8818c93a5c6e5759807d99ef9a4ae0eaa68edb3d79bca87",
+  "pins" : [
+    {
+      "identity" : "travelrepo",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/travelrepo-org/travelrepo",
+      "state" : {
+        "revision" : "ec2a73739f14b176dfd423df7acb0165fe2d1597",
+        "version" : "0.14.0"
+      }
+    }
+  ],
+  "version" : 3
+}

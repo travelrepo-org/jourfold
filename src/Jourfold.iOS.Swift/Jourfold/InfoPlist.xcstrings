@@ -1,0 +1,54 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "NSCalendarsFullAccessUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold shows each trip as a calendar of its own and keeps it up to date with the plan."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold zeigt jede Reise als eigenen Kalender und hält ihn mit dem Plan aktuell."
+          }
+        }
+      }
+    },
+    "NSCameraUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scans tickets and confirmations, and takes photos of receipts for the trip."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannt Tickets und Bestätigungen und fotografiert Belege für die Reise."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold uses your location only when you ask for it, on the map or for a place. It is not kept or sent anywhere unless you save it as a place."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold nutzt Ihren Standort nur, wenn Sie es möchten, auf der Karte oder für einen Ort. Er wird weder behalten noch gesendet, außer Sie speichern ihn als Ort."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

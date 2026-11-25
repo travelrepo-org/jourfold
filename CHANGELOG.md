@@ -2,6 +2,22 @@
 
 All notable changes to Jourfold. Generated from `docs/releases` by `python eng/changelog.py`; do not edit by hand.
 
+## 0.16.1 “Oceanic Otter” – 2026-11-25
+
+### Highlights
+
+- On phones and tablets, pull Today down to sync a shared trip.
+- On iPhone, text follows the size you set under Larger Text, also while Jourfold is open. Date and time fields open iOS's own pickers, long-press menus are action sheets, and questions are alerts.
+
+### Changes
+
+- On iPhone, sheets float above the screen's edges with rounded corners until they are pulled up all the way, the buttons at the top are round, and changing the day, saving and a sync you asked for give a light vibration.
+- The Android app is smaller, because the parts of TravelRepo it does not use are left out. Uses TravelRepo 0.14.0.
+
+### Fixes
+
+- The packages for Windows, macOS and Linux bring .NET runtime 10.0.15. The runtime before it, 10.0.12, is affected by a security issue in its Brotli decoder (GHSA-p3jp-9v83-76w9).
+
 ## 0.16.0 “Offbeat Otter” – 2026-11-20
 
 ### Highlights

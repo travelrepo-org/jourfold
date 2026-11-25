@@ -9,4 +9,8 @@
   <style name="Theme.Jourfold" parent="Theme.AppCompat.DayNight.NoActionBar">
     <item name="android:windowBackground">@color/app_background</item>
   </style>
+  <!-- The system's date and time pickers (AndroidPickers) in Jourfold's accent; values-night has the dark one. -->
+  <style name="Theme.Jourfold.Picker" parent="android:Theme.Material.Light.Dialog.Alert">
+    <item name="android:colorAccent">@color/accent</item>
+  </style>
 </resources>

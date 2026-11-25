@@ -12,9 +12,9 @@ public readonly record struct PickedTime(bool Chosen, TimeSpan Time);
 public readonly record struct PickedDate(bool Chosen, DateTime Date);
 
 /// <summary>
-/// The system's own date and time pickers, where the platform has them (iOS). A tap on a date or time field opens
-/// the system's picker instead of Avalonia's wheels; what is chosen goes back into the field, so forms read it as
-/// before. Android keeps Avalonia's pickers.
+/// The system's own date and time pickers: iOS's wheels and calendar, Android's clock face and calendar. A tap on a
+/// date or time field opens the system's picker instead of Avalonia's wheels; what is chosen goes back into the field,
+/// so forms read it as before. Without a host picker, as in tests, the field keeps Avalonia's.
 /// </summary>
 public static class SystemPickers
 {

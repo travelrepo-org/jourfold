@@ -648,6 +648,11 @@ keeps the app's own:
 
 Today of a shared trip can be pulled down to sync on every phone.
 
+**Date and time on Android.** Date and time fields open Android's own pickers too (`SystemPickers`,
+`AndroidPickers`): the clock face for a time, in 24 hours with 13 to 24 on the inner ring and then the minutes on a
+second face, and the calendar for a day, both in Jourfold's accent (`Theme.Jourfold.Picker`). Times take any minute on
+every phone; the fields have no 5-minute steps.
+
 **On a device.** The simulator runs .NET with a just-in-time compiler; a device compiles ahead of time. LibGit2Sharp
 passes delegates to libgit2 without `MonoPInvokeCallback`, which ahead-of-time code cannot call back, so the project
 turns on the interpreter (`UseInterpreter`, all assemblies still compiled ahead of time). A Release build ran on an

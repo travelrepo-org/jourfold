@@ -68,7 +68,7 @@ public sealed class IosNativeFeelTests : IDisposable
     public async Task ATimeFieldOpensTheSystemsPickerAndTakesWhatWasChosen()
     {
         var asked = new List<(TimeSpan? Shown, int Steps)>();
-        var answer = new PickedTime(true, new TimeSpan(14, 30, 0));
+        var answer = new PickedTime(true, new TimeSpan(14, 47, 0));
         var (session, window) = await OpenAsync(h => h.WithPickers(
             (shown, steps, _) => { asked.Add((shown, steps)); return Task.FromResult(answer); },
             (_, _) => Task.FromResult(new PickedDate(true, new DateTime(2027, 5, 20)))));
@@ -79,8 +79,9 @@ public sealed class IosNativeFeelTests : IDisposable
             var button = start.GetVisualDescendants().OfType<Button>().First();
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button)); Probe.Layout();
             await Probe.Until(() => start.SelectedTime is not null);
-            Assert.Equal(new TimeSpan(14, 30, 0), start.SelectedTime);
-            Assert.Equal(5, Assert.Single(asked).Steps);
+            Assert.Equal(new TimeSpan(14, 47, 0), start.SelectedTime);
+            // Any minute: the fields have no 5-minute steps.
+            Assert.Equal(1, Assert.Single(asked).Steps);
             // Avalonia's own wheels did not open as well.
             Assert.DoesNotContain(start.GetVisualDescendants().OfType<Avalonia.Controls.Primitives.Popup>(), p => p.IsOpen);
             // Cancelling keeps what the field had.
@@ -88,8 +89,8 @@ public sealed class IosNativeFeelTests : IDisposable
             button.RaiseEvent(new RoutedEventArgs(Button.ClickEvent, button)); Probe.Layout();
             await Probe.Until(() => asked.Count == 2);
             Probe.Layout();
-            Assert.Equal(new TimeSpan(14, 30, 0), start.SelectedTime);
-            Assert.Equal(new TimeSpan(14, 30, 0), asked[1].Shown);
+            Assert.Equal(new TimeSpan(14, 47, 0), start.SelectedTime);
+            Assert.Equal(new TimeSpan(14, 47, 0), asked[1].Shown);
         }
         finally { window.Close(); session.Dispose(); }
     }

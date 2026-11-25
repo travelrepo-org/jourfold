@@ -2,4 +2,6 @@
 <resources>
   <color name="launcher_background">#FFFFFF</color>
   <color name="app_background">#F3F6F6</color>
+  <!-- Jourfold's accent (the Accent token), for the system's date and time pickers. -->
+  <color name="accent">#0F7B7A</color>
 </resources>

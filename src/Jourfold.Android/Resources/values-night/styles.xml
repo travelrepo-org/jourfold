@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- The system's date and time pickers in the dark, in Jourfold's accent for the dark (values-night/colors.xml). -->
+  <style name="Theme.Jourfold.Picker" parent="android:Theme.Material.Dialog.Alert">
+    <item name="android:colorAccent">@color/accent</item>
+  </style>
+</resources>

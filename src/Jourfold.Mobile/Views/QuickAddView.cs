@@ -34,8 +34,8 @@ public sealed class QuickAddView
     private string kind = "activity";
     private LocalDate? day;
     private readonly TextBox title = new() { FontSize = TextScale.Size(18) };
-    private readonly TimePicker start = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
-    private readonly TimePicker end = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TimePicker start = new() { ClockIdentifier = "24HourClock", HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TimePicker end = new() { ClockIdentifier = "24HourClock", HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private readonly AutoCompleteBox place = new() { FilterMode = AutoCompleteFilterMode.ContainsOrdinal, MinimumPrefixLength = 1 };
     private readonly AutoCompleteBox from = new() { FilterMode = AutoCompleteFilterMode.ContainsOrdinal, MinimumPrefixLength = 1 };
     // The places the edited item had, to change only those that the form changed.
@@ -48,7 +48,7 @@ public sealed class QuickAddView
     private (string Text, decimal Value)? amountBefore;
     private string currency;
     // A journey's arrival: the time, how many days after the departure day, and the zone it is read in.
-    private readonly TimePicker arrival = new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private readonly TimePicker arrival = new() { ClockIdentifier = "24HourClock", HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
     private int arrivalDays;
     private string? arrivalZone;
     // The zone a journey's departure time is read in, as the ticket prints it: Frankfurt time for a flight from there.
@@ -212,7 +212,7 @@ public sealed class QuickAddView
         if (item is null) title.AttachedToVisualTree += (_, _) => Avalonia.Threading.Dispatcher.UIThread.Post(() => title.Focus(), Avalonia.Threading.DispatcherPriority.Background);
     }
 
-    private static TimePicker Clock() => new() { ClockIdentifier = "24HourClock", MinuteIncrement = 5, HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
+    private static TimePicker Clock() => new() { ClockIdentifier = "24HourClock", HorizontalAlignment = HorizontalAlignment.Stretch, VerticalContentAlignment = VerticalAlignment.Center };
 
     private static TimeSpan? Span(LocalTime? time) => time?.ToTimeOnly().ToTimeSpan();
     private static LocalTime? Time(TimePicker picker) => picker.SelectedTime is { } t ? LocalTime.FromTimeOnly(TimeOnly.FromTimeSpan(t)) : null;

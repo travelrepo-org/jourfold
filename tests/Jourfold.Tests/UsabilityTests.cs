@@ -215,6 +215,21 @@ public sealed class UsabilityTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task TimeFieldsTakeAnyMinute()
+    {
+        var w = Window(); try
+        {
+            var task = w.Model.Interaction.ScheduleAsync(null, new LocalDate(2027, 5, 14), "Europe/Berlin"); Probe.Layout();
+            Assert.All(Probe.All<TimePicker>(Sheet(w)), p => Assert.Equal(1, p.MinuteIncrement));
+            Probe.Tagged<TimePicker>(Sheet(w), "startTime").SelectedTime = new TimeSpan(14, 47, 0); Probe.Tagged<TimePicker>(Sheet(w), "endTime").SelectedTime = new TimeSpan(16, 13, 0);
+            Probe.Click(Sheet(w), "Save");
+            var time = await task.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.Equal("2027-05-14T14:47:00", time!["start"]!["local"]!.ToString()); Assert.Equal("2027-05-14T16:13:00", time["end"]!["local"]!.ToString());
+        }
+        finally { w.Close(); }
+    }
+
+    [AvaloniaFact]
     public async Task DayPartEditorPreservesItsOwnTimezone()
     {
         var w = Window(); try
@@ -238,6 +253,8 @@ public sealed class UsabilityTests : IDisposable
             var haneda = Entity.Create("place", "Haneda Airport"); haneda.Data["timezone"] = "Asia/Tokyo";
             await w.Model.Workspace!.ApplyAsync([new(frankfurt.Id, frankfurt), new(haneda.Id, haneda)]);
             var task = w.Model.AddAsync("transport"); Probe.Layout(); var sheet = Sheet(w); var s = w.Model.Strings;
+            // Times take any minute.
+            Assert.All(Probe.All<TimePicker>(sheet), p => Assert.Equal(1, p.MinuteIncrement));
             Probe.Tagged<TextBox>(sheet, "title").Text = "Flight to Tokyo";
             var places = Probe.All<AutoCompleteBox>(sheet).ToArray(); places[0].Text = "Frankfurt Airport"; places[1].Text = "Haneda Airport"; Probe.Layout();
             SearchChoice Zone(string tag) => Probe.All<SearchChoice>(Sheet(w)).Single(z => z.Tag as string == tag);

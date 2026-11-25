@@ -16,7 +16,8 @@ name=$1; theme=${2:-light}; lang=${3:-en}; shift 3 || true
 locale=en_GB; [[ $lang == de ]] && locale=de_DE
 xcrun simctl ui $SIM appearance $theme
 xcrun simctl status_bar $SIM override --time "14:10" --batteryState charged --batteryLevel 100 --wifiBars 3 --cellularBars 4
-xcrun simctl launch --terminate-running-process $SIM $APP -AppleLanguages "($lang)" -AppleLocale $locale "$@" >/dev/null
+# At home in Berlin, whatever zone the Mac is in: captures are public.
+SIMCTL_CHILD_TZ=Europe/Berlin xcrun simctl launch --terminate-running-process $SIM $APP -AppleLanguages "($lang)" -AppleLocale $locale "$@" >/dev/null
 sleep ${WAIT:-4}
 mkdir -p screenshots
 xcrun simctl io $SIM screenshot screenshots/$name.png >/dev/null 2>&1

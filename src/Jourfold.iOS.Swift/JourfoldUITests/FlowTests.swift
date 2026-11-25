@@ -53,6 +53,8 @@ class JourfoldTest: XCTestCase {
         let photo = app.images.matching(identifier: "PXGGridLayout-Info").firstMatch
         if photo.waitForExistence(timeout: 8) { photo.coordinate(withNormalizedOffset: .init(dx: 0.5, dy: 0.5)).tap() }
         else { app.coordinate(withNormalizedOffset: .init(dx: app.windows.firstMatch.frame.width > 600 ? 0.3 : 0.17, dy: app.windows.firstMatch.frame.width > 600 ? 0.5 : 0.45)).tap() }
+        // Until the picker is gone and the photo is in the trip.
+        sleep(4)
     }
     func done() { app.buttons["Done"].firstMatch.tap() }
     func shows(_ text: String, _ seconds: TimeInterval = 8, file: StaticString = #filePath, line: UInt = #line) { XCTAssertTrue(anything(text).waitForExistence(timeout: seconds), "does not show: \(text)", file: file, line: line) }

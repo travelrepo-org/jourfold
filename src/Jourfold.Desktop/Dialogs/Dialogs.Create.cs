@@ -129,7 +129,7 @@ public sealed partial class Dialogs
         var title = new TextBox { MinHeight = 40, FontSize = 15, Tag = "title", Text = request.Title ?? "" }; AutomationProperties.SetName(title, s["Title"]);
         var date = new DateField { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(date, s["Date"]);
         var hasTime = new CheckBox { Content = s["AtATime"], IsChecked = true };
-        var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
+        var time = new TimePicker { Tag = "startTime", MinWidth = 0, ClockIdentifier = "24HourClock", SelectedTime = (request.Start ?? new LocalTime(10, 0)).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(time, s["StartTime"]);
         var length = new NumericUpDown { Tag = "length", Value = (decimal)(request.Length?.TotalMinutes ?? 60), Minimum = 5, Increment = 15, FormatString = "0", HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(length, s["DurationMinutes"]);
         var unscheduled = new CheckBox { Content = s["JustAnIdea"], IsChecked = false };
         var mode = "flight"; var modes = new WrapPanel { ItemSpacing = 6, LineSpacing = 6 };
@@ -138,7 +138,7 @@ public sealed partial class Dialogs
         // Transport: departure and arrival in local time at each end, as on a ticket. The timezones follow the chosen
         // places (when they have one) until the person picks a timezone, and the arrival date follows the departure date.
         var arrivalDate = new DateField { SelectedDate = request.Date.ToDateTimeUnspecified(), HorizontalAlignment = HorizontalAlignment.Stretch, Tag = "arrivalDate" }; AutomationProperties.SetName(arrivalDate, s["ArrivalDate"]);
-        var arrivalTime = new TimePicker { Tag = "arrivalTime", MinWidth = 0, ClockIdentifier = "24HourClock", MinuteIncrement = 5, SelectedTime = (request.Start ?? new LocalTime(10, 0)).PlusHours(2).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(arrivalTime, s["ArrivalTime"]);
+        var arrivalTime = new TimePicker { Tag = "arrivalTime", MinWidth = 0, ClockIdentifier = "24HourClock", SelectedTime = (request.Start ?? new LocalTime(10, 0)).PlusHours(2).ToTimeOnly().ToTimeSpan(), HorizontalAlignment = HorizontalAlignment.Stretch }; AutomationProperties.SetName(arrivalTime, s["ArrivalTime"]);
         var departureZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["DepartureTimezone"]) { Tag = "departureZone" };
         var arrivalZone = new SearchChoice(FieldOptions.Timezones, request.Zone, s["ArrivalTimezone"]) { Tag = "arrivalZone" };
         var travelTime = Ui.Text("", "caption").Also(t => t.TextWrapping = TextWrapping.Wrap);

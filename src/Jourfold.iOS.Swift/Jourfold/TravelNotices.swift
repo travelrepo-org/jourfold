@@ -275,7 +275,7 @@ final class NoticeCenter: NSObject, UNUserNotificationCenterDelegate {
     /// From a widget: jourfold://plan/<trip>/<plan>, jourfold://costs/<trip>, or jourfold://today for the trip that is on.
     func open(_ url: URL) {
         let ids = url.pathComponents.compactMap(UUID.init(uuidString:))
-        open(Target(trip: ids.first, item: ids.dropFirst().first, costs: url.host() == "costs"))
+        open(Target(trip: ids.first, item: ids.dropFirst().first, costs: url.host() == "costs", ticket: url.host() == "ticket"))
     }
 
     private func open(_ target: Target) {

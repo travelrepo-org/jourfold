@@ -178,55 +178,153 @@ struct NextUpWidget: Widget {
 
 // MARK: - Live Activity: a journey on its way
 
+// iOS draws a Live Activity without waking the app. Before the journey leaves, the activity counts down to the
+// departure and becomes stale at that moment (its stale date), which makes iOS draw it again: from then on it counts
+// down to the arrival. Two timers, each over its own span, so neither stands at 0:00 for long.
+
+private func underway(_ s: JourneyAttributes.ContentState, _ stale: Bool) -> Bool { stale || Date.now >= s.departs }
+
+/// What is counted down to: the departure, then the arrival, by iOS itself.
+private struct TimeLeft: View {
+    let s: JourneyAttributes.ContentState
+    let stale: Bool
+    var caption = true
+    var body: some View {
+        let moving = underway(s, stale), until = moving ? max(s.arrives, s.departs.addingTimeInterval(60)) : s.departs
+        VStack(alignment: .trailing, spacing: 0) {
+            if caption { Text(moving ? "Arrives in" : "Leaves in").font(.caption2.weight(.medium)).foregroundStyle(.secondary).lineLimit(1) }
+            Text(timerInterval: (moving ? s.departs : Date.now)...max(until, .now), countsDown: true)
+                .monospacedDigit().lineLimit(1).minimumScaleFactor(0.7).multilineTextAlignment(.trailing)
+        }
+        .frame(width: until.timeIntervalSinceNow >= 36_000 ? 96 : until.timeIntervalSinceNow >= 3_600 ? 84 : 72, alignment: .trailing)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(moving ? Text("Arrives at \(s.arrives.formatted(date: .omitted, time: .shortened))") : Text("Leaves at \(s.departs.formatted(date: .omitted, time: .shortened))"))
+    }
+}
+
+/// The vehicle in a bubble at the start, a pin at the destination, the bar between them moved on by iOS, and the two times.
+private struct Way: View {
+    let s: JourneyAttributes.ContentState
+    let ticket: URL?
+    var body: some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 6) {
+                Bubble(symbol: s.symbol, filled: true)
+                ProgressView(timerInterval: s.departs...max(s.arrives, s.departs.addingTimeInterval(60)), countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
+                    .tint(Color.tealLight)
+                Bubble(symbol: "mappin", filled: false)
+            }
+            HStack {
+                Text(s.departs, style: .time)
+                Spacer(minLength: 8)
+                if let ticket { Link(destination: ticket) { Label("Show ticket", systemImage: "ticket").font(.footnote.weight(.semibold)).foregroundStyle(Color.tealLight) } }
+                else if let seat = s.seat { Label(seat, systemImage: "chair").labelStyle(.titleAndIcon) }
+                Spacer(minLength: 8)
+                Text(s.arrives, style: .time)
+            }
+            .font(.caption2.weight(.medium)).monospacedDigit().foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct Bubble: View {
+    let symbol: String
+    let filled: Bool
+    var body: some View {
+        Image(systemName: symbol).font(.system(size: 11, weight: .bold))
+            .foregroundStyle(filled ? Color.black : Color.tealLight)
+            .frame(width: 24, height: 24)
+            .background(Circle().fill(filled ? Color.tealLight : Color.tealLight.opacity(0.18)))
+            .overlay(Circle().strokeBorder(Color.tealLight, lineWidth: filled ? 0 : 1.5))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The Lock Screen's view; on an Apple Watch's Smart Stack a smaller one of its own.
+private struct Phone: View {
+    let s: JourneyAttributes.ContentState
+    let stale: Bool
+    let ticket: URL?
+    let item: String
+    @Environment(\.activityFamily) private var family
+
+    var body: some View {
+        if family == .small { watch } else { phone }
+    }
+
+    /// What a glance at the wrist needs, in three lines: what, how long still, and where and when it gets there. The
+    /// Smart Stack gives it little height; seats and the ticket are a tap away.
+    private var watch: some View {
+        let moving = underway(s, stale)
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                Image(systemName: s.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.tealLight).accessibilityHidden(true)
+                Text(s.title).font(.caption.weight(.semibold)).lineLimit(1)
+            }
+            HStack(alignment: .lastTextBaseline, spacing: 4) {
+                Text(moving ? "Arrives in" : "Leaves in").font(.caption2).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+                Spacer(minLength: 2)
+                TimeLeft(s: s, stale: stale, caption: false).font(.body.weight(.semibold))
+            }
+            // The watch draws a bar's track white and can take the colour away, so the arrival is said instead.
+            Text(moving ? "\(s.to) · \(s.arrives.formatted(date: .omitted, time: .shortened))" : "\(s.from) · \(s.departs.formatted(date: .omitted, time: .shortened))")
+                .font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+        }
+        // The Smart Stack's card has round corners and draws to its edges.
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+    }
+
+    private var phone: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: s.symbol).font(.system(size: 20, weight: .semibold)).foregroundStyle(Color.tealLight)
+                    .frame(width: 40, height: 40).background(Circle().fill(Color.tealLight.opacity(0.15))).accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(s.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                    Text("\(s.from) → \(s.to)").font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+                }
+                Spacer(minLength: 8)
+                TimeLeft(s: s, stale: stale).font(.title3.weight(.semibold))
+            }
+            Way(s: s, ticket: ticket)
+        }
+        .padding(16)
+        .activityBackgroundTint(Color(red: 0x0E / 255, green: 0x21 / 255, blue: 0x35 / 255))
+        .activitySystemActionForegroundColor(Color.tealLight)
+        .widgetURL(s.trip.flatMap { URL(string: "jourfold://plan/\($0)/\(item)") })
+    }
+}
+
 struct JourneyLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: JourneyAttributes.self) { context in
-            let s = context.state
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 10) {
-                    Image(systemName: s.symbol).font(.title3.weight(.semibold)).foregroundStyle(Color.tealLight)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(s.title).font(.headline)
-                        Text("\(s.from) → \(s.to)").font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(timerInterval: Date.now...max(s.departs, .now), countsDown: true)
-                        .font(.title3.monospacedDigit().weight(.semibold))
-                        .multilineTextAlignment(.trailing)
-                        .frame(width: 80)
-                }
-                ProgressView(timerInterval: s.departs...s.arrives, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                    .tint(Color.tealLight)
-                HStack {
-                    Text(s.departs, style: .time)
-                    Spacer()
-                    if let seat = s.seat { Label(seat, systemImage: "chair") }
-                    Spacer()
-                    Text(s.arrives, style: .time)
-                }
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
-            }
-            .padding(16)
-            .activityBackgroundTint(Color(red: 0x0E / 255, green: 0x21 / 255, blue: 0x35 / 255))
-            .activitySystemActionForegroundColor(Color.tealLight)
+            let s = context.state, ticket = s.hasTicket == true ? URL(string: "jourfold://ticket/\(s.trip ?? "")/\(context.attributes.item)") : nil
+            Phone(s: s, stale: context.isStale, ticket: ticket, item: context.attributes.item)
         } dynamicIsland: { context in
-            let s = context.state
+            let s = context.state, ticket = s.hasTicket == true ? URL(string: "jourfold://ticket/\(s.trip ?? "")/\(context.attributes.item)") : nil
             return DynamicIsland {
-                DynamicIslandExpandedRegion(.leading) { Image(systemName: s.symbol).foregroundStyle(Color.tealLight).font(.title2) }
-                DynamicIslandExpandedRegion(.trailing) { Text(s.departs, style: .time).font(.title3.monospacedDigit()) }
-                DynamicIslandExpandedRegion(.center) { Text(s.title).font(.headline).lineLimit(1) }
+                DynamicIslandExpandedRegion(.leading) { Image(systemName: s.symbol).foregroundStyle(Color.tealLight).font(.title2).padding(.leading, 4) }
+                DynamicIslandExpandedRegion(.trailing) { TimeLeft(s: s, stale: context.isStale).font(.title3.weight(.semibold)).padding(.trailing, 4) }
                 DynamicIslandExpandedRegion(.bottom) {
-                    ProgressView(timerInterval: s.departs...s.arrives, countsDown: false) { EmptyView() } currentValueLabel: { EmptyView() }
-                        .tint(Color.tealLight)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(s.title).font(.subheadline.weight(.semibold)).lineLimit(2)
+                        Text("\(s.from) → \(s.to)").font(.footnote).foregroundStyle(.secondary).lineLimit(1)
+                        Way(s: s, ticket: ticket)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 6).padding(.bottom, 6)
                 }
             } compactLeading: {
                 Image(systemName: s.symbol).foregroundStyle(Color.tealLight)
             } compactTrailing: {
-                Text(s.departs, style: .time).monospacedDigit()
+                TimeLeft(s: s, stale: context.isStale, caption: false).font(.footnote.weight(.semibold)).foregroundStyle(Color.tealLight).frame(width: 52, alignment: .trailing)
             } minimal: {
                 Image(systemName: s.symbol).foregroundStyle(Color.tealLight)
             }
+            .widgetURL(s.trip.flatMap { URL(string: "jourfold://plan/\($0)/\(context.attributes.item)") })
+            .keylineTint(Color.tealLight)
         }
+        // A view of its own on Apple Watch, rather than the Dynamic Island's small one.
+        .supplementalActivityFamilies([.small])
     }
 }

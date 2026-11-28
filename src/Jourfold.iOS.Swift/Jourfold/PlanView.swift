@@ -144,15 +144,18 @@ struct PlanView: View {
                 Button { page(index + 1) } label: { Label("Next day · \(Fmt.shortDay(trip.days[index + 1], trip.calendar.timeZone))", systemImage: "arrow.down") }.font(.jf(.footnote, .semibold))
             }
         } header: {
-            FlexStack(spacing: 4) {
-                Text(Fmt.day(day, trip.calendar.timeZone)).font(.jf(.headline)).foregroundStyle(Color.jfText)
-                if !size.isAccessibilitySize { Spacer() }
-                HStack(spacing: 4) {
+            let title = Text(Fmt.day(day, trip.calendar.timeZone)).font(.jf(.headline)).foregroundStyle(Color.jfText)
+            let controls = HStack(spacing: 4) {
                 if mode == .day { Button { page(index - 1) } label: { Image(systemName: "chevron.left").frame(minWidth: 40, minHeight: 44).contentShape(Rectangle()) }.disabled(index == 0).accessibilityLabel(Text("Previous day")) }
-                Text("Day \(index + 1)").font(.jf(.footnote, .semibold)).foregroundStyle(Color.jfMuted)
+                // Never broken into letters; when the row is too narrow, the controls go below the day.
+                Text("Day \(index + 1)").font(.jf(.footnote, .semibold)).foregroundStyle(Color.jfMuted).lineLimit(1).fixedSize()
                 if mode == .day { Button { page(index + 1) } label: { Image(systemName: "chevron.right").frame(minWidth: 40, minHeight: 44).contentShape(Rectangle()) }.disabled(index + 1 >= trip.days.count).accessibilityLabel(Text("Next day")) }
                 if !items.isEmpty { ShareLink(item: dayText(trip, index, day, items)) { Image(systemName: "square.and.arrow.up").font(.footnote).frame(minWidth: 40, minHeight: 44).contentShape(Rectangle()) }.accessibilityLabel(Text("Share this day")) }
-                }
+            }
+            .fixedSize()
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 4) { title.lineLimit(1).fixedSize(); Spacer(minLength: 4); controls }
+                VStack(alignment: .leading, spacing: 0) { title; controls }
             }
             .textCase(nil)
         }

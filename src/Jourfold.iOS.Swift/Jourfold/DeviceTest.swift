@@ -24,8 +24,8 @@ enum DeviceTest {
             // A journey in 20 minutes, with its two places.
             let from = Place(id: UUID.v7(), name: "Britomart", latitude: -36.8443, longitude: 174.7680, zone: zone, address: "Britomart, Auckland")
             let to = Place(id: UUID.v7(), name: "Auckland Airport", latitude: -37.0082, longitude: 174.7850, zone: zone, address: "Auckland Airport, Auckland")
-            // `-later YES`: nothing more today, to see the widget say so.
-            let start = DebugTools.flag("later") ? here.date(bySettingHour: 14, minute: 0, second: 0, of: now.addingTimeInterval(86400))! : now.addingTimeInterval(20 * 60), end = start.addingTimeInterval(45 * 60)
+            // `-later YES`: nothing more today, to see the widget say so; `-soon YES`: it leaves in five minutes.
+            let start = DebugTools.flag("later") ? here.date(bySettingHour: 14, minute: 0, second: 0, of: now.addingTimeInterval(86400))! : now.addingTimeInterval(DebugTools.flag("soon") ? 5 * 60 : 20 * 60), end = start.addingTimeInterval(45 * 60)
             var journey = PlanItem(id: UUID.v7(), title: "Train to the airport", status: .confirmed, kind: .transport, when: .exact(start: start, startZone: zone, end: end, endZone: zone))
             journey.transport = Transport(mode: .train, from: from.id, to: to.id)
             let night = here.date(bySettingHour: 10, minute: 0, second: 0, of: now.addingTimeInterval(86400))!
@@ -52,12 +52,13 @@ enum DeviceTest {
 
             // What the share extension would leave, through the store this build shares with it.
             let file = SharedInbox.Entry(text: "Test.pdf", url: nil, trip: "Test", tripID: trip.id, plan: journey.title, planID: journey.id, files: ["Test.pdf"])
-            let kept = SharedInbox.putFile(Data("%PDF-1.4 test".utf8), name: "Test.pdf", entry: file.id)
+            let kept = SharedInbox.putFile(SampleDocuments.make(Attachment(id: UUID(), name: "Test ticket.pdf", kind: .pdf))?.data ?? Data(), name: "Test.pdf", entry: file.id)
             SharedInbox.put(file)
             SharedInbox.put(.init(text: "Example page", url: "https://example.org/", trip: "Test", tripID: trip.id, plan: nil))
             SharedInbox.put(.init(text: "Viewpoint", url: "https://maps.apple.com/place?name=Test%20Viewpoint&coordinate=-36.8500,174.7700", trip: "Test", tripID: trip.id, plan: nil, newPlace: true))
             say("shared store keeps a file", kept && SharedInbox.pending().count == 3)
 
+            for item in (store.trips.first { $0.id == trip.id }?.items ?? []) where item.id != (read ?? journey).id { LiveJourney.end(item) }
             LiveJourney.start(store.trips.first { $0.id == trip.id } ?? trip, read ?? journey)
             say("live activity running", LiveJourney.isRunning(read ?? journey))
             _ = await bridge.createVersion("Test"); try await bridge.read()

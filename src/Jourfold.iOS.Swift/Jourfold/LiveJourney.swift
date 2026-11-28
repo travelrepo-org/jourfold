@@ -20,10 +20,11 @@ enum LiveJourney {
             arrives = departs.addingTimeInterval(length)
         }
         let state = JourneyAttributes.ContentState(title: item.title, from: from, to: to, departs: departs, arrives: arrives,
-                                                   symbol: t.mode.symbol, seat: t.seat, platform: nil)
+                                                   symbol: t.mode.symbol, seat: t.seat, platform: nil,
+                                                   trip: trip.id.uuidString, hasTicket: Tickets.of(trip.id, item.id) != nil)
         do {
             let a = try Activity.request(attributes: JourneyAttributes(item: item.id.uuidString),
-                                         content: .init(state: state, staleDate: arrives.addingTimeInterval(3600)))
+                                         content: .init(state: state, staleDate: Self.staleDate(departs, arrives)))
             log.info("started \(a.id, privacy: .public)")
             end(item, except: a.id)
         } catch {
@@ -32,26 +33,36 @@ enum LiveJourney {
     }
 
     /// The travel day by itself, when Settings says so: from three hours before a flight and 45 minutes before other
-    /// journeys. iOS starts one only while the app is on screen. Once per journey, so swiping it away keeps it away.
+    /// journeys until the arrival. iOS starts one only while the app is on screen. As in the .NET app it comes back each
+    /// time the app is opened while the journey is on: iOS does not tell an activity the person swiped away from one it
+    /// ended itself, such as after an update of the app.
     static func follow(_ store: TripStore) {
         guard !DebugTools.flag("demo"), UserDefaults.standard.object(forKey: "liveActivities") as? Bool ?? true, UIApplication.shared.applicationState == .active,
               ActivityAuthorizationInfo().areActivitiesEnabled else { return }
-        let key = "live.followed", now = Date()
-        var followed = UserDefaults.standard.stringArray(forKey: key) ?? []
+        let now = Date()
         for trip in store.trips {
             let me = store.me[trip.id]
             for item in trip.items where item.transport != nil && item.status != .cancelled && item.status != .idea {
-                guard case .exact(let start, _, let end, _) = item.when, start > now.addingTimeInterval(item.transport?.mode == .flight ? -86400 : -43200) else { continue }
+                guard case .exact(let start, _, let end, _) = item.when, start > now.addingTimeInterval(-86400) else { continue }
                 if end <= now { self.end(item); continue }
                 let opens = start.addingTimeInterval(item.transport?.mode == .flight ? -3 * 3600 : -45 * 60)
-                guard opens <= now, me == nil || item.participants.isEmpty || item.participants.contains(me!) else { continue }
-                let id = "\(item.id.uuidString)/\(Int(start.timeIntervalSince1970))"
-                guard !followed.contains(id), !isRunning(item) else { continue }
+                guard opens <= now, me == nil || item.participants.isEmpty || item.participants.contains(me!), !isRunning(item) else { continue }
                 Self.start(trip, item)
-                followed.append(id)
             }
         }
-        UserDefaults.standard.set(Array(followed.suffix(20)), forKey: key)
+    }
+
+    /// Up to the departure, the departure: then iOS draws it again and it counts to the arrival.
+    static func staleDate(_ departs: Date, _ arrives: Date) -> Date { departs > .now ? departs : arrives.addingTimeInterval(3600) }
+
+    /// Once under way, so it stays fresh until the arrival; while the app runs.
+    static func moveOn() {
+        Task {
+            for activity in Activity<JourneyAttributes>.activities where activity.content.state.departs <= .now && (activity.content.staleDate ?? .distantFuture) <= activity.content.state.departs {
+                let s = activity.content.state
+                await activity.update(ActivityContent(state: s, staleDate: s.arrives.addingTimeInterval(3600)))
+            }
+        }
     }
 
     static func isRunning(_ item: PlanItem) -> Bool {

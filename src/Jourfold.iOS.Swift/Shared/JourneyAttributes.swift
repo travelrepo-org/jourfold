@@ -13,6 +13,9 @@ nonisolated struct JourneyAttributes: ActivityAttributes {
         var symbol: String
         var seat: String?
         var platform: String?
+        /// What a tap opens, and the ticket's, when the journey has one.
+        var trip: String? = nil
+        var hasTicket: Bool? = nil
     }
 
     /// The plan's identifier; another journey is another activity.

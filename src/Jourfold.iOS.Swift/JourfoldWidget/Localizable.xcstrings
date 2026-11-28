@@ -443,6 +443,56 @@
           }
         }
       }
+    },
+    "Arrives at %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunft um %@"
+          }
+        }
+      }
+    },
+    "Show ticket": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ticket zeigen"
+          }
+        }
+      }
+    },
+    "Arrives in": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ankunft in"
+          }
+        }
+      }
+    },
+    "Leaves in": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abfahrt in"
+          }
+        }
+      }
+    },
+    "Leaves at %@": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Abfahrt um %@"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

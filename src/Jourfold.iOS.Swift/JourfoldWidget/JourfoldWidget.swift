@@ -257,8 +257,17 @@ private struct Phone: View {
     private var watch: some View {
         let moving = underway(s, stale)
         return VStack(alignment: .leading, spacing: 2) {
-            HStack(spacing: 5) {
-                Image(systemName: s.symbol).font(.system(size: 12, weight: .semibold)).foregroundStyle(Color.tealLight).accessibilityHidden(true)
+            HStack(spacing: 6) {
+                // How far along, drawn by iOS: a ring round the vehicle, thinner than a bar, so its track shows less.
+                ProgressView(timerInterval: s.departs...max(s.arrives, s.departs.addingTimeInterval(60)), countsDown: false) {
+                    EmptyView()
+                } currentValueLabel: {
+                    Image(systemName: s.symbol).font(.system(size: 9, weight: .bold)).foregroundStyle(Color.tealLight)
+                }
+                .progressViewStyle(.circular)
+                .tint(Color.tealLight)
+                .frame(width: 24, height: 24)
+                .accessibilityHidden(true)
                 Text(s.title).font(.caption.weight(.semibold)).lineLimit(1)
             }
             HStack(alignment: .lastTextBaseline, spacing: 4) {

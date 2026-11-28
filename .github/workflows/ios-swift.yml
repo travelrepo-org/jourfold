@@ -1,0 +1,57 @@
+name: iOS (Swift)
+# Builds the native iPhone and iPad app (src/Jourfold.iOS.Swift) beside the .NET one, which ios.yml builds and releases
+# attach:
+#
+# - The app is built for the simulator and runs its self-test there, with trips made by TravelRepo and Git.
+# - It is built for devices without signing and kept as an IPA to sign with an Apple ID. Releases do not attach it yet.
+# - The UI tests take about an hour, so they run only when started by hand.
+on:
+  push:
+    branches: [main]
+    paths: ['src/Jourfold.iOS.Swift/**', 'Directory.Build.props', '.github/workflows/ios-swift.yml']
+  pull_request:
+    paths: ['src/Jourfold.iOS.Swift/**', 'Directory.Build.props', '.github/workflows/ios-swift.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  DEVELOPER_DIR: /Applications/Xcode_26.6.app/Contents/Developer
+jobs:
+  app:
+    runs-on: macos-26
+    timeout-minutes: 150
+    concurrency:
+      group: ios-swift-${{ github.head_ref || github.ref_name }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: src/Jourfold.iOS.Swift
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version && ./fetch-git2.sh
+      - name: Boot an iPhone
+        timeout-minutes: 15
+        run: |
+          udid="$(xcrun simctl list devices available -j | python3 -c "import json,sys; d=json.load(sys.stdin)['devices']; print(next(x['udid'] for r in sorted((r for r in d if 'iOS-26' in r), reverse=True) for x in d[r] if x['name'].startswith('iPhone')))")"
+          xcrun simctl boot "$udid" && xcrun simctl bootstatus "$udid" -b > /dev/null
+          echo "SIM=$udid" >> "$GITHUB_ENV"
+      - name: Self-test
+        timeout-minutes: 30
+        run: ./selftest.sh
+      - name: UI tests
+        if: github.event_name == 'workflow_dispatch'
+        timeout-minutes: 120
+        run: ./uitest.sh
+      - name: Build for devices, unsigned
+        timeout-minutes: 30
+        env:
+          JourfoldGitHubClientId: ${{ vars.JOURFOLD_GITHUB_CLIENT_ID }}
+          JourfoldGitHubAppSlug: ${{ vars.JOURFOLD_GITHUB_APP_SLUG }}
+          JourfoldBuild: ${{ github.run_number }}
+        run: mkdir -p "$RUNNER_TEMP/out" && ./ipa.sh "$RUNNER_TEMP/out/jourfold-$(python3 ../../eng/version.py)-ios-swift-${{ github.run_number }}-unsigned.ipa"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jourfold-ios-swift-unsigned
+          path: ${{ runner.temp }}/out/*.ipa
+          retention-days: 14
+          if-no-files-found: error

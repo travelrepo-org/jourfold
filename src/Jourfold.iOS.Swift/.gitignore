@@ -1,0 +1,8 @@
+build/
+build-device/
+build-device.log
+Frameworks/
+screenshots/
+.sim
+build-ipa/
+build-up/

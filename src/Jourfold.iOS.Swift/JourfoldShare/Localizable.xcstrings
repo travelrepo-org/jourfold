@@ -1,0 +1,126 @@
+{
+  "sourceLanguage": "en",
+  "strings": {
+    "Add to": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hinzufügen zu"
+          }
+        }
+      }
+    },
+    "Add to Jourfold": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zu Jourfold hinzufügen"
+          }
+        }
+      }
+    },
+    "Bookings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buchungen"
+          }
+        }
+      }
+    },
+    "Jourfold adds it the next time you open the app. Nothing leaves this phone.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jourfold fügt es beim nächsten Öffnen der App hinzu. Nichts verlässt dieses Telefon."
+          }
+        }
+      }
+    },
+    "New place": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Neuer Ort"
+          }
+        }
+      }
+    },
+    "Notes of the trip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notizen der Reise"
+          }
+        }
+      }
+    },
+    "Open Jourfold once, then trips appear here.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffnen Sie Jourfold einmal, dann erscheinen hier die Reisen."
+          }
+        }
+      }
+    },
+    "Plans": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pläne"
+          }
+        }
+      }
+    },
+    "Search the plans and bookings": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pläne und Buchungen durchsuchen"
+          }
+        }
+      }
+    },
+    "Shared": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Geteilt"
+          }
+        }
+      }
+    },
+    "Trip": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reise"
+          }
+        }
+      }
+    },
+    "“%@” is too large to share this way. Add it in Jourfold under Files.": {
+      "localizations": {
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "„%@“ ist zu groß für diesen Weg. Fügen Sie es in Jourfold unter Dateien hinzu."
+          }
+        }
+      }
+    }
+  },
+  "version": "1.0"
+}

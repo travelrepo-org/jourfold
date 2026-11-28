@@ -16,6 +16,10 @@ for building the iOS app.
   and the phone's time zone to `Jourfold.Mobile` through `MobileHost`, and shows the system splash screen.
 - `src/Jourfold.iOS`: the iPhone and iPad app, doing the same with the iOS services (Keychain, EventKit, user
   notifications, Core Location). It builds only on a Mac.
+- `src/Jourfold.iOS.Swift`: the native iPhone and iPad app in Swift that is meant to replace `src/Jourfold.iOS`; its
+  [README](../src/Jourfold.iOS.Swift/README.md) says how to build it, and [What differs between iOS, Android and the desktop](platform-differences.md)
+  compares them. The rest of this page is about the
+  .NET app.
 
 ## How times read
 
